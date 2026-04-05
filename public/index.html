@@ -1,0 +1,3593 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tu Tiên · Vạn Cổ Đế Tôn v3</title>
+    <!-- Socket.io client — tải từ server khi deploy thực. Dùng CDN cho demo -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Share+Tech+Mono&display=swap");
+      :root {
+        --bg: #07070f;
+        --panel: #0d0d1a;
+        --panel2: #121220;
+        --border: #2a1e4a;
+        --border2: #3d2d6a;
+        --gold: #c8a84b;
+        --gold2: #e8c870;
+        --text: #c8bca0;
+        --text2: #7a7080;
+        --hp: #cc4444;
+        --mp: #4466cc;
+        --tu: #9944cc;
+        --green: #44aa66;
+        --red: #dd4444;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        user-select: none;
+      }
+
+      /* ── SHARED SCREEN BASE ──────────────────────────── */
+      .screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse 80% 80% at 50% 40%,
+          #1a0a30 0%,
+          #07070f 70%
+        );
+        z-index: 100;
+      }
+      .screen.hidden {
+        display: none !important;
+      }
+      .stars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          radial-gradient(
+            1px 1px at 15% 25%,
+            rgba(200, 168, 75, 0.7) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 65% 12%,
+            rgba(180, 160, 220, 0.5) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 82% 55%,
+            rgba(200, 168, 75, 0.6) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 38% 78%,
+            rgba(180, 160, 220, 0.4) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 92% 38%,
+            rgba(200, 168, 75, 0.5) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 8% 60%,
+            rgba(200, 200, 255, 0.4) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 53% 48%,
+            rgba(200, 168, 75, 0.6) 0%,
+            transparent 100%
+          ),
+          radial-gradient(
+            1px 1px at 33% 18%,
+            rgba(180, 180, 255, 0.5) 0%,
+            transparent 100%
+          );
+      }
+      .title-main {
+        font-size: 30px;
+        letter-spacing: 8px;
+        color: var(--gold);
+        font-family: "Noto Serif SC", serif;
+        text-shadow:
+          0 0 30px rgba(200, 168, 75, 0.5),
+          0 0 60px rgba(200, 168, 75, 0.2);
+        margin-bottom: 4px;
+        text-align: center;
+      }
+      .title-sub {
+        font-size: 11px;
+        color: var(--text2);
+        letter-spacing: 3px;
+        text-align: center;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border2);
+        padding: 24px 28px;
+        width: 420px;
+        margin-top: 22px;
+        box-shadow:
+          0 0 60px rgba(61, 45, 106, 0.3),
+          inset 0 1px 0 rgba(200, 168, 75, 0.1);
+        position: relative;
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--gold),
+          transparent
+        );
+      }
+      .field-group {
+        margin-bottom: 14px;
+      }
+      .field-label {
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold);
+        margin-bottom: 5px;
+      }
+      .inp {
+        width: 100%;
+        background: #050510;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 9px 14px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 13px;
+        outline: none;
+      }
+      .inp:focus {
+        border-color: var(--gold);
+      }
+      .big-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #1a1030, #2a1850);
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 13px;
+        letter-spacing: 3px;
+        cursor: pointer;
+        margin-top: 4px;
+        transition: all 0.2s;
+      }
+      .big-btn:hover {
+        background: linear-gradient(135deg, #2a1850, #3a2860);
+        box-shadow: 0 0 20px rgba(200, 168, 75, 0.3);
+      }
+      .big-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .alt-link {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .alt-link a {
+        color: var(--gold);
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .alt-link a:hover {
+        text-decoration: underline;
+      }
+      .err-msg {
+        background: rgba(180, 40, 40, 0.15);
+        border: 1px solid #802020;
+        color: #ff8080;
+        padding: 7px 12px;
+        font-size: 11px;
+        margin-bottom: 12px;
+        display: none;
+      }
+      .err-msg.show {
+        display: block;
+      }
+      .status-line {
+        text-align: center;
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 8px;
+        height: 16px;
+      }
+
+      /* ── AUTH TABS ──────────────────────────── */
+      .auth-tabs {
+        display: flex;
+        margin-bottom: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .auth-tab {
+        flex: 1;
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--text2);
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+      }
+      .auth-tab.active {
+        color: var(--gold);
+        border-bottom-color: var(--gold);
+      }
+
+      /* ── CREATE CHARACTER ──────────────────────────── */
+      .sec-title {
+        font-size: 10px;
+        letter-spacing: 3px;
+        color: var(--gold);
+        margin-bottom: 7px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sec-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .spirit-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #050510;
+        border: 1px solid var(--border);
+        padding: 10px 14px;
+      }
+      #spirit-orb {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 19px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+        transition: all 0.3s;
+      }
+      .spirit-info {
+        flex: 1;
+      }
+      #spirit-name {
+        font-size: 13px;
+        color: var(--gold);
+      }
+      #spirit-grade {
+        font-size: 10px;
+        color: var(--text2);
+        margin-top: 2px;
+      }
+      .reroll-btn {
+        background: var(--panel2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        font-family: inherit;
+        font-size: 11px;
+        padding: 5px 9px;
+        cursor: pointer;
+      }
+      .reroll-btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .points-display {
+        text-align: center;
+        font-size: 12px;
+        color: var(--text2);
+        margin-bottom: 7px;
+      }
+      .points-display em {
+        color: var(--gold);
+        font-size: 15px;
+        font-style: normal;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+      .stat-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: #050510;
+        border: 1px solid var(--border);
+        padding: 6px 9px;
+      }
+      .stat-icon {
+        font-size: 13px;
+      }
+      .stat-lbl {
+        flex: 1;
+        font-size: 11px;
+        color: var(--text2);
+      }
+      .adj-btn {
+        width: 20px;
+        height: 20px;
+        background: var(--panel2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 18px;
+        text-align: center;
+      }
+      .adj-btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .stat-num {
+        font-size: 14px;
+        color: var(--gold);
+        width: 24px;
+        text-align: center;
+      }
+
+      /* ── GAME LAYOUT ──────────────────────────── */
+      #screen-game {
+        position: fixed;
+        inset: 0;
+        display: none;
+        grid-template-columns: 188px 1fr 188px;
+        grid-template-rows: 1fr 142px;
+      }
+      .gpanel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .phead {
+        padding: 4px 10px;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold);
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(90deg, rgba(61, 45, 106, 0.5), transparent);
+        flex-shrink: 0;
+      }
+      .pbody {
+        padding: 7px 9px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .pbody::-webkit-scrollbar {
+        width: 3px;
+      }
+      .pbody::-webkit-scrollbar-thumb {
+        background: var(--border2);
+      }
+      #canvas-area {
+        grid-column: 2;
+        grid-row: 1;
+        position: relative;
+        overflow: hidden;
+        background: #0a0a0f;
+      }
+      #game-canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+      #panel-left {
+        grid-column: 1;
+        grid-row: 1;
+      }
+      #panel-right {
+        grid-column: 3;
+        grid-row: 1;
+      }
+      #panel-bottom {
+        grid-column: 1/4;
+        grid-row: 2;
+        display: flex;
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+      }
+      .char-name-disp {
+        text-align: center;
+        padding: 5px 4px 3px;
+      }
+      .cname {
+        font-size: 13px;
+        color: var(--gold);
+        letter-spacing: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cspirit {
+        font-size: 10px;
+        margin-top: 2px;
+      }
+      .realm-box {
+        background: #050510;
+        border: 1px solid var(--border);
+        text-align: center;
+        padding: 7px 4px;
+        margin-bottom: 5px;
+      }
+      .realm-box .rname {
+        font-size: 14px;
+        color: var(--gold);
+      }
+      .realm-box .rstage {
+        font-size: 10px;
+        color: var(--text2);
+        margin-top: 2px;
+      }
+      .cp-box {
+        text-align: center;
+        font-size: 10px;
+        color: #c06030;
+        margin-bottom: 6px;
+      }
+      .cp-box .cpval {
+        font-size: 17px;
+        color: #ff8040;
+      }
+      .bar-group {
+        margin-bottom: 5px;
+      }
+      .bar-lbl {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        margin-bottom: 2px;
+      }
+      .bar-track {
+        height: 6px;
+        background: #050510;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        transition: width 0.25s;
+      }
+      .bar-hp {
+        background: linear-gradient(90deg, #801818, #cc4444);
+      }
+      .bar-mp {
+        background: linear-gradient(90deg, #182080, #4466cc);
+      }
+      .bar-tu {
+        background: linear-gradient(90deg, #401860, #9944cc);
+      }
+      .xu-line {
+        text-align: center;
+        font-size: 12px;
+        color: var(--gold);
+        padding: 4px;
+        border: 1px solid var(--border);
+        background: #050510;
+        margin-top: 5px;
+      }
+      .online-badge {
+        text-align: center;
+        font-size: 10px;
+        color: var(--green);
+        margin-top: 4px;
+      }
+      .stat-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+        border-bottom: 1px solid rgba(42, 30, 74, 0.4);
+        font-size: 11px;
+      }
+      .stat-line .sv {
+        color: var(--gold);
+      }
+      .stat-line .slbl {
+        color: var(--text2);
+      }
+      .equip-section {
+        margin-top: 8px;
+      }
+      .equip-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3px;
+        margin-top: 4px;
+      }
+      .esl {
+        background: #050510;
+        border: 1px solid var(--border);
+        height: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        color: var(--text2);
+        text-align: center;
+        line-height: 1.2;
+        padding: 2px;
+      }
+      .esl .eicon {
+        font-size: 14px;
+        line-height: 1;
+        margin-bottom: 1px;
+      }
+      /* bottom */
+      #log-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+        min-width: 0;
+      }
+      #log-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 10px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      #log-area::-webkit-scrollbar {
+        width: 4px;
+      }
+      #log-area::-webkit-scrollbar-thumb {
+        background: var(--border2);
+      }
+      .lc {
+        color: var(--text2);
+      }
+      .lc-combat {
+        color: #e07070;
+      }
+      .lc-loot {
+        color: #c8a84b;
+      }
+      .lc-system {
+        color: #7090e0;
+      }
+      .lc-level {
+        color: #80e080;
+      }
+      .lc-chat {
+        color: #80d0ff;
+      }
+      #actions-wrap {
+        width: 188px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .act-btn {
+        background: var(--panel2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        padding: 5px 7px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .act-btn:hover {
+        border-color: var(--border2);
+        color: var(--text);
+      }
+      .act-btn.active {
+        border-color: var(--green);
+        color: #80ee80;
+      }
+      .act-btn.danger {
+        border-color: #803030;
+        color: #cc8080;
+      }
+      .act-btn.danger:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .keys-hint {
+        font-size: 10px;
+        color: var(--text2);
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+        line-height: 1.7;
+        margin-top: auto;
+      }
+      #inv-wrap {
+        width: 248px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #inv-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 2px;
+        padding: 4px;
+        align-content: start;
+        overflow-y: auto;
+      }
+      .isl {
+        background: #050510;
+        border: 1px solid var(--border);
+        height: 27px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        cursor: pointer;
+        position: relative;
+      }
+      .isl:hover {
+        border-color: var(--border2);
+      }
+      .isl .icnt {
+        position: absolute;
+        bottom: 0;
+        right: 1px;
+        font-size: 8px;
+        color: var(--gold);
+        line-height: 1;
+      }
+
+      /* ── CHAT INPUT ──────────────────────────── */
+      #chat-bar {
+        display: flex;
+        border-top: 1px solid var(--border);
+        padding: 3px 4px;
+        gap: 3px;
+      }
+      #chat-inp {
+        flex: 1;
+        background: #050510;
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        padding: 3px 8px;
+        outline: none;
+      }
+      #chat-inp:focus {
+        border-color: var(--border2);
+      }
+      #chat-send {
+        background: var(--panel2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        font-family: inherit;
+        font-size: 11px;
+        padding: 3px 10px;
+        cursor: pointer;
+      }
+      #chat-send:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+
+      /* ── ONLINE PLAYERS SIDEBAR ──────────────────────────── */
+      .online-list {
+        margin-top: 6px;
+      }
+      .online-player {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(42, 30, 74, 0.3);
+        color: var(--text2);
+      }
+      .online-player .on-name {
+        color: var(--text);
+      }
+      .online-player .on-realm {
+        color: var(--gold);
+      }
+
+      /* ── MAP OVERLAY ──────────────────────────── */
+      #map-name-overlay {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(7, 7, 15, 0.85);
+        border: 1px solid var(--border2);
+        padding: 5px 18px;
+        color: var(--gold);
+        font-size: 12px;
+        letter-spacing: 2px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+        z-index: 10;
+      }
+      #map-name-overlay.show {
+        opacity: 1;
+      }
+
+      /* ── CONNECTION STATUS ──────────────────────────── */
+      #conn-badge {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        font-size: 10px;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        background: rgba(7, 7, 15, 0.8);
+        z-index: 10;
+      }
+      #conn-badge.online {
+        color: var(--green);
+        border-color: #204020;
+      }
+      #conn-badge.offline {
+        color: #aa4444;
+        border-color: #402020;
+      }
+
+      /* ── SHOP / DIALOG MODALS ──────────────────────────── */
+      #shop-modal,
+      #dialog-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.78);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+      }
+      #shop-modal.open,
+      #dialog-modal.open {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--panel);
+        border: 1px solid var(--border2);
+        display: flex;
+        flex-direction: column;
+        max-height: 80vh;
+        overflow: hidden;
+        position: relative;
+      }
+      .modal-box::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--gold),
+          transparent
+        );
+      }
+      .modal-header {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(90deg, rgba(61, 45, 106, 0.4), transparent);
+      }
+      .modal-title {
+        color: var(--gold);
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+      .modal-xu {
+        color: var(--text2);
+        font-size: 11px;
+      }
+      .modal-xu em {
+        color: var(--gold);
+      }
+      .modal-close-btn {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 12px;
+      }
+      .modal-close-btn:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .shop-cols {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      .shop-col {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+      }
+      .shop-col:first-child {
+        border-right: 1px solid var(--border);
+      }
+      .shop-col::-webkit-scrollbar {
+        width: 3px;
+      }
+      .shop-col::-webkit-scrollbar-thumb {
+        background: var(--border2);
+      }
+      .shop-col-head {
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold);
+        margin-bottom: 7px;
+      }
+      .shop-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        margin-bottom: 4px;
+        background: #050510;
+      }
+      .shop-item .si-emoji {
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .shop-item .si-info {
+        flex: 1;
+      }
+      .shop-item .si-name {
+        font-size: 11px;
+        color: var(--text);
+      }
+      .shop-item .si-desc {
+        font-size: 9px;
+        color: var(--text2);
+      }
+      .shop-item .si-price {
+        font-size: 11px;
+        color: var(--gold);
+        white-space: nowrap;
+      }
+      .sbtn {
+        background: var(--panel2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 10px;
+        padding: 3px 8px;
+        white-space: nowrap;
+      }
+      .sbtn:hover {
+        border-color: var(--green);
+        color: var(--green);
+      }
+      .sbtn.ssell:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      #dialog-text {
+        padding: 18px 20px;
+        line-height: 1.8;
+        color: var(--text);
+        font-size: 12px;
+      }
+      .dialog-close-wrap {
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      /* ── TOOLTIP ──────────────────────────── */
+      #tip {
+        position: fixed;
+        background: var(--panel2);
+        border: 1px solid var(--border2);
+        padding: 7px 11px;
+        font-size: 11px;
+        pointer-events: none;
+        z-index: 999;
+        display: none;
+        max-width: 185px;
+        line-height: 1.6;
+      }
+      #tip .tip-name {
+        color: var(--gold);
+        font-size: 12px;
+        margin-bottom: 3px;
+      }
+      #tip .tip-type {
+        color: var(--text2);
+        font-size: 10px;
+      }
+
+      /* ── DAMAGE FLOATS ──────────────────────────── */
+      .dmg-float {
+        position: fixed;
+        pointer-events: none;
+        font-size: 13px;
+        font-weight: bold;
+        animation: floatUp 0.9s ease-out forwards;
+        z-index: 60;
+        text-shadow: 0 1px 3px #000;
+      }
+      @keyframes floatUp {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-44px);
+          opacity: 0;
+        }
+      }
+
+      /* Other players dot */
+      .other-player-label {
+        position: absolute;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ══════════════════════════════════════ SCREEN: AUTH -->
+    <div class="screen" id="screen-auth">
+      <div class="stars"></div>
+      <div class="title-main">⚔ TU TIÊN · VẠN CỔ ĐẾ TÔN</div>
+      <div class="title-sub">
+        Vạn năm tu luyện · Đăng đỉnh Đại Đế · Vượt qua Vô Thượng Thiên Đạo
+      </div>
+      <div class="card" style="width: 380px">
+        <div class="auth-tabs">
+          <div
+            class="auth-tab active"
+            id="tab-login"
+            onclick="Auth.showTab('login')"
+          >
+            ĐĂNG NHẬP
+          </div>
+          <div class="auth-tab" id="tab-reg" onclick="Auth.showTab('register')">
+            ĐĂNG KÝ
+          </div>
+        </div>
+        <div class="err-msg" id="auth-err"></div>
+        <div class="field-group">
+          <div class="field-label">TÀI KHOẢN</div>
+          <input
+            class="inp"
+            id="inp-user"
+            placeholder="Username..."
+            maxlength="20"
+            autocomplete="username"
+          />
+        </div>
+        <div class="field-group">
+          <div class="field-label">MẬT KHẨU</div>
+          <input
+            class="inp"
+            id="inp-pass"
+            type="password"
+            placeholder="Password..."
+            autocomplete="current-password"
+          />
+        </div>
+        <div class="field-group" id="reg-confirm-wrap" style="display: none">
+          <div class="field-label">XÁC NHẬN MẬT KHẨU</div>
+          <input
+            class="inp"
+            id="inp-confirm"
+            type="password"
+            placeholder="Nhập lại password..."
+          />
+        </div>
+        <button class="big-btn" id="auth-btn" onclick="Auth.submit()">
+          ĐĂNG NHẬP
+        </button>
+        <div class="alt-link" id="auth-alt">
+          Chưa có tài khoản?
+          <a onclick="Auth.showTab('register')">Đăng ký ngay</a>
+        </div>
+        <div class="status-line" id="auth-status">
+          <!-- Server status / offline notice -->
+        </div>
+      </div>
+      <!-- Offline/demo mode -->
+      <div style="margin-top: 14px">
+        <button
+          class="sbtn"
+          onclick="Auth.playOffline()"
+          style="
+            font-size: 11px;
+            padding: 6px 16px;
+            border-color: var(--border2);
+          "
+        >
+          ⚡ Chơi thử không cần đăng nhập (Offline)
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ SCREEN: CREATE CHARACTER -->
+    <div class="screen hidden" id="screen-create">
+      <div class="stars"></div>
+      <div class="title-main">✦ TẠO NHÂN VẬT</div>
+      <div class="title-sub">
+        Chọn linh căn · Phân bổ thuộc tính · Bắt đầu tu luyện
+      </div>
+      <div class="card" style="width: 510px">
+        <div class="field-group">
+          <div class="sec-title">✦ PHÁP DANH</div>
+          <input
+            class="inp"
+            id="inp-charname"
+            placeholder="Nhập pháp danh tu sĩ..."
+            maxlength="16"
+          />
+        </div>
+        <div class="field-group">
+          <div class="sec-title">✦ LINH CĂN THIÊN PHÚ</div>
+          <div class="spirit-box">
+            <div id="spirit-orb">❓</div>
+            <div class="spirit-info">
+              <div id="spirit-name">Chưa xác định</div>
+              <div id="spirit-grade">
+                Bấm nút để xác định thiên phú linh căn
+              </div>
+            </div>
+            <button class="reroll-btn" onclick="rollRoot()">🎲 Gieo quẻ</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="sec-title">✦ PHÂN BỔ THUỘC TÍNH (20 điểm)</div>
+          <div class="points-display">
+            Điểm còn lại: <em id="pts-left">20</em>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-row">
+              <span class="stat-icon">⚔</span
+              ><span class="stat-lbl">Sức Mạnh</span>
+              <div class="adj-btn" onclick="adj('str', -1)">−</div>
+              <span class="stat-num" id="cs-str">5</span>
+              <div class="adj-btn" onclick="adj('str', 1)">+</div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-icon">💨</span
+              ><span class="stat-lbl">Nhanh Nhẹn</span>
+              <div class="adj-btn" onclick="adj('agi', -1)">−</div>
+              <span class="stat-num" id="cs-agi">5</span>
+              <div class="adj-btn" onclick="adj('agi', 1)">+</div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-icon">🛡</span
+              ><span class="stat-lbl">Thể Lực</span>
+              <div class="adj-btn" onclick="adj('vit', -1)">−</div>
+              <span class="stat-num" id="cs-vit">5</span>
+              <div class="adj-btn" onclick="adj('vit', 1)">+</div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-icon">🧠</span
+              ><span class="stat-lbl">Trí Tuệ</span>
+              <div class="adj-btn" onclick="adj('int', -1)">−</div>
+              <span class="stat-num" id="cs-int">5</span>
+              <div class="adj-btn" onclick="adj('int', 1)">+</div>
+            </div>
+          </div>
+        </div>
+        <button class="big-btn" onclick="createCharacter()">
+          ⚔ KHAI THỦY TU TIÊN ⚔
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════ SCREEN: GAME -->
+    <div id="screen-game">
+      <div class="gpanel" id="panel-left">
+        <div class="phead">✦ NHÂN VẬT</div>
+        <div class="pbody">
+          <div class="char-name-disp">
+            <div class="cname" id="ui-name">—</div>
+            <div class="cspirit" id="ui-spirit-tag">—</div>
+          </div>
+          <div class="realm-box">
+            <div class="rname" id="ui-realm">Luyện Thể</div>
+            <div class="rstage" id="ui-stage">Tầng 1</div>
+          </div>
+          <div class="cp-box">
+            CHIẾN LỰC<br /><span class="cpval" id="ui-cp">0</span>
+          </div>
+          <div class="bar-group">
+            <div class="bar-lbl">
+              <span style="color: #cc4444">❤ HP</span
+              ><span id="ui-hp">0/0</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bar-hp" id="b-hp" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-lbl">
+              <span style="color: #4466cc">✦ MP</span
+              ><span id="ui-mp">0/0</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bar-mp" id="b-mp" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-lbl">
+              <span style="color: #9944cc">☯ Tu Vi</span
+              ><span id="ui-tu">0/0</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bar-tu" id="b-tu" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
+          <div class="online-badge" id="online-badge">● Offline</div>
+          <!-- Online players mini list -->
+          <div
+            class="sec-title"
+            style="font-size: 9px; margin-top: 10px; margin-bottom: 4px"
+          >
+            ✦ ĐANG ONLINE
+          </div>
+          <div class="online-list" id="online-list">
+            <div style="color: var(--text2); font-size: 10px">
+              Chưa kết nối...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="canvas-area">
+        <canvas id="game-canvas"></canvas>
+        <div id="map-name-overlay"></div>
+        <div id="conn-badge" class="offline">● Offline</div>
+      </div>
+
+      <div class="gpanel" id="panel-right">
+        <div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
+        <div class="pbody">
+          <div class="stat-line">
+            <span class="slbl">⚔ Sức Mạnh</span
+            ><span class="sv" id="r-str">5</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">💨 Nhanh Nhẹn</span
+            ><span class="sv" id="r-agi">5</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">🛡 Thể Lực</span
+            ><span class="sv" id="r-vit">5</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">🧠 Trí Tuệ</span
+            ><span class="sv" id="r-int">5</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">⚡ Vật Lý ATK</span
+            ><span class="sv" id="r-patk">0</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">🔮 Pháp ATK</span
+            ><span class="sv" id="r-matk">0</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">🛡 Phòng Thủ</span
+            ><span class="sv" id="r-def">0</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">💨 Tốc Độ</span
+            ><span class="sv" id="r-spd">0</span>
+          </div>
+          <div class="stat-line">
+            <span class="slbl">🎯 Tránh Né</span
+            ><span class="sv" id="r-eva">0%</span>
+          </div>
+          <div class="equip-section">
+            <div class="sec-title" style="font-size: 9px; margin-bottom: 4px">
+              ✦ TRANG BỊ
+            </div>
+            <div class="equip-grid">
+              <div class="esl">
+                <div class="eicon">⚔</div>
+                Vũ Khí
+              </div>
+              <div class="esl">
+                <div class="eicon">🪖</div>
+                Mũ
+              </div>
+              <div class="esl">
+                <div class="eicon">🥋</div>
+                Giáp
+              </div>
+              <div class="esl">
+                <div class="eicon">👖</div>
+                Quần
+              </div>
+              <div class="esl">
+                <div class="eicon">👟</div>
+                Giày
+              </div>
+              <div class="esl">
+                <div class="eicon">💍</div>
+                Nhẫn
+              </div>
+              <div class="esl">
+                <div class="eicon">📿</div>
+                Vòng
+              </div>
+              <div class="esl">
+                <div class="eicon">🔗</div>
+                Đai
+              </div>
+              <div class="esl">
+                <div class="eicon">💎</div>
+                Linh Thạch
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-bottom">
+        <div id="log-wrap">
+          <div class="phead">✦ NHẬT KÝ &amp; CHAT</div>
+          <div id="log-area"></div>
+          <div id="chat-bar">
+            <input
+              class="inp"
+              id="chat-inp"
+              placeholder="Chat với người chơi khác (Enter)..."
+              maxlength="100"
+            />
+            <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
+          </div>
+        </div>
+        <div id="actions-wrap">
+          <div class="phead" style="margin: -6px -6px 5px; padding: 4px 7px">
+            ✦ THAO TÁC
+          </div>
+          <button class="act-btn" onclick="Cultivation.absorbStone()">
+            🔮 Hấp Thu Linh Thạch
+          </button>
+          <button class="act-btn" onclick="Cultivation.tryBreakthrough()">
+            ⬆ Phá Cảnh Giới
+          </button>
+          <button class="act-btn" id="btn-auto" onclick="toggleAuto()">
+            ⚔ Tự Động Đánh
+          </button>
+          <button class="act-btn" onclick="Net.saveNow()">
+            💾 Lưu Thủ Công
+          </button>
+          <button class="act-btn danger" onclick="Auth.logout()">
+            🚪 Đăng Xuất
+          </button>
+          <div class="keys-hint">
+            WASD/↑↓←→ Di chuyển<br />
+            Space: Đánh gần nhất<br />
+            F: Tương tác NPC<br />
+            Enter: Chat
+          </div>
+        </div>
+        <div id="inv-wrap">
+          <div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
+          <div id="inv-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP -->
+    <div id="shop-modal">
+      <div class="modal-box" style="width: 540px">
+        <div class="modal-header">
+          <span class="modal-title" id="shop-title">🏪 Cửa Hàng</span>
+          <span class="modal-xu">💰 <em id="shop-xu">0</em> xu</span>
+          <button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
+        </div>
+        <div class="shop-cols" style="height: 280px">
+          <div class="shop-col" id="shop-buy-list">
+            <div class="shop-col-head">MUA VẬT PHẨM</div>
+          </div>
+          <div class="shop-col" id="shop-sell-list">
+            <div class="shop-col-head">BÁN VẬT PHẨM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIALOG -->
+    <div id="dialog-modal">
+      <div class="modal-box" style="width: 420px">
+        <div class="modal-header">
+          <span class="modal-title" id="dialog-npc-n">NPC</span>
+          <button class="modal-close-btn" onclick="DialogUI.close()">✕</button>
+        </div>
+        <div id="dialog-text"></div>
+        <div class="dialog-close-wrap">
+          <button class="sbtn" onclick="DialogUI.close()">Đóng [Esc]</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tip">
+      <div class="tip-name" id="tip-name"></div>
+      <div class="tip-type" id="tip-type"></div>
+      <div id="tip-body"></div>
+    </div>
+
+    <script>
+      "use strict";
+      // ════════════════════════════════════════════════════════════
+      // §0 · API CONFIG  ← Đổi URL này khi deploy server
+      // ════════════════════════════════════════════════════════════
+      const API = {
+        BASE: "http://localhost:3000", // ← server URL
+        SOCKET_URL: "http://localhost:3000", // ← socket URL (thường cùng server)
+        AUTO_SAVE_MS: 30_000, // auto-save mỗi 30 giây
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §1 · GAME CONFIG
+      // ════════════════════════════════════════════════════════════
+      const CFG = {
+        TS: 32,
+        INV_MAX: 40,
+        ATK_CD: 42,
+        REGEN_HP: 0.01,
+        REGEN_MP: 0.006,
+        MON_AGGRO: 4.2,
+        MON_LEASH: 11,
+        MON_RESPAWN: 420,
+        REALMS: [
+          "Luyện Thể",
+          "Khí Động",
+          "Ly Hợp",
+          "Chân Nguyên",
+          "Thần Du",
+          "Siêu Phàm",
+          "Nhập Thánh",
+          "Thánh Vương",
+          "Phản Hư",
+          "Hư Vương",
+          "Đạo Nguyên",
+          "Đế Tôn",
+        ],
+        ROOTS: [
+          { name: "Kim", emoji: "⚙", color: "#DAA520", bg: "#1a1200" },
+          { name: "Mộc", emoji: "🌿", color: "#3db84a", bg: "#0a1200" },
+          { name: "Thủy", emoji: "💧", color: "#3d9bda", bg: "#000d1a" },
+          { name: "Hỏa", emoji: "🔥", color: "#e05520", bg: "#1a0800" },
+          { name: "Thổ", emoji: "🪨", color: "#b88a3a", bg: "#120a00" },
+          { name: "Phong", emoji: "💨", color: "#8ad4b8", bg: "#001a10" },
+          { name: "Lôi", emoji: "⚡", color: "#aa50ee", bg: "#100018" },
+          { name: "Hắc", emoji: "🌑", color: "#8888aa", bg: "#020205" },
+          { name: "Quang", emoji: "✨", color: "#eeee60", bg: "#181800" },
+        ],
+        GRADE_NAMES: ["Hạ Đẳng", "Trung Đẳng", "Thượng Đẳng"],
+        GRADE_MULT: [1.4, 1.0, 0.68],
+        ITEMS: {
+          slo: {
+            id: "slo",
+            name: "Linh Thạch Thấp",
+            emoji: "💠",
+            type: "stone",
+            tuVal: 18,
+            sell: 3,
+            buyPrice: 28,
+            desc: "Hấp thu → tu vi +18",
+          },
+          smi: {
+            id: "smi",
+            name: "Linh Thạch Trung",
+            emoji: "🔷",
+            type: "stone",
+            tuVal: 55,
+            sell: 12,
+            buyPrice: 80,
+            desc: "Hấp thu → tu vi +55",
+          },
+          shi: {
+            id: "shi",
+            name: "Linh Thạch Thượng",
+            emoji: "💎",
+            type: "stone",
+            tuVal: 160,
+            sell: 40,
+            buyPrice: 220,
+            desc: "Hấp thu → tu vi +160",
+          },
+          ef: {
+            id: "ef",
+            name: "Đá Hỏa Nguyên",
+            emoji: "🟠",
+            type: "elemstone",
+            tuVal: 30,
+            statKey: "str",
+            statVal: 2,
+            sell: 18,
+            desc: "Tu vi +30, STR +2",
+          },
+          em: {
+            id: "em",
+            name: "Đá Mộc Nguyên",
+            emoji: "🟢",
+            type: "elemstone",
+            tuVal: 30,
+            statKey: "vit",
+            statVal: 2,
+            sell: 18,
+            desc: "Tu vi +30, VIT +2",
+          },
+          ew: {
+            id: "ew",
+            name: "Đá Thủy Nguyên",
+            emoji: "🔵",
+            type: "elemstone",
+            tuVal: 30,
+            statKey: "int",
+            statVal: 2,
+            sell: 18,
+            desc: "Tu vi +30, INT +2",
+          },
+          her: {
+            id: "her",
+            name: "Linh Thảo",
+            emoji: "🌿",
+            type: "mat",
+            sell: 2,
+            desc: "Nguyên liệu luyện đan",
+          },
+          bon: {
+            id: "bon",
+            name: "Yêu Cốt",
+            emoji: "🦴",
+            type: "mat",
+            sell: 1,
+            desc: "Xương yêu thú",
+          },
+          fur: {
+            id: "fur",
+            name: "Yêu Mao",
+            emoji: "🧶",
+            type: "mat",
+            sell: 3,
+            desc: "Lông yêu thú",
+          },
+          hpd: {
+            id: "hpd",
+            name: "Trị Thương Đan",
+            emoji: "🔴",
+            type: "consume",
+            healHp: 50,
+            sell: 8,
+            buyPrice: 15,
+            desc: "Hồi 50 HP",
+          },
+          mpd: {
+            id: "mpd",
+            name: "Hồi Linh Đan",
+            emoji: "⚫",
+            type: "consume",
+            healMp: 40,
+            sell: 8,
+            buyPrice: 15,
+            desc: "Hồi 40 MP",
+          },
+          bud: {
+            id: "bud",
+            name: "Trúc Cơ Đan",
+            emoji: "🟡",
+            type: "consume",
+            statBoost: 2,
+            sell: 35,
+            buyPrice: 60,
+            desc: "+2 điểm ngẫu nhiên",
+          },
+        },
+        SHOP_SELL: ["hpd", "mpd", "bud", "slo", "smi"],
+        MONSTERS: [
+          {
+            name: "Dã Thú",
+            hp: 50,
+            atk: 6,
+            def: 2,
+            xuR: [2, 6],
+            iChance: 0.3,
+            speed: 1.0,
+            color: "#7a3a1a",
+            drops: ["bon", "fur", "her"],
+          },
+          {
+            name: "Linh Hồ",
+            hp: 85,
+            atk: 10,
+            def: 4,
+            xuR: [4, 12],
+            iChance: 0.25,
+            speed: 1.1,
+            color: "#cc6020",
+            drops: ["fur", "slo"],
+          },
+          {
+            name: "Yêu Lang",
+            hp: 130,
+            atk: 16,
+            def: 8,
+            xuR: [8, 22],
+            iChance: 0.2,
+            speed: 1.1,
+            color: "#6b2737",
+            drops: ["bon", "slo", "smi"],
+          },
+          {
+            name: "Linh Xà",
+            hp: 100,
+            atk: 13,
+            def: 5,
+            xuR: [6, 16],
+            iChance: 0.35,
+            speed: 1.2,
+            color: "#2d6b2d",
+            drops: ["her", "slo", "ef"],
+          },
+          {
+            name: "Thạch Quỷ",
+            hp: 160,
+            atk: 18,
+            def: 12,
+            xuR: [10, 28],
+            iChance: 0.15,
+            speed: 0.8,
+            color: "#5a5a6a",
+            drops: ["bon", "smi", "ew"],
+          },
+          {
+            name: "Ma Tặc",
+            hp: 220,
+            atk: 24,
+            def: 15,
+            xuR: [15, 35],
+            iChance: 0.25,
+            speed: 1.2,
+            color: "#8a1a3a",
+            drops: ["smi", "shi", "em"],
+          },
+          {
+            name: "Hắc Hổ",
+            hp: 300,
+            atk: 32,
+            def: 20,
+            xuR: [20, 50],
+            iChance: 0.2,
+            speed: 1.3,
+            color: "#1a1a3a",
+            drops: ["shi", "ef", "ew"],
+          },
+        ],
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §2 · NETWORK / AUTH MODULE
+      // ════════════════════════════════════════════════════════════
+      let socket = null;
+      let authToken = localStorage.getItem("tu_tien_token");
+      let currentUser = null;
+
+      const Net = {
+        _saveTimer: null,
+        _isOnline: false,
+
+        // ── REST helpers ──
+        async get(path) {
+          const res = await fetch(API.BASE + path, {
+            headers: { Authorization: "Bearer " + authToken },
+          });
+          return res.json();
+        },
+        async post(path, body) {
+          const res = await fetch(API.BASE + path, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + authToken,
+            },
+            body: JSON.stringify(body),
+          });
+          return res.json();
+        },
+
+        // ── Save ──
+        async saveNow(event) {
+          if (!authToken || !S.player) return;
+          const playerData = {
+            ...S.player,
+            inventory: S.inventory,
+            mapId: S.mapId,
+            _event: event || null,
+          };
+          try {
+            const res = await Net.post("/api/player/save", { playerData });
+            if (res.ok) UI.log("💾 Đã lưu dữ liệu lên server", "system");
+          } catch {
+            UI.log("⚠ Không thể kết nối server để lưu", "system");
+          }
+        },
+
+        startAutoSave() {
+          clearInterval(Net._saveTimer);
+          Net._saveTimer = setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS);
+        },
+
+        // ── Socket.io ──
+        connectSocket() {
+          if (!authToken) return;
+          try {
+            socket = io(API.SOCKET_URL, {
+              auth: { token: authToken },
+              timeout: 5000,
+            });
+
+            socket.on("connect", () => {
+              Net._isOnline = true;
+              Net._setBadge(true);
+              const p = S.player;
+              if (p)
+                socket.emit("join_world", { mapId: S.mapId, x: p.x, y: p.y });
+              UI.log("🌐 Đã kết nối máy chủ!", "system");
+            });
+
+            socket.on("disconnect", () => {
+              Net._isOnline = false;
+              Net._setBadge(false);
+              Net._clearOthers();
+              UI.log("⚠ Mất kết nối server...", "system");
+            });
+
+            socket.on("connect_error", () => {
+              Net._setBadge(false);
+            });
+
+            // ── World state (players on same map) ──
+            socket.on("world_state", ({ players }) => {
+              for (const p of players) Net._upsertOther(p);
+              Net._renderOnlineList();
+            });
+
+            socket.on("player_join", (p) => {
+              Net._upsertOther(p);
+              Net._renderOnlineList();
+              UI.log(`👤 ${p.username} gia nhập bản đồ`, "system");
+            });
+
+            socket.on("player_leave", ({ id }) => {
+              otherPlayers.delete(id);
+              Net._renderOnlineList();
+            });
+
+            socket.on("player_move", ({ id, x, y }) => {
+              if (otherPlayers.has(id)) {
+                const op = otherPlayers.get(id);
+                op.x = x;
+                op.y = y;
+                op.px = x * CFG.TS + CFG.TS / 2;
+                op.py = y * CFG.TS + CFG.TS / 2;
+              }
+            });
+
+            socket.on("player_map", ({ id, mapId, x, y }) => {
+              if (otherPlayers.has(id)) {
+                const op = otherPlayers.get(id);
+                if (op.mapId !== S.mapId) otherPlayers.delete(id);
+                else {
+                  op.x = x;
+                  op.y = y;
+                  op.mapId = mapId;
+                }
+              }
+            });
+
+            socket.on("chat_message", ({ username, message, id }) => {
+              const isMe = id === socket.id;
+              UI.log(`[${isMe ? "Tôi" : username}]: ${message}`, "chat");
+            });
+
+            socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
+              // Show attack effect from other player (future: find target by id)
+              UI.log(
+                `[${attackerName}] đánh quái ${damage} sát thương`,
+                "combat",
+              );
+            });
+
+            socket.on("server_msg", ({ text }) => {
+              UI.log(text, "system");
+            });
+          } catch (e) {
+            Net._setBadge(false);
+          }
+        },
+
+        emitMove() {
+          if (socket?.connected && S.player) {
+            socket.emit("move", {
+              x: S.player.x,
+              y: S.player.y,
+              mapId: S.mapId,
+            });
+          }
+        },
+
+        emitMapChange(mapId, x, y) {
+          if (socket?.connected) {
+            socket.emit("map_change", { mapId, x, y });
+          }
+          // Save on map change
+          Net.saveNow({ type: "map_change", data: { mapId } });
+        },
+
+        sendChat() {
+          const inp = document.getElementById("chat-inp");
+          const msg = inp.value.trim();
+          if (!msg) return;
+          if (socket?.connected) {
+            socket.emit("chat", { message: msg });
+          } else {
+            UI.log(`[Tôi]: ${msg}`, "chat");
+          }
+          inp.value = "";
+        },
+
+        _setBadge(online) {
+          const badge = document.getElementById("conn-badge");
+          const ob = document.getElementById("online-badge");
+          badge.className = online ? "online" : "offline";
+          badge.textContent = online ? "● Online" : "● Offline";
+          ob.textContent = online ? "● Online" : "● Offline";
+          ob.style.color = online ? "var(--green)" : "#aa4444";
+        },
+
+        _upsertOther(p) {
+          const existing = otherPlayers.get(p.id) || {};
+          otherPlayers.set(p.id, {
+            ...existing,
+            ...p,
+            px: (p.x || 0) * CFG.TS + CFG.TS / 2,
+            py: (p.y || 0) * CFG.TS + CFG.TS / 2,
+          });
+        },
+
+        _clearOthers() {
+          otherPlayers.clear();
+          Net._renderOnlineList();
+        },
+
+        _renderOnlineList() {
+          const el = document.getElementById("online-list");
+          if (otherPlayers.size === 0) {
+            el.innerHTML =
+              '<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
+            return;
+          }
+          el.innerHTML = "";
+          for (const [, p] of otherPlayers) {
+            const d = document.createElement("div");
+            d.className = "online-player";
+            d.innerHTML = `<span class="on-name">${p.username || "?"}</span><span class="on-realm">${CFG.REALMS[Math.min(p.realm || 0, 11)]}</span>`;
+            el.appendChild(d);
+          }
+        },
+      };
+
+      // ── Auth Screen ──
+      const Auth = {
+        _mode: "login",
+
+        showTab(mode) {
+          Auth._mode = mode;
+          document.getElementById("tab-login").className =
+            "auth-tab" + (mode === "login" ? " active" : "");
+          document.getElementById("tab-reg").className =
+            "auth-tab" + (mode === "register" ? " active" : "");
+          document.getElementById("reg-confirm-wrap").style.display =
+            mode === "register" ? "" : "none";
+          document.getElementById("auth-btn").textContent =
+            mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+          document.getElementById("auth-alt").innerHTML =
+            mode === "login"
+              ? "Chưa có tài khoản? <a onclick=\"Auth.showTab('register')\">Đăng ký ngay</a>"
+              : "Đã có tài khoản? <a onclick=\"Auth.showTab('login')\">Đăng nhập</a>";
+          Auth._clearErr();
+        },
+
+        async submit() {
+          const username = document.getElementById("inp-user").value.trim();
+          const password = document.getElementById("inp-pass").value;
+          Auth._clearErr();
+          if (!username || !password)
+            return Auth._err("Vui lòng điền đầy đủ thông tin");
+
+          if (Auth._mode === "register") {
+            const confirm = document.getElementById("inp-confirm").value;
+            if (password !== confirm)
+              return Auth._err("Mật khẩu xác nhận không khớp");
+          }
+
+          const btn = document.getElementById("auth-btn");
+          btn.disabled = true;
+          btn.textContent = "Đang xử lý...";
+
+          try {
+            const path =
+              Auth._mode === "login" ? "/api/auth/login" : "/api/auth/register";
+            const res = await fetch(API.BASE + path, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              Auth._err(data.error || "Lỗi không xác định");
+              return;
+            }
+
+            authToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem("tu_tien_token", authToken);
+
+            Auth._afterLogin();
+          } catch {
+            Auth._err("Không thể kết nối máy chủ. Thử chơi offline?");
+          } finally {
+            btn.disabled = false;
+            btn.textContent = Auth._mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+          }
+        },
+
+        async _afterLogin() {
+          // Try to load existing character
+          try {
+            const data = await Net.get("/api/player");
+            if (data.exists) {
+              Auth._startGameWithData(data.player);
+              return;
+            }
+          } catch {}
+          // No character → create screen
+          showScreen("create");
+        },
+
+        async _startGameWithData(playerData) {
+          // Restore player from server data
+          S.player = {
+            name: playerData.name,
+            root: playerData.root,
+            realm: playerData.realm,
+            stage: playerData.stage,
+            stats: playerData.stats,
+            hp: playerData.hp,
+            maxHp: playerData.maxHp,
+            mp: playerData.mp,
+            maxMp: playerData.maxMp,
+            xu: playerData.xu,
+            tuExp: playerData.tuExp,
+            tuNeeded: playerData.tuNeeded,
+            x: playerData.mapX || 26,
+            y: playerData.mapY || 30,
+            px: (playerData.mapX || 26) * CFG.TS + CFG.TS / 2,
+            py: (playerData.mapY || 30) * CFG.TS + CFG.TS / 2,
+          };
+          S.inventory = (playerData.inventory || [])
+            .map((i) => ({ ...CFG.ITEMS[i.id], count: i.count }))
+            .filter(Boolean);
+          enterGame(
+            playerData.mapId || "wilderness",
+            playerData.mapX || 26,
+            playerData.mapY || 30,
+          );
+        },
+
+        playOffline() {
+          authToken = null;
+          currentUser = null;
+          showScreen("create");
+        },
+
+        logout() {
+          Net.saveNow().finally(() => {
+            localStorage.removeItem("tu_tien_token");
+            authToken = null;
+            currentUser = null;
+            S.player = null;
+            S.inventory = [];
+            if (socket) {
+              socket.disconnect();
+              socket = null;
+            }
+            clearInterval(Net._saveTimer);
+            location.reload();
+          });
+        },
+
+        _err(msg) {
+          const el = document.getElementById("auth-err");
+          el.textContent = msg;
+          el.classList.add("show");
+        },
+        _clearErr() {
+          document.getElementById("auth-err").classList.remove("show");
+        },
+
+        // Auto-login if token exists
+        async tryAutoLogin() {
+          if (!authToken) return false;
+          try {
+            const res = await fetch(API.BASE + "/api/auth/me", {
+              headers: { Authorization: "Bearer " + authToken },
+            });
+            if (!res.ok) {
+              localStorage.removeItem("tu_tien_token");
+              authToken = null;
+              return false;
+            }
+            const data = await res.json();
+            currentUser = { id: data.userId, username: data.username };
+            document.getElementById("auth-status").textContent =
+              `Chào lại, ${data.username}!`;
+            await Auth._afterLogin();
+            return true;
+          } catch {
+            return false;
+          }
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §3 · TILE / MAP
+      // ════════════════════════════════════════════════════════════
+      const T = {
+        GRASS: 0,
+        STONE: 1,
+        WATER: 2,
+        WALL: 3,
+        FLOOR: 4,
+        TREE: 5,
+        MTN: 6,
+        PLAZA: 7,
+      };
+      const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
+      function isSolid(tx, ty) {
+        if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
+        return SOLID.has(S.tiles[ty][tx]);
+      }
+      function fillRect(t, x, y, w, h, v) {
+        for (let dy = 0; dy < h; dy++)
+          for (let dx = 0; dx < w; dx++) {
+            const ty = y + dy,
+              tx = x + dx;
+            if (ty >= 0 && ty < t.length && tx >= 0 && tx < t[0].length)
+              t[ty][tx] = v;
+          }
+      }
+      function borderWall(t) {
+        const H = t.length,
+          W = t[0].length;
+        for (let x = 0; x < W; x++) {
+          t[0][x] = T.WALL;
+          t[H - 1][x] = T.WALL;
+        }
+        for (let y = 0; y < H; y++) {
+          t[y][0] = T.WALL;
+          t[y][W - 1] = T.WALL;
+        }
+      }
+      function scatter(t, v, n, allow = [T.GRASS]) {
+        const H = t.length,
+          W = t[0].length;
+        for (let i = 0; i < n; i++) {
+          const x = randInt(2, W - 3),
+            y = randInt(2, H - 3);
+          if (allow.includes(t[y][x])) t[y][x] = v;
+        }
+      }
+
+      const MAPS = {
+        wilderness: {
+          id: "wilderness",
+          name: "☁ Hoang Dã Bình Nguyên",
+          w: 54,
+          h: 38,
+          build() {
+            const { w, h } = this;
+            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+            borderWall(t);
+            fillRect(t, 10, 8, 10, 6, T.WATER);
+            fillRect(t, 38, 18, 8, 5, T.WATER);
+            fillRect(t, 22, 26, 7, 4, T.WATER);
+            fillRect(t, 40, 3, 10, 7, T.MTN);
+            fillRect(t, 3, 25, 6, 9, T.MTN);
+            fillRect(t, 5, 5, 5, 4, T.TREE);
+            fillRect(t, 26, 4, 6, 4, T.TREE);
+            fillRect(t, 44, 27, 7, 7, T.TREE);
+            fillRect(t, 14, 30, 7, 5, T.TREE);
+            scatter(t, T.STONE, 25);
+            for (let y = 2; y < h - 2; y++)
+              if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
+            t[0][26] = T.FLOOR;
+            t[1][26] = T.FLOOR;
+            return t;
+          },
+          spawns: [
+            { ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
+            { ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
+            { ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
+            { ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
+          ],
+          portals: [
+            {
+              tx: 26,
+              ty: 1,
+              toMap: "town",
+              toX: 19,
+              toY: 23,
+              label: "↑ An Lạc Thành",
+            },
+            {
+              tx: 52,
+              ty: 18,
+              toMap: "training",
+              toX: 2,
+              toY: 15,
+              label: "→ Luyện Ma Trường",
+            },
+          ],
+          npcs: [
+            {
+              px: 32 * 32 + 16,
+              py: 14 * 32 + 16,
+              type: "info",
+              name: "Lão Tiều Phu",
+              color: "#88aacc",
+              dialog:
+                "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
+            },
+          ],
+          playerStart: { x: 26, y: 30 },
+        },
+
+        training: {
+          id: "training",
+          name: "⚔ Luyện Ma Trường",
+          w: 50,
+          h: 34,
+          build() {
+            const { w, h } = this;
+            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+            borderWall(t);
+            fillRect(t, 6, 5, 8, 8, T.MTN);
+            fillRect(t, 34, 4, 12, 7, T.MTN);
+            fillRect(t, 20, 22, 10, 8, T.MTN);
+            fillRect(t, 3, 22, 7, 8, T.WATER);
+            fillRect(t, 40, 22, 7, 8, T.WATER);
+            fillRect(t, 15, 3, 5, 4, T.TREE);
+            fillRect(t, 28, 14, 5, 5, T.TREE);
+            scatter(t, T.STONE, 40);
+            scatter(t, T.TREE, 8, [T.GRASS]);
+            t[15][0] = T.FLOOR;
+            t[15][1] = T.FLOOR;
+            return t;
+          },
+          spawns: [
+            { ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
+            { ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
+            { ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
+            { ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
+            { ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
+          ],
+          portals: [
+            {
+              tx: 1,
+              ty: 15,
+              toMap: "wilderness",
+              toX: 51,
+              toY: 18,
+              label: "← Hoang Dã",
+            },
+          ],
+          npcs: [],
+          playerStart: { x: 3, y: 15 },
+        },
+
+        town: {
+          id: "town",
+          name: "🏯 An Lạc Thành",
+          w: 42,
+          h: 30,
+          build() {
+            const { w, h } = this;
+            const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
+            borderWall(t);
+            fillRect(t, 2, 2, 12, 9, T.WALL);
+            fillRect(t, 3, 3, 10, 6, T.PLAZA);
+            t[10][7] = T.PLAZA;
+            t[10][8] = T.PLAZA;
+            fillRect(t, 28, 2, 12, 9, T.WALL);
+            fillRect(t, 29, 3, 10, 6, T.PLAZA);
+            t[10][33] = T.PLAZA;
+            t[10][34] = T.PLAZA;
+            fillRect(t, 28, 18, 12, 9, T.WALL);
+            fillRect(t, 29, 19, 10, 6, T.PLAZA);
+            t[18][33] = T.PLAZA;
+            t[18][34] = T.PLAZA;
+            fillRect(t, 18, 11, 6, 6, T.STONE);
+            fillRect(t, 19, 12, 4, 4, T.WATER);
+            for (let x = 2; x < w - 2; x++)
+              if (t[11][x] === T.PLAZA || t[11][x] === T.STONE)
+                t[11][x] = T.STONE;
+            for (let y = 2; y < h - 2; y++) {
+              if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
+              if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
+            }
+            t[3][15] = T.TREE;
+            t[3][26] = T.TREE;
+            t[20][4] = T.TREE;
+            t[20][14] = T.TREE;
+            t[h - 1][20] = T.PLAZA;
+            t[h - 1][21] = T.PLAZA;
+            t[h - 2][20] = T.PLAZA;
+            t[h - 2][21] = T.PLAZA;
+            return t;
+          },
+          spawns: [],
+          portals: [
+            {
+              tx: 20,
+              ty: 28,
+              toMap: "wilderness",
+              toX: 26,
+              toY: 4,
+              label: "↓ Ra Ngoài",
+            },
+            { tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
+          ],
+          npcs: [
+            {
+              px: 7 * 32 + 16,
+              py: 6 * 32 + 16,
+              type: "shop",
+              name: "Lão Bản Vương",
+              color: "#d4a844",
+              dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
+            },
+            {
+              px: 33 * 32 + 16,
+              py: 6 * 32 + 16,
+              type: "quest",
+              name: "Nhiệm Vụ Sứ Lý Văn",
+              color: "#88aacc",
+              dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
+            },
+            {
+              px: 33 * 32 + 16,
+              py: 22 * 32 + 16,
+              type: "chest",
+              name: "Rương Kho Báu",
+              color: "#ffdd44",
+              dialog: "",
+            },
+            {
+              px: 20 * 32 + 16,
+              py: 15 * 32 + 16,
+              type: "info",
+              name: "Thủ Vệ",
+              color: "#8888aa",
+              dialog:
+                "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
+            },
+          ],
+          playerStart: { x: 20, y: 24 },
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §4 · GAME STATE
+      // ════════════════════════════════════════════════════════════
+      let canvas, ctx, cW, cH;
+      const S = {
+        player: null,
+        mapId: "wilderness",
+        tiles: null,
+        mapW: 0,
+        mapH: 0,
+        monsters: [],
+        npcs: [],
+        portals: [],
+        groundItems: [],
+        inventory: [],
+        autoFight: false,
+        atkCd: 0,
+        animT: 0,
+        animF: 0,
+        atkFx: [],
+        cam: { x: 0, y: 0 },
+        moveTimer: 0,
+        lastTs: 0,
+      };
+      const otherPlayers = new Map(); // socketId → {username,x,y,px,py,realm,...}
+
+      // ════════════════════════════════════════════════════════════
+      // §5 · UTILS
+      // ════════════════════════════════════════════════════════════
+      function randInt(a, b) {
+        return a + Math.floor(Math.random() * (b - a + 1));
+      }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      function dist(ax, ay, bx, by) {
+        return Math.hypot(ax - bx, ay - by);
+      }
+
+      // ════════════════════════════════════════════════════════════
+      // §6 · WORLD
+      // ════════════════════════════════════════════════════════════
+      const World = {
+        loadMap(mapId, toX, toY) {
+          const def = MAPS[mapId];
+          S.mapId = mapId;
+          S.mapW = def.w;
+          S.mapH = def.h;
+          S.tiles = def.build();
+          S.atkFx = [];
+          S.groundItems = [];
+          if (S.player) {
+            S.player.x = toX;
+            S.player.y = toY;
+            S.player.px = toX * CFG.TS + CFG.TS / 2;
+            S.player.py = toY * CFG.TS + CFG.TS / 2;
+          }
+          S.portals = def.portals.map((p) => ({ ...p }));
+          S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
+          S.monsters = [];
+          for (const sp of def.spawns)
+            for (let i = 0; i < sp.count; i++) {
+              const pos = World._open(sp.zone);
+              if (pos) S.monsters.push(Monster.make(sp.ti, pos.tx, pos.ty));
+            }
+          const ov = document.getElementById("map-name-overlay");
+          ov.textContent = def.name;
+          ov.classList.add("show");
+          setTimeout(() => ov.classList.remove("show"), 2200);
+          UI.log(`── Đến: ${def.name} ──`, "system");
+          Net.emitMapChange(mapId, toX, toY);
+          otherPlayers.clear();
+        },
+        _open(zone) {
+          for (let i = 0; i < 25; i++) {
+            const tx = zone.x + randInt(0, zone.w - 1),
+              ty = zone.y + randInt(0, zone.h - 1);
+            if (!isSolid(tx, ty)) return { tx, ty };
+          }
+          return null;
+        },
+        checkPortals() {
+          const p = S.player;
+          for (const portal of S.portals)
+            if (
+              p.x === portal.tx &&
+              p.y === portal.ty &&
+              portal.toMap &&
+              portal.label !== ""
+            ) {
+              World.loadMap(portal.toMap, portal.toX, portal.toY);
+              return;
+            }
+        },
+        checkNpcInteract() {
+          const p = S.player;
+          for (const npc of S.npcs) {
+            if (npc.used && npc.type === "chest") continue;
+            if (dist(p.px, p.py, npc.px, npc.py) < CFG.TS * 1.4) {
+              if (npc.type === "shop") Shop.open(npc);
+              else if (npc.type === "chest") Chest.open(npc);
+              else DialogUI.open(npc);
+              return;
+            }
+          }
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §7 · MONSTER AI
+      // ════════════════════════════════════════════════════════════
+      const Monster = {
+        make(ti, tx, ty) {
+          const tmpl = CFG.MONSTERS[ti];
+          const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
+          return {
+            ti,
+            hp,
+            maxHp: hp,
+            atk: tmpl.atk + randInt(0, 3),
+            def: tmpl.def,
+            px: tx * CFG.TS + CFG.TS / 2,
+            py: ty * CFG.TS + CFG.TS / 2,
+            hx: tx * CFG.TS + CFG.TS / 2,
+            hy: ty * CFG.TS + CFG.TS / 2,
+            state: "idle",
+            tpx: tx * CFG.TS + CFG.TS / 2,
+            tpy: ty * CFG.TS + CFG.TS / 2,
+            moveTimer: randInt(60, 180),
+            atkCd: 0,
+            dead: false,
+            respawnT: 0,
+          };
+        },
+        update(m, dt) {
+          if (m.dead) {
+            m.respawnT -= dt / 16;
+            if (m.respawnT <= 0) Monster.respawn(m);
+            return;
+          }
+          const tmpl = CFG.MONSTERS[m.ti];
+          const speed = (tmpl.speed || 1) * (dt / 16);
+          const p = S.player;
+          const dp = dist(m.px, m.py, p.px, p.py);
+          const dh = dist(m.px, m.py, m.hx, m.hy);
+          if (m.state === "idle" || m.state === "patrol") {
+            if (dp < CFG.MON_AGGRO * CFG.TS) m.state = "chase";
+            else {
+              m.moveTimer -= dt / 16;
+              if (m.moveTimer <= 0) {
+                m.moveTimer = randInt(80, 220);
+                if (m.state === "idle" && Math.random() < 0.45) {
+                  m.state = "patrol";
+                  Monster._patrol(m);
+                } else m.state = "idle";
+              }
+            }
+          }
+          if (m.state === "chase") {
+            if (dh > CFG.MON_LEASH * CFG.TS) {
+              m.state = "return";
+              m.tpx = m.hx;
+              m.tpy = m.hy;
+            } else {
+              m.tpx = p.px;
+              m.tpy = p.py;
+            }
+          }
+          if (m.state === "return") {
+            if (dh < CFG.TS) {
+              m.state = "idle";
+              m.tpx = m.hx;
+              m.tpy = m.hy;
+            }
+            if (dp < CFG.MON_AGGRO * CFG.TS * 0.6) m.state = "chase";
+          }
+          const tdx = m.tpx - m.px,
+            tdy = m.tpy - m.py,
+            td = Math.hypot(tdx, tdy);
+          if (td > 3 && m.state !== "idle") {
+            const vx = (tdx / td) * speed,
+              vy = (tdy / td) * speed;
+            const nx = m.px + vx,
+              ny = m.py + vy;
+            const ntx = Math.floor(nx / CFG.TS),
+              nty = Math.floor(ny / CFG.TS),
+              ctx2 = Math.floor(m.px / CFG.TS),
+              cty2 = Math.floor(m.py / CFG.TS);
+            if (!isSolid(ntx, nty)) {
+              m.px = nx;
+              m.py = ny;
+            } else if (!isSolid(ntx, cty2)) {
+              m.px = nx;
+            } else if (!isSolid(ctx2, nty)) {
+              m.py = ny;
+            }
+          }
+          if (dp < CFG.TS * 1.3 && m.state === "chase") {
+            m.atkCd -= dt / 16;
+            if (m.atkCd <= 0) {
+              m.atkCd = 65;
+              const dmg = Math.max(1, m.atk - Combat.pDef() + randInt(0, 3));
+              p.hp = Math.max(0, p.hp - dmg);
+              Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
+              if (p.hp <= 0) {
+                p.hp = Math.floor(p.maxHp * 0.25);
+                UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
+              }
+            }
+          }
+        },
+        respawn(m) {
+          const ti = randInt(0, Math.min(4, CFG.MONSTERS.length - 1));
+          const tmpl = CFG.MONSTERS[ti];
+          const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
+          m.ti = ti;
+          m.hp = hp;
+          m.maxHp = hp;
+          m.atk = tmpl.atk + randInt(0, 3);
+          m.def = tmpl.def;
+          m.dead = false;
+          m.state = "idle";
+          m.atkCd = 0;
+          m.px = m.hx;
+          m.py = m.hy;
+          m.tpx = m.hx;
+          m.tpy = m.hy;
+        },
+        _patrol(m) {
+          const r = randInt(2, 4) * CFG.TS,
+            ang = Math.random() * Math.PI * 2;
+          m.tpx = Math.max(
+            CFG.TS,
+            Math.min((S.mapW - 2) * CFG.TS, m.hx + Math.cos(ang) * r),
+          );
+          m.tpy = Math.max(
+            CFG.TS,
+            Math.min((S.mapH - 2) * CFG.TS, m.hy + Math.sin(ang) * r),
+          );
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §8 · COMBAT (đánh quái CHỈ rơi đồ — KHÔNG tăng tu vi)
+      // ════════════════════════════════════════════════════════════
+      const Combat = {
+        pAtk() {
+          return 10 + S.player.stats.str * 2;
+        },
+        pDef() {
+          return 2 + Math.floor(S.player.stats.vit * 0.5);
+        },
+        attack(m) {
+          if (S.atkCd > 0 || m.dead) return;
+          const tmpl = CFG.MONSTERS[m.ti];
+          const dmg = Math.max(1, Combat.pAtk() - m.def + randInt(0, 6));
+          m.hp -= dmg;
+          S.atkCd = CFG.ATK_CD;
+          S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
+          Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
+          UI.log(`Tấn công ${tmpl.name} gây ${dmg} sát thương`, "combat");
+          // Notify other players (visual only)
+          if (socket?.connected)
+            socket.emit("attack_effect", {
+              targetId: null,
+              damage: dmg,
+              mapId: S.mapId,
+            });
+          if (m.hp <= 0) {
+            m.dead = true;
+            m.respawnT = CFG.MON_RESPAWN;
+            Combat.dropLoot(m);
+            UI.log(`${tmpl.name} đã bị tiêu diệt!`, "combat");
+          }
+        },
+        dropLoot(m) {
+          const tmpl = CFG.MONSTERS[m.ti];
+          const xu = randInt(tmpl.xuR[0], tmpl.xuR[1]);
+          S.player.xu += xu;
+          UI.log(`Nhặt được ${xu} xu`, "loot");
+          if (Math.random() < tmpl.iChance) {
+            const id = tmpl.drops[randInt(0, tmpl.drops.length - 1)];
+            const item = CFG.ITEMS[id];
+            if (item) {
+              Inventory.add(item);
+              UI.log(`Rơi ra: ${item.emoji} ${item.name}`, "loot");
+            }
+          }
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §9 · CULTIVATION (chỉ hấp thạch → tu vi)
+      // ════════════════════════════════════════════════════════════
+      const Cultivation = {
+        calcTuNeeded(realm, stage) {
+          const mult = S.player?.root ? CFG.GRADE_MULT[S.player.root.grade] : 1;
+          return Math.floor((180 + realm * 550 + stage * 110) * mult);
+        },
+        absorbStone() {
+          const p = S.player;
+          const idx = S.inventory.findIndex(
+            (i) => i.type === "stone" || i.type === "elemstone",
+          );
+          if (idx < 0) {
+            UI.log("Không có linh thạch!", "system");
+            return;
+          }
+          const item = S.inventory[idx];
+          p.tuExp += item.tuVal || 18;
+          if (item.statKey && item.statVal) {
+            p.stats[item.statKey] += item.statVal;
+            UI.log(
+              `${item.emoji} Hấp thu → Tu Vi +${item.tuVal}, ${item.statKey.toUpperCase()} +${item.statVal}`,
+              "level",
+            );
+          } else
+            UI.log(
+              `${item.emoji} Hấp thu ${item.name} → Tu Vi +${item.tuVal}`,
+              "level",
+            );
+          p.maxHp = 100 + p.stats.vit * 10;
+          p.maxMp = 50 + p.stats.int * 8;
+          p.hp = Math.min(p.hp, p.maxHp);
+          p.mp = Math.min(p.mp, p.maxMp);
+          Inventory.remove(idx);
+          UI.update();
+        },
+        tryBreakthrough() {
+          const p = S.player;
+          if (p.tuExp < p.tuNeeded) {
+            UI.log(
+              `Tu vi chưa đủ! Cần ${Math.floor(p.tuNeeded)}, có ${Math.floor(p.tuExp)}`,
+              "system",
+            );
+            return;
+          }
+          p.tuExp -= p.tuNeeded;
+          if (p.stage < 9) {
+            p.stage++;
+            UI.log(
+              `⚡ PHÁKINH! ${CFG.REALMS[p.realm]} Tầng ${p.stage}!`,
+              "level",
+            );
+          } else if (p.realm < CFG.REALMS.length - 1) {
+            p.realm++;
+            p.stage = 1;
+            p.maxHp += 300;
+            p.maxMp += 150;
+            p.hp = p.maxHp;
+            p.mp = p.maxMp;
+            UI.log(
+              `🌟 THĂNG CẢNH GIỚI → ${CFG.REALMS[p.realm]} Tầng 1!`,
+              "level",
+            );
+            Net.saveNow({
+              type: "breakthrough",
+              data: { realm: p.realm, stage: p.stage },
+            });
+          } else UI.log("Đã đạt đỉnh Đế Tôn!", "level");
+          p.tuNeeded = Cultivation.calcTuNeeded(p.realm, p.stage);
+          UI.update();
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §10 · INVENTORY
+      // ════════════════════════════════════════════════════════════
+      const Inventory = {
+        add(item) {
+          for (const iv of S.inventory) {
+            if (iv.id === item.id && iv.count < 99) {
+              iv.count++;
+              UI.buildInv();
+              UI.update();
+              return;
+            }
+          }
+          if (S.inventory.length < CFG.INV_MAX) {
+            S.inventory.push({ ...item, count: 1 });
+            UI.buildInv();
+            UI.update();
+          } else UI.log("Túi đồ đầy!", "system");
+        },
+        remove(idx) {
+          const iv = S.inventory[idx];
+          if (!iv) return;
+          iv.count--;
+          if (iv.count <= 0) S.inventory.splice(idx, 1);
+          UI.buildInv();
+          UI.update();
+        },
+        use(idx) {
+          const item = S.inventory[idx];
+          if (!item) return;
+          if (item.type === "stone" || item.type === "elemstone") {
+            Cultivation.absorbStone();
+            return;
+          }
+          if (item.type === "consume") {
+            const p = S.player;
+            if (item.healHp) {
+              p.hp = Math.min(p.maxHp, p.hp + item.healHp);
+              UI.log(`Dùng ${item.emoji} → Hồi ${item.healHp} HP`, "system");
+            }
+            if (item.healMp) {
+              p.mp = Math.min(p.maxMp, p.mp + item.healMp);
+              UI.log(`Dùng ${item.emoji} → Hồi ${item.healMp} MP`, "system");
+            }
+            if (item.statBoost) {
+              const ss = ["str", "agi", "vit", "int"];
+              const s = ss[randInt(0, 3)];
+              S.player.stats[s] += item.statBoost;
+              UI.log(
+                `Dùng ${item.emoji} → +${item.statBoost} ${s.toUpperCase()}`,
+                "level",
+              );
+            }
+            Inventory.remove(idx);
+            UI.update();
+          } else
+            UI.log(`${item.emoji} ${item.name}: ${item.desc || ""}`, "system");
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §11 · SHOP / DIALOG / CHEST
+      // ════════════════════════════════════════════════════════════
+      const Shop = {
+        open(npc) {
+          document.getElementById("shop-title").textContent = `🏪 ${npc.name}`;
+          this.render();
+          document.getElementById("shop-modal").classList.add("open");
+        },
+        close() {
+          document.getElementById("shop-modal").classList.remove("open");
+        },
+        render() {
+          document.getElementById("shop-xu").textContent =
+            S.player.xu.toLocaleString();
+          const buy = document.getElementById("shop-buy-list");
+          buy.innerHTML = '<div class="shop-col-head">MUA VẬT PHẨM</div>';
+          for (const id of CFG.SHOP_SELL) {
+            const item = CFG.ITEMS[id];
+            if (!item || !item.buyPrice) continue;
+            const div = document.createElement("div");
+            div.className = "shop-item";
+            div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
+            const btn = document.createElement("button");
+            btn.className = "sbtn";
+            btn.textContent = "Mua";
+            btn.onclick = () => Shop.buy(id);
+            div.appendChild(btn);
+            buy.appendChild(div);
+          }
+          const sell = document.getElementById("shop-sell-list");
+          sell.innerHTML = '<div class="shop-col-head">BÁN VẬT PHẨM</div>';
+          if (!S.inventory.length)
+            sell.innerHTML +=
+              '<div style="color:var(--text2);font-size:11px;padding:8px">Túi đồ trống</div>';
+          S.inventory.forEach((item, idx) => {
+            const div = document.createElement("div");
+            div.className = "shop-item";
+            div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
+            const btn = document.createElement("button");
+            btn.className = "sbtn ssell";
+            btn.textContent = "Bán";
+            btn.onclick = () => {
+              Shop.sell(idx);
+            };
+            div.appendChild(btn);
+            sell.appendChild(div);
+          });
+        },
+        buy(id) {
+          const item = CFG.ITEMS[id];
+          if (!item) return;
+          if (S.player.xu < item.buyPrice) {
+            UI.log("Không đủ xu!", "system");
+            return;
+          }
+          S.player.xu -= item.buyPrice;
+          Inventory.add(item);
+          UI.log(
+            `Mua: ${item.emoji} ${item.name} (-${item.buyPrice}xu)`,
+            "loot",
+          );
+          this.render();
+        },
+        sell(idx) {
+          const item = S.inventory[idx];
+          if (!item) return;
+          S.player.xu += item.sell || 0;
+          UI.log(
+            `Bán: ${item.emoji} ${item.name} (+${item.sell || 0}xu)`,
+            "loot",
+          );
+          Inventory.remove(idx);
+          this.render();
+        },
+      };
+      const DialogUI = {
+        open(npc) {
+          document.getElementById("dialog-npc-n").textContent = npc.name;
+          document.getElementById("dialog-text").innerHTML = npc.dialog.replace(
+            /\n/g,
+            "<br>",
+          );
+          document.getElementById("dialog-modal").classList.add("open");
+        },
+        close() {
+          document.getElementById("dialog-modal").classList.remove("open");
+        },
+      };
+      const Chest = {
+        open(npc) {
+          if (npc.used) {
+            UI.log("Rương đã trống.", "system");
+            return;
+          }
+          npc.used = true;
+          UI.log("🎁 Mở Rương Kho Báu!", "level");
+          const rewards = [
+            { item: "slo", count: randInt(2, 4) },
+            { item: "smi", count: randInt(1, 2) },
+            { item: "hpd", count: randInt(1, 3) },
+            { item: "mpd", count: randInt(1, 2) },
+          ];
+          for (const r of rewards) {
+            const it = CFG.ITEMS[r.item];
+            if (!it) continue;
+            for (let i = 0; i < r.count; i++) Inventory.add(it);
+            UI.log(`  + ${it.emoji} ${it.name} x${r.count}`, "loot");
+          }
+          const xu = randInt(50, 150);
+          S.player.xu += xu;
+          UI.log(`  + 💰 ${xu} Xu`, "loot");
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §12 · RENDER
+      // ════════════════════════════════════════════════════════════
+      const TC = {
+        [T.GRASS]: ["#2a5a28", "#3a7a38"],
+        [T.STONE]: ["#5a5a68", "#7a7a88"],
+        [T.WATER]: ["#1a3a6a", "#2a5a9a"],
+        [T.WALL]: ["#181010", "#2a1818"],
+        [T.FLOOR]: ["#3a3020", "#4a4028"],
+        [T.TREE]: ["#141a10", "#2a3818"],
+        [T.MTN]: ["#404050", "#606070"],
+        [T.PLAZA]: ["#4a4030", "#5a5040"],
+      };
+      const Render = {
+        frame() {
+          const p = S.player;
+          if (!p) return;
+          S.cam.x = lerp(S.cam.x, p.px - cW / 2, 0.18);
+          S.cam.y = lerp(S.cam.y, p.py - cH / 2, 0.18);
+          S.cam.x = Math.max(0, Math.min(S.mapW * CFG.TS - cW, S.cam.x));
+          S.cam.y = Math.max(0, Math.min(S.mapH * CFG.TS - cH, S.cam.y));
+          const cx = S.cam.x,
+            cy = S.cam.y;
+          ctx.clearRect(0, 0, cW, cH);
+          const ts = CFG.TS,
+            tx0 = Math.max(0, Math.floor(cx / ts)),
+            ty0 = Math.max(0, Math.floor(cy / ts));
+          const tx1 = Math.min(S.mapW - 1, tx0 + Math.ceil(cW / ts) + 1),
+            ty1 = Math.min(S.mapH - 1, ty0 + Math.ceil(cH / ts) + 1);
+          for (let ty = ty0; ty <= ty1; ty++)
+            for (let tx = tx0; tx <= tx1; tx++)
+              Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy);
+          for (const portal of S.portals)
+            if (portal.label) Render.portal(portal, cx, cy);
+          for (const npc of S.npcs) Render.npc(npc, cx, cy);
+          // Other players (co-op)
+          for (const [, op] of otherPlayers)
+            if (op.mapId === S.mapId) Render.otherPlayer(op, cx, cy);
+          for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
+          const tint = p.root ? p.root.color : "#4488cc";
+          Render.player(p.px - cx, p.py - cy, tint);
+          ctx.fillStyle = tint;
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(p.name, p.px - cx, p.py - cy - 32);
+          for (const fx of S.atkFx) {
+            ctx.strokeStyle = `rgba(255,200,60,${fx.life / 14})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(fx.px - cx, fx.py - cy, fx.r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        },
+        tile(t, sx, sy) {
+          const c = TC[t] || ["#333", "#444"];
+          ctx.fillStyle = c[0];
+          ctx.fillRect(sx, sy, CFG.TS, CFG.TS);
+          ctx.fillStyle = c[1];
+          const ts = CFG.TS;
+          if (t === T.GRASS) {
+            ctx.fillRect(sx + 4, sy + 5, 2, 6);
+            ctx.fillRect(sx + 10, sy + 7, 2, 5);
+            ctx.fillRect(sx + 18, sy + 4, 2, 6);
+            ctx.fillRect(sx + 26, sy + 8, 2, 4);
+            ctx.fillRect(sx + 22, sy + 19, 2, 5);
+            ctx.fillRect(sx + 8, sy + 21, 2, 4);
+          } else if (t === T.WATER) {
+            ctx.fillRect(sx + 2, sy + 7, 28, 3);
+            ctx.fillRect(sx + 5, sy + 17, 22, 3);
+            ctx.fillStyle = "#3a7acc";
+            ctx.fillRect(sx, sy + 12, ts, 3);
+          } else if (t === T.WALL) {
+            ctx.fillRect(sx, sy, ts, 4);
+            ctx.fillRect(sx + 8, sy + 4, 3, 10);
+            ctx.fillRect(sx + 22, sy + 4, 3, 10);
+            ctx.fillRect(sx, sy + 17, 8, ts - 17);
+            ctx.fillRect(sx + 16, sy + 17, ts - 16, ts - 17);
+            ctx.fillStyle = "#3a2828";
+            ctx.fillRect(sx, sy, ts, 2);
+          } else if (t === T.FLOOR || t === T.PLAZA) {
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(sx, sy, ts, 1);
+            ctx.fillRect(sx, sy, 1, ts);
+            ctx.fillRect(sx + 16, sy + 16, ts - 16, 1);
+            ctx.fillRect(sx + 16, sy + 16, 1, ts - 16);
+            ctx.globalAlpha = 1;
+          } else if (t === T.TREE) {
+            ctx.fillStyle = "#1a1208";
+            ctx.fillRect(sx + 13, sy + 20, 6, 12);
+            ctx.fillStyle = "#1e4a18";
+            ctx.fillRect(sx + 6, sy + 8, 20, 16);
+            ctx.fillRect(sx + 10, sy + 2, 12, 10);
+            ctx.fillStyle = "#2a6820";
+            ctx.fillRect(sx + 8, sy + 10, 5, 4);
+          } else if (t === T.MTN) {
+            ctx.fillStyle = "#505060";
+            ctx.fillRect(sx + 2, sy + 18, 28, 14);
+            ctx.fillStyle = "#686878";
+            for (let i = 0; i < 14; i++)
+              ctx.fillRect(
+                sx + 7 + i,
+                sy + 18 - Math.min(i, 13 - i) * 1.5,
+                2,
+                Math.min(i, 13 - i) * 1.5 + 3,
+              );
+            ctx.fillStyle = "#dde8ff";
+            ctx.fillRect(sx + 12, sy + 5, 8, 5);
+          } else if (t === T.STONE) {
+            ctx.fillRect(sx + 3, sy + 8, 10, 8);
+            ctx.fillRect(sx + 18, sy + 14, 8, 7);
+          }
+        },
+        otherPlayer(op, cx, cy) {
+          const sx = Math.floor(op.px - cx),
+            sy = Math.floor(op.py - cy);
+          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+          // Simple other player sprite
+          ctx.fillStyle = "rgba(0,0,0,.25)";
+          ctx.fillRect(sx - 8, sy + 8, 16, 4);
+          ctx.fillStyle = "#2a4880";
+          ctx.fillRect(sx - 6, sy - 10, 12, 18);
+          ctx.fillStyle = "#3a68b0";
+          ctx.fillRect(sx - 5, sy - 9, 10, 16);
+          ctx.fillStyle = "#e8c080";
+          ctx.fillRect(sx - 4, sy - 20, 8, 9);
+          ctx.fillStyle = "#1a1010";
+          ctx.fillRect(sx - 3, sy - 15, 2, 2);
+          ctx.fillRect(sx + 1, sy - 15, 2, 2);
+          // Name above
+          ctx.fillStyle = "#88bbff";
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(op.username || "?", sx, sy - 25);
+          // Realm badge
+          ctx.fillStyle = "rgba(0,0,0,.5)";
+          const rn = CFG.REALMS[Math.min(op.realm || 0, 11)];
+          const rw = ctx.measureText(rn).width + 6;
+          ctx.fillRect(sx - rw / 2, sy - 35, rw, 11);
+          ctx.fillStyle = "#88bbff";
+          ctx.font = "8px monospace";
+          ctx.fillText(rn, sx, sy - 26);
+        },
+        player(sx, sy, tint) {
+          const x = Math.floor(sx - 9),
+            y = Math.floor(sy - 28);
+          ctx.fillStyle = "rgba(0,0,0,.3)";
+          ctx.fillRect(x + 1, y + 26, 18, 4);
+          ctx.fillStyle = "#1a2848";
+          ctx.fillRect(x + 3, y + 12, 14, 16);
+          ctx.fillStyle = "#22366a";
+          ctx.fillRect(x + 4, y + 13, 12, 13);
+          ctx.fillStyle = tint;
+          ctx.fillRect(x + 3, y + 12, 14, 2);
+          ctx.fillRect(x + 3, y + 12, 2, 16);
+          ctx.fillRect(x + 15, y + 12, 2, 16);
+          ctx.fillStyle = "#e8c080";
+          ctx.fillRect(x + 5, y + 3, 10, 8);
+          ctx.fillStyle = "#221408";
+          ctx.fillRect(x + 5, y + 3, 10, 4);
+          ctx.fillRect(x + 4, y + 1, 3, 3);
+          ctx.fillRect(x + 13, y + 2, 3, 3);
+          ctx.fillStyle = tint;
+          ctx.fillRect(x + 6, y + 0, 8, 3);
+          ctx.fillStyle = "#1a1010";
+          ctx.fillRect(x + 6, y + 7, 2, 2);
+          ctx.fillRect(x + 11, y + 7, 2, 2);
+          ctx.fillStyle = "rgba(255,255,255,.7)";
+          ctx.fillRect(x + 7, y + 7, 1, 1);
+          ctx.fillRect(x + 12, y + 7, 1, 1);
+          ctx.fillStyle = "#101828";
+          if (S.animF) {
+            ctx.fillRect(x + 4, y + 24, 5, 8);
+            ctx.fillRect(x + 11, y + 28, 5, 4);
+          } else {
+            ctx.fillRect(x + 4, y + 24, 5, 8);
+            ctx.fillRect(x + 11, y + 24, 5, 8);
+          }
+          ctx.fillStyle = "#c8c8d0";
+          ctx.fillRect(x + 18, y + 8, 2, 16);
+          ctx.fillStyle = "#7a5018";
+          ctx.fillRect(x + 17, y + 16, 5, 4);
+          ctx.fillStyle = tint;
+          ctx.fillRect(x + 18, y + 8, 2, 5);
+        },
+        monster(m, cx, cy) {
+          const sx = m.px - cx,
+            sy = m.py - cy;
+          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+          const tmpl = CFG.MONSTERS[m.ti];
+          const c = tmpl.color;
+          const x = Math.floor(sx - 14),
+            y = Math.floor(sy - 22);
+          const ti = m.ti;
+          ctx.fillStyle = "rgba(0,0,0,.25)";
+          ctx.fillRect(x + 2, y + 22, 24, 4);
+          if (ti === 0) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 2, y + 8, 22, 12);
+            ctx.fillRect(x + 4, y + 4, 9, 7);
+            ctx.fillRect(x + 2, y + 20, 5, 8);
+            ctx.fillRect(x + 10, y + 20, 5, 8);
+            ctx.fillRect(x + 19, y + 20, 5, 6);
+            ctx.fillStyle = "#aa1111";
+            ctx.fillRect(x + 5, y + 7, 3, 2);
+            ctx.fillStyle = "#111";
+            ctx.fillRect(x + 6, y + 6, 2, 2);
+            ctx.fillRect(x + 10, y + 6, 2, 2);
+          } else if (ti === 1) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 4, y + 8, 18, 12);
+            ctx.fillRect(x + 6, y + 2, 10, 8);
+            ctx.fillRect(x + 2, y + 0, 4, 5);
+            ctx.fillRect(x + 20, y + 0, 4, 5);
+            ctx.fillRect(x + 4, y + 20, 5, 8);
+            ctx.fillRect(x + 17, y + 20, 5, 8);
+            ctx.fillStyle = "#ffeedd";
+            ctx.fillRect(x + 9, y + 4, 6, 4);
+            ctx.fillStyle = "#111";
+            ctx.fillRect(x + 10, y + 5, 2, 2);
+            ctx.fillRect(x + 14, y + 5, 2, 2);
+          } else if (ti === 2) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 2, y + 8, 24, 14);
+            ctx.fillRect(x + 4, y + 4, 10, 7);
+            ctx.fillRect(x + 2, y + 22, 6, 6);
+            ctx.fillRect(x + 18, y + 22, 6, 6);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(x + 2, y + 14, 3, 3);
+            ctx.fillStyle = "#111";
+            ctx.fillRect(x + 6, y + 7, 2, 2);
+            ctx.fillRect(x + 11, y + 7, 2, 2);
+          } else if (ti === 3) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 6, y + 4, 16, 10);
+            ctx.fillRect(x + 4, y + 10, 20, 14);
+            ctx.fillRect(x + 10, y + 0, 8, 6);
+            ctx.fillStyle = "#ffd700";
+            ctx.fillRect(x + 11, y + 1, 3, 2);
+            ctx.fillRect(x + 16, y + 1, 3, 2);
+            ctx.fillStyle = "#111";
+            ctx.fillRect(x + 12, y + 2, 2, 2);
+            ctx.fillRect(x + 16, y + 2, 2, 2);
+          } else if (ti === 4) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 3, y + 6, 22, 18);
+            ctx.fillRect(x + 6, y + 2, 16, 7);
+            ctx.fillRect(x + 0, y + 12, 5, 10);
+            ctx.fillRect(x + 23, y + 12, 5, 10);
+            ctx.fillStyle = "#7a7a8a";
+            ctx.fillRect(x + 8, y + 8, 6, 5);
+            ctx.fillRect(x + 16, y + 8, 6, 5);
+            ctx.fillStyle = "#ff2200";
+            ctx.fillRect(x + 9, y + 9, 4, 3);
+            ctx.fillRect(x + 17, y + 9, 4, 3);
+          } else if (ti === 5) {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 4, y + 6, 20, 18);
+            ctx.fillRect(x + 7, y + 0, 14, 8);
+            ctx.fillRect(x + 3, y + 22, 6, 8);
+            ctx.fillRect(x + 18, y + 22, 6, 8);
+            ctx.fillStyle = "#ff3333";
+            ctx.fillRect(x + 8, y + 3, 4, 3);
+            ctx.fillRect(x + 16, y + 3, 4, 3);
+            ctx.fillStyle = "#cc2222";
+            ctx.fillRect(x + 4, y + 6, 20, 3);
+          } else {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + 2, y + 6, 24, 14);
+            ctx.fillRect(x + 5, y + 2, 12, 7);
+            ctx.fillRect(x + 2, y + 20, 7, 8);
+            ctx.fillRect(x + 18, y + 20, 7, 8);
+            ctx.fillStyle = "#3344aa";
+            ctx.fillRect(x + 6, y + 4, 3, 3);
+            ctx.fillRect(x + 13, y + 4, 3, 3);
+            ctx.fillStyle = `rgba(100,120,255,${0.3 + 0.1 * Math.sin(S.animT * 0.005)})`;
+            ctx.fillRect(x, y + 4, 28, 18);
+          }
+          if (m.hp < m.maxHp) {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(sx - 14, sy - 34, 28, 5);
+            ctx.fillStyle = "#cc2222";
+            ctx.fillRect(
+              sx - 14,
+              sy - 34,
+              Math.floor((28 * m.hp) / m.maxHp),
+              5,
+            );
+          }
+          if (m.state === "chase") {
+            ctx.fillStyle = "#ff4444";
+            ctx.beginPath();
+            ctx.arc(sx, sy - 38, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = "#ffaa44";
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(tmpl.name, sx, sy - 38);
+        },
+        npc(npc, cx, cy) {
+          const sx = Math.floor(npc.px - cx),
+            sy = Math.floor(npc.py - cy);
+          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+          const col = npc.color || "#88aacc";
+          if (npc.type === "chest") {
+            if (npc.used) {
+              ctx.fillStyle = "#3a2810";
+              ctx.fillRect(sx - 10, sy - 8, 20, 14);
+              ctx.fillStyle = "#5a4020";
+              ctx.fillRect(sx - 8, sy - 6, 16, 10);
+              ctx.fillStyle = "#88aa88";
+              ctx.font = "8px monospace";
+              ctx.textAlign = "center";
+              ctx.fillText("(trống)", sx, sy + 12);
+              return;
+            }
+            ctx.fillStyle = "#5a3010";
+            ctx.fillRect(sx - 12, sy - 10, 24, 16);
+            ctx.fillStyle = "#8a5020";
+            ctx.fillRect(sx - 10, sy - 8, 20, 12);
+            ctx.fillStyle = "#c8a84b";
+            ctx.fillRect(sx - 12, sy - 10, 24, 4);
+            ctx.fillRect(sx - 2, sy - 10, 4, 4);
+            const aa = 0.3 + 0.2 * Math.sin(S.animT * 0.003);
+            ctx.fillStyle = `rgba(200,168,75,${aa})`;
+            ctx.fillRect(sx - 14, sy - 12, 28, 20);
+            ctx.fillStyle = "#ffdd44";
+            ctx.font = "9px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(npc.name, sx, sy - 16);
+            return;
+          }
+          ctx.fillStyle = "rgba(0,0,0,.25)";
+          ctx.fillRect(sx - 7, sy + 8, 14, 4);
+          ctx.fillStyle = col;
+          ctx.fillRect(sx - 6, sy - 10, 12, 20);
+          ctx.fillStyle = "#ffffff22";
+          ctx.fillRect(sx - 5, sy - 9, 10, 18);
+          ctx.fillStyle = "#e8c080";
+          ctx.fillRect(sx - 5, sy - 20, 10, 9);
+          ctx.fillStyle = "#221408";
+          ctx.fillRect(sx - 5, sy - 20, 10, 4);
+          ctx.fillStyle = "#111";
+          ctx.fillRect(sx - 3, sy - 15, 2, 2);
+          ctx.fillRect(sx + 1, sy - 15, 2, 2);
+          ctx.fillStyle = "rgba(0,0,0,.6)";
+          const nw = ctx.measureText(npc.name).width + 8;
+          ctx.fillRect(sx - nw / 2, sy - 30, nw, 12);
+          ctx.fillStyle = col;
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(npc.name, sx, sy - 21);
+          if (dist(S.player.px, S.player.py, npc.px, npc.py) < CFG.TS * 1.6) {
+            ctx.fillStyle = "rgba(200,168,75,.9)";
+            ctx.font = "9px monospace";
+            ctx.fillText("[F]", sx, sy - 38);
+          }
+        },
+        portal(portal, cx, cy) {
+          const sx = portal.tx * CFG.TS + CFG.TS / 2 - cx,
+            sy = portal.ty * CFG.TS + CFG.TS / 2 - cy;
+          if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
+          const a = S.animT * 0.002;
+          const grad = ctx.createRadialGradient(sx, sy, 4, sx, sy, 20);
+          grad.addColorStop(0, `rgba(100,180,255,${0.4 + 0.2 * Math.sin(a)})`);
+          grad.addColorStop(1, "rgba(100,180,255,0)");
+          ctx.fillStyle = grad;
+          ctx.fillRect(sx - 22, sy - 22, 44, 44);
+          ctx.strokeStyle = `rgba(120,200,255,${0.6 + 0.3 * Math.sin(a)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 14, 0, Math.PI * 2);
+          ctx.stroke();
+          if (portal.label) {
+            ctx.fillStyle = "rgba(0,0,0,.7)";
+            const lw = ctx.measureText(portal.label).width + 10;
+            ctx.fillRect(sx - lw / 2, sy - 36, lw, 13);
+            ctx.fillStyle = "#88ddff";
+            ctx.font = "9px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(portal.label, sx, sy - 26);
+          }
+        },
+        floatDmg(wx, wy, offY, text, color) {
+          const area = document
+            .getElementById("canvas-area")
+            .getBoundingClientRect();
+          const sx = wx - S.cam.x + area.left,
+            sy = wy - S.cam.y + offY + area.top;
+          const d = document.createElement("div");
+          d.className = "dmg-float";
+          d.textContent = text;
+          d.style.cssText = `left:${sx}px;top:${sy}px;color:${color}`;
+          document.body.appendChild(d);
+          setTimeout(() => d.remove(), 900);
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §13 · UI
+      // ════════════════════════════════════════════════════════════
+      const UI = {
+        update() {
+          if (!S.player) return;
+          const p = S.player;
+          document.getElementById("ui-name").textContent = p.name;
+          const st = document.getElementById("ui-spirit-tag");
+          st.textContent = `${p.root.emoji} ${p.root.name} ${p.root.gradeName}`;
+          st.style.color = p.root.color;
+          document.getElementById("ui-realm").textContent =
+            CFG.REALMS[Math.min(p.realm, CFG.REALMS.length - 1)];
+          document.getElementById("ui-stage").textContent = `Tầng ${p.stage}`;
+          document.getElementById("ui-cp").textContent = (
+            (p.stats.str + p.stats.agi + p.stats.vit + p.stats.int) * 5 +
+            p.realm * 200 +
+            p.stage * 20 +
+            100
+          ).toLocaleString();
+          const hp = Math.floor(p.hp);
+          document.getElementById("ui-hp").textContent = `${hp}/${p.maxHp}`;
+          document.getElementById("b-hp").style.width =
+            Math.floor((hp / p.maxHp) * 100) + "%";
+          const mp = Math.floor(p.mp);
+          document.getElementById("ui-mp").textContent = `${mp}/${p.maxMp}`;
+          document.getElementById("b-mp").style.width =
+            Math.floor((mp / p.maxMp) * 100) + "%";
+          document.getElementById("ui-tu").textContent =
+            `${Math.floor(p.tuExp)}/${Math.floor(p.tuNeeded)}`;
+          document.getElementById("b-tu").style.width =
+            Math.min(100, Math.floor((p.tuExp / p.tuNeeded) * 100)) + "%";
+          document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
+          const s = p.stats;
+          document.getElementById("r-str").textContent = s.str;
+          document.getElementById("r-agi").textContent = s.agi;
+          document.getElementById("r-vit").textContent = s.vit;
+          document.getElementById("r-int").textContent = s.int;
+          document.getElementById("r-patk").textContent = Combat.pAtk();
+          document.getElementById("r-matk").textContent = 5 + s.int * 3;
+          document.getElementById("r-def").textContent = Combat.pDef();
+          document.getElementById("r-spd").textContent =
+            3 + Math.floor(s.agi * 0.5);
+          document.getElementById("r-eva").textContent =
+            Math.floor(s.agi * 0.3) + "%";
+          document.getElementById("inv-head").textContent =
+            `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
+        },
+        log(msg, cls = "") {
+          const area = document.getElementById("log-area");
+          const p = document.createElement("p");
+          p.className = "lc lc-" + cls;
+          const t = new Date().toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+          p.textContent = `[${t}] ${msg}`;
+          area.appendChild(p);
+          area.scrollTop = area.scrollHeight;
+          while (area.children.length > 150) area.removeChild(area.firstChild);
+        },
+        buildInv() {
+          const grid = document.getElementById("inv-grid");
+          grid.innerHTML = "";
+          for (let i = 0; i < CFG.INV_MAX; i++) {
+            const sl = document.createElement("div");
+            sl.className = "isl";
+            const item = S.inventory[i];
+            if (item) {
+              sl.textContent = item.emoji;
+              if (item.count > 1) {
+                const cnt = document.createElement("span");
+                cnt.className = "icnt";
+                cnt.textContent = item.count;
+                sl.appendChild(cnt);
+              }
+              sl.onclick = () => Inventory.use(i);
+              sl.onmouseenter = (e) => UI.showTip(e, item);
+              sl.onmouseleave = UI.hideTip;
+            }
+            grid.appendChild(sl);
+          }
+        },
+        showTip(e, item) {
+          const tip = document.getElementById("tip");
+          document.getElementById("tip-name").textContent =
+            item.emoji + " " + item.name;
+          document.getElementById("tip-type").textContent =
+            item.type === "stone"
+              ? "Linh Thạch"
+              : item.type === "elemstone"
+                ? "Đá Nguyên Tố"
+                : item.type === "mat"
+                  ? "Nguyên Liệu"
+                  : item.type === "consume"
+                    ? "Đan Dược"
+                    : "Vật Phẩm";
+          document.getElementById("tip-body").innerHTML =
+            `${item.desc || ""}<br><span style="color:var(--text2)">Bán: ${item.sell || 0} xu</span>`;
+          tip.style.display = "block";
+          tip.style.left = e.clientX + 14 + "px";
+          tip.style.top = e.clientY - 10 + "px";
+        },
+        hideTip() {
+          document.getElementById("tip").style.display = "none";
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §14 · INPUT
+      // ════════════════════════════════════════════════════════════
+      const Input = {
+        keys: {},
+        _lastMoveEmit: 0,
+        init() {
+          window.addEventListener("keydown", (e) => {
+            Input.keys[e.code] = true;
+            if (
+              [
+                "ArrowUp",
+                "ArrowDown",
+                "ArrowLeft",
+                "ArrowRight",
+                "Space",
+              ].includes(e.code)
+            )
+              e.preventDefault();
+            if (e.code === "KeyF") World.checkNpcInteract();
+            if (e.code === "Escape") {
+              Shop.close();
+              DialogUI.close();
+            }
+            if (e.code === "Enter") {
+              const ci = document.getElementById("chat-inp");
+              ci.focus();
+            }
+          });
+          window.addEventListener("keyup", (e) => (Input.keys[e.code] = false));
+          document
+            .getElementById("game-canvas")
+            .addEventListener("click", Input.onClick);
+          document
+            .getElementById("chat-inp")
+            .addEventListener("keydown", (e) => {
+              if (e.code === "Enter") {
+                Net.sendChat();
+                e.preventDefault();
+              }
+            });
+        },
+        onClick(e) {
+          if (document.getElementById("shop-modal").classList.contains("open"))
+            return;
+          if (
+            document.getElementById("dialog-modal").classList.contains("open")
+          )
+            return;
+          const r = canvas.getBoundingClientRect();
+          const wx = e.clientX - r.left + S.cam.x,
+            wy = e.clientY - r.top + S.cam.y;
+          for (const m of S.monsters)
+            if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
+              Combat.attack(m);
+              return;
+            }
+          for (const npc of S.npcs)
+            if (dist(npc.px, npc.py, wx, wy) < 26) {
+              if (npc.type === "shop") Shop.open(npc);
+              else if (npc.type === "chest") Chest.open(npc);
+              else DialogUI.open(npc);
+              return;
+            }
+        },
+      };
+
+      // ════════════════════════════════════════════════════════════
+      // §15 · GAME LOOP
+      // ════════════════════════════════════════════════════════════
+      function update(dt) {
+        const p = S.player;
+        if (!p) return;
+        S.animT += dt;
+        if (S.animT > 240) {
+          S.animF ^= 1;
+          S.animT = 0;
+        }
+        if (S.atkCd > 0) S.atkCd -= dt / 16;
+        for (let i = S.atkFx.length - 1; i >= 0; i--) {
+          S.atkFx[i].life -= dt / 16;
+          S.atkFx[i].r += 0.8;
+          if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
+        }
+        const modalOpen =
+          document.getElementById("shop-modal").classList.contains("open") ||
+          document.getElementById("dialog-modal").classList.contains("open");
+        if (!modalOpen) {
+          let dx = 0,
+            dy = 0;
+          if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
+          if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
+          if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
+          if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
+          if (dx || dy) {
+            S.moveTimer += dt;
+            if (S.moveTimer > 115) {
+              S.moveTimer = 0;
+              const nx = p.x + dx,
+                ny = p.y + dy;
+              if (!isSolid(nx, ny)) {
+                p.x = nx;
+                p.y = ny;
+                Net.emitMove();
+              }
+            }
+          } else S.moveTimer = 0;
+          p.px = lerp(p.px, p.x * CFG.TS + CFG.TS / 2, 0.28);
+          p.py = lerp(p.py, p.y * CFG.TS + CFG.TS / 2, 0.28);
+          if (Input.keys["Space"] && S.atkCd <= 0) {
+            let best = null,
+              bd = 5 * CFG.TS;
+            for (const m of S.monsters)
+              if (!m.dead) {
+                const d = dist(m.px, m.py, p.px, p.py);
+                if (d < bd) {
+                  bd = d;
+                  best = m;
+                }
+              }
+            if (best) Combat.attack(best);
+          }
+          if (S.autoFight && S.atkCd <= 0) {
+            let best = null,
+              bd = 4.5 * CFG.TS;
+            for (const m of S.monsters)
+              if (!m.dead) {
+                const d = dist(m.px, m.py, p.px, p.py);
+                if (d < bd) {
+                  bd = d;
+                  best = m;
+                }
+              }
+            if (best) Combat.attack(best);
+          }
+          if (
+            dist(
+              p.px,
+              p.py,
+              p.x * CFG.TS + CFG.TS / 2,
+              p.y * CFG.TS + CFG.TS / 2,
+            ) < 4
+          )
+            World.checkPortals();
+        }
+        for (const m of S.monsters) Monster.update(m, dt);
+        p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
+        p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
+        UI.update();
+      }
+      function loop(ts) {
+        const dt = Math.min(ts - S.lastTs, 50);
+        S.lastTs = ts;
+        update(dt);
+        Render.frame();
+        requestAnimationFrame(loop);
+      }
+
+      // ════════════════════════════════════════════════════════════
+      // §16 · CHARACTER CREATE
+      // ════════════════════════════════════════════════════════════
+      let cRoot = null;
+      const cPts = { str: 5, agi: 5, vit: 5, int: 5, remaining: 20 };
+      function rollRoot() {
+        const r = CFG.ROOTS[Math.floor(Math.random() * CFG.ROOTS.length)];
+        const gi = Math.floor(Math.random() * 3);
+        cRoot = { ...r, grade: gi, gradeName: CFG.GRADE_NAMES[gi] };
+        const orb = document.getElementById("spirit-orb");
+        orb.textContent = r.emoji;
+        orb.style.background = r.bg;
+        orb.style.color = r.color;
+        orb.style.borderColor = r.color;
+        orb.style.boxShadow = `0 0 14px ${r.color}66`;
+        document.getElementById("spirit-name").textContent =
+          r.name + " Linh Căn";
+        document.getElementById("spirit-name").style.color = r.color;
+        document.getElementById("spirit-grade").textContent =
+          "品階: " +
+          CFG.GRADE_NAMES[gi] +
+          (gi === 2 ? " ★★★" : gi === 1 ? " ★★" : " ★");
+      }
+      function adj(s, d) {
+        const nv = cPts[s] + d;
+        if (nv < 1) return;
+        const nr = cPts.remaining - d;
+        if (nr < 0) return;
+        cPts[s] = nv;
+        cPts.remaining = nr;
+        document.getElementById("cs-" + s).textContent = nv;
+        document.getElementById("pts-left").textContent = nr;
+      }
+
+      async function createCharacter() {
+        const name = document.getElementById("inp-charname").value.trim();
+        if (!name) {
+          alert("Hãy nhập pháp danh!");
+          return;
+        }
+        if (!cRoot) rollRoot();
+        const { str, agi, vit, int: int_ } = cPts;
+        S.player = {
+          name,
+          root: cRoot,
+          realm: 0,
+          stage: 1,
+          stats: { str, agi, vit, int: int_ },
+          hp: 100 + vit * 10,
+          maxHp: 100 + vit * 10,
+          mp: 50 + int_ * 8,
+          maxMp: 50 + int_ * 8,
+          xu: 50,
+          tuExp: 0,
+          tuNeeded: 0,
+          x: 26,
+          y: 30,
+          px: 26 * CFG.TS + CFG.TS / 2,
+          py: 30 * CFG.TS + CFG.TS / 2,
+        };
+        S.player.tuNeeded = Cultivation.calcTuNeeded(0, 1);
+        // Save new character to server
+        await Net.saveNow();
+        enterGame(
+          "wilderness",
+          MAPS.wilderness.playerStart.x,
+          MAPS.wilderness.playerStart.y,
+        );
+      }
+
+      function enterGame(mapId, x, y) {
+        showScreen("game");
+        canvas = document.getElementById("game-canvas");
+        const area = document.getElementById("canvas-area");
+        cW = area.clientWidth;
+        cH = area.clientHeight;
+        canvas.width = cW;
+        canvas.height = cH;
+        ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        window.addEventListener("resize", () => {
+          cW = area.clientWidth;
+          cH = area.clientHeight;
+          canvas.width = cW;
+          canvas.height = cH;
+          ctx.imageSmoothingEnabled = false;
+        });
+        Input.init();
+        World.loadMap(mapId, x, y);
+        UI.buildInv();
+        UI.update();
+        UI.log("Tu tiên hành trình bắt đầu...", "system");
+        UI.log(
+          "💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.",
+          "system",
+        );
+        UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
+        Net.connectSocket();
+        Net.startAutoSave();
+        requestAnimationFrame((ts) => {
+          S.lastTs = ts;
+          requestAnimationFrame(loop);
+        });
+      }
+
+      function toggleAuto() {
+        S.autoFight = !S.autoFight;
+        document
+          .getElementById("btn-auto")
+          .classList.toggle("active", S.autoFight);
+        UI.log(
+          S.autoFight ? "⚔ Tự động đánh: BẬT" : "⚔ Tự động đánh: TẮT",
+          "system",
+        );
+      }
+
+      // ════════════════════════════════════════════════════════════
+      // §17 · SCREEN MANAGEMENT
+      // ════════════════════════════════════════════════════════════
+      function showScreen(name) {
+        document.getElementById("screen-auth").classList.add("hidden");
+        document.getElementById("screen-create").classList.add("hidden");
+        document.getElementById("screen-game").style.display = "none";
+        if (name === "auth")
+          document.getElementById("screen-auth").classList.remove("hidden");
+        else if (name === "create")
+          document.getElementById("screen-create").classList.remove("hidden");
+        else if (name === "game")
+          document.getElementById("screen-game").style.display = "grid";
+      }
+
+      // ════════════════════════════════════════════════════════════
+      // §18 · BOOT
+      // ════════════════════════════════════════════════════════════
+      rollRoot();
+      (async () => {
+        // Try auto-login with saved token
+        const ok = await Auth.tryAutoLogin().catch(() => false);
+        if (!ok) showScreen("auth");
+        // Check server health (show offline note if down)
+        try {
+          const r = await fetch(API.BASE + "/api/health", {
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!r.ok) throw new Error();
+          document.getElementById("auth-status").textContent =
+            "✓ Máy chủ đang hoạt động";
+        } catch {
+          document.getElementById("auth-status").textContent =
+            "⚠ Máy chủ offline — Chơi Offline mode";
+        }
+      })();
+    </script>
+  </body>
+</html>
