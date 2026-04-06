@@ -15,7 +15,9 @@ const router = express.Router();
 // ── Register ──────────────────────────────────────────────────────
 router.post("/register", async (req, res) => {
   try {
+    debugger;
     const { username, password } = req.body;
+    console.log("register: ", req.body);
 
     // if (!username || !password)
     //   return res.status(400).json({ error: "Thiếu username hoặc password" });
@@ -23,12 +25,11 @@ router.post("/register", async (req, res) => {
     //   return res.status(400).json({ error: "Username 3-20 ký tự" });
     // if (password.length < 6)
     //   return res.status(400).json({ error: "Password tối thiểu 6 ký tự" });
-    // if (UserDB.findByUsername(username))
-    //   return res.status(409).json({ error: "Username đã tồn tại" });
+    if (UserDB.findByUsername(username))
+      return res.status(409).json({ error: "Username đã tồn tại" });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const id = `u_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const user = UserDB.create({ id, username, passwordHash });
+    const user = await UserDB.create({ username, passwordHash });
 
     const token = signToken(user.id, user.username);
     res.status(201).json({
@@ -52,7 +53,7 @@ router.post("/login", async (req, res) => {
     if (!user)
       return res.status(401).json({ error: "Sai username hoặc password" });
 
-    const match = await bcrypt.compare(password, user.passwordHash);
+    const match = await bcrypt.compare(password, user.password);
     if (!match)
       return res.status(401).json({ error: "Sai username hoặc password" });
 
