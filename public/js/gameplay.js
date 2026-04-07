@@ -93,7 +93,7 @@ const Input = {
       .addEventListener("click", Input.onClick);
     document.getElementById("chat-inp").addEventListener("keydown", (e) => {
       if (e.code === "Enter") {
-        Net.sendChat();
+        // Net.sendChat();
         e.preventDefault();
       }
     });
@@ -104,14 +104,14 @@ const Input = {
     if (document.getElementById("dialog-modal").classList.contains("open"))
       return;
     const r = canvas.getBoundingClientRect();
-    const wx = e.clientX - r.left + S.cam.x,
-      wy = e.clientY - r.top + S.cam.y;
-    for (const m of S.monsters)
+    const wx = e.clientX - r.left + GamePlay.cam.x,
+      wy = e.clientY - r.top + GamePlay.cam.y;
+    for (const m of GamePlay.map.monsters || [])
       if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
         Combat.attack(m);
         return;
       }
-    for (const npc of S.npcs)
+    for (const npc of GamePlay.map.npcs)
       if (dist(npc.px, npc.py, wx, wy) < 26) {
         if (npc.type === "shop") Shop.open(npc);
         else if (npc.type === "chest") Chest.open(npc);
@@ -121,23 +121,6 @@ const Input = {
   },
 };
 function setupCanvas() {
-  //   cv = document.getElementById("gc");
-  //   mmCv = document.getElementById("mmc");
-  //   const area = document.getElementById("ca");
-  //   cW = area.clientWidth;
-  //   cH = area.clientHeight;
-  //   cv.width = cW;
-  //   cv.height = cH;
-  //   cx = cv.getContext("2d");
-  //   cx.imageSmoothingEnabled = false;
-  //   mmCx = mmCv.getContext("2d");
-  //   window.addEventListener("resize", () => {
-  //     cW = area.clientWidth;
-  //     cH = area.clientHeight;
-  //     cv.width = cW;
-  //     cv.height = cH;
-  //     cx.imageSmoothingEnabled = false;
-  //   });
   canvas = document.getElementById("game-canvas");
   const area = document.getElementById("canvas-area");
   cW = area.clientWidth;
@@ -181,65 +164,6 @@ function update(dt) {
 
   if (PLAYER.attackCD > 0) PLAYER.attackCD -= dt / 16;
 
-  //   const modalOpen =
-  //     document.getElementById("shop-modal").classList.contains("open") ||
-  //     document.getElementById("dialog-modal").classList.contains("open");
-  //   if (!modalOpen) {
-  //     let dx = 0,
-  //       dy = 0;
-  //     if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
-  //     if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
-  //     if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
-  //     if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
-  //     if (dx || dy) {
-  //       S.moveTimer += dt;
-  //       if (S.moveTimer > 115) {
-  //         S.moveTimer = 0;
-  //         const nx = p.x + dx,
-  //           ny = p.y + dy;
-  //         if (!isSolid(nx, ny)) {
-  //           p.x = nx;
-  //           p.y = ny;
-  //           Net.emitMove();
-  //         }
-  //       }
-  //     } else S.moveTimer = 0;
-  //     p.px = lerp(p.px, p.x * CFG.TS + CFG.TS / 2, 0.28);
-  //     p.py = lerp(p.py, p.y * CFG.TS + CFG.TS / 2, 0.28);
-  //     if (Input.keys["Space"] && S.atkCd <= 0) {
-  //       let best = null,
-  //         bd = 5 * CFG.TS;
-  //       for (const m of S.monsters)
-  //         if (!m.dead) {
-  //           const d = dist(m.px, m.py, p.px, p.py);
-  //           if (d < bd) {
-  //             bd = d;
-  //             best = m;
-  //           }
-  //         }
-  //       if (best) Combat.attack(best);
-  //     }
-  //     if (S.autoFight && S.atkCd <= 0) {
-  //       let best = null,
-  //         bd = 4.5 * CFG.TS;
-  //       for (const m of S.monsters)
-  //         if (!m.dead) {
-  //           const d = dist(m.px, m.py, p.px, p.py);
-  //           if (d < bd) {
-  //             bd = d;
-  //             best = m;
-  //           }
-  //         }
-  //       if (best) Combat.attack(best);
-  //     }
-  //     if (
-  //       dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4
-  //     )
-  //       World.checkPortals();
-  //   }
-  //   for (const m of S.monsters) Monster.update(m, dt);
-  //   p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
-  //   p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
   UI.update();
 }
 function loop(ts) {

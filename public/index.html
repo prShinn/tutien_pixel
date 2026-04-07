@@ -349,24 +349,49 @@
       </div>
     </div>
 
-    <!-- ========================== -->
-    <div id="ca">
-      <canvas id="gc"></canvas>
-      <div id="mno"></div>
-      <div id="notif-stack"></div>
-      <div id="mm">
-        <canvas id="mmc" width="108" height="78"></canvas>
-        <div id="mml">—</div>
+    <!-- ======================== -->
+    <!-- SHOP -->
+    <div id="shop-modal">
+      <div class="modal-box" style="width: 540px">
+        <div class="modal-header">
+          <span class="modal-title" id="shop-title">🏪 Cửa Hàng</span>
+          <span class="modal-xu">💰 <em id="shop-xu">0</em> xu</span>
+          <button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
+        </div>
+        <div class="shop-cols" style="height: 280px">
+          <div class="shop-col" id="shop-buy-list">
+            <div class="shop-col-head">MUA VẬT PHẨM</div>
+          </div>
+          <div class="shop-col" id="shop-sell-list">
+            <div class="shop-col-head">BÁN VẬT PHẨM</div>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="canvas-area">
-      <canvas id="game-canvas"></canvas>
-      <div id="map-name-overlay"></div>
-      <div id="conn-badge" class="offline">● Offline</div>
+
+    <!-- DIALOG -->
+    <div id="dialog-modal">
+      <div class="modal-box" style="width: 420px">
+        <div class="modal-header">
+          <span class="modal-title" id="dialog-npc-n">NPC</span>
+          <button class="modal-close-btn" onclick="DialogUI.close()">✕</button>
+        </div>
+        <div id="dialog-text"></div>
+        <div class="dialog-close-wrap">
+          <button class="sbtn" onclick="DialogUI.close()">Đóng [Esc]</button>
+        </div>
+      </div>
     </div>
 
-    <!-- ======================== -->
+    <div id="tip">
+      <div class="tip-name" id="tip-name"></div>
+      <div class="tip-type" id="tip-type"></div>
+      <div id="tip-body"></div>
+    </div>
 
+    <script>
+      "use strict";
+    </script>
     <script src="./js/render.js"></script>
     <script src="./js/player.js"></script>
     <script src="./js/gameplay.js"></script>
