@@ -6,15 +6,7 @@ const API = {
   SOCKET_URL: "http://localhost:3000", // ← socket URL (thường cùng server)
   AUTO_SAVE_MS: 30_000, // auto-save mỗi 30 giây
 };
-const Auth = {
-  async get(path) {
-    const res = await fetch(API.BASE + path, {
-      headers: { Authorization: "Bearer " + authToken },
-    });
-    return res.json();
-  },
-};
-const Maps = {
+const ApiService = {
   async get(path) {
     const res = await fetch(API.BASE + path, {
       headers: { Authorization: "Bearer " + authToken },
