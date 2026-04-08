@@ -1,399 +1,65 @@
 <!doctype html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-    <link rel="stylesheet" href="./css/fonts.css" />
-    <link rel="stylesheet" href="./css/style.css" />
+    <script src="./js/map.js"></script>
+    <script src="./js/render.js"></script>
   </head>
   <body>
-    <script src="./js/auth.js"></script>
-    <script src="./js/api_service.js"></script>
-    <script src="./js/map.js"></script>
-    <!-- ========================== -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-    <!-- ══════════════════════════════════════ SCREEN: AUTH -->
-    <div class="screen" id="screen-auth">
-      <div class="stars"></div>
-      <div class="title-main">⚔ TU TIÊN · VẠN CỔ ĐẾ TÔN</div>
-      <div class="title-sub">
-        Vạn năm tu luyện · Đăng đỉnh Đại Đế · Vượt qua Vô Thượng Thiên Đạo
-      </div>
-      <div class="card" style="width: 380px">
-        <div class="auth-tabs">
-          <div
-            class="auth-tab active"
-            id="tab-login"
-            onclick="showTab('login')"
-          >
-            ĐĂNG NHẬP
-          </div>
-          <div class="auth-tab" id="tab-reg" onclick="showTab('register')">
-            ĐĂNG KÝ
-          </div>
-        </div>
-        <div class="err-msg" id="auth-err"></div>
-        <div class="field-group">
-          <div class="field-label">TÀI KHOẢN</div>
-          <input
-            class="inp"
-            id="inp-user"
-            placeholder="Username..."
-            maxlength="20"
-            autocomplete="username"
-          />
-        </div>
-        <div class="field-group">
-          <div class="field-label">MẬT KHẨU</div>
-          <input
-            class="inp"
-            id="inp-pass"
-            type="password"
-            placeholder="Password..."
-            autocomplete="current-password"
-          />
-        </div>
-        <button class="big-btn" id="auth-btn" onclick="submit()">
-          ĐĂNG NHẬP
-        </button>
-        <div class="alt-link" id="auth-alt">
-          Chưa có tài khoản?
-          <a onclick="showTab('register')">Đăng ký ngay</a>
-        </div>
-        <div class="status-line" id="auth-status">
-          <!-- Server status / offline notice -->
-        </div>
-      </div>
-      <!-- Offline/demo mode -->
-      <!-- <div style="margin-top: 14px">
-        <button
-          class="sbtn"
-          onclick="Auth.playOffline()"
-          style="
-            font-size: 11px;
-            padding: 6px 16px;
-            border-color: var(--border2);
-          "
-        >
-          ⚡ Chơi thử không cần đăng nhập (Offline)
-        </button>
-      </div> -->
+    <div id="canvas-area">
+      <canvas id="game-canvas"></canvas>
+      <div id="map-name-overlay"></div>
+      <div id="conn-badge" class="offline">● Offline</div>
     </div>
-
-    <!-- ══════════════════════════════════════ SCREEN: GAME -->
-    <div id="screen-game">
-      <div class="gpanel" id="panel-left">
-        <div class="phead">✦ NHÂN VẬT</div>
-        <div class="pbody">
-          <div class="char-name-disp">
-            <div class="cname" id="ui-name">—</div>
-            <div class="cspirit" id="ui-spirit-tag">—</div>
-          </div>
-          <div class="realm-box">
-            <div class="rname" id="ui-realm">Luyện Thể</div>
-            <div class="rstage" id="ui-stage">Tầng 1</div>
-          </div>
-          <div class="cp-box">
-            CHIẾN LỰC<br /><span class="cpval" id="ui-cp">0</span>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #cc4444">❤ HP</span
-              ><span id="ui-hp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-hp" id="b-hp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #4466cc">✦ MP</span
-              ><span id="ui-mp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-mp" id="b-mp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #9944cc">☯ Tu Vi</span
-              ><span id="ui-tu">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-tu" id="b-tu" style="width: 0%"></div>
-            </div>
-          </div>
-          <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
-          <div class="online-badge" id="online-badge">● Offline</div>
-          <!-- Online players mini list -->
-          <div
-            class="sec-title"
-            style="font-size: 9px; margin-top: 10px; margin-bottom: 4px"
-          >
-            ✦ ĐANG ONLINE
-          </div>
-          <div class="online-list" id="online-list">
-            <div style="color: var(--text2); font-size: 10px">
-              Chưa kết nối...
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="canvas-area">
-        <canvas id="game-canvas"></canvas>
-        <div id="map-name-overlay"></div>
-        <div id="conn-badge" class="offline">● Offline</div>
-      </div>
-
-      <div class="gpanel" id="panel-right">
-        <div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
-        <div class="pbody">
-          <div class="stat-line">
-            <span class="slbl">⚔ Sức Mạnh</span
-            ><span class="sv" id="r-str">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Nhanh Nhẹn</span
-            ><span class="sv" id="r-agi">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Thể Lực</span
-            ><span class="sv" id="r-vit">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🧠 Trí Tuệ</span
-            ><span class="sv" id="r-int">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">⚡ Vật Lý ATK</span
-            ><span class="sv" id="r-patk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🔮 Pháp ATK</span
-            ><span class="sv" id="r-matk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Phòng Thủ</span
-            ><span class="sv" id="r-def">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Tốc Độ</span
-            ><span class="sv" id="r-spd">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🎯 Tránh Né</span
-            ><span class="sv" id="r-eva">0%</span>
-          </div>
-          <div class="equip-section">
-            <div class="sec-title" style="font-size: 9px; margin-bottom: 4px">
-              ✦ TRANG BỊ
-            </div>
-            <div class="equip-grid">
-              <div class="esl">
-                <div class="eicon">⚔</div>
-                Vũ Khí
-              </div>
-              <div class="esl">
-                <div class="eicon">🪖</div>
-                Mũ
-              </div>
-              <div class="esl">
-                <div class="eicon">🥋</div>
-                Giáp
-              </div>
-              <div class="esl">
-                <div class="eicon">👖</div>
-                Quần
-              </div>
-              <div class="esl">
-                <div class="eicon">👟</div>
-                Giày
-              </div>
-              <div class="esl">
-                <div class="eicon">💍</div>
-                Nhẫn
-              </div>
-              <div class="esl">
-                <div class="eicon">📿</div>
-                Vòng
-              </div>
-              <div class="esl">
-                <div class="eicon">🔗</div>
-                Đai
-              </div>
-              <div class="esl">
-                <div class="eicon">💎</div>
-                Linh Thạch
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-bottom">
-        <div id="log-wrap">
-          <div class="phead">✦ NHẬT KÝ &amp; CHAT</div>
-          <div id="log-area"></div>
-          <div id="chat-bar">
-            <input
-              class="inp"
-              id="chat-inp"
-              placeholder="Chat với người chơi khác (Enter)..."
-              maxlength="100"
-            />
-            <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
-          </div>
-        </div>
-        <div id="actions-wrap">
-          <div class="phead" style="margin: -6px -6px 5px; padding: 4px 7px">
-            ✦ THAO TÁC
-          </div>
-          <button class="act-btn" onclick="Cultivation.absorbStone()">
-            🔮 Hấp Thu Linh Thạch
-          </button>
-          <button class="act-btn" onclick="Cultivation.tryBreakthrough()">
-            ⬆ Phá Cảnh Giới
-          </button>
-          <button class="act-btn" id="btn-auto" onclick="toggleAuto()">
-            ⚔ Tự Động Đánh
-          </button>
-          <button class="act-btn" onclick="Net.saveNow()">
-            💾 Lưu Thủ Công
-          </button>
-          <button class="act-btn danger" onclick="Auth.logout()">
-            🚪 Đăng Xuất
-          </button>
-          <div class="keys-hint">
-            WASD/↑↓←→ Di chuyển<br />
-            Space: Đánh gần nhất<br />
-            F: Tương tác NPC<br />
-            Enter: Chat
-          </div>
-        </div>
-        <div id="inv-wrap">
-          <div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
-          <div id="inv-grid"></div>
-        </div>
-      </div>
-    </div>
-    <!-- ========================== -->
-
-    <div class="screen hidden" id="screen-create">
-      <div class="stars"></div>
-      <div class="title-main">✦ TẠO NHÂN VẬT</div>
-      <div class="title-sub">
-        Chọn linh căn · Phân bổ thuộc tính · Bắt đầu tu luyện
-      </div>
-      <div class="card" style="width: 510px">
-        <div class="field-group">
-          <div class="sec-title">✦ PHÁP DANH</div>
-          <input
-            class="inp"
-            id="inp-charname"
-            placeholder="Nhập pháp danh tu sĩ..."
-            maxlength="16"
-          />
-        </div>
-        <div class="field-group">
-          <div class="sec-title">✦ LINH CĂN THIÊN PHÚ</div>
-          <div class="spirit-box">
-            <div class="spirit-info">
-              <div id="spirit-name">Chưa xác định</div>
-              <div id="spirit-grade">
-                Bấm nút để xác định thiên phú linh căn
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="field-group">
-          <div class="sec-title">✦ PHÂN BỔ THUỘC TÍNH (20 điểm)</div>
-          <div class="points-display">
-            Điểm còn lại: <em id="pts-left">20</em>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-row">
-              <span class="stat-icon">⚔</span
-              ><span class="stat-lbl">Sức Mạnh</span>
-              <div class="adj-btn" onclick="adj('str', -1)">−</div>
-              <span class="stat-num" id="cs-str">5</span>
-              <div class="adj-btn" onclick="adj('str', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">💨</span
-              ><span class="stat-lbl">Nhanh Nhẹn</span>
-              <div class="adj-btn" onclick="adj('agi', -1)">−</div>
-              <span class="stat-num" id="cs-agi">5</span>
-              <div class="adj-btn" onclick="adj('agi', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">🛡</span
-              ><span class="stat-lbl">Thể Lực</span>
-              <div class="adj-btn" onclick="adj('vit', -1)">−</div>
-              <span class="stat-num" id="cs-vit">5</span>
-              <div class="adj-btn" onclick="adj('vit', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">🧠</span
-              ><span class="stat-lbl">Trí Tuệ</span>
-              <div class="adj-btn" onclick="adj('int', -1)">−</div>
-              <span class="stat-num" id="cs-int">5</span>
-              <div class="adj-btn" onclick="adj('int', 1)">+</div>
-            </div>
-          </div>
-        </div>
-        <button class="big-btn" onclick="createCharacter()">
-          ⚔ KHAI THỦY TU TIÊN ⚔
-        </button>
-      </div>
-    </div>
-
-    <!-- ======================== -->
-    <!-- SHOP -->
-    <div id="shop-modal">
-      <div class="modal-box" style="width: 540px">
-        <div class="modal-header">
-          <span class="modal-title" id="shop-title">🏪 Cửa Hàng</span>
-          <span class="modal-xu">💰 <em id="shop-xu">0</em> xu</span>
-          <button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
-        </div>
-        <div class="shop-cols" style="height: 280px">
-          <div class="shop-col" id="shop-buy-list">
-            <div class="shop-col-head">MUA VẬT PHẨM</div>
-          </div>
-          <div class="shop-col" id="shop-sell-list">
-            <div class="shop-col-head">BÁN VẬT PHẨM</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DIALOG -->
-    <div id="dialog-modal">
-      <div class="modal-box" style="width: 420px">
-        <div class="modal-header">
-          <span class="modal-title" id="dialog-npc-n">NPC</span>
-          <button class="modal-close-btn" onclick="DialogUI.close()">✕</button>
-        </div>
-        <div id="dialog-text"></div>
-        <div class="dialog-close-wrap">
-          <button class="sbtn" onclick="DialogUI.close()">Đóng [Esc]</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="tip">
-      <div class="tip-name" id="tip-name"></div>
-      <div class="tip-type" id="tip-type"></div>
-      <div id="tip-body"></div>
-    </div>
-
     <script>
-      "use strict";
+      var socket = io("http://localhost:3000");
+      var canvas = document.getElementById("game-canvas");
+      const userId = 1;
+
+      let lastSendTime = 0;
+      let player = { x: 0, y: 0 };
+
+      var authToken = localStorage.getItem("tu_tien_token");
+      // Spawn player
+      // emit -> gọi event join trong socket
+      socket.emit("join", { userId, authToken });
+
+      socket.on("spawn", (res) => {
+        player = res.player;
+        console.log("player va map: ", res);
+        if (res.map) {
+          drawMap(canvas, res.map.jsonMap, 32);
+        }
+        render();
+      });
+
+      // Receive others move
+      // on-> bắt sự kiện playermove;
+      socket.on("player_move", (p) => {
+        // ignore your own
+      });
+
+      // Move with arrow keys
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "w") player.y -= 5;
+        if (e.key === "s") player.y += 5;
+        if (e.key === "a") player.x -= 5;
+        if (e.key === "d") player.x += 5;
+        render();
+        const now = Date.now();
+        if (now - lastSendTime < 500) return; // 500ms throttle
+        lastSendTime = now;
+        // socket.emit("move", { x: player.x, y: player.y });
+      });
+
+      // Draw
+      function render() {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, 600, 400);
+        ctx.fillStyle = "yellow";
+        ctx.fillRect(player.x, player.y, 20, 20);
+      }
     </script>
-    <script src="./js/render.js"></script>
-    <script src="./js/player.js"></script>
-    <script src="./js/gameplay.js"></script>
   </body>
 </html>

@@ -7,10 +7,11 @@ const API = {
   AUTO_SAVE_MS: 30_000, // auto-save mỗi 30 giây
 };
 const ApiService = {
-  async get(path) {
+  async get(path, authToken) {
     const res = await fetch(API.BASE + path, {
       headers: { Authorization: "Bearer " + authToken },
     });
     return res.json();
   },
 };
+module.exports = { ApiService };

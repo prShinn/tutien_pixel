@@ -185,10 +185,8 @@ function showScreen(name) {
     document.getElementById("screen-game").style.display = "grid";
 }
 showScreen("auth");
-loadMap();
 function startGame() {
   showScreen("game");
-  loadMap();
   setupCanvas();
 
   Input.init();
@@ -206,3 +204,4 @@ function startGame() {
   });
 }
 // startGame();
+console.log("gameplay");

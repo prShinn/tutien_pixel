@@ -1,4 +1,4 @@
-let authToken = localStorage.getItem("tu_tien_token");
+
 _mode = "login";
 function _err(msg) {
   const el = document.getElementById("auth-err");
@@ -37,7 +37,7 @@ async function submit() {
 
     authToken = data.token;
     currentUser = data.user;
-    // localStorage.setItem("tu_tien_token", authToken);
+    localStorage.setItem("tu_tien_token", authToken);
     if (authToken && currentUser.username) _afterLogin();
   } catch {
     _err("Không thể kết nối máy chủ. Thử chơi offline?");
