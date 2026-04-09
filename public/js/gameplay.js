@@ -1,185 +1,238 @@
-let ctx, canvas, cv;
 const GameState = {
+  ATK_CD: 40,
+  TS: 32,
+  animT: 0,
+  animF: 0,
+  atkFx: [],
+  cam: { x: 0, y: 0 },
+};
+let cv, ctx, mmCv, mmCx, cW, cH;
+const T = {
+  GRASS: 0,
+  STONE: 1,
+  WATER: 2,
+  WALL: 3,
+  FLOOR: 4,
+  TREE: 5,
+  MTN: 6,
+  PLAZA: 7,
+};
 
+const TC = {
+  [T.GRASS]: ["#2a5a28", "#3a7a38"],
+  [T.STONE]: ["#5a5a68", "#7a7a88"],
+  [T.WATER]: ["#1a3a6a", "#2a5a9a"],
+  [T.WALL]: ["#181010", "#2a1818"],
+  [T.FLOOR]: ["#3a3020", "#4a4028"],
+  [T.TREE]: ["#141a10", "#2a3818"],
+  [T.MTN]: ["#404050", "#606070"],
+  [T.PLAZA]: ["#4a4030", "#5a5040"],
+};
+const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
+const otherPlayers = new Map();
+function isSolid(tx, ty) {
+  if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
+  return SOLID.has(S.tiles[ty][tx]);
 }
-const Shop = {
-	open(npc) {
-		document.getElementById("shop-title").textContent = `🏪 ${npc.name}`;
-		this.render();
-		document.getElementById("shop-modal").classList.add("open");
-	},
-	close() {
-		document.getElementById("shop-modal").classList.remove("open");
-	},
-	render() {
-		document.getElementById("shop-xu").textContent = S.player.xu.toLocaleString();
-		const buy = document.getElementById("shop-buy-list");
-		buy.innerHTML = '<div class="shop-col-head">MUA VẬT PHẨM</div>';
-		for (const id of CFG.SHOP_SELL) {
-			const item = CFG.ITEMS[id];
-			if (!item || !item.buyPrice) continue;
-			const div = document.createElement("div");
-			div.className = "shop-item";
-			div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
-			const btn = document.createElement("button");
-			btn.className = "sbtn";
-			btn.textContent = "Mua";
-			btn.onclick = () => Shop.buy(id);
-			div.appendChild(btn);
-			buy.appendChild(div);
-		}
-		const sell = document.getElementById("shop-sell-list");
-		sell.innerHTML = '<div class="shop-col-head">BÁN VẬT PHẨM</div>';
-		if (!S.inventory.length)
-			sell.innerHTML +=
-				'<div style="color:var(--text2);font-size:11px;padding:8px">Túi đồ trống</div>';
-		S.inventory.forEach((item, idx) => {
-			const div = document.createElement("div");
-			div.className = "shop-item";
-			div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
-			const btn = document.createElement("button");
-			btn.className = "sbtn ssell";
-			btn.textContent = "Bán";
-			btn.onclick = () => {
-				Shop.sell(idx);
-			};
-			div.appendChild(btn);
-			sell.appendChild(div);
-		});
-	},
-};
-const DialogUI = {
-	open(npc) {
-		document.getElementById("dialog-npc-n").textContent = npc.name;
-		document.getElementById("dialog-text").innerHTML = npc.dialog.replace(/\n/g, "<br>");
-		document.getElementById("dialog-modal").classList.add("open");
-	},
-	close() {
-		document.getElementById("dialog-modal").classList.remove("open");
-	},
-};
-const Input = {
-	keys: {},
-	_lastMoveEmit: 0,
-	init() {
-		window.addEventListener("keydown", (e) => {
-			Input.keys[e.code] = true;
-			if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code))
-				e.preventDefault();
-			if (e.code === "KeyF") World.checkNpcInteract();
-			if (e.code === "Escape") {
-				Shop.close();
-				DialogUI.close();
-			}
-			if (e.code === "Enter") {
-				const ci = document.getElementById("chat-inp");
-				ci.focus();
-			}
-		});
-		window.addEventListener("keyup", (e) => (Input.keys[e.code] = false));
-		document.getElementById("game-canvas").addEventListener("click", Input.onClick);
-		document.getElementById("chat-inp").addEventListener("keydown", (e) => {
-			if (e.code === "Enter") {
-				// Net.sendChat();
-				e.preventDefault();
-			}
-		});
-	},
-	onClick(e) {
-		if (document.getElementById("shop-modal").classList.contains("open")) return;
-		if (document.getElementById("dialog-modal").classList.contains("open")) return;
-		const r = canvas.getBoundingClientRect();
-		const wx = e.clientX - r.left + GamePlay.cam.x,
-			wy = e.clientY - r.top + GamePlay.cam.y;
-		for (const m of GamePlay.map.monsters || [])
-			if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
-				Combat.attack(m);
-				return;
-			}
-		for (const npc of GamePlay.map.npcs)
-			if (dist(npc.px, npc.py, wx, wy) < 26) {
-				if (npc.type === "shop") Shop.open(npc);
-				else if (npc.type === "chest") Chest.open(npc);
-				else DialogUI.open(npc);
-				return;
-			}
-	},
-};
-function setupCanvas() {
-	canvas = document.getElementById("game-canvas");
-	const area = document.getElementById("canvas-area");
-	cW = area.clientWidth;
-	cH = area.clientHeight;
-	canvas.width = cW;
-	canvas.height = cH;
-	ctx = canvas.getContext("2d");
-	ctx.imageSmoothingEnabled = false;
-	window.addEventListener("resize", () => {
-		cW = area.clientWidth;
-		cH = area.clientHeight;
-		canvas.width = cW;
-		canvas.height = cH;
-		ctx.imageSmoothingEnabled = false;
-	});
+function findOpen(z) {
+  for (let i = 0; i < 25; i++) {
+    const tx = z.x + ri(0, z.w - 1),
+      ty = z.y + ri(0, z.h - 1);
+    if (!isSolid(tx, ty)) return { tx, ty };
+  }
+  return null;
 }
-function randInt(a, b) {
-	return a + Math.floor(Math.random() * (b - a + 1));
+function ri(a, b) {
+  return a + Math.floor(Math.random() * (b - a + 1));
 }
 function lerp(a, b, t) {
-	return a + (b - a) * t;
+  return a + (b - a) * t;
 }
 function dist(ax, ay, bx, by) {
-	return Math.hypot(ax - bx, ay - by);
+  return Math.hypot(ax - bx, ay - by);
 }
-function showTab(mode) {
-	document.getElementById("tab-login").className =
-		"auth-tab" + (mode === "login" ? " active" : "");
-	document.getElementById("tab-reg").className =
-		"auth-tab" + (mode === "register" ? " active" : "");
-	document.getElementById("auth-btn").textContent = mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
-	document.getElementById("auth-alt").innerHTML =
-		mode === "login"
-			? "Chưa có tài khoản? <a onclick=\"showTab('register')\">Đăng ký ngay</a>"
-			: "Đã có tài khoản? <a onclick=\"showTab('login')\">Đăng nhập</a>";
+function showToast(msg, dur = 1800) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), dur);
+}
+function logSystem(msg, cls = "lc") {
+  const area = document.getElementById("la");
+  if (!area) return;
+  const p = document.createElement("p");
+  p.className = "lc " + cls;
+  const t = new Date().toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  p.textContent = `[${t}] ${msg}`;
+  area.appendChild(p);
+  area.scrollTop = area.scrollHeight;
+  while (area.children.length > 150) area.removeChild(area.firstChild);
 }
 function update(dt) {
-	const p = PLAYER;
-	if (!p) return;
+  const p = GameState.player;
+  if (!p) return;
+  GameState.animT += dt;
+  if (GameState.animT > 240) {
+    GameState.animF ^= 1;
+    GameState.animT = 0;
+  }
+  if (GameState.atkCd > 0) GameState.atkCd -= dt / 16;
 
-	if (PLAYER.attackCD > 0) PLAYER.attackCD -= dt / 16;
+  // Attack FX cleanup
+  for (let i = GameState.atkFx.length - 1; i >= 0; i--) {
+    GameState.atkFx[i].life -= dt / 16;
+    GameState.atkFx[i].r += 0.8;
+    if (GameState.atkFx[i].life <= 0) GameState.atkFx.splice(i, 1);
+  }
 
-	UI.update();
-}
-function loop(ts) {
-	const dt = Math.min(ts - GamePlay.lastTs, 50);
-	GamePlay.lastTs = ts;
-	update(dt);
-	Render.frame();
-	requestAnimationFrame(loop);
-}
-function showScreen(name) {
-	document.getElementById("screen-auth").classList.add("hidden");
-	document.getElementById("screen-create").classList.add("hidden");
-	document.getElementById("screen-game").style.display = "none";
-	if (name === "auth") document.getElementById("screen-auth").classList.remove("hidden");
-	else if (name === "create") document.getElementById("screen-create").classList.remove("hidden");
-	else if (name === "game") document.getElementById("screen-game").style.display = "grid";
-}
-showScreen("auth");
-function startGame() {
-	showScreen("game");
-	setupCanvas();
+  // Module ticks
+  //   SkillMod.tick(dt);
+  //   PetMod.tick(dt);
+  //   StatusFX.tickPlayer(dt);
 
-	Input.init();
-	UI.buildInv();
-	UI.update();
-	UI.log("Tu tiên hành trình bắt đầu...", "system");
-	UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "system");
-	UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
-	requestAnimationFrame((ts) => {
-		GamePlay.lastTs = ts;
-		requestAnimationFrame(loop);
-	});
+  //   // Auto-save
+  //   GameState._autoSaveTimer += dt;
+  //   if (GameState._autoSaveTimer > CFG.AUTO_SAVE_MS) {
+  //     GameState._autoSaveTimer = 0;
+  //     // SaveLoad.save(selSlot, S);
+  //     // showToast("💾 Auto-save", 800);
+  //   }
+
+  // Meditation
+  //   if (GameState.meditating) p.tuExp += CFG.MEDITATE_TU * (dt / 16);
+
+  // Combo decay
+  //   if (GameState.comboCd > 0) {
+  //     GameState.comboCd -= dt / 16;
+  //     if (GameState.comboCd <= 0) {
+  //       GameState.combo = 0;
+  //       const el = document.getElementById("combo-cnt");
+  //       if (el) {
+  //         el.textContent = "0";
+  //         el.style.color = "var(--gold)";
+  //       }
+  //       document.getElementById("combo-fill").style.width = "0%";
+  //     }
+  //   }
+
+  const modal = document.querySelector(".mo.open");
+  if (!modal) {
+    // const slow = StatusFX.getSlowMult();
+    const slow = 3;
+    let dx = 0,
+      dy = 0;
+    if (keys["KeyA"] || keys["ArrowLeft"]) dx = -1;
+    if (keys["KeyD"] || keys["ArrowRight"]) dx = 1;
+    if (keys["KeyW"] || keys["ArrowUp"]) dy = -1;
+    if (keys["KeyS"] || keys["ArrowDown"]) dy = 1;
+    if (dx || dy) {
+      //   if (GameState.meditating) G.toggleAuto("med");
+      mvTimer += dt;
+      if (mvTimer > 110 / slow) {
+        mvTimer = 0;
+        const nx = p.x + dx,
+          ny = p.y + dy;
+        if (!isSolid(nx, ny)) {
+          p.x = nx;
+          p.y = ny;
+          GameState._mmDirty = true;
+        }
+      }
+    } else mvTimer = 0;
+    p.px = lerp(p.px, p.x * GameState.TS + GameState.TS / 2, 0.3);
+    p.py = lerp(p.py, p.y * GameState.TS + GameState.TS / 2, 0.3);
+
+    // if (keys["Space"] && GameState.atkCd <= 0) {
+    //   const near = monGrid.query(p.px, p.py, 5 * CFG.TS).filter((m) => !m.dead);
+    //   if (near.length) {
+    //     let best = null,
+    //       bd = Infinity;
+    //     for (const m of near) {
+    //       const d = dist(m.px, m.py, p.px, p.py);
+    //       if (d < bd) {
+    //         bd = d;
+    //         best = m;
+    //       }
+    //     }
+    //     if (best) CombatMod.attack(best);
+    //   }
+    // }
+    // if (GameState.autoFight && GameState.atkCd <= 0) {
+    //   const near = monGrid
+    //     .query(p.px, p.py, 4.5 * CFG.TS)
+    //     .filter((m) => !m.dead);
+    //   if (near.length) {
+    //     let best = null,
+    //       bd = Infinity;
+    //     for (const m of near) {
+    //       const d = dist(m.px, m.py, p.px, p.py);
+    //       if (d < bd) {
+    //         bd = d;
+    //         best = m;
+    //       }
+    //     }
+    //     if (best) CombatMod.attack(best);
+    //   }
+    // }
+    if (
+      dist(
+        p.px,
+        p.py,
+        p.x * GameState.TS + GameState.TS / 2,
+        p.y * GameState.TS + GameState.TS / 2,
+      ) < 4
+    )
+      WorldMap.checkPortals();
+  }
+
+  // Update monster positions in grid every 3 frames
+  if (GameState._mmFrame % 3 === 0) {
+    monGrid.clear();
+    for (const m of GameState.monsters) {
+      updateMon(m, dt);
+      if (!m.dead) monGrid.insert(m);
+    }
+  } else {
+    for (const m of GameState.monsters) if (!m.dead) updateMon(m, dt);
+  }
+
+  // Regen
+  p.hp = Math.min(p.maxHp, p.hp + GameState.player.heal_hp * dt);
+  p.mp = Math.min(p.maxMp, p.mp + GameState.player.heal_mp * dt);
+
+  // Minimap — only when dirty
+  //   if (GameState._mmDirty) Render.minimap();
+
+  // Throttled heavy UI updates (every 4 frames)
+  GameState._uiFrame = (GameState._uiFrame + 1) % 4;
+  if (GameState._uiFrame === 0) {
+    GameState._uiDirty = true;
+    UIMod.update();
+    UIMod.updateBars();
+  } else UIMod.updateBars(); // lightweight every frame
+
+  GameState._mmFrame = (GameState._mmFrame + 1) % 60;
 }
-// startGame();
-console.log("gameplay");
+function setupCanvas() {
+  cv = document.getElementById("gc");
+  mmCv = document.getElementById("mmc");
+  const area = document.getElementById("ca");
+  cW = area.clientWidth;
+  cH = area.clientHeight;
+  cv.width = cW;
+  cv.height = cH;
+  ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  mmCx = mmCv.getContext("2d");
+  window.addEventListener("resize", () => {
+    cW = area.clientWidth;
+    cH = area.clientHeight;
+    cv.width = cW;
+    cv.height = cH;
+    ctx.imageSmoothingEnabled = false;
+  });
+}

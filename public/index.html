@@ -1,67 +1,394 @@
 <!doctype html>
 <html>
-	<head>
-		<script src="./js/map.js"></script>
-		<script src="./js/render.js"></script>
-	</head>
-	<body>
-		<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <head>
+    <link rel="stylesheet" href="./css/fonts.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <script src="./js/gameplay.js"></script>
+    <script src="./js/map.js"></script>
+    <script src="./js/render.js"></script>
+    <script src="./js/input.js"></script>
+  </head>
+  <body>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- CREATE -->
+    <div id="sc-create">
+      <div class="stars"></div>
+      <div class="ttl">⚔ TU TIÊN · VẠN CỔ ĐẾ TÔN v6</div>
+      <div class="sub">
+        Crafting · Status Effects · Combo · Dungeon · Optimized
+      </div>
+      <div class="card" style="width: 490px">
+        <div class="sct">✦ LỰA CHỌN FILE LƯU</div>
+        <div class="save-slots" id="save-slots"></div>
+        <div id="load-wrap"></div>
+        <div class="fg">
+          <div class="sct">✦ PHÁP DANH</div>
+          <input
+            class="inp"
+            id="inp-name"
+            placeholder="Nhập pháp danh..."
+            maxlength="16"
+          />
+        </div>
+        <div class="fg">
+          <div class="sct">✦ LINH CĂN THIÊN PHÚ</div>
+          <div class="spirit-box">
+            <div id="spirit-orb">❓</div>
+            <div style="flex: 1">
+              <div id="spirit-nm" style="font-size: 13px; color: var(--gold)">
+                Chưa xác định
+              </div>
+              <div
+                id="spirit-gr"
+                style="font-size: 10px; color: var(--txt2); margin-top: 2px"
+              >
+                Bấm Gieo Quẻ
+              </div>
+            </div>
+            <button class="rbt">🎲 Gieo Quẻ</button>
+          </div>
+        </div>
+        <div class="fg">
+          <div class="sct">✦ PHÂN BỔ THUỘC TÍNH (20 điểm)</div>
+          <div class="pd">Điểm còn lại: <em id="pts-left">20</em></div>
+          <div class="sg">
+            <div class="sr">
+              <span class="si">⚔</span><span class="sl">Sức Mạnh</span>
+              <div class="ab" onclick="adj('str', -1)">−</div>
+              <span class="sn" id="cs-str">5</span>
+              <div class="ab" onclick="adj('str', 1)">+</div>
+            </div>
+            <div class="sr">
+              <span class="si">💨</span><span class="sl">Nhanh Nhẹn</span>
+              <div class="ab" onclick="adj('agi', -1)">−</div>
+              <span class="sn" id="cs-agi">5</span>
+              <div class="ab" onclick="adj('agi', 1)">+</div>
+            </div>
+            <div class="sr">
+              <span class="si">🛡</span><span class="sl">Thể Lực</span>
+              <div class="ab" onclick="adj('vit', -1)">−</div>
+              <span class="sn" id="cs-vit">5</span>
+              <div class="ab" onclick="adj('vit', 1)">+</div>
+            </div>
+            <div class="sr">
+              <span class="si">🧠</span><span class="sl">Trí Tuệ</span>
+              <div class="ab" onclick="adj('int', -1)">−</div>
+              <span class="sn" id="cs-int">5</span>
+              <div class="ab" onclick="adj('int', 1)">+</div>
+            </div>
+          </div>
+        </div>
+        <button class="bb" onclick="G.start()">⚔ KHAI THỦY TU TIÊN ⚔</button>
+      </div>
+    </div>
+    <!-- GAME -->
+    <div id="sc-game">
+      <div class="gp" id="pl">
+        <div class="ph">
+          <span>✦ NHÂN VẬT</span>
+          <div class="ptabs">
+            <div class="ptb on" id="lt-char" onclick="G.ui.lTab('char')">
+              VẬT
+            </div>
+            <div class="ptb" id="lt-pet" onclick="G.ui.lTab('pet')">THÚ</div>
+            <div class="ptb" id="lt-sect" onclick="G.ui.lTab('sect')">MÔN</div>
+          </div>
+        </div>
+        <div class="pb" id="lt-char-b">
+          <div class="cnm" id="ui-name">—</div>
+          <div class="csp" id="ui-sptag">—</div>
+          <div class="rb">
+            <div class="rn" id="ui-realm">Luyện Thể</div>
+            <div class="rs" id="ui-stage">Tầng 1</div>
+          </div>
+          <div class="cpb">
+            CHIẾN LỰC<br /><span class="cv" id="ui-cp">0</span>
+          </div>
+          <div class="bg">
+            <div class="bl">
+              <span style="color: #cc4444">❤ HP</span><span id="ui-hp">—</span>
+            </div>
+            <div class="bt">
+              <div class="bf bhp" id="b-hp" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="bg">
+            <div class="bl">
+              <span style="color: #4466cc">✦ MP</span><span id="ui-mp">—</span>
+            </div>
+            <div class="bt">
+              <div class="bf bmp" id="b-mp" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="bg">
+            <div class="bl">
+              <span style="color: #9944cc">☯ Tu Vi</span
+              ><span id="ui-tu">—</span>
+            </div>
+            <div class="bt">
+              <div class="bf btu" id="b-tu" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="xl">💰 <span id="ui-xu">0</span> Xu</div>
+          <div class="sfx-bar" id="sfx-bar"></div>
+        </div>
+        <div class="pb" id="lt-pet-b" style="display: none">
+          <div class="petc" id="pet-disp">
+            <div style="color: var(--txt2); font-size: 10px">
+              Chưa có Yêu Thú
+            </div>
+          </div>
+          <div
+            style="
+              margin-top: 7px;
+              font-size: 9px;
+              color: var(--gold);
+              letter-spacing: 2px;
+              margin-bottom: 5px;
+            "
+          >
+            ✦ YÊU ĐAN TRONG TÚI
+          </div>
+          <div id="pet-dan" style="font-size: 10px; color: var(--txt2)">
+            Trống
+          </div>
+          <button
+            class="rbt"
+            style="width: 100%; margin-top: 6px"
+            onclick="G.openPetLib()"
+          >
+            📖 Thư Viện Yêu Thú
+          </button>
+        </div>
+        <div class="pb" id="lt-sect-b" style="display: none">
+          <div id="sect-disp"></div>
+          <button
+            class="rbt"
+            style="width: 100%; margin-top: 6px"
+            onclick="G.openSectModal()"
+          >
+            ⚔ Quản Lý Môn Phái
+          </button>
+        </div>
+      </div>
+      <div id="ca">
+        <canvas id="gc"></canvas>
+        <div id="mno"></div>
+        <div id="notif-stack"></div>
+        <div id="mm">
+          <canvas id="mmc" width="108" height="78"></canvas>
+          <div id="mml">—</div>
+        </div>
+        <div id="auto-panel">
+          <div
+            style="
+              font-size: 9px;
+              letter-spacing: 2px;
+              color: var(--gold);
+              margin-bottom: 6px;
+            "
+          >
+            ✦ TỰ ĐỘNG
+          </div>
+          <div class="ap-row">
+            <span class="ap-label">Tự Động Đánh</span>
+            <div
+              class="ap-toggle"
+              id="ap-fight"
+              onclick="G.toggleAuto('fight')"
+            ></div>
+          </div>
+          <div class="ap-row">
+            <span class="ap-label">Tự Động Hấp Thu</span>
+            <div
+              class="ap-toggle"
+              id="ap-absorb"
+              onclick="G.toggleAuto('absorb')"
+            ></div>
+          </div>
+          <div class="ap-row">
+            <span class="ap-label">Tự Động Phá Cảnh</span>
+            <div
+              class="ap-toggle"
+              id="ap-break"
+              onclick="G.toggleAuto('break')"
+            ></div>
+          </div>
+          <div class="ap-row">
+            <span class="ap-label">Tu Luyện (Thiền)</span>
+            <div
+              class="ap-toggle"
+              id="ap-med"
+              onclick="G.toggleAuto('med')"
+            ></div>
+          </div>
+        </div>
+      </div>
+      <div class="gp" id="pr">
+        <div class="ph">
+          <span>✦ CHỈ SỐ</span>
+          <div class="ptabs">
+            <div class="ptb on" id="rt-stat" onclick="G.ui.rTab('stat')">
+              CHỈ SỐ
+            </div>
+            <div class="ptb" id="rt-equip" onclick="G.ui.rTab('equip')">
+              TRANG BỊ
+            </div>
+          </div>
+        </div>
+        <div class="pb" id="rt-stat-b">
+          <div class="stl">
+            <span class="sk">⚔ STR</span><span class="sv" id="r-str">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">💨 AGI</span><span class="sv" id="r-agi">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">🛡 VIT</span><span class="sv" id="r-vit">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">🧠 INT</span><span class="sv" id="r-int">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">⚡ VL ATK</span
+            ><span class="sv" id="r-patk">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">🔮 PH ATK</span
+            ><span class="sv" id="r-matk">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">🛡 DEF</span><span class="sv" id="r-def">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">💨 SPD</span><span class="sv" id="r-spd">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">💥 CRIT</span><span class="sv" id="r-crit">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">🐾 Pet</span><span class="sv" id="r-pet">—</span>
+          </div>
+          <div class="stl">
+            <span class="sk">⚔ Sect</span><span class="sv" id="r-sect">—</span>
+          </div>
+          <div
+            style="
+              margin-top: 7px;
+              font-size: 9px;
+              color: var(--gold);
+              letter-spacing: 2px;
+              margin-bottom: 4px;
+            "
+          >
+            ✦ KỸ NĂNG (click nâng)
+          </div>
+          <div id="sk-lvl-list"></div>
+        </div>
+        <div class="pb" id="rt-equip-b" style="display: none">
+          <div style="font-size: 9px; color: var(--txt2); margin-bottom: 4px">
+            Click slot → Cường Hóa | Double-click túi → Trang Bị
+          </div>
+          <div class="eg" id="equip-grid"></div>
+        </div>
+      </div>
 
-		<div id="canvas-area">
-			<canvas id="game-canvas"></canvas>
-			<div id="map-name-overlay"></div>
-			<div id="conn-badge" class="offline">● Offline</div>
-		</div>
-		<script>
-			var socket = io("http://localhost:3000");
-			var canvas = document.getElementById("game-canvas");
-			const userId = 1;
-			socket.on("reload", () => {
-				location.reload();
-			});
-			let lastSendTime = 0;
-			let player = { x: 0, y: 0 };
+      <div id="skbar">
+        <span class="skl">KỸ NĂNG</span>
+        <div id="sk-slots"></div>
+        <div class="sep"></div>
+        <div id="combo-bar">
+          <span class="combo-count" id="combo-cnt">0</span>
+          <span class="combo-label">HIT<br />COMBO</span>
+          <div class="combo-bar-track">
+            <div class="combo-bar-fill" id="combo-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <button class="qb" onclick="G.ui.toggleAutoPanel()">⚙ Tự Động</button>
+        <button class="qb" id="btn-absorb" onclick="G.cult.absorb()">
+          🔮 Hấp [A]
+        </button>
+        <button class="qb" onclick="G.cult.breakthrough()">⬆ Phá [B]</button>
+        <button class="qb" onclick="G.save()">💾 Lưu [S]</button>
+        <div
+          style="
+            margin-left: auto;
+            font-size: 9px;
+            color: var(--txt2);
+            line-height: 1.6;
+          "
+        >
+          WASD Di chuyển · Space Đánh · F Tương tác<br />
+          1-4 Kỹ năng · A Hấp · B Phá cảnh · S Lưu
+        </div>
+      </div>
 
-			var authToken = localStorage.getItem("tu_tien_token");
-			// Spawn player
-			// emit -> gọi event join trong socket
-			socket.emit("join", { userId, authToken });
+      <div id="pb">
+        <div id="lw">
+          <div class="ph">✦ NHẬT KÝ</div>
+          <div id="la"></div>
+        </div>
+        <div id="iw">
+          <div class="ph" id="inv-head">✦ TÚI ĐỒ (0/48)</div>
+          <div id="ig"></div>
+        </div>
+        <div id="qw">
+          <div class="qt-tabs">
+            <div class="qt-tab on" id="qt-quest" onclick="G.ui.qTab('quest')">
+              NHIỆM VỤ
+            </div>
+            <div class="qt-tab" id="qt-craft" onclick="G.ui.qTab('craft')">
+              CHẾ TẠO
+            </div>
+          </div>
+          <div id="qcontent"></div>
+        </div>
+      </div>
+    </div>
 
-			socket.on("spawn", (res) => {
-				player = res.player;
-				console.log("player va map: ", res);
-				if (res.map) {
-					drawMap(canvas, res.map.jsonMap, 32);
-				}
-				render();
-			});
+    <script>
+      var socket = io("http://localhost:3000");
+      const userId = 1;
+      socket.on("reload", () => {
+        location.reload();
+      });
+      function loop(ts) {
+        const dt = Math.min(ts - GameState.lastTs, 50);
+        GameState.lastTs = ts;
+        update(dt);
+        Render.frame();
+        requestAnimationFrame(loop);
+      }
+      var authToken = localStorage.getItem("tu_tien_token");
+      // Spawn player
+      // emit -> gọi event join trong socket
+      socket.emit("join", { userId, authToken });
 
-			// Receive others move
-			// on-> bắt sự kiện playermove;
-			socket.on("player_move", (p) => {
-				// ignore your own
-			});
+      socket.on("spawn", (res) => {
+        //  res.player
+        //  res.map
+        GameState.player = res.player;
+        if (res.map) {
+          setupCanvas();
+          document.getElementById("sc-game").style.display = "grid";
+          WorldMap.loadMap(res.map, res.player.x, res.player.y);
+          document.getElementById("sc-create").style.display = "none";
+          GameState._uiDirty = true;
+          UIMod.update();
+          requestAnimationFrame((ts) => {
+            GameState.lastTs = ts;
+            requestAnimationFrame(loop);
+          });
+        }
+        // render();
+      });
 
-			// Move with arrow keys
-			document.addEventListener("keydown", (e) => {
-				if (e.key === "w") player.y -= 5;
-				if (e.key === "s") player.y += 5;
-				if (e.key === "a") player.x -= 5;
-				if (e.key === "d") player.x += 5;
-				render();
-				const now = Date.now();
-				if (now - lastSendTime < 500) return; // 500ms throttle
-				lastSendTime = now;
-				// socket.emit("move", { x: player.x, y: player.y });
-			});
-
-			// Draw
-			function render() {
-				const ctx = canvas.getContext("2d");
-				ctx.clearRect(0, 0, 600, 400);
-				ctx.fillStyle = "yellow";
-				ctx.fillRect(player.x, player.y, 20, 20);
-			}
-		</script>
-	</body>
+      // Receive others move
+      // on-> bắt sự kiện playermove;
+      socket.on("player_move", (p) => {
+        // ignore your own
+      });
+    </script>
+  </body>
 </html>
