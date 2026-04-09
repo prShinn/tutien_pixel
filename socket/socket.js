@@ -167,73 +167,74 @@
 // module.exports = { setupSocket };
 
 const { ApiService } = require("./api-service.js");
+const fs = require("fs");
 module.exports.setupSocket = (io) => {
-  io.on("connection", (socket) => {
-    console.log("connect", new Date());
+	io.on("connection", (socket) => {
+		console.log("connect", new Date());
+		fs.watch("public", () => {
+			socket.emit("reload");
+		});
 
-    // Player join world
-    socket.on("join", async (data) => {
-      const { userId, token } = data; // Giả sử token lấy từ client gửi lên
+		// Player join world
+		socket.on("join", async (data) => {
+			const { userId, token } = data; // Giả sử token lấy từ client gửi lên
 
-      // 1) Load thông tin Player
-      const resPlayer = await ApiService.get(`player/${userId}`, token);
+			// 1) Load thông tin Player
+			const resPlayer = await ApiService.get(`player/${userId}`, token);
 
-      // KIỂM TRA: Nếu resPlayer hoặc resPlayer.data bị null
-      if (!resPlayer || !resPlayer.data) {
-        console.error(`Không tìm thấy Player với ID: player/${userId}`);
-        socket.emit("error_message", {
-          message: "Dữ liệu người chơi không hợp lệ",
-        });
-        return; // Dừng hàm tại đây, không chạy xuống phần mapCode nữa
-      }
+			// KIỂM TRA: Nếu resPlayer hoặc resPlayer.data bị null
+			if (!resPlayer || !resPlayer.data) {
+				console.error(`Không tìm thấy Player với ID: player/${userId}`);
+				socket.emit("error_message", {
+					message: "Dữ liệu người chơi không hợp lệ",
+				});
+				return; // Dừng hàm tại đây, không chạy xuống phần mapCode nữa
+			}
 
-      const player = resPlayer.data;
+			const player = resPlayer.data;
 
-      // 2) Load map tương ứng (Lúc này chắc chắn player đã tồn tại)
+			// 2) Load map tương ứng (Lúc này chắc chắn player đã tồn tại)
 
-      const resMap = await ApiService.get(
-        `worlds/by-code?code=${player.mapCode}`,
-        token,
-      );
+			const resMap = await ApiService.get(`worlds/by-code?code=${player.mapCode}`, token);
 
-      if (!resMap) {
-        console.error(`Không tìm thấy Map với Code: ${player.mapCode}`);
-        return;
-      }
+			if (!resMap) {
+				console.error(`Không tìm thấy Map với Code: ${player.mapCode}`);
+				return;
+			}
 
-      const map = resMap.data;
+			const map = resMap.data;
 
-      // 3) Lưu vào socket và emit
-      socket.player = player;
-      socket.map = map;
-      socket.emit("spawn", { player, map });
-      socket.broadcast.emit("player_join", player);
-    });
+			// 3) Lưu vào socket và emit
+			socket.player = player;
+			socket.map = map;
+			socket.emit("spawn", { player, map });
+			socket.broadcast.emit("player_join", player);
+		});
 
-    // Player move
-    socket.on("move", async ({ x, y }) => {
-      if (!socket.player) return;
+		// Player move
+		socket.on("move", async ({ x, y }) => {
+			if (!socket.player) return;
 
-      socket.player.x = x;
-      socket.player.y = y;
+			socket.player.x = x;
+			socket.player.y = y;
 
-      // Update MySQL via Spring Boot
-      await axios.post("http://localhost:8090/api/player/pos", {
-        userId: socket.player.userId,
-        x,
-        y,
-      });
+			// Update MySQL via Spring Boot
+			await axios.post("http://localhost:8090/api/player/pos", {
+				userId: socket.player.userId,
+				x,
+				y,
+			});
 
-      socket.broadcast.emit("player_move", {
-        id: socket.player.userId,
-        x,
-        y,
-      });
-    });
+			socket.broadcast.emit("player_move", {
+				id: socket.player.userId,
+				x,
+				y,
+			});
+		});
 
-    socket.on("disconnect", () => {
-      if (!socket.player) return;
-      socket.broadcast.emit("player_leave", socket.player.userId);
-    });
-  });
+		socket.on("disconnect", () => {
+			if (!socket.player) return;
+			socket.broadcast.emit("player_leave", socket.player.userId);
+		});
+	});
 };

@@ -1,65 +1,67 @@
 <!doctype html>
 <html>
-  <head>
-    <script src="./js/map.js"></script>
-    <script src="./js/render.js"></script>
-  </head>
-  <body>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+	<head>
+		<script src="./js/map.js"></script>
+		<script src="./js/render.js"></script>
+	</head>
+	<body>
+		<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-    <div id="canvas-area">
-      <canvas id="game-canvas"></canvas>
-      <div id="map-name-overlay"></div>
-      <div id="conn-badge" class="offline">● Offline</div>
-    </div>
-    <script>
-      var socket = io("http://localhost:3000");
-      var canvas = document.getElementById("game-canvas");
-      const userId = 1;
+		<div id="canvas-area">
+			<canvas id="game-canvas"></canvas>
+			<div id="map-name-overlay"></div>
+			<div id="conn-badge" class="offline">● Offline</div>
+		</div>
+		<script>
+			var socket = io("http://localhost:3000");
+			var canvas = document.getElementById("game-canvas");
+			const userId = 1;
+			socket.on("reload", () => {
+				location.reload();
+			});
+			let lastSendTime = 0;
+			let player = { x: 0, y: 0 };
 
-      let lastSendTime = 0;
-      let player = { x: 0, y: 0 };
+			var authToken = localStorage.getItem("tu_tien_token");
+			// Spawn player
+			// emit -> gọi event join trong socket
+			socket.emit("join", { userId, authToken });
 
-      var authToken = localStorage.getItem("tu_tien_token");
-      // Spawn player
-      // emit -> gọi event join trong socket
-      socket.emit("join", { userId, authToken });
+			socket.on("spawn", (res) => {
+				player = res.player;
+				console.log("player va map: ", res);
+				if (res.map) {
+					drawMap(canvas, res.map.jsonMap, 32);
+				}
+				render();
+			});
 
-      socket.on("spawn", (res) => {
-        player = res.player;
-        console.log("player va map: ", res);
-        if (res.map) {
-          drawMap(canvas, res.map.jsonMap, 32);
-        }
-        render();
-      });
+			// Receive others move
+			// on-> bắt sự kiện playermove;
+			socket.on("player_move", (p) => {
+				// ignore your own
+			});
 
-      // Receive others move
-      // on-> bắt sự kiện playermove;
-      socket.on("player_move", (p) => {
-        // ignore your own
-      });
+			// Move with arrow keys
+			document.addEventListener("keydown", (e) => {
+				if (e.key === "w") player.y -= 5;
+				if (e.key === "s") player.y += 5;
+				if (e.key === "a") player.x -= 5;
+				if (e.key === "d") player.x += 5;
+				render();
+				const now = Date.now();
+				if (now - lastSendTime < 500) return; // 500ms throttle
+				lastSendTime = now;
+				// socket.emit("move", { x: player.x, y: player.y });
+			});
 
-      // Move with arrow keys
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "w") player.y -= 5;
-        if (e.key === "s") player.y += 5;
-        if (e.key === "a") player.x -= 5;
-        if (e.key === "d") player.x += 5;
-        render();
-        const now = Date.now();
-        if (now - lastSendTime < 500) return; // 500ms throttle
-        lastSendTime = now;
-        // socket.emit("move", { x: player.x, y: player.y });
-      });
-
-      // Draw
-      function render() {
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, 600, 400);
-        ctx.fillStyle = "yellow";
-        ctx.fillRect(player.x, player.y, 20, 20);
-      }
-    </script>
-  </body>
+			// Draw
+			function render() {
+				const ctx = canvas.getContext("2d");
+				ctx.clearRect(0, 0, 600, 400);
+				ctx.fillStyle = "yellow";
+				ctx.fillRect(player.x, player.y, 20, 20);
+			}
+		</script>
+	</body>
 </html>
