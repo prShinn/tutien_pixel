@@ -370,18 +370,18 @@
         //  res.map
         GameState.player = res.player;
         if (res.map) {
-          setupCanvas();
-          document.getElementById("sc-game").style.display = "grid";
-          WorldMap.loadMap(res.map, res.player.x, res.player.y);
           document.getElementById("sc-create").style.display = "none";
+          WorldMap.loadMap(res.map, res.player.x, res.player.y);
           GameState._uiDirty = true;
           UIMod.update();
+          document.getElementById("sc-game").style.display = "grid";
+          setupCanvas();
+          initInput();
           requestAnimationFrame((ts) => {
             GameState.lastTs = ts;
             requestAnimationFrame(loop);
           });
         }
-        // render();
       });
 
       // Receive others move

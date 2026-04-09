@@ -31,8 +31,9 @@ const TC = {
 const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
 const otherPlayers = new Map();
 function isSolid(tx, ty) {
-  if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
-  return SOLID.has(S.tiles[ty][tx]);
+  if (tx < 0 || ty < 0 || tx >= GameState.mapW || ty >= GameState.mapH)
+    return true;
+  return SOLID.has(GameState.tiles[ty][tx]);
 }
 function findOpen(z) {
   for (let i = 0; i < 25; i++) {
