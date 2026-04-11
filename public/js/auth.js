@@ -32,8 +32,6 @@ async function submit() {
       _err(data.error || "Lỗi không xác định");
       return;
     }
-    console.log("res: ", res);
-    console.log("data: ", data);
 
     authToken = data.token;
     currentUser = data.user;

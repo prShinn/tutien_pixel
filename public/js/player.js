@@ -5,7 +5,6 @@ function loadPLayer() {
     if (e) {
       PLAYER = e;
     }
-    console.log("Player: ", PLAYER);
     startGame();
   });
 }

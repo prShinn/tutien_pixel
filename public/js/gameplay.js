@@ -123,7 +123,7 @@ function update(dt) {
   const modal = document.querySelector(".mo.open");
   if (!modal) {
     // const slow = StatusFX.getSlowMult();
-    const slow = 3;
+    const slow = GameState.player.speed;
     let dx = 0,
       dy = 0;
     if (keys["KeyA"] || keys["ArrowLeft"]) dx = -1;
@@ -133,19 +133,31 @@ function update(dt) {
     if (dx || dy) {
       //   if (GameState.meditating) G.toggleAuto("med");
       mvTimer += dt;
-      if (mvTimer > 110 / slow) {
-        mvTimer = 0;
-        const nx = p.x + dx,
-          ny = p.y + dy;
-        if (!isSolid(nx, ny)) {
-          p.x = nx;
-          p.y = ny;
-          GameState._mmDirty = true;
-        }
+      if (dx && dy) {
+        const d = Math.sqrt(2);
+        dx /= d;
+        dy /= d;
       }
+
+      // cập nhật vị trí theo pixel
+      p.px += (dx * 1 * dt) / slow;
+      p.py += (dy * 1 * dt) / slow;
+
+      // kiểm tra va chạm tile
+      const tileX = Math.floor(p.px / GameState.TS);
+      const tileY = Math.floor(p.py / GameState.TS);
+
+      if (!isSolid(tileX, tileY)) {
+        p.x = tileX;
+        p.y = tileY;
+      } else {
+        // nếu va, rollback
+        p.px -= (dx * 1 * dt) / slow;
+        p.py -= (dy * 1 * dt) / slow;
+      }
+
+      // }
     } else mvTimer = 0;
-    p.px = lerp(p.px, p.x * GameState.TS + GameState.TS / 2, 0.3);
-    p.py = lerp(p.py, p.y * GameState.TS + GameState.TS / 2, 0.3);
 
     // if (keys["Space"] && GameState.atkCd <= 0) {
     //   const near = monGrid.query(p.px, p.py, 5 * CFG.TS).filter((m) => !m.dead);

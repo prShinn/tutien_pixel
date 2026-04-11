@@ -29,7 +29,8 @@ const Render = {
     // Other players (co-op)
     for (const [, op] of otherPlayers)
       if (op.mapId === GameState.mapId) Render.otherPlayer(op, cx, cy);
-    for (const m of GameState.monsters) if (!m.dead) Render.monster(m, cx, cy);
+    for (const m of GameState.monsters)
+      if (!m.dead) Render.monster(m, GameState.player.px, GameState.player.py);
     const tint = p.root ? p.root.color : "#4488cc";
     Render.player(p.px - cx, p.py - cy, tint);
     ctx.fillStyle = tint;
@@ -176,114 +177,113 @@ const Render = {
     ctx.fillRect(x + 18, y + 8, 2, 5);
   },
   monster(m, cx, cy) {
-    const sx = m.px - cx,
-      sy = m.py - cy;
-    if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
-    const tmpl = GameState.MONSTERS[m.ti];
-    const c = tmpl.color;
-    const x = Math.floor(sx - 14),
-      y = Math.floor(sy - 22);
-    const ti = m.ti;
+    // const sx = m.px - cx,
+    //   sy = m.py - cy;
+    // if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+
+    const c = "#7a3a1a";
+
+    const ti = m.code;
     ctx.fillStyle = "rgba(0,0,0,.25)";
-    ctx.fillRect(x + 2, y + 22, 24, 4);
-    if (ti === 0) {
+    ctx.fillRect(cx + 2, cy + 22, 24, 4);
+    if (ti === "yeu_ho") {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 2, y + 8, 22, 12);
-      ctx.fillRect(x + 4, y + 4, 9, 7);
-      ctx.fillRect(x + 2, y + 20, 5, 8);
-      ctx.fillRect(x + 10, y + 20, 5, 8);
-      ctx.fillRect(x + 19, y + 20, 5, 6);
+      ctx.fillRect(cx + 2, cy + 8, 22, 12);
+      ctx.fillRect(cx + 4, cy + 4, 9, 7);
+      ctx.fillRect(cx + 2, cy + 20, 5, 8);
+      ctx.fillRect(cx + 10, cy + 20, 5, 8);
+      ctx.fillRect(cx + 19, cy + 20, 5, 6);
       ctx.fillStyle = "#aa1111";
-      ctx.fillRect(x + 5, y + 7, 3, 2);
+      ctx.fillRect(cx + 5, cy + 7, 3, 2);
       ctx.fillStyle = "#111";
-      ctx.fillRect(x + 6, y + 6, 2, 2);
-      ctx.fillRect(x + 10, y + 6, 2, 2);
+      ctx.fillRect(cx + 6, cy + 6, 2, 2);
+      ctx.fillRect(cx + 10, cy + 6, 2, 2);
     } else if (ti === 1) {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 4, y + 8, 18, 12);
-      ctx.fillRect(x + 6, y + 2, 10, 8);
-      ctx.fillRect(x + 2, y + 0, 4, 5);
-      ctx.fillRect(x + 20, y + 0, 4, 5);
-      ctx.fillRect(x + 4, y + 20, 5, 8);
-      ctx.fillRect(x + 17, y + 20, 5, 8);
+      ctx.fillRect(cx + 4, cy + 8, 18, 12);
+      ctx.fillRect(cx + 6, cy + 2, 10, 8);
+      ctx.fillRect(cx + 2, cy + 0, 4, 5);
+      ctx.fillRect(cx + 20, cy + 0, 4, 5);
+      ctx.fillRect(cx + 4, cy + 20, 5, 8);
+      ctx.fillRect(cx + 17, cy + 20, 5, 8);
       ctx.fillStyle = "#ffeedd";
-      ctx.fillRect(x + 9, y + 4, 6, 4);
+      ctx.fillRect(cx + 9, cy + 4, 6, 4);
       ctx.fillStyle = "#111";
-      ctx.fillRect(x + 10, y + 5, 2, 2);
-      ctx.fillRect(x + 14, y + 5, 2, 2);
+      ctx.fillRect(cx + 10, cy + 5, 2, 2);
+      ctx.fillRect(cx + 14, cy + 5, 2, 2);
     } else if (ti === 2) {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 2, y + 8, 24, 14);
-      ctx.fillRect(x + 4, y + 4, 10, 7);
-      ctx.fillRect(x + 2, y + 22, 6, 6);
-      ctx.fillRect(x + 18, y + 22, 6, 6);
+      ctx.fillRect(cx + 2, cy + 8, 24, 14);
+      ctx.fillRect(cx + 4, cy + 4, 10, 7);
+      ctx.fillRect(cx + 2, cy + 22, 6, 6);
+      ctx.fillRect(cx + 18, cy + 22, 6, 6);
       ctx.fillStyle = "#fff";
-      ctx.fillRect(x + 2, y + 14, 3, 3);
+      ctx.fillRect(cx + 2, cy + 14, 3, 3);
       ctx.fillStyle = "#111";
-      ctx.fillRect(x + 6, y + 7, 2, 2);
-      ctx.fillRect(x + 11, y + 7, 2, 2);
+      ctx.fillRect(cx + 6, cy + 7, 2, 2);
+      ctx.fillRect(cx + 11, cy + 7, 2, 2);
     } else if (ti === 3) {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 6, y + 4, 16, 10);
-      ctx.fillRect(x + 4, y + 10, 20, 14);
-      ctx.fillRect(x + 10, y + 0, 8, 6);
+      ctx.fillRect(cx + 6, cy + 4, 16, 10);
+      ctx.fillRect(cx + 4, cy + 10, 20, 14);
+      ctx.fillRect(cx + 10, cy + 0, 8, 6);
       ctx.fillStyle = "#ffd700";
-      ctx.fillRect(x + 11, y + 1, 3, 2);
-      ctx.fillRect(x + 16, y + 1, 3, 2);
+      ctx.fillRect(cx + 11, cy + 1, 3, 2);
+      ctx.fillRect(cx + 16, cy + 1, 3, 2);
       ctx.fillStyle = "#111";
-      ctx.fillRect(x + 12, y + 2, 2, 2);
-      ctx.fillRect(x + 16, y + 2, 2, 2);
+      ctx.fillRect(cx + 12, cy + 2, 2, 2);
+      ctx.fillRect(cx + 16, cy + 2, 2, 2);
     } else if (ti === 4) {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 3, y + 6, 22, 18);
-      ctx.fillRect(x + 6, y + 2, 16, 7);
-      ctx.fillRect(x + 0, y + 12, 5, 10);
-      ctx.fillRect(x + 23, y + 12, 5, 10);
+      ctx.fillRect(cx + 3, cy + 6, 22, 18);
+      ctx.fillRect(cx + 6, cy + 2, 16, 7);
+      ctx.fillRect(cx + 0, cy + 12, 5, 10);
+      ctx.fillRect(cx + 23, cy + 12, 5, 10);
       ctx.fillStyle = "#7a7a8a";
-      ctx.fillRect(x + 8, y + 8, 6, 5);
-      ctx.fillRect(x + 16, y + 8, 6, 5);
+      ctx.fillRect(cx + 8, cy + 8, 6, 5);
+      ctx.fillRect(cx + 16, cy + 8, 6, 5);
       ctx.fillStyle = "#ff2200";
-      ctx.fillRect(x + 9, y + 9, 4, 3);
-      ctx.fillRect(x + 17, y + 9, 4, 3);
+      ctx.fillRect(cx + 9, cy + 9, 4, 3);
+      ctx.fillRect(cx + 17, cy + 9, 4, 3);
     } else if (ti === 5) {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 4, y + 6, 20, 18);
-      ctx.fillRect(x + 7, y + 0, 14, 8);
-      ctx.fillRect(x + 3, y + 22, 6, 8);
-      ctx.fillRect(x + 18, y + 22, 6, 8);
+      ctx.fillRect(cx + 4, cy + 6, 20, 18);
+      ctx.fillRect(cx + 7, cy + 0, 14, 8);
+      ctx.fillRect(cx + 3, cy + 22, 6, 8);
+      ctx.fillRect(cx + 18, cy + 22, 6, 8);
       ctx.fillStyle = "#ff3333";
-      ctx.fillRect(x + 8, y + 3, 4, 3);
-      ctx.fillRect(x + 16, y + 3, 4, 3);
+      ctx.fillRect(cx + 8, cy + 3, 4, 3);
+      ctx.fillRect(cx + 16, cy + 3, 4, 3);
       ctx.fillStyle = "#cc2222";
-      ctx.fillRect(x + 4, y + 6, 20, 3);
+      ctx.fillRect(cx + 4, cy + 6, 20, 3);
     } else {
       ctx.fillStyle = c;
-      ctx.fillRect(x + 2, y + 6, 24, 14);
-      ctx.fillRect(x + 5, y + 2, 12, 7);
-      ctx.fillRect(x + 2, y + 20, 7, 8);
-      ctx.fillRect(x + 18, y + 20, 7, 8);
+      ctx.fillRect(cx + 2, cy + 6, 24, 14);
+      ctx.fillRect(cx + 5, cy + 2, 12, 7);
+      ctx.fillRect(cx + 2, cy + 20, 7, 8);
+      ctx.fillRect(cx + 18, cy + 20, 7, 8);
       ctx.fillStyle = "#3344aa";
-      ctx.fillRect(x + 6, y + 4, 3, 3);
-      ctx.fillRect(x + 13, y + 4, 3, 3);
+      ctx.fillRect(cx + 6, cy + 4, 3, 3);
+      ctx.fillRect(cx + 13, cy + 4, 3, 3);
       ctx.fillStyle = `rgba(100,120,255,${0.3 + 0.1 * Math.sin(GameState.animT * 0.005)})`;
-      ctx.fillRect(x, y + 4, 28, 18);
+      ctx.fillRect(cx, cy + 4, 28, 18);
     }
     if (m.hp < m.maxHp) {
       ctx.fillStyle = "#111";
-      ctx.fillRect(sx - 14, sy - 34, 28, 5);
+      ctx.fillRect(cx - 14, cy - 34, 28, 5);
       ctx.fillStyle = "#cc2222";
-      ctx.fillRect(sx - 14, sy - 34, Math.floor((28 * m.hp) / m.maxHp), 5);
+      ctx.fillRect(cx - 14, cy - 34, Math.floor((28 * m.hp) / m.maxHp), 5);
     }
     if (m.state === "chase") {
       ctx.fillStyle = "#ff4444";
       ctx.beginPath();
-      ctx.arc(sx, sy - 38, 3, 0, Math.PI * 2);
+      ctx.arc(cx, cy - 38, 3, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = "#ffaa44";
     ctx.font = "9px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(tmpl.name, sx, sy - 38);
+    ctx.fillText(m.name, cx, cy - 38);
   },
   npc(npc, cx, cy) {
     const sx = Math.floor(npc.px - cx),
@@ -445,17 +445,17 @@ const CombatMod = {
     );
 
     // Random status effect from monster
-    const tmpl = CFG.MONSTERS[m.ti];
-    if (tmpl.sfx?.length && Math.random() < 0.2)
-      StatusFX.applyToMon(m, tmpl.sfx[ri(0, tmpl.sfx.length - 1)]);
+    // const tmpl = CFG.MONSTERS[m.code];
+    // if (tmpl.sfx?.length && Math.random() < 0.2)
+    //   StatusFX.applyToMon(m, tmpl.sfx[ri(0, tmpl.sfx.length - 1)]);
 
-    this.addCombo(1);
-    if (isCrit) G.log(`💥 Bạo kích ${dmg}!`, "lcr");
-    if (m.hp <= 0) {
-      m.dead = true;
-      m.respawnT = CFG.RESPAWN;
-      this.drop(m);
-    }
+    // this.addCombo(1);
+    // if (isCrit) G.log(`💥 Bạo kích ${dmg}!`, "lcr");
+    // if (m.hp <= 0) {
+    //   m.dead = true;
+    //   m.respawnT = CFG.RESPAWN;
+    //   this.drop(m);
+    // }
   },
 
   addCombo(n) {
@@ -480,11 +480,11 @@ const CombatMod = {
   },
 
   drop(m) {
-    const tmpl = CFG.MONSTERS[m.ti];
+    const tmpl = CFG.MONSTERS[m.code];
     const xu = ri(tmpl.xu[0], tmpl.xu[1]);
     GameState.player.xu += xu;
     G.log(`Nhặt ${xu} xu`, "lcu");
-    QuestMod.onKill(m.ti);
+    QuestMod.onKill(m.code);
     if (Math.random() < tmpl.ic) {
       const id = tmpl.dr[ri(0, tmpl.dr.length - 1)];
       const it = CFG.ITEMS[id];
@@ -538,7 +538,7 @@ const UIMod = {
     document.getElementById("ui-realm").textContent = p.tenCanhGioi;
     document.getElementById("ui-stage").textContent = `Tầng ${p.tangTuVi}`;
     const cp =
-      (p.stats.str + p.stats.agi + p.stats.vit + p.stats.int) * 5 +
+      (p.stats.str + p.stats.agi + p.stats.vit + p.stats.ene) * 5 +
       // p.realm * 200 +
       // p.stage * 20 +
       100;
@@ -566,7 +566,11 @@ const UIMod = {
     //   (5 + p.stats.int * 3 + eq.matk) * (1 + (sb.matkPct || 0)),
     // );
     document.getElementById("r-def").textContent = CombatMod.pDef();
-    document.getElementById("r-spd").textContent = 0;
+    let speed = GameState.player.speed * 20;
+    if (speed < 100) {
+      speed += (100 - speed) * 2;
+    }
+    document.getElementById("r-spd").textContent = speed + "%";
     //  Math.floor(
     //   (3 + p.stats.agi * 0.5 + (eq.spd || 0)) * (1 + (sb.spdPct || 0)),
     // );

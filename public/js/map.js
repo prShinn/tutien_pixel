@@ -29,34 +29,6 @@ class SpatialGrid {
 }
 const monGrid = new SpatialGrid(96); // 3 tiles
 
-function makeMon(monster, tx, ty, elite) {
-  const hp = Math.floor(
-    (monster.hp + ri(0, Math.floor(monster.hp * 0.2))) *
-      monster.level *
-      (monster.isBoos > 0 ? 13 : 1),
-  );
-  return {
-    monster,
-    hp,
-    maxHp: hp,
-    atk: monster.atk + ri(0, 3),
-    def: monster.def,
-    px: tx * GameState.TS + GameState.TS / 2,
-    py: ty * GameState.TS + GameState.TS / 2,
-    hx: tx * GameState.TS + GameState.TS / 2,
-    hy: ty * GameState.TS + GameState.TS / 2,
-    state: "idle",
-    tpx: tx * GameState.TS + GameState.TS / 2,
-    tpy: ty * GameState.TS + GameState.TS / 2,
-    mvT: ri(60, 180),
-    atkCd: 0,
-    dead: false,
-    respawnT: 0,
-    isElite: elite || false,
-    statusEffects: [],
-  };
-}
-
 const WorldMap = {
   loadMap(map, toX, toY) {
     GameState.mapW = map.w;
@@ -74,10 +46,12 @@ const WorldMap = {
     }
     GameState.portals = map.portals || [];
     GameState.npcs = map.npcs || [];
-    GameState.monsters = map.monters || [];
-
+    GameState.monsters = map.monsters || [];
+    console.log("monster: ", map.monsters);
     monGrid.clear();
-    for (const m of GameState.monsters) if (!m.dead) monGrid.insert(makeMon(m));
+    for (const m of GameState.monsters) {
+      if (!m.dead) monGrid.insert(makeMon(m, toX, toY, m?.isBoss));
+    }
     const ov = document.getElementById("mno");
     ov.textContent = map.tenMap;
     ov.classList.add("show");
