@@ -1584,7 +1584,6 @@
           );
         },
         attack(m) {
-          console.log("monster: ", m);
           if (S.atkCd > 0 || m.dead) return;
           const tmpl = m;
           const dmg = Math.max(1, Combat.pAtk() - m.def + randInt(0, 6));
@@ -1609,8 +1608,8 @@
         },
         dropLoot(m) {
           const tmpl = m;
-          if (Math.random() < tmpl.tyLeRoiTien) {
-            const xu = randInt(tmpl.moneyDropFrom, moneyDropTo);
+          if (Math.random() * 100 < tmpl.tyLeRoiTien) {
+            const xu = randInt(tmpl.moneyDropFrom, tmpl.moneyDropTo);
             S.player.xu += xu;
             UI.log(`Nhặt được ${xu} xu`, "loot");
           }
