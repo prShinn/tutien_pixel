@@ -1,0 +1,18 @@
+{
+  "users": [
+    {
+      "id": "u_1775837065523_mndajs",
+      "username": "123",
+      "passwordHash": "$2a$10$zAE.FXqDfJZnsuVDxjz.CuvMVwEO/1gdOtLFUEln2PoYZHMUBt2Vq",
+      "createdAt": 1775837065523,
+      "lastLogin": 1775875102560
+    },
+    {
+      "id": "u_1775837091551_57xj4h",
+      "username": "321",
+      "passwordHash": "$2a$10$lONm6s/qzeo/4cIK1STCueHTKf8LudFUI7ZPq4PWzBPJ8J8tO.XPi",
+      "createdAt": 1775837091551,
+      "lastLogin": 1775837091551
+    }
+  ]
+}

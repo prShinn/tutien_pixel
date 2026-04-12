@@ -1,54 +1,55 @@
-const mysql = require("mysql2/promise");
-const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "", // nếu bạn dùng XAMPP mặc định thì để trống
-  database: "tutien_pixel",
-});
+/**
+ * db.js — Database module
+ *
+ * Dùng lowdb (JSON file) để dễ setup local.
+ * Khi scale production: thay thế bằng PostgreSQL/MongoDB
+ * chỉ cần đổi các hàm trong module này, code còn lại không thay đổi.
+ *
+ * PostgreSQL migration path:
+ *   npm install pg
+ *   Thay low.get().value() → pool.query('SELECT ...')
+ */
+
+const low = require("lowdb");
+const FileSync = require("lowdb/adapters/FileSync");
+const path = require("path");
+const fs = require("fs");
+
+// Ensure data directory exists
+const DATA_DIR = path.join(__dirname, "data");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+// ── Adapters (one file per collection — easy to inspect/backup) ──
+const usersDb = low(new FileSync(path.join(DATA_DIR, "users.json")));
+const playersDb = low(new FileSync(path.join(DATA_DIR, "players.json")));
+const worldDb = low(new FileSync(path.join(DATA_DIR, "world.json")));
+
+// ── Default schemas ──
+usersDb.defaults({ users: [] }).write();
+playersDb.defaults({ players: [] }).write();
+worldDb.defaults({ onlineCount: 0, events: [] }).write();
 
 // ================================================================
 // USER CRUD (auth accounts)
 // ================================================================
 const UserDB = {
-  async findByUsername(username) {
-    const [rows] = await db.query(
-      "SELECT * FROM users WHERE username = ? LIMIT 1",
-      [username],
-    );
-    return rows[0] || null;
+  findByUsername(username) {
+    return usersDb.get("users").find({ username }).value();
   },
-
-  async findById(id) {
-    const [rows] = await db.query("SELECT * FROM users WHERE id = ? LIMIT 1", [
-      id,
-    ]);
-    return rows[0] || null;
+  findById(id) {
+    return usersDb.get("users").find({ id }).value();
   },
-
-  async create({ username, passwordHash }) {
+  create({ id, username, passwordHash }) {
     const now = Date.now();
-    const [result] = await db.query(
-      "INSERT INTO users (id, username, password, createDate) VALUES (?, ?, ?, ?)",
-      [null, username, passwordHash, now],
-    );
-    return {
-      id: result.insertId,
-      username: username,
-      createDate: now,
-      lastLogin: now,
-    };
+    const user = { id, username, passwordHash, createdAt: now, lastLogin: now };
+    usersDb.get("users").push(user).write();
+    return user;
   },
-
-  async updateLastLogin(id) {
-    await db.query("UPDATE users SET lastLogin = ? WHERE id = ?", [
-      Date.now(),
-      id,
-    ]);
+  updateLastLogin(id) {
+    usersDb.get("users").find({ id }).assign({ lastLogin: Date.now() }).write();
   },
-
-  async count() {
-    const [rows] = await db.query("SELECT COUNT(*) AS c FROM users");
-    return rows[0].c;
+  count() {
+    return usersDb.get("users").value().length;
   },
 };
 
@@ -56,126 +57,42 @@ const UserDB = {
 // PLAYER CRUD (game data — separate from auth)
 // ================================================================
 const PlayerDB = {
-  async findByUserId(userId) {
-    const [rows] = await db.query(
-      "SELECT * FROM players WHERE userId = ? LIMIT 1",
-      [userId],
-    );
-    if (!rows[0]) return null;
-
-    // parse JSON fields
-    return {
-      ...rows[0],
-      root: JSON.parse(rows[0].root || ""),
-      stats: JSON.parse(rows[0].stats || ""),
-      inventory: JSON.parse(rows[0].inventory || ""),
-    };
+  findByUserId(userId) {
+    return playersDb.get("players").find({ userId }).value();
   },
-
-  async findByUsername(username) {
-    const [rows] = await db.query(
-      "SELECT * FROM players WHERE username =?  LIMIT 1",
-      [username],
-    );
-    if (!rows[0]) return null;
-
-    return {
-      ...rows[0],
-      root: JSON.parse(rows[0].root),
-      stats: JSON.parse(rows[0].stats),
-      inventory: JSON.parse(rows[0].inventory),
-    };
+  findByUsername(username) {
+    return playersDb.get("players").find({ username }).value();
   },
-
-  async create(player) {
-    const now = Date.now();
-
-    await db.query(
-      `INSERT INTO players (
-        userId, username, name,
-        root, stats, inventory,
-        realm, stage,
-        hp, maxHp, mp, maxMp,
-        xu, tuExp, tuNeeded,
-        mapId, mapX, mapY,
-        createdAt, updatedAt, tuSkill, tuSkillCount
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0 ,0)`,
-      [
-        player.userId,
-        player.username,
-        player.name ?? "shinn",
-        JSON.stringify(player.root),
-        JSON.stringify(player.stats),
-        JSON.stringify(player.inventory),
-        player.realm,
-        player.stage,
-        player.hp,
-        player.maxHp,
-        player.mp,
-        player.maxMp,
-        player.xu,
-        player.tuExp,
-        player.tuNeeded,
-        player.mapId,
-        player.mapX,
-        player.mapY,
-        now,
-        now,
-      ],
-    );
-
-    return player;
+  create(data) {
+    playersDb
+      .get("players")
+      .push({ ...data, createdAt: Date.now(), updatedAt: Date.now() })
+      .write();
+    return data;
   },
-
-  async save(userId, data) {
-    const now = Date.now();
-    const existing = await this.findByUserId(userId);
-
-    if (!existing) {
-      return await this.create({ userId, ...data });
+  save(userId, data) {
+    const exists = playersDb.get("players").find({ userId }).value();
+    if (exists) {
+      playersDb
+        .get("players")
+        .find({ userId })
+        .assign({ ...data, updatedAt: Date.now() })
+        .write();
+    } else {
+      PlayerDB.create({ userId, ...data });
     }
-
-    await db.query(
-      `UPDATE players SET
-        username=?, name=?,
-        root=?, stats=?, inventory=?,
-        realm=?, stage=?,
-        hp=?, maxHp=?, mp=?, maxMp=?,
-        xu=?, tuExp=?, tuNeeded=?,
-        mapId=?, mapX=?, mapY=?,
-        updatedAt=?, tuSkill=?, tuSkillCount=?
-      WHERE userId=?`,
-      [
-        data.username,
-        data.name,
-        JSON.stringify(data.root),
-        JSON.stringify(data.stats),
-        JSON.stringify(data.inventory),
-        data.realm,
-        data.stage,
-        data.hp,
-        data.maxHp,
-        data.mp,
-        data.maxMp,
-        data.xu,
-        data.tuExp,
-        data.tuNeeded,
-        data.mapId,
-        data.mapX,
-        data.mapY,
-        now,
-        userId,
-        data.tuSkill,
-        data.tuSkillCount,
-      ],
-    );
   },
-
-  async listOnline() {
-    const [rows] = await db.query(
-      "SELECT username, realm, stage, mapId FROM players WHERE isOnline = 1",
-    );
-    return rows;
+  listOnline() {
+    // Returns all player usernames (full list — online status tracked via Socket.io)
+    return playersDb
+      .get("players")
+      .map((p) => ({
+        username: p.username,
+        realm: p.realm,
+        stage: p.stage,
+        mapId: p.mapId,
+      }))
+      .value();
   },
 };
 
@@ -183,25 +100,18 @@ const PlayerDB = {
 // WORLD STATE (shared world events — future: map state, guilds...)
 // ================================================================
 const WorldDB = {
-  async logEvent(type, data) {
-    const now = Date.now();
-
-    const [rows] = await db.query("SELECT events FROM world WHERE id=1");
-    let events = JSON.parse(rows[0].events || "[]");
-
-    events.push({ type, data, ts: now });
-
-    if (events.length > 500) events = events.slice(-500);
-
-    await db.query("UPDATE world SET events=? WHERE id=1", [
-      JSON.stringify(events),
-    ]);
+  logEvent(type, data) {
+    const ev = { type, data, ts: Date.now() };
+    worldDb.get("events").push(ev).write();
+    // Keep only last 500 events
+    const evs = worldDb.get("events").value();
+    if (evs.length > 500) {
+      worldDb.set("events", evs.slice(-500)).write();
+    }
   },
-
-  async recentEvents(limit = 20) {
-    const [rows] = await db.query("SELECT events FROM world WHERE id=1");
-    const events = JSON.parse(rows[0].events || "[]");
-    return events.slice(-limit);
+  recentEvents(limit = 20) {
+    const evs = worldDb.get("events").value();
+    return evs.slice(-limit);
   },
 };
 

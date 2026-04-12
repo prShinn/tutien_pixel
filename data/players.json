@@ -1,0 +1,82 @@
+{
+  "players": [
+    {
+      "userId": "u_1775837065523_mndajs",
+      "username": "123",
+      "name": "123123",
+      "root": {
+        "name": "Phong",
+        "emoji": "💨",
+        "color": "#8ad4b8",
+        "bg": "#001a10",
+        "grade": 1,
+        "gradeName": "Trung Đẳng"
+      },
+      "realm": 0,
+      "stage": 1,
+      "stats": {
+        "str": 13,
+        "agi": 5,
+        "vit": 5,
+        "int": 5
+      },
+      "hp": 146.9989999999992,
+      "maxHp": 150,
+      "mp": 90,
+      "maxMp": 90,
+      "xu": 172,
+      "tuExp": 0,
+      "tuNeeded": 290,
+      "mapId": "wilderness",
+      "mapX": 27,
+      "mapY": 23,
+      "inventory": [
+        {
+          "id": "fur",
+          "name": "Yêu Mao",
+          "emoji": "🧶",
+          "type": "mat",
+          "sell": 3,
+          "desc": "Lông yêu thú",
+          "count": 2
+        }
+      ],
+      "createdAt": 1775837071613,
+      "updatedAt": 1775903077205
+    },
+    {
+      "userId": "u_1775837091551_57xj4h",
+      "username": "321",
+      "name": "321312",
+      "root": {
+        "name": "Hắc",
+        "emoji": "🌑",
+        "color": "#8888aa",
+        "bg": "#020205",
+        "grade": 2,
+        "gradeName": "Thượng Đẳng"
+      },
+      "realm": 0,
+      "stage": 1,
+      "stats": {
+        "str": 8,
+        "agi": 5,
+        "vit": 5,
+        "int": 5
+      },
+      "hp": 150,
+      "maxHp": 150,
+      "mp": 90,
+      "maxMp": 90,
+      "xu": 50,
+      "tuExp": 0,
+      "tuNeeded": 197,
+      "mapId": "wilderness",
+      "mapX": 26,
+      "mapY": 30,
+      "inventory": [],
+      "createdAt": 1775837099250,
+      "updatedAt": 1775837099314
+    }
+  ]
+}
