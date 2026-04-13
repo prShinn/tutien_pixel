@@ -3,7 +3,6 @@
  * JWT verification middleware — dùng cho mọi route cần login
  */
 const jwt = require('jsonwebtoken');
-const { UserDB } = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-tien-dev-secret-change-in-production';
 

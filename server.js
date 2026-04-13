@@ -17,8 +17,8 @@ const { Server } = require('socket.io');
 const cors       = require('cors');
 const path       = require('path');
 
-const authRoutes   = require('./routes/auth');
-const playerRoutes = require('./routes/player');
+// const authRoutes   = require('./routes/auth');
+// const playerRoutes = require('./routes/player');
 const { setupSocket } = require('./socket/game');
 
 // ── App setup ──────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ app.use(express.json({ limit: '512kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── REST Routes ────────────────────────────────────────────────────
-app.use('/api/auth',   authRoutes);
-app.use('/api/player', playerRoutes);
+// app.use('/api/auth',   authRoutes);
+// app.use('/api/player', playerRoutes);
 
 // Health check
 // app.get('/api/health', (req, res) => {

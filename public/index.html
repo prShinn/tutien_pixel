@@ -403,7 +403,7 @@
       const API = {
         BASE: "http://localhost:8090", // ← server URL
         SOCKET_URL: "http://localhost:3000", // ← socket URL (thường cùng server)
-        AUTO_SAVE_MS: 30_000, // auto-save mỗi 30 giây
+        AUTO_SAVE_MS: 60000, // auto-save mỗi 60 giây
       };
 
       // ════════════════════════════════════════════════════════════
@@ -502,7 +502,7 @@
             id: "slo",
             name: "Linh Thạch Thấp",
             emoji: "💠",
-            type: "stone",
+            type: "STONE",
             tuVal: 18,
             sell: 3,
             buyPrice: 28,
@@ -512,7 +512,7 @@
             id: "smi",
             name: "Linh Thạch Trung",
             emoji: "🔷",
-            type: "stone",
+            type: "STONE",
             tuVal: 55,
             sell: 12,
             buyPrice: 80,
@@ -522,7 +522,7 @@
             id: "shi",
             name: "Linh Thạch Thượng",
             emoji: "💎",
-            type: "stone",
+            type: "STONE",
             tuVal: 160,
             sell: 40,
             buyPrice: 220,
@@ -532,7 +532,7 @@
             id: "ef",
             name: "Đá Hỏa Nguyên",
             emoji: "🟠",
-            type: "elemstone",
+            type: "ELEMSTONE",
             tuVal: 30,
             statKey: "str",
             statVal: 2,
@@ -543,7 +543,7 @@
             id: "em",
             name: "Đá Mộc Nguyên",
             emoji: "🟢",
-            type: "elemstone",
+            type: "ELEMSTONE",
             tuVal: 30,
             statKey: "vit",
             statVal: 2,
@@ -554,7 +554,7 @@
             id: "ew",
             name: "Đá Thủy Nguyên",
             emoji: "🔵",
-            type: "elemstone",
+            type: "ELEMSTONE",
             tuVal: 30,
             statKey: "int",
             statVal: 2,
@@ -589,7 +589,7 @@
             id: "hpd",
             name: "Trị Thương Đan",
             emoji: "🔴",
-            type: "consume",
+            type: "CONSUME",
             healHp: 50,
             sell: 8,
             buyPrice: 15,
@@ -599,7 +599,7 @@
             id: "mpd",
             name: "Hồi Linh Đan",
             emoji: "⚫",
-            type: "consume",
+            type: "CONSUME",
             healMp: 40,
             sell: 8,
             buyPrice: 15,
@@ -609,7 +609,7 @@
             id: "bud",
             name: "Trúc Cơ Đan",
             emoji: "🟡",
-            type: "consume",
+            type: "CONSUME",
             statBoost: 2,
             sell: 35,
             buyPrice: 60,
@@ -727,19 +727,35 @@
           });
           return res.json();
         },
+        async put(path, body) {
+          const res = await fetch(API.BASE + path, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + authToken,
+            },
+            body: JSON.stringify(body),
+          });
+          return res.json();
+        },
 
         // ── Save ──
         async saveNow(event) {
-          return;
           if (!authToken || !S.player) return;
           const playerData = {
             ...S.player,
             inventory: S.inventory,
             mapId: S.mapId,
             _event: event || null,
+            tenCanhGioi: S.player.canhGioi?.name || "",
           };
+          return UI.log("vaof save 1 phat: ", event);
           try {
-            const res = await Net.post("/api/player/save", playerData);
+            playerData.jsonIventory = JSON.stringify(playerData.inventory);
+            const res = await Net.put(
+              "/api/player/" + playerData.id,
+              playerData,
+            );
             if (res.ok) UI.log("💾 Đã lưu dữ liệu lên server", "system");
           } catch {
             UI.log("⚠ Không thể kết nối server để lưu", "system");
@@ -1013,9 +1029,7 @@
             px: (playerData.mapX || 26) * CFG.TS + CFG.TS / 2,
             py: (playerData.mapY || 30) * CFG.TS + CFG.TS / 2,
           };
-          S.inventory = (playerData.inventory || [])
-            .map((i) => ({ ...CFG.ITEMS[i.id], count: i.count }))
-            .filter(Boolean);
+          S.inventory = JSON.parse(playerData.jsonIventory) || [];
           const map = await Net.get(
             "/api/worlds/by-code?code=" + playerData.mapCode,
           );
@@ -1392,6 +1406,7 @@
               w: mon.spawnX || map.w / 2,
               h: mon.spawnY || map.h / 2,
             });
+
             if (pos) S.monsters.push(Monster.make(mon, pos.tx, pos.ty));
           }
           const ov = document.getElementById("map-name-overlay");
@@ -1607,12 +1622,16 @@
           }
         },
         dropLoot(m) {
-          const tmpl = m;
-          if (Math.random() * 100 < tmpl.tyLeRoiTien) {
-            const xu = randInt(tmpl.moneyDropFrom, tmpl.moneyDropTo);
+          if (Math.random() * 100 < m.tyLeRoiTien) {
+            const xu = randInt(m.moneyDropFrom, m.moneyDropTo);
             S.player.xu += xu;
             UI.log(`Nhặt được ${xu} xu`, "loot");
           }
+          if (Math.random() * 100 < m.tyLeRoiDo) {
+            let index = Math.floor(Math.random() * m.dropItems.length - 1 + 1);
+            Inventory.add(m.dropItems[index]);
+          }
+
           //   if (Math.random() < tmpl.tyLeRoiDo) {
           //     const id = tmpl.drops[randInt(0, tmpl.drops.length - 1)];
           //     const item = CFG.ITEMS[id];
@@ -1628,58 +1647,56 @@
       // §9 · CULTIVATION (chỉ hấp thạch → tu vi)
       // ════════════════════════════════════════════════════════════
       const Cultivation = {
-        calcTuNeeded(realm, stage) {
-          const mult = S.player?.root ? CFG.GRADE_MULT[S.player.root.grade] : 1;
-          return Math.floor((180 + realm * 550 + stage * 110) * mult);
+        calcTuNeeded(canhGioi, tangTuVi) {
+          const mult = canhGioi.stt;
+          return Math.floor(
+            (100 * canhGioi.stt + tangTuVi * 50 + canhGioi.tuViTienCap) * mult,
+          );
         },
         absorbStone() {
           const p = S.player;
           const idx = S.inventory.findIndex(
-            (i) => i.type === "stone" || i.type === "elemstone",
+            (i) => i.type === "STONE" || i.type === "ELEMSTONE",
           );
           if (idx < 0) {
             UI.log("Không có linh thạch!", "system");
             return;
           }
           const item = S.inventory[idx];
-          p.tuExp += item.tuVal || 18;
+          p.tuViHienTai += item.giaTriTuVi;
           if (item.statKey && item.statVal) {
-            p.stats[item.statKey] += item.statVal;
-            UI.log(
-              `${item.emoji} Hấp thu → Tu Vi +${item.tuVal}, ${item.statKey.toUpperCase()} +${item.statVal}`,
-              "level",
-            );
+            if (item.str) p.stats[item.statKey] += item.giaTriTang;
+            UI.log(`${item.icon} Hấp thu → Tu Vi +${item.giaTriTang}`, "level");
           } else
             UI.log(
-              `${item.emoji} Hấp thu ${item.name} → Tu Vi +${item.tuVal}`,
+              `${item.icon} Hấp thu ${item.name} → Tu Vi +${item.giaTriTuVi}`,
               "level",
             );
-          p.maxHp = 100 + p.stats.vit * 10;
-          p.maxMp = 50 + p.stats.int * 8;
-          p.hp = Math.min(p.hp, p.maxHp);
-          p.mp = Math.min(p.mp, p.maxMp);
+          // p.maxHp = 100 + p.stats.vit * 10;
+          // p.maxMp = 50 + p.stats.int * 8;
+          // p.hp = Math.min(p.hp, p.maxHp);
+          // p.mp = Math.min(p.mp, p.maxMp);
           Inventory.remove(idx);
           UI.update();
         },
-        tryBreakthrough() {
+        async tryBreakthrough() {
           const p = S.player;
-          if (p.tuExp < p.tuNeeded) {
+          if (p.tuViHienTai < p.tuViLenCap) {
             UI.log(
-              `Tu vi chưa đủ! Cần ${Math.floor(p.tuNeeded)}, có ${Math.floor(p.tuExp)}`,
+              `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(p.tuViHienTai)}`,
               "system",
             );
             return;
           }
-          p.tuExp -= p.tuNeeded;
-          if (p.stage < 9) {
-            p.stage++;
-            UI.log(
-              `⚡ PHÁKINH! ${CFG.REALMS[p.realm]} Tầng ${p.stage}!`,
-              "level",
-            );
-          } else if (p.realm < CFG.REALMS.length - 1) {
+
+          p.tuViHienTai -= p.tuViLenCap;
+          if (p.tangTuVi < 9) {
+            p.tangTuVi++;
+            UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
+          } else {
+            const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
             p.realm++;
-            p.stage = 1;
+            p.tangTuVi = 1;
             p.maxHp += 300;
             p.maxMp += 150;
             p.hp = p.maxHp;
@@ -1688,12 +1705,15 @@
               `🌟 THĂNG CẢNH GIỚI → ${CFG.REALMS[p.realm]} Tầng 1!`,
               "level",
             );
-            Net.saveNow({
-              type: "breakthrough",
-              data: { realm: p.realm, stage: p.stage },
-            });
-          } else UI.log("Đã đạt đỉnh Đế Tôn!", "level");
-          p.tuNeeded = Cultivation.calcTuNeeded(p.realm, p.stage);
+            p.maCanhGioi = res.code;
+          }
+          // else UI.log("Đã đạt đỉnh Đế Tôn!", "level");
+          p.tuViLenCap = Cultivation.calcTuNeeded(p.canhGioi, p.tangTuVi);
+          S.player = { ...p };
+          Net.saveNow({
+            type: "breakthrough",
+            data: { realm: p.realm, tangTuVi: p.tangTuVi },
+          });
           UI.update();
         },
       };
@@ -1703,8 +1723,9 @@
       // ════════════════════════════════════════════════════════════
       const Inventory = {
         add(item) {
+          if (!S.inventory) S.inventory = [];
           for (const iv of S.inventory) {
-            if (iv.id === item.id && iv.count < 99) {
+            if (iv && iv.id === item.id && iv.count < 99) {
               iv.count++;
               UI.buildInv();
               UI.update();
@@ -1728,33 +1749,33 @@
         use(idx) {
           const item = S.inventory[idx];
           if (!item) return;
-          if (item.type === "stone" || item.type === "elemstone") {
+          if (item.type === "STONE" || item.type === "ELEMSTONE") {
             Cultivation.absorbStone();
             return;
           }
-          if (item.type === "consume") {
+          if (item.type === "CONSUME") {
             const p = S.player;
             if (item.healHp) {
               p.hp = Math.min(p.maxHp, p.hp + item.healHp);
-              UI.log(`Dùng ${item.emoji} → Hồi ${item.healHp} HP`, "system");
+              UI.log(`Dùng ${item.icon} → Hồi ${item.vit} HP`, "system");
             }
             if (item.healMp) {
               p.mp = Math.min(p.maxMp, p.mp + item.healMp);
-              UI.log(`Dùng ${item.emoji} → Hồi ${item.healMp} MP`, "system");
+              UI.log(`Dùng ${item.icon} → Hồi ${item.ene} MP`, "system");
             }
             if (item.statBoost) {
               const ss = ["str", "agi", "vit", "int"];
               const s = ss[randInt(0, 3)];
               S.player.stats[s] += item.statBoost;
               UI.log(
-                `Dùng ${item.emoji} → +${item.statBoost} ${s.toUpperCase()}`,
+                `Dùng ${item.icon} → +${item.statBoost} ${s.toUpperCase()}`,
                 "level",
               );
             }
             Inventory.remove(idx);
             UI.update();
           } else
-            UI.log(`${item.emoji} ${item.name}: ${item.desc || ""}`, "system");
+            UI.log(`${item.icon} ${item.name}: ${item.desc || ""}`, "system");
         },
       };
 
@@ -1780,7 +1801,7 @@
             if (!item || !item.buyPrice) continue;
             const div = document.createElement("div");
             div.className = "shop-item";
-            div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
+            div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
             const btn = document.createElement("button");
             btn.className = "sbtn";
             btn.textContent = "Mua";
@@ -1796,7 +1817,7 @@
           S.inventory.forEach((item, idx) => {
             const div = document.createElement("div");
             div.className = "shop-item";
-            div.innerHTML = `<span class="si-emoji">${item.emoji}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
+            div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
             const btn = document.createElement("button");
             btn.className = "sbtn ssell";
             btn.textContent = "Bán";
@@ -1810,24 +1831,21 @@
         buy(id) {
           const item = CFG.ITEMS[id];
           if (!item) return;
-          if (S.player.xu < item.buyPrice) {
+          if (S.player.xu < item.giaMua) {
             UI.log("Không đủ xu!", "system");
             return;
           }
-          S.player.xu -= item.buyPrice;
+          S.player.xu -= item.giaMua;
           Inventory.add(item);
-          UI.log(
-            `Mua: ${item.emoji} ${item.name} (-${item.buyPrice}xu)`,
-            "loot",
-          );
+          UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
           this.render();
         },
         sell(idx) {
           const item = S.inventory[idx];
           if (!item) return;
-          S.player.xu += item.sell || 0;
+          S.player.xu += item.giaBan || 0;
           UI.log(
-            `Bán: ${item.emoji} ${item.name} (+${item.sell || 0}xu)`,
+            `Bán: ${item.giaTriTang} ${item.name} (+${item.giaBan || 0}xu)`,
             "loot",
           );
           Inventory.remove(idx);
@@ -2341,7 +2359,7 @@
             sl.className = "isl";
             const item = S.inventory[i];
             if (item) {
-              sl.textContent = item.emoji;
+              sl.textContent = item.icon;
               if (item.count > 1) {
                 const cnt = document.createElement("span");
                 cnt.className = "icnt";
@@ -2350,7 +2368,7 @@
               }
               sl.onclick = () => Inventory.use(i);
               sl.onmouseenter = (e) => UI.showTip(e, item);
-              sl.onmouseleave = UI.hideTip;
+              sl.onmouseleave = (e) => UI.hideTip();
             }
             grid.appendChild(sl);
           }
@@ -2358,19 +2376,19 @@
         showTip(e, item) {
           const tip = document.getElementById("tip");
           document.getElementById("tip-name").textContent =
-            item.emoji + " " + item.name;
+            item.icon + " " + item.name;
           document.getElementById("tip-type").textContent =
-            item.type === "stone"
+            item.type === "STONE"
               ? "Linh Thạch"
-              : item.type === "elemstone"
+              : item.type === "ELEMSTONE"
                 ? "Đá Nguyên Tố"
-                : item.type === "mat"
+                : item.type === "MAT"
                   ? "Nguyên Liệu"
-                  : item.type === "consume"
+                  : item.type === "CONSUME"
                     ? "Đan Dược"
                     : "Vật Phẩm";
           document.getElementById("tip-body").innerHTML =
-            `${item.desc || ""}<br><span style="color:var(--text2)">Bán: ${item.sell || 0} xu</span>`;
+            `${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
           tip.style.display = "block";
           tip.style.left = e.clientX + 14 + "px";
           tip.style.top = e.clientY - 10 + "px";

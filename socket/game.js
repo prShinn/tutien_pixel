@@ -22,7 +22,6 @@
 
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../middleware/auth");
-const { PlayerDB, WorldDB } = require("../db");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
