@@ -104,16 +104,63 @@
           />
         </div>
         <div class="field-group">
-          <div class="sec-title">✦ LINH CĂN THIÊN PHÚ</div>
+          <div class="sec-title">✦ LINH CĂN</div>
           <div class="spirit-box">
             <div id="spirit-orb">❓</div>
             <div class="spirit-info">
-              <div id="spirit-name">Chưa xác định</div>
-              <div id="spirit-grade">
-                Bấm nút để xác định thiên phú linh căn
-              </div>
+              <div id="spirit-name">Chưa chọn linh căn</div>
+              <div id="spirit-grade">Chọn một linh căn để bắt đầu</div>
             </div>
-            <button class="reroll-btn" onclick="rollRoot()">🎲 Gieo quẻ</button>
+          </div>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 8px;
+              margin-top: 12px;
+            "
+          >
+            <button class="sbtn" type="button" onclick="selectRoot('KIM')">
+              ⚙ KIM
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('MOC')">
+              🌿 MỘC
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('THUY')">
+              💧 THỦY
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('HOA')">
+              🔥 HỎA
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('THO')">
+              🪨 THỔ
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('QUANG')">
+              ✨ QUANG
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('AM')">
+              🌑 ÂM
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('PHONG')">
+              💨 PHONG
+            </button>
+            <button class="sbtn" type="button" onclick="selectRoot('LOI')">
+              ⚡ LÔI
+            </button>
+            <button
+              class="sbtn"
+              type="button"
+              onclick="selectRoot('THOI_GIAN')"
+            >
+              ⏳ THỜI_GIAN
+            </button>
+            <button
+              class="sbtn"
+              type="button"
+              onclick="selectRoot('KHONG_GIAN')"
+            >
+              🌌 KHÔNG_GIAN
+            </button>
           </div>
         </div>
         <div class="field-group">
@@ -484,19 +531,84 @@
           "Đế Tôn",
         ],
         ROOTS: [
-          { name: "Kim", emoji: "⚙", color: "#DAA520", bg: "#1a1200" },
-          { name: "Mộc", emoji: "🌿", color: "#3db84a", bg: "#0a1200" },
-          { name: "Thủy", emoji: "💧", color: "#3d9bda", bg: "#000d1a" },
-          { name: "Hỏa", emoji: "🔥", color: "#e05520", bg: "#1a0800" },
-          { name: "Thổ", emoji: "🪨", color: "#b88a3a", bg: "#120a00" },
-          { name: "Phong", emoji: "💨", color: "#8ad4b8", bg: "#001a10" },
-          { name: "Lôi", emoji: "⚡", color: "#aa50ee", bg: "#100018" },
-          { name: "Hắc", emoji: "🌑", color: "#8888aa", bg: "#020205" },
-          { name: "Quang", emoji: "✨", color: "#eeee60", bg: "#181800" },
+          {
+            id: "KIM",
+            name: "KIM",
+            emoji: "⚙",
+            color: "#DAA520",
+            bg: "#1a1200",
+          },
+          {
+            id: "MOC",
+            name: "MỘC",
+            emoji: "🌿",
+            color: "#3db84a",
+            bg: "#0a1200",
+          },
+          {
+            id: "THUY",
+            name: "THỦY",
+            emoji: "💧",
+            color: "#3d9bda",
+            bg: "#000d1a",
+          },
+          {
+            id: "HOA",
+            name: "HỎA",
+            emoji: "🔥",
+            color: "#e05520",
+            bg: "#1a0800",
+          },
+          {
+            id: "THO",
+            name: "THỔ",
+            emoji: "🪨",
+            color: "#b88a3a",
+            bg: "#120a00",
+          },
+          {
+            id: "QUANG",
+            name: "QUANG",
+            emoji: "✨",
+            color: "#eeee60",
+            bg: "#181800",
+          },
+          {
+            id: "AM",
+            name: "ÂM",
+            emoji: "🌑",
+            color: "#8888aa",
+            bg: "#020205",
+          },
+          {
+            id: "PHONG",
+            name: "PHONG",
+            emoji: "💨",
+            color: "#8ad4b8",
+            bg: "#001a10",
+          },
+          {
+            id: "LOI",
+            name: "LÔI",
+            emoji: "⚡",
+            color: "#aa50ee",
+            bg: "#100018",
+          },
+          {
+            id: "THOI_GIAN",
+            name: "THỜI_GIAN",
+            emoji: "⏳",
+            color: "#e0b15c",
+            bg: "#0f0a13",
+          },
+          {
+            id: "KHONG_GIAN",
+            name: "KHÔNG_GIAN",
+            emoji: "🌌",
+            color: "#8a8cff",
+            bg: "#02001f",
+          },
         ],
-
-        GRADE_NAMES: ["Hạ Đẳng", "Trung Đẳng", "Thượng Đẳng"],
-        GRADE_MULT: [1.4, 1.0, 0.68],
         ITEMS: {
           slo: {
             id: "slo",
@@ -712,7 +824,8 @@
         _savePromise: null,
 
         _requestKey(method, path, body) {
-          const payload = typeof body === "string" ? body : JSON.stringify(body || "");
+          const payload =
+            typeof body === "string" ? body : JSON.stringify(body || "");
           return `${method}:${path}:${payload}`;
         },
 
@@ -771,7 +884,10 @@
             const playerData = {
               ...S.player,
               inventory: S.inventory,
-              mapId: S.mapId,
+              x: Math.floor(S.player.x || 0),
+              y: Math.floor(S.player.y || 0),
+              mapCode: S.mapCode || S.player.mapCode,
+              mapId: S.player.mapId || S.mapCode || S.player.mapCode,
               _event: event || null,
               tenCanhGioi: S.player.canhGioi?.name || "",
             };
@@ -810,7 +926,11 @@
               Net._setBadge(true);
               const p = S.player;
               if (p)
-                socket.emit("join_world", { mapId: S.mapId, x: p.x, y: p.y });
+                socket.emit("join_world", {
+                  mapCode: S.mapCode,
+                  x: p.x,
+                  y: p.y,
+                });
               UI.log("🌐 Đã kết nối máy chủ!", "system");
             });
 
@@ -856,14 +976,14 @@
               }
             });
 
-            socket.on("player_map", ({ id, mapId, x, y }) => {
+            socket.on("player_map", ({ id, mapCode, x, y }) => {
               if (otherPlayers.has(id)) {
                 const op = otherPlayers.get(id);
-                if (op.mapId !== S.mapId) otherPlayers.delete(id);
+                if (op.mapCode !== S.mapCode) otherPlayers.delete(id);
                 else {
                   op.x = x;
                   op.y = y;
-                  op.mapId = mapId;
+                  op.mapCode = mapCode;
                 }
               }
             });
@@ -894,17 +1014,19 @@
             socket.emit("move", {
               x: S.player.x,
               y: S.player.y,
-              mapId: S.mapId,
+              mapCode: S.mapCode,
             });
           }
         },
 
-        emitMapChange(mapId, x, y) {
+        emitMapChange(mapCode, x, y) {
+          const px = Math.floor(x);
+          const py = Math.floor(y);
           if (socket?.connected) {
-            socket.emit("map_change", { mapId, x, y });
+            socket.emit("map_change", { mapCode, x: px, y: py });
           }
           // Save on map change
-          Net.saveNow({ type: "map_change", data: { mapId } });
+          Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
         },
 
         sendChat() {
@@ -1375,7 +1497,7 @@
       let canvas, ctx, cW, cH;
       const S = {
         player: null,
-        mapId: "wilderness",
+        mapCode: "wilderness",
         tiles: null,
         mapW: 0,
         mapH: 0,
@@ -1414,17 +1536,21 @@
       const World = {
         loadMap(map, toX, toY) {
           const def = map;
-          S.mapId = map.code;
+          S.mapCode = map.code;
           S.mapW = def.w;
           S.mapH = def.h;
           S.tiles = def.jsonMap;
           S.atkFx = [];
           S.groundItems = [];
           if (S.player) {
-            S.player.x = toX;
-            S.player.y = toY;
-            S.player.px = toX * CFG.TS + CFG.TS / 2;
-            S.player.py = toY * CFG.TS + CFG.TS / 2;
+            const px = Math.floor(toX);
+            const py = Math.floor(toY);
+            S.player.x = px;
+            S.player.y = py;
+            S.player.px = px * CFG.TS + CFG.TS / 2;
+            S.player.py = py * CFG.TS + CFG.TS / 2;
+            S.player.mapCode = map.code;
+            S.player.mapId = map.id || map.code;
           }
           S.portals = def.portals;
           S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
@@ -1445,7 +1571,7 @@
           ov.classList.add("show");
           setTimeout(() => ov.classList.remove("show"), 2200);
           UI.log(`── Đến: ${def.name} ──`, "system");
-          Net.emitMapChange(map.id, toX, toY);
+          Net.emitMapChange(map.code, toX, toY);
           otherPlayers.clear();
         },
         _open(zone) {
@@ -1624,7 +1750,41 @@
       // ════════════════════════════════════════════════════════════
       const Combat = {
         pAtk() {
-          return 10 + S.player.stats.str * 1.5 + S.player.stats.agi * 0.8;
+          const base = 10 + S.player.stats.str * 1.5 + S.player.stats.agi * 0.8;
+          const weapon = Combat.weaponAttack();
+          return base + weapon;
+        },
+        weaponAttack() {
+          let bonus = 0;
+          if (S.player.equipment?.weapon) {
+            bonus += Number(S.player.equipment.weapon.atk || 0);
+          }
+          if (Array.isArray(S.player.inventory)) {
+            for (const item of S.player.inventory) {
+              if (item?.equipped && item.atk) bonus += Number(item.atk || 0);
+            }
+          }
+          return bonus;
+        },
+        critChance() {
+          let chance = 0.05;
+          if (S.player.equipment?.weapon) {
+            chance += Number(S.player.equipment.weapon.critChance || 0);
+          }
+          if (S.player.stats.critChance) {
+            chance += Number(S.player.stats.critChance || 0);
+          }
+          return Math.min(0.5, chance);
+        },
+        critMultiplier() {
+          let extra = 0.1;
+          if (S.player.equipment?.weapon) {
+            extra += Number(S.player.equipment.weapon.critMultiplier || 0);
+          }
+          if (S.player.stats.critMultiplier) {
+            extra += Number(S.player.stats.critMultiplier || 0);
+          }
+          return extra;
         },
         pDef() {
           return (
@@ -1636,18 +1796,33 @@
         attack(m) {
           if (S.atkCd > 0 || m.dead) return;
           const tmpl = m;
-          const dmg = Math.max(1, Combat.pAtk() - m.def + randInt(0, 6));
+          const baseAtk = Combat.pAtk();
+          const armorDef = m.def * m.level + m.def + m.vit * 0.2;
+          let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
+          const isCrit = Math.random() < Combat.critChance();
+          if (isCrit) {
+            const critAdd = Math.max(
+              1,
+              Math.round(baseAtk * Combat.critMultiplier()),
+            );
+            dmg += critAdd;
+          }
           m.hp -= dmg;
           S.atkCd = CFG.ATK_CD;
           S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
           Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
-          UI.log(`Tấn công ${tmpl.name} gây ${dmg} sát thương`, "combat");
+          UI.log(
+            `Tấn công ${tmpl.name} gây ${dmg} sát thương${
+              isCrit ? " (CRIT)" : ""
+            }`,
+            "combat",
+          );
           // Notify other players (visual only)
           if (socket?.connected)
             socket.emit("attack_effect", {
               targetId: null,
               damage: dmg,
-              mapId: S.mapId,
+              mapCode: S.mapCode,
             });
           if (m.hp <= 0) {
             m.dead = true;
@@ -1682,12 +1857,70 @@
       // §9 · CULTIVATION (chỉ hấp thạch → tu vi)
       // ════════════════════════════════════════════════════════════
       const Cultivation = {
+        normalizePlayerStats(player) {
+          if (!player.stats) player.stats = { str: 0, agi: 0, vit: 0, ene: 0 };
+          if (player.stats.int != null && player.stats.ene == null) {
+            player.stats.ene = player.stats.int;
+            delete player.stats.int;
+          }
+          player.stats.str = player.stats.str || 0;
+          player.stats.agi = player.stats.agi || 0;
+          player.stats.vit = player.stats.vit || 0;
+          player.stats.ene = player.stats.ene || 0;
+        },
+
         calcTuNeeded(canhGioi, tangTuVi) {
-          const mult = canhGioi.stt;
+          const realm = Math.max(0, Number(canhGioi?.stt) || 0);
+          const stage = Math.max(1, Math.min(9, Number(tangTuVi) || 1));
+          const base = 10;
+          const stageGrowth = Math.pow(1.1, stage - 1); // mỗi tầng tăng ít nhất 10%
+          const realmMultiplier = 1 + realm * 0.1 * stage; // realm cao hơn tăng tỷ lệ theo stage
+          const extra = Number(canhGioi?.tuViTienCap || 1);
           return Math.floor(
-            (100 * canhGioi.stt + tangTuVi * 50 + canhGioi.tuViTienCap) * mult,
+            base * stage * stageGrowth * realmMultiplier + extra,
           );
         },
+
+        calcBreakthroughStatGain(canhGioi, tangTuVi, isMajor = false) {
+          const tier = canhGioi?.stt || 0;
+          const stage = tangTuVi;
+          if (!isMajor) {
+            return {
+              str: Math.max(1, Math.round(2 + tier * 0.6 + stage * 0.35)),
+              agi: Math.max(1, Math.round(2 + tier * 0.5 + stage * 0.3)),
+              vit: Math.max(1, Math.round(2 + tier * 0.7 + stage * 0.4)),
+              ene: Math.max(1, Math.round(1 + tier * 0.55 + stage * 0.25)),
+            };
+          }
+          return {
+            str: Math.max(3, Math.round(6 + tier * 1.4 + stage * 0.9)),
+            agi: Math.max(3, Math.round(6 + tier * 1.2 + stage * 0.8)),
+            vit: Math.max(3, Math.round(6 + tier * 1.6 + stage * 1.0)),
+            ene: Math.max(3, Math.round(4 + tier * 1.3 + stage * 0.7)),
+          };
+        },
+
+        applyBreakthroughStats(player, dotPhaDaiCanhGioi = false) {
+          this.normalizePlayerStats(player);
+          const gain = this.calcBreakthroughStatGain(
+            player.canhGioi,
+            player.tangTuVi,
+            dotPhaDaiCanhGioi,
+          );
+          player.stats.str += gain.str;
+          player.stats.agi += gain.agi;
+          player.stats.vit += gain.vit;
+          player.stats.ene += gain.ene;
+          player.maxHp = 100 + player.stats.vit * 10;
+          player.maxMp = 50 + player.stats.ene * 8;
+          player.hp = Math.min(player.hp + gain.vit * 10, player.maxHp);
+          player.mp = Math.min(player.mp + gain.ene * 8, player.maxMp);
+          UI.log(
+            `+${gain.str} STR +${gain.agi} AGI +${gain.vit} VIT +${gain.ene} ENE`,
+            "level",
+          );
+        },
+
         absorbStone() {
           const p = S.player;
           const idx = S.inventory.findIndex(
@@ -1698,41 +1931,43 @@
             return;
           }
           const item = S.inventory[idx];
+          this.normalizePlayerStats(p);
           p.tuViHienTai += item.giaTriTuVi;
           if (item.str) {
-            if (item.str) {
-              p.str += item.giaTriTang;
-              UI.log(`${item.icon} Hấp thu → str +${item.giaTriTang}`, "level");
-            }
-            if (item.agi) {
-              p.agi += item.giaTriTang;
-              UI.log(`${item.icon} Hấp thu → agi +${item.giaTriTang}`, "level");
-            }
-            if (item.vit) {
-              p.vit += item.giaTriTang;
-              UI.log(`${item.icon} Hấp thu → vit +${item.giaTriTang}`, "level");
-            }
-            if (item.ene) {
-              p.ene += item.giaTriTang;
-              UI.log(`${item.icon} Hấp thu → ene +${item.giaTriTang}`, "level");
-            }
-          } else
+            p.stats.str += item.giaTriTang;
+            UI.log(`${item.icon} Hấp thu → str +${item.giaTriTang}`, "level");
+          }
+          if (item.agi) {
+            p.stats.agi += item.giaTriTang;
+            UI.log(`${item.icon} Hấp thu → agi +${item.giaTriTang}`, "level");
+          }
+          if (item.vit) {
+            p.stats.vit += item.giaTriTang;
+            UI.log(`${item.icon} Hấp thu → vit +${item.giaTriTang}`, "level");
+          }
+          if (item.ene) {
+            p.stats.ene += item.giaTriTang;
+            UI.log(`${item.icon} Hấp thu → ene +${item.giaTriTang}`, "level");
+          }
+          if (!item.str && !item.agi && !item.vit && !item.ene) {
             UI.log(
               `${item.icon} Hấp thu ${item.name} → Tu Vi +${item.giaTriTuVi}`,
               "level",
             );
-          // p.maxHp = 100 + p.stats.vit * 10;
-          // p.maxMp = 50 + p.stats.int * 8;
-          // p.hp = Math.min(p.hp, p.maxHp);
-          // p.mp = Math.min(p.mp, p.maxMp);
+          }
+          p.maxHp = 100 + p.stats.vit * 10;
+          p.maxMp = 50 + p.stats.ene * 8;
           Inventory.remove(idx);
           UI.update();
         },
+
         async tryBreakthrough() {
           const p = S.player;
           if (p.tuViHienTai < p.tuViLenCap) {
             UI.log(
-              `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(p.tuViHienTai)}`,
+              `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(
+                p.tuViHienTai,
+              )}`,
               "system",
             );
             return;
@@ -1741,22 +1976,17 @@
           p.tuViHienTai -= p.tuViLenCap;
           if (p.tangTuVi < 9) {
             p.tangTuVi++;
+            this.applyBreakthroughStats(p, false);
             UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
           } else {
             const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
+            p.canhGioi = res;
             p.realm++;
             p.tangTuVi = 1;
-            p.maxHp += 300;
-            p.maxMp += 150;
-            p.hp = p.maxHp;
-            p.mp = p.maxMp;
-            UI.log(
-              `🌟 THĂNG CẢNH GIỚI → ${CFG.REALMS[p.realm]} Tầng 1!`,
-              "level",
-            );
+            this.applyBreakthroughStats(p, true);
+            UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
             p.maCanhGioi = res.code;
           }
-          // else UI.log("Đã đạt đỉnh Đế Tôn!", "level");
           p.tuViLenCap = Cultivation.calcTuNeeded(p.canhGioi, p.tangTuVi);
           S.player = { ...p };
           Net.saveNow({
@@ -1977,7 +2207,7 @@
           for (const npc of S.npcs) Render.npc(npc, cx, cy);
           // Other players (co-op)
           for (const [, op] of otherPlayers)
-            if (op.mapId === S.mapId) Render.otherPlayer(op, cx, cy);
+            if (op.mapCode === S.mapCode) Render.otherPlayer(op, cx, cy);
           for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
           const tint = p.root ? p.root.color : "#4488cc";
           Render.player(p.px - cx, p.py - cy, tint);
@@ -2624,23 +2854,20 @@
       // ════════════════════════════════════════════════════════════
       let cRoot = null;
       const cPts = { str: 5, agi: 5, vit: 5, int: 5, remaining: 20 };
-      function rollRoot() {
-        const r = CFG.ROOTS[Math.floor(Math.random() * CFG.ROOTS.length)];
-        const gi = Math.floor(Math.random() * 3);
-        cRoot = { ...r, grade: gi, gradeName: CFG.GRADE_NAMES[gi] };
+      function selectRoot(rootId) {
+        const r = CFG.ROOTS.find((item) => item.id === rootId);
+        if (!r) return;
+        cRoot = { ...r };
         const orb = document.getElementById("spirit-orb");
         orb.textContent = r.emoji;
         orb.style.background = r.bg;
         orb.style.color = r.color;
         orb.style.borderColor = r.color;
         orb.style.boxShadow = `0 0 14px ${r.color}66`;
-        document.getElementById("spirit-name").textContent =
-          r.name + " Linh Căn";
+        document.getElementById("spirit-name").textContent = r.name;
         document.getElementById("spirit-name").style.color = r.color;
         document.getElementById("spirit-grade").textContent =
-          "品階: " +
-          CFG.GRADE_NAMES[gi] +
-          (gi === 2 ? " ★★★" : gi === 1 ? " ★★" : " ★");
+          "Linh căn đã chọn";
       }
       function adj(s, d) {
         const nv = cPts[s] + d;
@@ -2659,14 +2886,21 @@
           alert("Hãy nhập pháp danh!");
           return;
         }
-        if (!cRoot) rollRoot();
+        if (!cRoot) {
+          alert("Vui lòng chọn một linh căn trước khi tạo nhân vật.");
+          return;
+        }
+        if (cPts.remaining !== 0) {
+          alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
+          return;
+        }
         const { str, agi, vit, int: int_ } = cPts;
         S.player = {
           name,
           root: cRoot,
           realm: 0,
           stage: 1,
-          stats: { str, agi, vit, int: int_ },
+          stats: { str, agi, vit, ene: int_ },
           hp: 100 + vit * 10,
           maxHp: 100 + vit * 10,
           mp: 50 + int_ * 8,
@@ -2679,15 +2913,22 @@
           px: 26 * CFG.TS + CFG.TS / 2,
           py: 30 * CFG.TS + CFG.TS / 2,
         };
-        // Save new character to server
+
+        const defaultMap = await Net.get("/api/worlds/default");
+        const defaultMapCode = defaultMap?.code || "thien_van_thanh";
+        const defaultStart = defaultMap?.playerStart || defaultMap?.start || {};
+        const startX = defaultStart.x ?? 26;
+        const startY = defaultStart.y ?? 30;
+        S.player.mapCode = defaultMapCode;
+        S.player.mapId = defaultMap?.id || defaultMapCode;
+        S.player.x = startX;
+        S.player.y = startY;
+        S.player.px = startX * CFG.TS + CFG.TS / 2;
+        S.player.py = startY * CFG.TS + CFG.TS / 2;
+
         const playerData = await Net.post("/api/players", S.player);
         S.player.tuNeeded = Cultivation.calcTuNeeded(playerData?.canhGioi, 1);
         Auth._startGameWithData(playerData);
-        // enterGame(
-        //   "wilderness",
-        //   MAPS.wilderness.playerStart.x,
-        //   MAPS.wilderness.playerStart.y,
-        // );
       }
 
       function enterGame(map, x, y) {
