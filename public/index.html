@@ -1395,7 +1395,7 @@
             S.player.px = toX * CFG.TS + CFG.TS / 2;
             S.player.py = toY * CFG.TS + CFG.TS / 2;
           }
-          S.portals = def.portals.map((p) => ({ ...p }));
+          S.portals = def.portals;
           S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
           S.monsters = [];
 
@@ -1425,16 +1425,17 @@
           }
           return null;
         },
-        checkPortals() {
+        async checkPortals() {
           const p = S.player;
           for (const portal of S.portals)
             if (
-              p.x === portal.tx &&
-              p.y === portal.ty &&
-              portal.toMap &&
-              portal.label !== ""
+              p.x === portal.x &&
+              p.y === portal.y &&
+              portal.denMap &&
+              portal.tenMapDen !== ""
             ) {
-              World.loadMap(portal.toMap, portal.toX, portal.toY);
+              const _map = await Net.get("/api/worlds/by-code?code=" + portal.denMap)
+              World.loadMap(_map, portal.toX, portal.toY);
               return;
             }
         },
@@ -1924,7 +1925,7 @@
             for (let tx = tx0; tx <= tx1; tx++)
               Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy);
           for (const portal of S.portals)
-            if (portal.label) Render.portal(portal, cx, cy);
+            if (portal.tenMapDen) Render.portal(portal, cx, cy);
           for (const npc of S.npcs) Render.npc(npc, cx, cy);
           // Other players (co-op)
           for (const [, op] of otherPlayers)
@@ -2250,9 +2251,9 @@
           }
         },
         portal(portal, cx, cy) {
-          const sx = portal.tx * CFG.TS + CFG.TS / 2 - cx,
-            sy = portal.ty * CFG.TS + CFG.TS / 2 - cy;
-          if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
+          const sx = portal.x * CFG.TS + CFG.TS / 2 - cx,
+            sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
+          // if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
           const a = S.animT * 0.002;
           const grad = ctx.createRadialGradient(sx, sy, 4, sx, sy, 20);
           grad.addColorStop(0, `rgba(100,180,255,${0.4 + 0.2 * Math.sin(a)})`);
@@ -2264,14 +2265,14 @@
           ctx.beginPath();
           ctx.arc(sx, sy, 14, 0, Math.PI * 2);
           ctx.stroke();
-          if (portal.label) {
+          if (portal.tenMapDen) {
             ctx.fillStyle = "rgba(0,0,0,.7)";
-            const lw = ctx.measureText(portal.label).width + 10;
+            const lw = ctx.measureText(portal.tenMapDen).width + 10;
             ctx.fillRect(sx - lw / 2, sy - 36, lw, 13);
             ctx.fillStyle = "#88ddff";
             ctx.font = "9px monospace";
             ctx.textAlign = "center";
-            ctx.fillText(portal.label, sx, sy - 26);
+            ctx.fillText(portal.tenMapDen, sx, sy - 26);
           }
         },
         floatDmg(wx, wy, offY, text, color) {
