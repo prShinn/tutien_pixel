@@ -1526,6 +1526,7 @@
       function lerp(a, b, t) {
         return a + (b - a) * t;
       }
+
       function dist(ax, ay, bx, by) {
         return Math.hypot(ax - bx, ay - by);
       }
@@ -1543,8 +1544,8 @@
           S.atkFx = [];
           S.groundItems = [];
           if (S.player) {
-            const px = Math.floor(toX);
-            const py = Math.floor(toY);
+            const px = Math.max(0, Math.min(def.w - 1, toX));
+            const py = Math.max(0, Math.min(def.h - 1, toY));
             S.player.x = px;
             S.player.y = py;
             S.player.px = px * CFG.TS + CFG.TS / 2;
@@ -1582,12 +1583,26 @@
           }
           return null;
         },
+        collides(x, y) {
+          const radius = 0.22;
+          const minX = Math.floor(x - radius);
+          const maxX = Math.floor(x + radius);
+          const minY = Math.floor(y - radius);
+          const maxY = Math.floor(y + radius);
+          for (let ty = minY; ty <= maxY; ty++) {
+            for (let tx = minX; tx <= maxX; tx++) {
+              if (isSolid(tx, ty)) return true;
+            }
+          }
+          return false;
+        },
         async checkPortals() {
           const p = S.player;
-          for (const portal of S.portals)
+          for (const portal of S.portals) {
+            const px = portal.x * CFG.TS + CFG.TS / 2;
+            const py = portal.y * CFG.TS + CFG.TS / 2;
             if (
-              p.x === portal.x &&
-              p.y === portal.y &&
+              dist(p.px, p.py, px, py) < CFG.TS * 0.5 &&
               portal.denMap &&
               portal.tenMapDen !== ""
             ) {
@@ -1596,8 +1611,8 @@
               );
               World.loadMap(_map, portal.toX, portal.toY);
               break;
-              return;
             }
+          }
         },
         checkNpcInteract() {
           const p = S.player;
@@ -2785,21 +2800,34 @@
           if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
           if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
           if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
+
           if (dx || dy) {
-            S.moveTimer += dt;
-            if (S.moveTimer > 115) {
-              S.moveTimer = 0;
-              const nx = p.x + dx,
-                ny = p.y + dy;
-              if (!isSolid(nx, ny)) {
-                p.x = nx;
-                p.y = ny;
-                Net.emitMove();
-              }
+            const mag = Math.hypot(dx, dy);
+            const dirX = dx / mag;
+            const dirY = dy / mag;
+            const speedBase = 1;
+            const speedBonus = (p.stats?.agi || 0) * 0.005;
+            const moveStep =
+              ((speedBase + speedBonus) * (dt / 16)) /
+              (15 - Math.max(0, S.player.speed ?? 1));
+            const oldX = p.x;
+            const oldY = p.y;
+
+            const nextX = p.x + dirX * moveStep;
+            if (!World.collides(nextX, p.y)) p.x = nextX;
+            const nextY = p.y + dirY * moveStep;
+            if (!World.collides(p.x, nextY)) p.y = nextY;
+
+            if (
+              Math.abs(p.x - oldX) > 0.0000001 ||
+              Math.abs(p.y - oldY) > 0.0000001
+            ) {
+              Net.emitMove();
             }
-          } else S.moveTimer = 0;
-          p.px = lerp(p.px, p.x * CFG.TS + CFG.TS / 2, 0.28);
-          p.py = lerp(p.py, p.y * CFG.TS + CFG.TS / 2, 0.28);
+          }
+
+          p.px = p.x * CFG.TS + CFG.TS / 2;
+          p.py = p.y * CFG.TS + CFG.TS / 2;
           if (Input.keys["Space"] && S.atkCd <= 0) {
             let best = null,
               bd = 5 * CFG.TS;
@@ -2989,7 +3017,7 @@
       // ════════════════════════════════════════════════════════════
       // §18 · BOOT
       // ════════════════════════════════════════════════════════════
-      rollRoot();
+      // rollRoot();
       //   (async () => {
       //     // Try auto-login with saved token
       //     const ok = await Auth.tryAutoLogin().catch(() => false);
