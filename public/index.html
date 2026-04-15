@@ -1,77 +1,69 @@
 <!doctype html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Tu Tiên · Vạn Cổ Đế Tôn v3</title>
-    <!-- Socket.io client — tải từ server khi deploy thực. Dùng CDN cho demo -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="./css/style.css" />
-  </head>
-  <body>
-    <!-- ══════════════════════════════════════ SCREEN: AUTH -->
-    <div class="screen" id="screen-auth">
-      <div class="stars"></div>
-      <div class="title-main">⚔ TU TIÊN · VẠN CỔ ĐẾ TÔN</div>
-      <div class="title-sub">
-        Vạn năm tu luyện · Đăng đỉnh Đại Đế · Vượt qua Vô Thượng Thiên Đạo
-      </div>
-      <div class="card" style="width: 380px">
-        <div class="auth-tabs">
-          <div
-            class="auth-tab active"
-            id="tab-login"
-            onclick="Auth.showTab('login')"
-          >
-            ĐĂNG NHẬP
-          </div>
-          <div class="auth-tab" id="tab-reg" onclick="Auth.showTab('register')">
-            ĐĂNG KÝ
-          </div>
-        </div>
-        <div class="err-msg" id="auth-err"></div>
-        <div class="field-group">
-          <div class="field-label">TÀI KHOẢN</div>
-          <input
-            class="inp"
-            id="inp-user"
-            placeholder="Username..."
-            maxlength="20"
-            autocomplete="username"
-          />
-        </div>
-        <div class="field-group">
-          <div class="field-label">MẬT KHẨU</div>
-          <input
-            class="inp"
-            id="inp-pass"
-            type="password"
-            placeholder="Password..."
-            autocomplete="current-password"
-          />
-        </div>
-        <div class="field-group" id="reg-confirm-wrap" style="display: none">
-          <div class="field-label">XÁC NHẬN MẬT KHẨU</div>
-          <input
-            class="inp"
-            id="inp-confirm"
-            type="password"
-            placeholder="Nhập lại password..."
-          />
-        </div>
-        <button class="big-btn" id="auth-btn" onclick="Auth.submit()">
-          ĐĂNG NHẬP
-        </button>
-        <div class="alt-link" id="auth-alt">
-          Chưa có tài khoản?
-          <a onclick="Auth.showTab('register')">Đăng ký ngay</a>
-        </div>
-        <div class="status-line" id="auth-status">
-          <!-- Server status / offline notice -->
-        </div>
-      </div>
-      <!-- Offline/demo mode -->
-      <!-- <div style="margin-top: 14px">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>Vạn Cổ Đế Tôn</title>
+		<!-- Socket.io client — tải từ server khi deploy thực. Dùng CDN cho demo -->
+		<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+		<link rel="stylesheet" href="./css/style.css" />
+	</head>
+	<body>
+		<!-- ══════════════════════════════════════ SCREEN: AUTH -->
+		<div class="screen" id="screen-auth">
+			<div class="stars"></div>
+			<div class="title-main">⚔ VẠN CỔ ĐẾ TÔN</div>
+			<div class="title-sub">Nghịch thiên tu luyện · Vấn đỉnh Đại Đế</div>
+			<div class="card" style="width: 380px">
+				<div class="auth-tabs">
+					<div class="auth-tab active" id="tab-login" onclick="Auth.showTab('login')">
+						ĐĂNG NHẬP
+					</div>
+					<div class="auth-tab" id="tab-reg" onclick="Auth.showTab('register')">
+						ĐĂNG KÝ
+					</div>
+				</div>
+				<div class="err-msg" id="auth-err"></div>
+				<div class="field-group">
+					<div class="field-label">TÀI KHOẢN</div>
+					<input
+						class="inp"
+						id="inp-user"
+						placeholder="Username..."
+						maxlength="20"
+						autocomplete="username"
+					/>
+				</div>
+				<div class="field-group">
+					<div class="field-label">MẬT KHẨU</div>
+					<input
+						class="inp"
+						id="inp-pass"
+						type="password"
+						placeholder="Password..."
+						autocomplete="current-password"
+					/>
+				</div>
+				<div class="field-group" id="reg-confirm-wrap" style="display: none">
+					<div class="field-label">XÁC NHẬN MẬT KHẨU</div>
+					<input
+						class="inp"
+						id="inp-confirm"
+						type="password"
+						placeholder="Nhập lại password..."
+					/>
+				</div>
+				<button class="big-btn" id="auth-btn" onclick="Auth.submit()">ĐĂNG NHẬP</button>
+				<div class="alt-link" id="auth-alt">
+					Chưa có tài khoản?
+					<a onclick="Auth.showTab('register')">Đăng ký ngay</a>
+				</div>
+				<div class="status-line" id="auth-status">
+					<!-- Server status / offline notice -->
+				</div>
+			</div>
+			<!-- Offline/demo mode -->
+			<!-- <div style="margin-top: 14px">
         <button
           class="sbtn"
           onclick="Auth.playOffline()"
@@ -84,2957 +76,2842 @@
           ⚡ Chơi thử không cần đăng nhập (Offline)
         </button>
       </div> -->
-    </div>
-
-    <!-- ══════════════════════════════════════ SCREEN: CREATE CHARACTER -->
-    <div class="screen hidden" id="screen-create">
-      <div class="stars"></div>
-      <div class="title-main">✦ TẠO NHÂN VẬT</div>
-      <div class="title-sub">
-        Chọn linh căn · Phân bổ thuộc tính · Bắt đầu tu luyện
-      </div>
-      <div class="card" style="width: 510px">
-        <div class="field-group">
-          <div class="sec-title">✦ PHÁP DANH</div>
-          <input
-            class="inp"
-            id="inp-charname"
-            placeholder="Nhập pháp danh tu sĩ..."
-            maxlength="16"
-          />
-        </div>
-        <div class="field-group">
-          <div class="sec-title">✦ LINH CĂN</div>
-          <div class="spirit-box">
-            <div id="spirit-orb">❓</div>
-            <div class="spirit-info">
-              <div id="spirit-name">Chưa chọn linh căn</div>
-              <div id="spirit-grade">Chọn một linh căn để bắt đầu</div>
-            </div>
-          </div>
-          <div
-            style="
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 8px;
-              margin-top: 12px;
-            "
-          >
-            <button class="sbtn" type="button" onclick="selectRoot('KIM')">
-              ⚙ KIM
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('MOC')">
-              🌿 MỘC
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('THUY')">
-              💧 THỦY
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('HOA')">
-              🔥 HỎA
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('THO')">
-              🪨 THỔ
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('QUANG')">
-              ✨ QUANG
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('AM')">
-              🌑 ÂM
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('PHONG')">
-              💨 PHONG
-            </button>
-            <button class="sbtn" type="button" onclick="selectRoot('LOI')">
-              ⚡ LÔI
-            </button>
-            <button
-              class="sbtn"
-              type="button"
-              onclick="selectRoot('THOI_GIAN')"
-            >
-              ⏳ THỜI_GIAN
-            </button>
-            <button
-              class="sbtn"
-              type="button"
-              onclick="selectRoot('KHONG_GIAN')"
-            >
-              🌌 KHÔNG_GIAN
-            </button>
-          </div>
-        </div>
-        <div class="field-group">
-          <div class="sec-title">✦ PHÂN BỔ THUỘC TÍNH (20 điểm)</div>
-          <div class="points-display">
-            Điểm còn lại: <em id="pts-left">20</em>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-row">
-              <span class="stat-icon">⚔</span
-              ><span class="stat-lbl">Sức Mạnh</span>
-              <div class="adj-btn" onclick="adj('str', -1)">−</div>
-              <span class="stat-num" id="cs-str">5</span>
-              <div class="adj-btn" onclick="adj('str', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">💨</span
-              ><span class="stat-lbl">Nhanh Nhẹn</span>
-              <div class="adj-btn" onclick="adj('agi', -1)">−</div>
-              <span class="stat-num" id="cs-agi">5</span>
-              <div class="adj-btn" onclick="adj('agi', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">🛡</span
-              ><span class="stat-lbl">Thể Lực</span>
-              <div class="adj-btn" onclick="adj('vit', -1)">−</div>
-              <span class="stat-num" id="cs-vit">5</span>
-              <div class="adj-btn" onclick="adj('vit', 1)">+</div>
-            </div>
-            <div class="stat-row">
-              <span class="stat-icon">🧠</span
-              ><span class="stat-lbl">Trí Tuệ</span>
-              <div class="adj-btn" onclick="adj('int', -1)">−</div>
-              <span class="stat-num" id="cs-int">5</span>
-              <div class="adj-btn" onclick="adj('int', 1)">+</div>
-            </div>
-          </div>
-        </div>
-        <button class="big-btn" onclick="createCharacter()">
-          ⚔ KHAI THỦY TU TIÊN ⚔
-        </button>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════ SCREEN: GAME -->
-    <div id="screen-game">
-      <div class="gpanel" id="panel-left">
-        <div class="phead">✦ NHÂN VẬT</div>
-        <div class="pbody">
-          <div class="char-name-disp">
-            <div class="cname" id="ui-name">—</div>
-            <div class="cspirit" id="ui-spirit-tag">—</div>
-          </div>
-          <div class="realm-box">
-            <div class="rname" id="ui-realm">Luyện Thể</div>
-            <div class="rstage" id="ui-stage">Tầng 1</div>
-          </div>
-          <div class="cp-box">
-            CHIẾN LỰC<br /><span class="cpval" id="ui-cp">0</span>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #cc4444">❤ HP</span
-              ><span id="ui-hp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-hp" id="b-hp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #4466cc">✦ MP</span
-              ><span id="ui-mp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-mp" id="b-mp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #9944cc">☯ Tu Vi</span
-              ><span id="ui-tu">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-tu" id="b-tu" style="width: 0%"></div>
-            </div>
-          </div>
-          <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
-          <div class="online-badge" id="online-badge">● Offline</div>
-          <!-- Online players mini list -->
-          <div
-            class="sec-title"
-            style="font-size: 9px; margin-top: 10px; margin-bottom: 4px"
-          >
-            ✦ ĐANG ONLINE
-          </div>
-          <div class="online-list" id="online-list">
-            <div style="color: var(--text2); font-size: 10px">
-              Chưa kết nối...
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="canvas-area">
-        <canvas id="game-canvas"></canvas>
-        <div id="map-name-overlay"></div>
-        <div id="conn-badge" class="offline">● Offline</div>
-      </div>
-
-      <div class="gpanel" id="panel-right">
-        <div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
-        <div class="pbody">
-          <div class="stat-line">
-            <span class="slbl">⚔ Sức Mạnh</span
-            ><span class="sv" id="r-str">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Nhanh Nhẹn</span
-            ><span class="sv" id="r-agi">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Thể Lực</span
-            ><span class="sv" id="r-vit">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🧠 Trí Tuệ</span
-            ><span class="sv" id="r-int">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">⚡ Vật Lý ATK</span
-            ><span class="sv" id="r-patk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🔮 Pháp ATK</span
-            ><span class="sv" id="r-matk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Phòng Thủ</span
-            ><span class="sv" id="r-def">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Tốc Độ</span
-            ><span class="sv" id="r-spd">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🎯 Tránh Né</span
-            ><span class="sv" id="r-eva">0%</span>
-          </div>
-          <div class="equip-section">
-            <div class="sec-title" style="font-size: 9px; margin-bottom: 4px">
-              ✦ TRANG BỊ
-            </div>
-            <div class="equip-grid">
-              <div class="esl">
-                <div class="eicon">⚔</div>
-                Vũ Khí
-              </div>
-              <div class="esl">
-                <div class="eicon">🪖</div>
-                Mũ
-              </div>
-              <div class="esl">
-                <div class="eicon">🥋</div>
-                Giáp
-              </div>
-              <div class="esl">
-                <div class="eicon">👖</div>
-                Quần
-              </div>
-              <div class="esl">
-                <div class="eicon">👟</div>
-                Giày
-              </div>
-              <div class="esl">
-                <div class="eicon">💍</div>
-                Nhẫn
-              </div>
-              <div class="esl">
-                <div class="eicon">📿</div>
-                Vòng
-              </div>
-              <div class="esl">
-                <div class="eicon">🔗</div>
-                Đai
-              </div>
-              <div class="esl">
-                <div class="eicon">💎</div>
-                Linh Thạch
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-bottom">
-        <div id="log-wrap">
-          <div class="phead">✦ NHẬT KÝ &amp; CHAT</div>
-          <div id="log-area"></div>
-          <div id="chat-bar">
-            <input
-              class="inp"
-              id="chat-inp"
-              placeholder="Chat với người chơi khác (Enter)..."
-              maxlength="100"
-            />
-            <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
-          </div>
-        </div>
-        <div id="actions-wrap">
-          <div class="phead" style="margin: -6px -6px 5px; padding: 4px 7px">
-            ✦ THAO TÁC
-          </div>
-          <button class="act-btn" onclick="Cultivation.absorbStone()">
-            🔮 Hấp Thu Linh Thạch
-          </button>
-          <button class="act-btn" onclick="Cultivation.tryBreakthrough()">
-            ⬆ Phá Cảnh Giới
-          </button>
-          <button class="act-btn" id="btn-auto" onclick="toggleAuto()">
-            ⚔ Tự Động Đánh
-          </button>
-          <button class="act-btn" onclick="Net.saveNow()">
-            💾 Lưu Thủ Công
-          </button>
-          <button class="act-btn danger" onclick="Auth.logout()">
-            🚪 Đăng Xuất
-          </button>
-          <div class="keys-hint">
-            WASD/↑↓←→ Di chuyển<br />
-            Space: Đánh gần nhất<br />
-            F: Tương tác NPC<br />
-            Enter: Chat
-          </div>
-        </div>
-        <div id="inv-wrap">
-          <div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
-          <div id="inv-grid"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SHOP -->
-    <div id="shop-modal">
-      <div class="modal-box" style="width: 540px">
-        <div class="modal-header">
-          <span class="modal-title" id="shop-title">🏪 Cửa Hàng</span>
-          <span class="modal-xu">💰 <em id="shop-xu">0</em> xu</span>
-          <button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
-        </div>
-        <div class="shop-cols" style="height: 280px">
-          <div class="shop-col" id="shop-buy-list">
-            <div class="shop-col-head">MUA VẬT PHẨM</div>
-          </div>
-          <div class="shop-col" id="shop-sell-list">
-            <div class="shop-col-head">BÁN VẬT PHẨM</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DIALOG -->
-    <div id="dialog-modal">
-      <div class="modal-box" style="width: 420px">
-        <div class="modal-header">
-          <span class="modal-title" id="dialog-npc-n">NPC</span>
-          <button class="modal-close-btn" onclick="DialogUI.close()">✕</button>
-        </div>
-        <div id="dialog-text"></div>
-        <div class="dialog-close-wrap">
-          <button class="sbtn" onclick="DialogUI.close()">Đóng [Esc]</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="tip">
-      <div class="tip-name" id="tip-name"></div>
-      <div class="tip-type" id="tip-type"></div>
-      <div id="tip-body"></div>
-    </div>
-
-    <script>
-      "use strict";
-      // ════════════════════════════════════════════════════════════
-      // §0 · API CONFIG  ← Đổi URL này khi deploy server
-      // ════════════════════════════════════════════════════════════
-      const API = {
-        BASE: "http://localhost:8090", // ← server URL
-        SOCKET_URL: "http://localhost:3000", // ← socket URL (thường cùng server)
-        AUTO_SAVE_MS: 60000, // auto-save mỗi 60 giây
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §1 · GAME CONFIG
-      // ════════════════════════════════════════════════════════════
-      const Linh_CAN = {
-        KIM: {
-          emoji: "⚙",
-          color: "#DAA520",
-          bg: "#1a1200",
-        },
-        MOC: {
-          emoji: "🌿",
-          color: "#3db84a",
-          bg: "#0a1200",
-        },
-        THUY: {
-          emoji: "💧",
-          color: "#3d9bda",
-          bg: "#000d1a",
-        },
-        HOA: {
-          emoji: "🔥",
-          color: "#e05520",
-          bg: "#1a0800",
-        },
-        THO: {
-          emoji: "🪨",
-          color: "#b88a3a",
-          bg: "#120a00",
-        },
-        QUANG: {
-          emoji: "✨",
-          color: "#eeee60",
-          bg: "#181800",
-        },
-        AM: {},
-        PHONG: {
-          name: "Phong",
-          emoji: "💨",
-          color: "#8ad4b8",
-          bg: "#001a10",
-        },
-        LOI: {
-          name: "Lôi",
-          emoji: "⚡",
-          color: "#aa50ee",
-          bg: "#100018",
-        },
-        THOI_GIAN: {},
-        KHONG_GIAN: {
-          emoji: "🌑",
-          color: "#8888aa",
-          bg: "#020205",
-        },
-      };
-      const CFG = {
-        TS: 32,
-        INV_MAX: 40,
-        ATK_CD: 42,
-        REGEN_HP: 0.01,
-        REGEN_MP: 0.006,
-        MON_AGGRO: 4.2,
-        MON_LEASH: 11,
-        MON_RESPAWN: 420,
-        REALMS: [
-          "Luyện Thể",
-          "Khí Động",
-          "Ly Hợp",
-          "Chân Nguyên",
-          "Thần Du",
-          "Siêu Phàm",
-          "Nhập Thánh",
-          "Thánh Vương",
-          "Phản Hư",
-          "Hư Vương",
-          "Đạo Nguyên",
-          "Đế Tôn",
-        ],
-        ROOTS: [
-          {
-            id: "KIM",
-            name: "KIM",
-            emoji: "⚙",
-            color: "#DAA520",
-            bg: "#1a1200",
-          },
-          {
-            id: "MOC",
-            name: "MỘC",
-            emoji: "🌿",
-            color: "#3db84a",
-            bg: "#0a1200",
-          },
-          {
-            id: "THUY",
-            name: "THỦY",
-            emoji: "💧",
-            color: "#3d9bda",
-            bg: "#000d1a",
-          },
-          {
-            id: "HOA",
-            name: "HỎA",
-            emoji: "🔥",
-            color: "#e05520",
-            bg: "#1a0800",
-          },
-          {
-            id: "THO",
-            name: "THỔ",
-            emoji: "🪨",
-            color: "#b88a3a",
-            bg: "#120a00",
-          },
-          {
-            id: "QUANG",
-            name: "QUANG",
-            emoji: "✨",
-            color: "#eeee60",
-            bg: "#181800",
-          },
-          {
-            id: "AM",
-            name: "ÂM",
-            emoji: "🌑",
-            color: "#8888aa",
-            bg: "#020205",
-          },
-          {
-            id: "PHONG",
-            name: "PHONG",
-            emoji: "💨",
-            color: "#8ad4b8",
-            bg: "#001a10",
-          },
-          {
-            id: "LOI",
-            name: "LÔI",
-            emoji: "⚡",
-            color: "#aa50ee",
-            bg: "#100018",
-          },
-          {
-            id: "THOI_GIAN",
-            name: "THỜI_GIAN",
-            emoji: "⏳",
-            color: "#e0b15c",
-            bg: "#0f0a13",
-          },
-          {
-            id: "KHONG_GIAN",
-            name: "KHÔNG_GIAN",
-            emoji: "🌌",
-            color: "#8a8cff",
-            bg: "#02001f",
-          },
-        ],
-        ITEMS: {
-          slo: {
-            id: "slo",
-            name: "Linh Thạch Thấp",
-            emoji: "💠",
-            type: "STONE",
-            tuVal: 18,
-            sell: 3,
-            buyPrice: 28,
-            desc: "Hấp thu → tu vi +18",
-          },
-          smi: {
-            id: "smi",
-            name: "Linh Thạch Trung",
-            emoji: "🔷",
-            type: "STONE",
-            tuVal: 55,
-            sell: 12,
-            buyPrice: 80,
-            desc: "Hấp thu → tu vi +55",
-          },
-          shi: {
-            id: "shi",
-            name: "Linh Thạch Thượng",
-            emoji: "💎",
-            type: "STONE",
-            tuVal: 160,
-            sell: 40,
-            buyPrice: 220,
-            desc: "Hấp thu → tu vi +160",
-          },
-          ef: {
-            id: "ef",
-            name: "Đá Hỏa Nguyên",
-            emoji: "🟠",
-            type: "ELEMSTONE",
-            tuVal: 30,
-            statKey: "str",
-            statVal: 2,
-            sell: 18,
-            desc: "Tu vi +30, STR +2",
-          },
-          em: {
-            id: "em",
-            name: "Đá Mộc Nguyên",
-            emoji: "🟢",
-            type: "ELEMSTONE",
-            tuVal: 30,
-            statKey: "vit",
-            statVal: 2,
-            sell: 18,
-            desc: "Tu vi +30, VIT +2",
-          },
-          ew: {
-            id: "ew",
-            name: "Đá Thủy Nguyên",
-            emoji: "🔵",
-            type: "ELEMSTONE",
-            tuVal: 30,
-            statKey: "int",
-            statVal: 2,
-            sell: 18,
-            desc: "Tu vi +30, INT +2",
-          },
-          her: {
-            id: "her",
-            name: "Linh Thảo",
-            emoji: "🌿",
-            type: "mat",
-            sell: 2,
-            desc: "Nguyên liệu luyện đan",
-          },
-          bon: {
-            id: "bon",
-            name: "Yêu Cốt",
-            emoji: "🦴",
-            type: "mat",
-            sell: 1,
-            desc: "Xương yêu thú",
-          },
-          fur: {
-            id: "fur",
-            name: "Yêu Mao",
-            emoji: "🧶",
-            type: "mat",
-            sell: 3,
-            desc: "Lông yêu thú",
-          },
-          hpd: {
-            id: "hpd",
-            name: "Trị Thương Đan",
-            emoji: "🔴",
-            type: "CONSUME",
-            healHp: 50,
-            sell: 8,
-            buyPrice: 15,
-            desc: "Hồi 50 HP",
-          },
-          mpd: {
-            id: "mpd",
-            name: "Hồi Linh Đan",
-            emoji: "⚫",
-            type: "CONSUME",
-            healMp: 40,
-            sell: 8,
-            buyPrice: 15,
-            desc: "Hồi 40 MP",
-          },
-          bud: {
-            id: "bud",
-            name: "Trúc Cơ Đan",
-            emoji: "🟡",
-            type: "CONSUME",
-            statBoost: 2,
-            sell: 35,
-            buyPrice: 60,
-            desc: "+2 điểm ngẫu nhiên",
-          },
-        },
-        SHOP_SELL: ["hpd", "mpd", "bud", "slo", "smi"],
-        MONSTERS: [
-          {
-            name: "Dã Thú",
-            hp: 50,
-            atk: 6,
-            def: 2,
-            xuR: [2, 6],
-            iChance: 0.3,
-            speed: 1.0,
-            color: "#7a3a1a",
-            drops: ["bon", "fur", "her"],
-          },
-          {
-            name: "Linh Hồ",
-            hp: 85,
-            atk: 10,
-            def: 4,
-            xuR: [4, 12],
-            iChance: 0.25,
-            speed: 1.1,
-            color: "#cc6020",
-            drops: ["fur", "slo"],
-          },
-          {
-            name: "Yêu Lang",
-            hp: 130,
-            atk: 16,
-            def: 8,
-            xuR: [8, 22],
-            iChance: 0.2,
-            speed: 1.1,
-            color: "#6b2737",
-            drops: ["bon", "slo", "smi"],
-          },
-          {
-            name: "Linh Xà",
-            hp: 100,
-            atk: 13,
-            def: 5,
-            xuR: [6, 16],
-            iChance: 0.35,
-            speed: 1.2,
-            color: "#2d6b2d",
-            drops: ["her", "slo", "ef"],
-          },
-          {
-            name: "Thạch Quỷ",
-            hp: 160,
-            atk: 18,
-            def: 12,
-            xuR: [10, 28],
-            iChance: 0.15,
-            speed: 0.8,
-            color: "#5a5a6a",
-            drops: ["bon", "smi", "ew"],
-          },
-          {
-            name: "Ma Tặc",
-            hp: 220,
-            atk: 24,
-            def: 15,
-            xuR: [15, 35],
-            iChance: 0.25,
-            speed: 1.2,
-            color: "#8a1a3a",
-            drops: ["smi", "shi", "em"],
-          },
-          {
-            name: "Hắc Hổ",
-            hp: 300,
-            atk: 32,
-            def: 20,
-            xuR: [20, 50],
-            iChance: 0.2,
-            speed: 1.3,
-            color: "#1a1a3a",
-            drops: ["shi", "ef", "ew"],
-          },
-        ],
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §2 · NETWORK / AUTH MODULE
-      // ════════════════════════════════════════════════════════════
-      let socket = null;
-      let authToken = localStorage.getItem("tu_tien_token");
-      var currentUser = null;
-
-      const Net = {
-        _saveTimer: null,
-        _isOnline: false,
-        _pendingRequests: new Map(),
-        _savePromise: null,
-
-        _requestKey(method, path, body) {
-          const payload =
-            typeof body === "string" ? body : JSON.stringify(body || "");
-          return `${method}:${path}:${payload}`;
-        },
-
-        async _fetch(path, opts = {}) {
-          const method = (opts.method || "GET").toUpperCase();
-          const body = opts.body || "";
-          const key = this._requestKey(method, path, body);
-          if (this._pendingRequests.has(key)) {
-            return this._pendingRequests.get(key);
-          }
-          const promise = (async () => {
-            const res = await fetch(API.BASE + path, opts);
-            return res.json();
-          })();
-          this._pendingRequests.set(key, promise);
-          try {
-            return await promise;
-          } finally {
-            this._pendingRequests.delete(key);
-          }
-        },
-
-        async get(path) {
-          return this._fetch(path, {
-            headers: { Authorization: "Bearer " + authToken },
-          });
-        },
-
-        async post(path, body) {
-          return this._fetch(path, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + authToken,
-            },
-            body: JSON.stringify(body),
-          });
-        },
-
-        async put(path, body) {
-          return this._fetch(path, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + authToken,
-            },
-            body: JSON.stringify(body),
-          });
-        },
-
-        // ── Save ──
-        async saveNow(event) {
-          if (!authToken || !S.player) return;
-          if (this._savePromise) return this._savePromise;
-          this._savePromise = (async () => {
-            const playerData = {
-              ...S.player,
-              inventory: S.inventory,
-              x: Math.floor(S.player.x || 0),
-              y: Math.floor(S.player.y || 0),
-              mapCode: S.mapCode || S.player.mapCode,
-              mapId: S.player.mapId || S.mapCode || S.player.mapCode,
-              _event: event || null,
-              tenCanhGioi: S.player.canhGioi?.name || "",
-            };
-            try {
-              playerData.jsonIventory = JSON.stringify(playerData.inventory);
-              const res = await this.put(
-                "/api/player/" + playerData.id,
-                playerData,
-              );
-              if (res?.ok) UI.log("💾 Đã lưu dữ liệu lên server", "system");
-            } catch {
-              UI.log("⚠ Không thể kết nối server để lưu", "system");
-            } finally {
-              this._savePromise = null;
-            }
-          })();
-          return this._savePromise;
-        },
-
-        startAutoSave() {
-          clearInterval(Net._saveTimer);
-          Net._saveTimer = setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS);
-        },
-
-        // ── Socket.io ──
-        connectSocket() {
-          if (!authToken) return;
-          try {
-            socket = io(API.SOCKET_URL, {
-              auth: { token: authToken },
-              timeout: 5000,
-            });
-
-            socket.on("connect", () => {
-              Net._isOnline = true;
-              Net._setBadge(true);
-              const p = S.player;
-              if (p)
-                socket.emit("join_world", {
-                  mapCode: S.mapCode,
-                  x: p.x,
-                  y: p.y,
-                });
-              UI.log("🌐 Đã kết nối máy chủ!", "system");
-            });
-
-            socket.on("disconnect", () => {
-              Net.saveNow();
-              localStorage.removeItem("tu_tien_token");
-              Net._isOnline = false;
-              Net._setBadge(false);
-              Net._clearOthers();
-              UI.log("⚠ Mất kết nối server...", "system");
-            });
-
-            socket.on("connect_error", () => {
-              Net._setBadge(false);
-            });
-
-            // ── World state (players on same map) ──
-            socket.on("world_state", ({ players }) => {
-              for (const p of players) Net._upsertOther(p);
-              Net._renderOnlineList();
-            });
-
-            socket.on("player_join", (p) => {
-              Net._upsertOther(p);
-              Net._renderOnlineList();
-              UI.log(`👤 ${p.username} gia nhập bản đồ`, "system");
-            });
-
-            socket.on("player_leave", ({ id }) => {
-              Net.saveNow();
-
-              otherPlayers.delete(id);
-              Net._renderOnlineList();
-            });
-
-            socket.on("player_move", ({ id, x, y }) => {
-              if (otherPlayers.has(id)) {
-                const op = otherPlayers.get(id);
-                op.x = x;
-                op.y = y;
-                op.px = x * CFG.TS + CFG.TS / 2;
-                op.py = y * CFG.TS + CFG.TS / 2;
-              }
-            });
-
-            socket.on("player_map", ({ id, mapCode, x, y }) => {
-              if (otherPlayers.has(id)) {
-                const op = otherPlayers.get(id);
-                if (op.mapCode !== S.mapCode) otherPlayers.delete(id);
-                else {
-                  op.x = x;
-                  op.y = y;
-                  op.mapCode = mapCode;
-                }
-              }
-            });
-
-            socket.on("chat_message", ({ username, message, id }) => {
-              const isMe = id === socket.id;
-              UI.log(`[${isMe ? "Tôi" : username}]: ${message}`, "chat");
-            });
-
-            socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
-              // Show attack effect from other player (future: find target by id)
-              UI.log(
-                `[${attackerName}] đánh quái ${damage} sát thương`,
-                "combat",
-              );
-            });
-
-            socket.on("server_msg", ({ text }) => {
-              UI.log(text, "system");
-            });
-          } catch (e) {
-            Net._setBadge(false);
-          }
-        },
-
-        emitMove() {
-          if (socket?.connected && S.player) {
-            socket.emit("move", {
-              x: S.player.x,
-              y: S.player.y,
-              mapCode: S.mapCode,
-            });
-          }
-        },
-
-        emitMapChange(mapCode, x, y) {
-          const px = Math.floor(x);
-          const py = Math.floor(y);
-          if (socket?.connected) {
-            socket.emit("map_change", { mapCode, x: px, y: py });
-          }
-          // Save on map change
-          Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
-        },
-
-        sendChat() {
-          const inp = document.getElementById("chat-inp");
-          const msg = inp.value.trim();
-          if (!msg) return;
-          if (socket?.connected) {
-            socket.emit("chat", { message: msg });
-          } else {
-            UI.log(`[Tôi]: ${msg}`, "chat");
-          }
-          inp.value = "";
-        },
-
-        _setBadge(online) {
-          const badge = document.getElementById("conn-badge");
-          const ob = document.getElementById("online-badge");
-          badge.className = online ? "online" : "offline";
-          badge.textContent = online ? "● Online" : "● Offline";
-          ob.textContent = online ? "● Online" : "● Offline";
-          ob.style.color = online ? "var(--green)" : "#aa4444";
-        },
-
-        _upsertOther(p) {
-          const existing = otherPlayers.get(p.id) || {};
-          otherPlayers.set(p.id, {
-            ...existing,
-            ...p,
-            px: (p.x || 0) * CFG.TS + CFG.TS / 2,
-            py: (p.y || 0) * CFG.TS + CFG.TS / 2,
-          });
-        },
-
-        _clearOthers() {
-          otherPlayers.clear();
-          Net._renderOnlineList();
-        },
-
-        _renderOnlineList() {
-          const el = document.getElementById("online-list");
-          if (otherPlayers.size === 0) {
-            el.innerHTML =
-              '<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
-            return;
-          }
-          el.innerHTML = "";
-          for (const [, p] of otherPlayers) {
-            const d = document.createElement("div");
-            d.className = "online-player";
-            d.innerHTML = `<span class="on-name">${p.username || "?"}</span><span class="on-realm">${p.canhGioi.tenCanhGioi}</span>`;
-            el.appendChild(d);
-          }
-        },
-      };
-
-      // ── Auth Screen ──
-      const Auth = {
-        _mode: "login",
-
-        showTab(mode) {
-          Auth._mode = mode;
-          document.getElementById("tab-login").className =
-            "auth-tab" + (mode === "login" ? " active" : "");
-          document.getElementById("tab-reg").className =
-            "auth-tab" + (mode === "register" ? " active" : "");
-          document.getElementById("reg-confirm-wrap").style.display =
-            mode === "register" ? "" : "none";
-          document.getElementById("auth-btn").textContent =
-            mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
-          document.getElementById("auth-alt").innerHTML =
-            mode === "login"
-              ? "Chưa có tài khoản? <a onclick=\"Auth.showTab('register')\">Đăng ký ngay</a>"
-              : "Đã có tài khoản? <a onclick=\"Auth.showTab('login')\">Đăng nhập</a>";
-          Auth._clearErr();
-        },
-
-        async submit() {
-          const username = document.getElementById("inp-user").value.trim();
-          const password = document.getElementById("inp-pass").value;
-          Auth._clearErr();
-          if (!username || !password)
-            return Auth._err("Vui lòng điền đầy đủ thông tin");
-
-          if (Auth._mode === "register") {
-            const confirm = document.getElementById("inp-confirm").value;
-            if (password !== confirm)
-              return Auth._err("Mật khẩu xác nhận không khớp");
-          }
-
-          const btn = document.getElementById("auth-btn");
-          btn.disabled = true;
-          btn.textContent = "Đang xử lý...";
-
-          try {
-            const path =
-              Auth._mode === "login" ? "/api/auth/login" : "/api/auth/register";
-            const res = await fetch(API.BASE + path, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username, password }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              Auth._err(data.error || "Lỗi không xác định");
-              return;
-            }
-
-            authToken = data.token;
-            currentUser = data.user;
-            localStorage.setItem("tu_tien_token", authToken);
-
-            Auth._afterLogin();
-          } catch {
-            Auth._err("Không thể kết nối máy chủ. Thử chơi offline?");
-          } finally {
-            btn.disabled = false;
-            btn.textContent = Auth._mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
-          }
-        },
-
-        async _afterLogin() {
-          // Try to load existing character
-          try {
-            const data = await Net.get("/api/player/" + currentUser.id);
-            if (data) {
-              Auth._startGameWithData(data);
-              return;
-            }
-          } catch {}
-          // No character → create screen
-          showScreen("create");
-        },
-
-        async _startGameWithData(playerData) {
-          // Restore player from server data
-          S.player = {
-            ...playerData,
-            name: playerData.name,
-            realm: playerData.realm,
-            stage: playerData.stage,
-            stats: playerData.stats,
-            hp: playerData.hp,
-            maxHp: playerData.maxHp,
-            mp: playerData.mp,
-            maxMp: playerData.maxMp,
-            xu: playerData.xu,
-            tuExp: playerData.tuExp,
-            tuNeeded: playerData.tuNeeded,
-            x: playerData.x || 26,
-            y: playerData.y || 30,
-            px: (playerData.x || 26) * CFG.TS + CFG.TS / 2,
-            py: (playerData.y || 30) * CFG.TS + CFG.TS / 2,
-          };
-          try {
-            S.inventory = JSON.parse(playerData.jsonIventory) || [];
-          } catch (e) {}
-          const map = await Net.get(
-            "/api/worlds/by-code?code=" + playerData.mapCode,
-          );
-          enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
-        },
-
-        playOffline() {
-          authToken = null;
-          currentUser = null;
-          showScreen("create");
-        },
-
-        logout() {
-          Net.saveNow().finally(() => {
-            localStorage.removeItem("tu_tien_token");
-            authToken = null;
-            currentUser = null;
-            S.player = null;
-            S.inventory = [];
-            if (socket) {
-              socket.disconnect();
-              socket = null;
-            }
-            clearInterval(Net._saveTimer);
-            location.reload();
-          });
-        },
-
-        _err(msg) {
-          const el = document.getElementById("auth-err");
-          el.textContent = msg;
-          el.classList.add("show");
-        },
-        _clearErr() {
-          document.getElementById("auth-err").classList.remove("show");
-        },
-
-        // Auto-login if token exists
-        async tryAutoLogin() {
-          if (!authToken) return false;
-          try {
-            const res = await fetch(API.BASE + "/api/auth/me", {
-              headers: { Authorization: "Bearer " + authToken },
-            });
-            if (!res.ok) {
-              localStorage.removeItem("tu_tien_token");
-              authToken = null;
-              return false;
-            }
-            const data = await res.json();
-            currentUser = { id: data.userId, username: data.username };
-            document.getElementById("auth-status").textContent =
-              `Chào lại, ${data.username}!`;
-            await Auth._afterLogin();
-            return true;
-          } catch {
-            return false;
-          }
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §3 · TILE / MAP
-      // ════════════════════════════════════════════════════════════
-      const T = {
-        GRASS: 0,
-        STONE: 1,
-        WATER: 2,
-        WALL: 3,
-        FLOOR: 4,
-        TREE: 5,
-        MTN: 6,
-        PLAZA: 7,
-      };
-      const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
-      function isSolid(tx, ty) {
-        if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
-        return SOLID.has(S.tiles[ty][tx]);
-      }
-      function fillRect(t, x, y, w, h, v) {
-        for (let dy = 0; dy < h; dy++)
-          for (let dx = 0; dx < w; dx++) {
-            const ty = y + dy,
-              tx = x + dx;
-            if (ty >= 0 && ty < t.length && tx >= 0 && tx < t[0].length)
-              t[ty][tx] = v;
-          }
-      }
-      function borderWall(t) {
-        const H = t.length,
-          W = t[0].length;
-        for (let x = 0; x < W; x++) {
-          t[0][x] = T.WALL;
-          t[H - 1][x] = T.WALL;
-        }
-        for (let y = 0; y < H; y++) {
-          t[y][0] = T.WALL;
-          t[y][W - 1] = T.WALL;
-        }
-      }
-      function scatter(t, v, n, allow = [T.GRASS]) {
-        const H = t.length,
-          W = t[0].length;
-        for (let i = 0; i < n; i++) {
-          const x = randInt(2, W - 3),
-            y = randInt(2, H - 3);
-          if (allow.includes(t[y][x])) t[y][x] = v;
-        }
-      }
-
-      const MAPS = {
-        wilderness: {
-          id: "wilderness",
-          name: "☁ Hoang Dã Bình Nguyên",
-          w: 54,
-          h: 38,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-            borderWall(t);
-            fillRect(t, 10, 8, 10, 6, T.WATER);
-            fillRect(t, 38, 18, 8, 5, T.WATER);
-            fillRect(t, 22, 26, 7, 4, T.WATER);
-            fillRect(t, 40, 3, 10, 7, T.MTN);
-            fillRect(t, 3, 25, 6, 9, T.MTN);
-            fillRect(t, 5, 5, 5, 4, T.TREE);
-            fillRect(t, 26, 4, 6, 4, T.TREE);
-            fillRect(t, 44, 27, 7, 7, T.TREE);
-            fillRect(t, 14, 30, 7, 5, T.TREE);
-            scatter(t, T.STONE, 25);
-            for (let y = 2; y < h - 2; y++)
-              if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
-            t[0][26] = T.FLOOR;
-            t[1][26] = T.FLOOR;
-            return t;
-          },
-          spawns: [
-            { ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
-            { ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
-            { ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
-            { ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
-          ],
-          portals: [
-            {
-              tx: 26,
-              ty: 1,
-              toMap: "town",
-              toX: 19,
-              toY: 23,
-              label: "↑ An Lạc Thành",
-            },
-            {
-              tx: 52,
-              ty: 18,
-              toMap: "training",
-              toX: 2,
-              toY: 15,
-              label: "→ Luyện Ma Trường",
-            },
-          ],
-          npcs: [
-            {
-              px: 32 * 32 + 16,
-              py: 14 * 32 + 16,
-              type: "info",
-              name: "Lão Tiều Phu",
-              color: "#88aacc",
-              dialog:
-                "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
-            },
-          ],
-          playerStart: { x: 26, y: 30 },
-        },
-
-        training: {
-          id: "training",
-          name: "⚔ Luyện Ma Trường",
-          w: 50,
-          h: 34,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-            borderWall(t);
-            fillRect(t, 6, 5, 8, 8, T.MTN);
-            fillRect(t, 34, 4, 12, 7, T.MTN);
-            fillRect(t, 20, 22, 10, 8, T.MTN);
-            fillRect(t, 3, 22, 7, 8, T.WATER);
-            fillRect(t, 40, 22, 7, 8, T.WATER);
-            fillRect(t, 15, 3, 5, 4, T.TREE);
-            fillRect(t, 28, 14, 5, 5, T.TREE);
-            scatter(t, T.STONE, 40);
-            scatter(t, T.TREE, 8, [T.GRASS]);
-            t[15][0] = T.FLOOR;
-            t[15][1] = T.FLOOR;
-            return t;
-          },
-          spawns: [
-            { ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
-            { ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
-            { ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
-            { ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
-            { ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
-          ],
-          portals: [
-            {
-              tx: 1,
-              ty: 15,
-              toMap: "wilderness",
-              toX: 51,
-              toY: 18,
-              label: "← Hoang Dã",
-            },
-          ],
-          npcs: [],
-          playerStart: { x: 3, y: 15 },
-        },
-
-        town: {
-          id: "town",
-          name: "🏯 An Lạc Thành",
-          w: 42,
-          h: 30,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
-            borderWall(t);
-            fillRect(t, 2, 2, 12, 9, T.WALL);
-            fillRect(t, 3, 3, 10, 6, T.PLAZA);
-            t[10][7] = T.PLAZA;
-            t[10][8] = T.PLAZA;
-            fillRect(t, 28, 2, 12, 9, T.WALL);
-            fillRect(t, 29, 3, 10, 6, T.PLAZA);
-            t[10][33] = T.PLAZA;
-            t[10][34] = T.PLAZA;
-            fillRect(t, 28, 18, 12, 9, T.WALL);
-            fillRect(t, 29, 19, 10, 6, T.PLAZA);
-            t[18][33] = T.PLAZA;
-            t[18][34] = T.PLAZA;
-            fillRect(t, 18, 11, 6, 6, T.STONE);
-            fillRect(t, 19, 12, 4, 4, T.WATER);
-            for (let x = 2; x < w - 2; x++)
-              if (t[11][x] === T.PLAZA || t[11][x] === T.STONE)
-                t[11][x] = T.STONE;
-            for (let y = 2; y < h - 2; y++) {
-              if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
-              if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
-            }
-            t[3][15] = T.TREE;
-            t[3][26] = T.TREE;
-            t[20][4] = T.TREE;
-            t[20][14] = T.TREE;
-            t[h - 1][20] = T.PLAZA;
-            t[h - 1][21] = T.PLAZA;
-            t[h - 2][20] = T.PLAZA;
-            t[h - 2][21] = T.PLAZA;
-            return t;
-          },
-          spawns: [],
-          portals: [
-            {
-              tx: 20,
-              ty: 28,
-              toMap: "wilderness",
-              toX: 26,
-              toY: 4,
-              label: "↓ Ra Ngoài",
-            },
-            { tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
-          ],
-          npcs: [
-            {
-              px: 7 * 32 + 16,
-              py: 6 * 32 + 16,
-              type: "shop",
-              name: "Lão Bản Vương",
-              color: "#d4a844",
-              dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
-            },
-            {
-              px: 33 * 32 + 16,
-              py: 6 * 32 + 16,
-              type: "quest",
-              name: "Nhiệm Vụ Sứ Lý Văn",
-              color: "#88aacc",
-              dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
-            },
-            {
-              px: 33 * 32 + 16,
-              py: 22 * 32 + 16,
-              type: "chest",
-              name: "Rương Kho Báu",
-              color: "#ffdd44",
-              dialog: "",
-            },
-            {
-              px: 20 * 32 + 16,
-              py: 15 * 32 + 16,
-              type: "info",
-              name: "Thủ Vệ",
-              color: "#8888aa",
-              dialog:
-                "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
-            },
-          ],
-          playerStart: { x: 20, y: 24 },
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §4 · GAME STATE
-      // ════════════════════════════════════════════════════════════
-      let canvas, ctx, cW, cH;
-      const S = {
-        player: null,
-        mapCode: "wilderness",
-        tiles: null,
-        mapW: 0,
-        mapH: 0,
-        monsters: [],
-        npcs: [],
-        portals: [],
-        groundItems: [],
-        inventory: [],
-        autoFight: false,
-        atkCd: 0,
-        animT: 0,
-        animF: 0,
-        atkFx: [],
-        cam: { x: 0, y: 0 },
-        moveTimer: 0,
-        lastTs: 0,
-      };
-      const otherPlayers = new Map(); // socketId → {username,x,y,px,py,realm,...}
-
-      // ════════════════════════════════════════════════════════════
-      // §5 · UTILS
-      // ════════════════════════════════════════════════════════════
-      function randInt(a, b) {
-        return a + Math.floor(Math.random() * (b - a + 1));
-      }
-      function lerp(a, b, t) {
-        return a + (b - a) * t;
-      }
-
-      function dist(ax, ay, bx, by) {
-        return Math.hypot(ax - bx, ay - by);
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // §6 · WORLD
-      // ════════════════════════════════════════════════════════════
-      const World = {
-        loadMap(map, toX, toY) {
-          const def = map;
-          S.mapCode = map.code;
-          S.mapW = def.w;
-          S.mapH = def.h;
-          S.tiles = def.jsonMap;
-          S.atkFx = [];
-          S.groundItems = [];
-          if (S.player) {
-            const px = Math.max(0, Math.min(def.w - 1, toX));
-            const py = Math.max(0, Math.min(def.h - 1, toY));
-            S.player.x = px;
-            S.player.y = py;
-            S.player.px = px * CFG.TS + CFG.TS / 2;
-            S.player.py = py * CFG.TS + CFG.TS / 2;
-            S.player.mapCode = map.code;
-            S.player.mapId = map.id || map.code;
-          }
-          S.portals = def.portals;
-          S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
-          S.monsters = [];
-
-          for (const mon of def.monsters) {
-            const pos = World._open({
-              x: mon.spawnX || map.w / 2,
-              y: mon.spawnY || map.h / 2,
-              w: mon.spawnX + 10 > map.w ? mon.spawnX : mon.spawnX + 10,
-              h: mon.spawnY + 10 > map.h ? mon.spawnY : mon.spawnY + 10,
-            });
-
-            if (pos) S.monsters.push(Monster.make(mon, pos.tx, pos.ty));
-          }
-          const ov = document.getElementById("map-name-overlay");
-          ov.textContent = def.name;
-          ov.classList.add("show");
-          setTimeout(() => ov.classList.remove("show"), 2200);
-          UI.log(`── Đến: ${def.name} ──`, "system");
-          Net.emitMapChange(map.code, toX, toY);
-          otherPlayers.clear();
-        },
-        _open(zone) {
-          for (let i = 0; i < 25; i++) {
-            const tx = zone.x + randInt(0, zone.w - 1),
-              ty = zone.y + randInt(0, zone.h - 1);
-            if (!isSolid(tx, ty)) return { tx, ty };
-          }
-          return null;
-        },
-        collides(x, y) {
-          const radius = 0.22;
-          const minX = Math.floor(x - radius);
-          const maxX = Math.floor(x + radius);
-          const minY = Math.floor(y - radius);
-          const maxY = Math.floor(y + radius);
-          for (let ty = minY; ty <= maxY; ty++) {
-            for (let tx = minX; tx <= maxX; tx++) {
-              if (isSolid(tx, ty)) return true;
-            }
-          }
-          return false;
-        },
-        async checkPortals() {
-          const p = S.player;
-          for (const portal of S.portals) {
-            const px = portal.x * CFG.TS + CFG.TS / 2;
-            const py = portal.y * CFG.TS + CFG.TS / 2;
-            if (
-              dist(p.px, p.py, px, py) < CFG.TS * 0.5 &&
-              portal.denMap &&
-              portal.tenMapDen !== ""
-            ) {
-              const _map = await Net.get(
-                "/api/worlds/by-code?code=" + portal.denMap,
-              );
-              World.loadMap(_map, portal.toX, portal.toY);
-              break;
-            }
-          }
-        },
-        checkNpcInteract() {
-          const p = S.player;
-          for (const npc of S.npcs) {
-            if (npc.used && npc.type === "chest") continue;
-            if (dist(p.px, p.py, npc.px, npc.py) < CFG.TS * 1.4) {
-              if (npc.type === "shop") Shop.open(npc);
-              else if (npc.type === "chest") Chest.open(npc);
-              else DialogUI.open(npc);
-              return;
-            }
-          }
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §7 · MONSTER AI
-      // ════════════════════════════════════════════════════════════
-      const Monster = {
-        make(monster, tx, ty) {
-          const tmpl = monster;
-          const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
-          return {
-            ...tmpl,
-            hp,
-            maxHp: hp,
-            atk: tmpl.atk + randInt(0, 3),
-            def: tmpl.def,
-            px: tx * CFG.TS + CFG.TS / 2,
-            py: ty * CFG.TS + CFG.TS / 2,
-            hx: tx * CFG.TS + CFG.TS / 2,
-            hy: ty * CFG.TS + CFG.TS / 2,
-            state: "idle",
-            tpx: tx * CFG.TS + CFG.TS / 2,
-            tpy: ty * CFG.TS + CFG.TS / 2,
-            moveTimer: randInt(60, 180),
-            atkCd: 0,
-            dead: false,
-            respawnT: monster.spawnCD,
-          };
-        },
-        update(m, dt) {
-          if (m.dead) {
-            m.respawnT -= dt / 16;
-            if (m.respawnT <= 0) Monster.respawn(m);
-            return;
-          }
-          const tmpl = m;
-          const speed = (tmpl.speed || 1) * (dt / 16);
-          const p = S.player;
-          const dp = dist(m.px, m.py, p.px, p.py);
-          const dh = dist(m.px, m.py, m.hx, m.hy);
-          if (m.state === "idle" || m.state === "patrol") {
-            if (dp < CFG.MON_AGGRO * CFG.TS) m.state = "chase";
-            else {
-              m.moveTimer -= dt / 16;
-              if (m.moveTimer <= 0) {
-                m.moveTimer = randInt(80, 220);
-                if (m.state === "idle" && Math.random() < 0.45) {
-                  m.state = "patrol";
-                  Monster._patrol(m);
-                } else m.state = "idle";
-              }
-            }
-          }
-          if (m.state === "chase") {
-            if (dh > CFG.MON_LEASH * CFG.TS) {
-              m.state = "return";
-              m.tpx = m.hx;
-              m.tpy = m.hy;
-            } else {
-              m.tpx = p.px;
-              m.tpy = p.py;
-            }
-          }
-          if (m.state === "return") {
-            if (dh < CFG.TS) {
-              m.state = "idle";
-              m.tpx = m.hx;
-              m.tpy = m.hy;
-            }
-            if (dp < CFG.MON_AGGRO * CFG.TS * 0.6) m.state = "chase";
-          }
-          const tdx = m.tpx - m.px,
-            tdy = m.tpy - m.py,
-            td = Math.hypot(tdx, tdy);
-          if (td > 3 && m.state !== "idle") {
-            const vx = (tdx / td) * speed,
-              vy = (tdy / td) * speed;
-            const nx = m.px + vx,
-              ny = m.py + vy;
-            const ntx = Math.floor(nx / CFG.TS),
-              nty = Math.floor(ny / CFG.TS),
-              ctx2 = Math.floor(m.px / CFG.TS),
-              cty2 = Math.floor(m.py / CFG.TS);
-            if (!isSolid(ntx, nty)) {
-              m.px = nx;
-              m.py = ny;
-            } else if (!isSolid(ntx, cty2)) {
-              m.px = nx;
-            } else if (!isSolid(ctx2, nty)) {
-              m.py = ny;
-            }
-          }
-          if (dp < CFG.TS * 1.3 && m.state === "chase") {
-            m.atkCd -= dt / 16;
-            if (m.atkCd <= 0) {
-              m.atkCd = 65;
-              const dmg = Math.max(1, m.atk - Combat.pDef() + randInt(0, 3));
-              p.hp = Math.max(0, p.hp - dmg);
-              Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
-              if (p.hp <= 0) {
-                p.hp = Math.floor(p.maxHp * 0.25);
-                UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
-              }
-            }
-          }
-        },
-        respawn(m) {
-          const tmpl = m;
-          const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
-          m.hp = hp;
-          m.maxHp = hp;
-          m.atk = tmpl.atk + randInt(0, 3);
-          m.def = tmpl.def;
-          m.dead = false;
-          m.state = "idle";
-          m.atkCd = 0;
-          m.px = m.hx;
-          m.py = m.hy;
-          m.tpx = m.hx;
-          m.tpy = m.hy;
-        },
-        _patrol(m) {
-          const r = randInt(2, 4) * CFG.TS,
-            ang = Math.random() * Math.PI * 2;
-          m.tpx = Math.max(
-            CFG.TS,
-            Math.min((S.mapW - 2) * CFG.TS, m.hx + Math.cos(ang) * r),
-          );
-          m.tpy = Math.max(
-            CFG.TS,
-            Math.min((S.mapH - 2) * CFG.TS, m.hy + Math.sin(ang) * r),
-          );
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §8 · COMBAT (đánh quái CHỈ rơi đồ — KHÔNG tăng tu vi)
-      // ════════════════════════════════════════════════════════════
-      const Combat = {
-        pAtk() {
-          const base = 10 + S.player.stats.str * 1.5 + S.player.stats.agi * 0.8;
-          const weapon = Combat.weaponAttack();
-          return base + weapon;
-        },
-        weaponAttack() {
-          let bonus = 0;
-          if (S.player.equipment?.weapon) {
-            bonus += Number(S.player.equipment.weapon.atk || 0);
-          }
-          if (Array.isArray(S.player.inventory)) {
-            for (const item of S.player.inventory) {
-              if (item?.equipped && item.atk) bonus += Number(item.atk || 0);
-            }
-          }
-          return bonus;
-        },
-        critChance() {
-          let chance = 0.05;
-          if (S.player.equipment?.weapon) {
-            chance += Number(S.player.equipment.weapon.critChance || 0);
-          }
-          if (S.player.stats.critChance) {
-            chance += Number(S.player.stats.critChance || 0);
-          }
-          return Math.min(0.5, chance);
-        },
-        critMultiplier() {
-          let extra = 0.1;
-          if (S.player.equipment?.weapon) {
-            extra += Number(S.player.equipment.weapon.critMultiplier || 0);
-          }
-          if (S.player.stats.critMultiplier) {
-            extra += Number(S.player.stats.critMultiplier || 0);
-          }
-          return extra;
-        },
-        pDef() {
-          return (
-            2 +
-            Math.floor(S.player.stats.vit * 0.3) +
-            Math.floor(S.player.stats.agi * 0.7)
-          );
-        },
-        attack(m) {
-          if (S.atkCd > 0 || m.dead) return;
-          const tmpl = m;
-          const baseAtk = Combat.pAtk();
-          const armorDef = m.def * m.level + m.def + m.vit * 0.2;
-          let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
-          const isCrit = Math.random() < Combat.critChance();
-          if (isCrit) {
-            const critAdd = Math.max(
-              1,
-              Math.round(baseAtk * Combat.critMultiplier()),
-            );
-            dmg += critAdd;
-          }
-          m.hp -= dmg;
-          S.atkCd = CFG.ATK_CD;
-          S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
-          Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
-          UI.log(
-            `Tấn công ${tmpl.name} gây ${dmg} sát thương${
-              isCrit ? " (CRIT)" : ""
-            }`,
-            "combat",
-          );
-          // Notify other players (visual only)
-          if (socket?.connected)
-            socket.emit("attack_effect", {
-              targetId: null,
-              damage: dmg,
-              mapCode: S.mapCode,
-            });
-          if (m.hp <= 0) {
-            m.dead = true;
-            m.respawnT = m.spawnCD;
-            Combat.dropLoot(m);
-            UI.log(`${tmpl.name} đã bị tiêu diệt!`, "combat");
-          }
-        },
-        dropLoot(m) {
-          if (Math.random() * 100 < m.tyLeRoiTien) {
-            const xu = randInt(m.moneyDropFrom, m.moneyDropTo);
-            S.player.xu += xu;
-            UI.log(`Nhặt được ${xu} xu`, "loot");
-          }
-          if (Math.random() * 100 < m.tyLeRoiDo) {
-            let index = Math.floor(Math.random() * m.dropItems.length - 1 + 1);
-            if (m.dropItems.length > 0) Inventory.add(m.dropItems[index]);
-          }
-
-          //   if (Math.random() < tmpl.tyLeRoiDo) {
-          //     const id = tmpl.drops[randInt(0, tmpl.drops.length - 1)];
-          //     const item = CFG.ITEMS[id];
-          //     if (item) {
-          //       Inventory.add(item);
-          //       UI.log(`Rơi ra: ${item.emoji} ${item.name}`, "loot");
-          //     }
-          //   }
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §9 · CULTIVATION (chỉ hấp thạch → tu vi)
-      // ════════════════════════════════════════════════════════════
-      const Cultivation = {
-        normalizePlayerStats(player) {
-          if (!player.stats) player.stats = { str: 0, agi: 0, vit: 0, ene: 0 };
-          if (player.stats.int != null && player.stats.ene == null) {
-            player.stats.ene = player.stats.int;
-            delete player.stats.int;
-          }
-          player.stats.str = player.stats.str || 0;
-          player.stats.agi = player.stats.agi || 0;
-          player.stats.vit = player.stats.vit || 0;
-          player.stats.ene = player.stats.ene || 0;
-        },
-
-        calcTuNeeded(canhGioi, tangTuVi) {
-          const realm = Math.max(0, Number(canhGioi?.stt) || 0);
-          const stage = Math.max(1, Math.min(9, Number(tangTuVi) || 1));
-          const base = 10;
-          const stageGrowth = Math.pow(1.1, stage - 1); // mỗi tầng tăng ít nhất 10%
-          const realmMultiplier = 1 + realm * 0.1 * stage; // realm cao hơn tăng tỷ lệ theo stage
-          const extra = Number(canhGioi?.tuViTienCap || 1);
-          return Math.floor(
-            base * stage * stageGrowth * realmMultiplier + extra,
-          );
-        },
-
-        calcBreakthroughStatGain(canhGioi, tangTuVi, isMajor = false) {
-          const tier = canhGioi?.stt || 0;
-          const stage = tangTuVi;
-          if (!isMajor) {
-            return {
-              str: Math.max(1, Math.round(2 + tier * 0.6 + stage * 0.35)),
-              agi: Math.max(1, Math.round(2 + tier * 0.5 + stage * 0.3)),
-              vit: Math.max(1, Math.round(2 + tier * 0.7 + stage * 0.4)),
-              ene: Math.max(1, Math.round(1 + tier * 0.55 + stage * 0.25)),
-            };
-          }
-          return {
-            str: Math.max(3, Math.round(6 + tier * 1.4 + stage * 0.9)),
-            agi: Math.max(3, Math.round(6 + tier * 1.2 + stage * 0.8)),
-            vit: Math.max(3, Math.round(6 + tier * 1.6 + stage * 1.0)),
-            ene: Math.max(3, Math.round(4 + tier * 1.3 + stage * 0.7)),
-          };
-        },
-
-        applyBreakthroughStats(player, dotPhaDaiCanhGioi = false) {
-          this.normalizePlayerStats(player);
-          const gain = this.calcBreakthroughStatGain(
-            player.canhGioi,
-            player.tangTuVi,
-            dotPhaDaiCanhGioi,
-          );
-          player.stats.str += gain.str;
-          player.stats.agi += gain.agi;
-          player.stats.vit += gain.vit;
-          player.stats.ene += gain.ene;
-          player.maxHp = 100 + player.stats.vit * 10;
-          player.maxMp = 50 + player.stats.ene * 8;
-          player.hp = Math.min(player.hp + gain.vit * 10, player.maxHp);
-          player.mp = Math.min(player.mp + gain.ene * 8, player.maxMp);
-          UI.log(
-            `+${gain.str} STR +${gain.agi} AGI +${gain.vit} VIT +${gain.ene} ENE`,
-            "level",
-          );
-        },
-
-        absorbStone() {
-          const p = S.player;
-          const idx = S.inventory.findIndex(
-            (i) => i.type === "STONE" || i.type === "ELEMSTONE",
-          );
-          if (idx < 0) {
-            UI.log("Không có linh thạch!", "system");
-            return;
-          }
-          const item = S.inventory[idx];
-          this.normalizePlayerStats(p);
-          p.tuViHienTai += item.giaTriTuVi;
-          if (item.str) {
-            p.stats.str += item.giaTriTang;
-            UI.log(`${item.icon} Hấp thu → str +${item.giaTriTang}`, "level");
-          }
-          if (item.agi) {
-            p.stats.agi += item.giaTriTang;
-            UI.log(`${item.icon} Hấp thu → agi +${item.giaTriTang}`, "level");
-          }
-          if (item.vit) {
-            p.stats.vit += item.giaTriTang;
-            UI.log(`${item.icon} Hấp thu → vit +${item.giaTriTang}`, "level");
-          }
-          if (item.ene) {
-            p.stats.ene += item.giaTriTang;
-            UI.log(`${item.icon} Hấp thu → ene +${item.giaTriTang}`, "level");
-          }
-          if (!item.str && !item.agi && !item.vit && !item.ene) {
-            UI.log(
-              `${item.icon} Hấp thu ${item.name} → Tu Vi +${item.giaTriTuVi}`,
-              "level",
-            );
-          }
-          p.maxHp = 100 + p.stats.vit * 10;
-          p.maxMp = 50 + p.stats.ene * 8;
-          Inventory.remove(idx);
-          UI.update();
-        },
-
-        async tryBreakthrough() {
-          const p = S.player;
-          if (p.tuViHienTai < p.tuViLenCap) {
-            UI.log(
-              `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(
-                p.tuViHienTai,
-              )}`,
-              "system",
-            );
-            return;
-          }
-
-          p.tuViHienTai -= p.tuViLenCap;
-          if (p.tangTuVi < 9) {
-            p.tangTuVi++;
-            this.applyBreakthroughStats(p, false);
-            UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
-          } else {
-            const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
-            p.canhGioi = res;
-            p.realm++;
-            p.tangTuVi = 1;
-            this.applyBreakthroughStats(p, true);
-            UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
-            p.maCanhGioi = res.code;
-          }
-          p.tuViLenCap = Cultivation.calcTuNeeded(p.canhGioi, p.tangTuVi);
-          S.player = { ...p };
-          Net.saveNow({
-            type: "breakthrough",
-            data: { realm: p.realm, tangTuVi: p.tangTuVi },
-          });
-          UI.update();
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §10 · INVENTORY
-      // ════════════════════════════════════════════════════════════
-      const Inventory = {
-        add(item) {
-          if (!S.inventory) S.inventory = [];
-          for (const iv of S.inventory) {
-            if (iv && iv.id === item.id && iv.count < 99) {
-              iv.count++;
-              UI.buildInv();
-              UI.update();
-              return;
-            }
-          }
-          if (S.inventory.length < CFG.INV_MAX) {
-            S.inventory.push({ ...item, count: 1 });
-            UI.buildInv();
-            UI.update();
-          } else UI.log("Túi đồ đầy!", "system");
-        },
-        remove(idx) {
-          const iv = S.inventory[idx];
-          if (!iv) return;
-          iv.count--;
-          if (iv.count <= 0) S.inventory.splice(idx, 1);
-          UI.buildInv();
-          UI.update();
-        },
-        use(idx) {
-          const item = S.inventory[idx];
-          if (!item) return;
-          if (item.type === "STONE" || item.type === "ELEMSTONE") {
-            Cultivation.absorbStone();
-            return;
-          }
-          if (item.type === "CONSUME") {
-            const p = S.player;
-            if (item.healHp) {
-              p.hp = Math.min(p.maxHp, p.hp + item.healHp);
-              UI.log(`Dùng ${item.icon} → Hồi ${item.vit} HP`, "system");
-            }
-            if (item.healMp) {
-              p.mp = Math.min(p.maxMp, p.mp + item.healMp);
-              UI.log(`Dùng ${item.icon} → Hồi ${item.ene} MP`, "system");
-            }
-            if (item.statBoost) {
-              const ss = ["str", "agi", "vit", "int"];
-              const s = ss[randInt(0, 3)];
-              S.player.stats[s] += item.statBoost;
-              UI.log(
-                `Dùng ${item.icon} → +${item.statBoost} ${s.toUpperCase()}`,
-                "level",
-              );
-            }
-            Inventory.remove(idx);
-            UI.update();
-          } else
-            UI.log(`${item.icon} ${item.name}: ${item.desc || ""}`, "system");
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §11 · SHOP / DIALOG / CHEST
-      // ════════════════════════════════════════════════════════════
-      const Shop = {
-        open(npc) {
-          document.getElementById("shop-title").textContent = `🏪 ${npc.name}`;
-          this.render();
-          document.getElementById("shop-modal").classList.add("open");
-        },
-        close() {
-          document.getElementById("shop-modal").classList.remove("open");
-        },
-        render() {
-          document.getElementById("shop-xu").textContent =
-            S.player.xu.toLocaleString();
-          const buy = document.getElementById("shop-buy-list");
-          buy.innerHTML = '<div class="shop-col-head">MUA VẬT PHẨM</div>';
-          for (const id of CFG.SHOP_SELL) {
-            const item = CFG.ITEMS[id];
-            if (!item || !item.buyPrice) continue;
-            const div = document.createElement("div");
-            div.className = "shop-item";
-            div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
-            const btn = document.createElement("button");
-            btn.className = "sbtn";
-            btn.textContent = "Mua";
-            btn.onclick = () => Shop.buy(id);
-            div.appendChild(btn);
-            buy.appendChild(div);
-          }
-          const sell = document.getElementById("shop-sell-list");
-          sell.innerHTML = '<div class="shop-col-head">BÁN VẬT PHẨM</div>';
-          if (!S.inventory.length)
-            sell.innerHTML +=
-              '<div style="color:var(--text2);font-size:11px;padding:8px">Túi đồ trống</div>';
-          S.inventory.forEach((item, idx) => {
-            const div = document.createElement("div");
-            div.className = "shop-item";
-            div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
-            const btn = document.createElement("button");
-            btn.className = "sbtn ssell";
-            btn.textContent = "Bán";
-            btn.onclick = () => {
-              Shop.sell(idx);
-            };
-            div.appendChild(btn);
-            sell.appendChild(div);
-          });
-        },
-        buy(id) {
-          const item = CFG.ITEMS[id];
-          if (!item) return;
-          if (S.player.xu < item.giaMua) {
-            UI.log("Không đủ xu!", "system");
-            return;
-          }
-          S.player.xu -= item.giaMua;
-          Inventory.add(item);
-          UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
-          this.render();
-        },
-        sell(idx) {
-          const item = S.inventory[idx];
-          if (!item) return;
-          S.player.xu += item.giaBan || 0;
-          UI.log(
-            `Bán: ${item.giaTriTang} ${item.name} (+${item.giaBan || 0}xu)`,
-            "loot",
-          );
-          Inventory.remove(idx);
-          this.render();
-        },
-      };
-      const DialogUI = {
-        open(npc) {
-          document.getElementById("dialog-npc-n").textContent = npc.name;
-          document.getElementById("dialog-text").innerHTML = npc.dialog.replace(
-            /\n/g,
-            "<br>",
-          );
-          document.getElementById("dialog-modal").classList.add("open");
-        },
-        close() {
-          document.getElementById("dialog-modal").classList.remove("open");
-        },
-      };
-      const Chest = {
-        open(npc) {
-          if (npc.used) {
-            UI.log("Rương đã trống.", "system");
-            return;
-          }
-          npc.used = true;
-          UI.log("🎁 Mở Rương Kho Báu!", "level");
-          const rewards = [
-            { item: "slo", count: randInt(2, 4) },
-            { item: "smi", count: randInt(1, 2) },
-            { item: "hpd", count: randInt(1, 3) },
-            { item: "mpd", count: randInt(1, 2) },
-          ];
-          for (const r of rewards) {
-            const it = CFG.ITEMS[r.item];
-            if (!it) continue;
-            for (let i = 0; i < r.count; i++) Inventory.add(it);
-            UI.log(`  + ${it.emoji} ${it.name} x${r.count}`, "loot");
-          }
-          const xu = randInt(50, 150);
-          S.player.xu += xu;
-          UI.log(`  + 💰 ${xu} Xu`, "loot");
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §12 · RENDER
-      // ════════════════════════════════════════════════════════════
-      const TC = {
-        [T.GRASS]: ["#2a5a28", "#3a7a38"],
-        [T.STONE]: ["#5a5a68", "#7a7a88"],
-        [T.WATER]: ["#1a3a6a", "#2a5a9a"],
-        [T.WALL]: ["#181010", "#2a1818"],
-        [T.FLOOR]: ["#3a3020", "#4a4028"],
-        [T.TREE]: ["#141a10", "#2a3818"],
-        [T.MTN]: ["#404050", "#606070"],
-        [T.PLAZA]: ["#4a4030", "#5a5040"],
-      };
-      const Render = {
-        frame() {
-          const p = S.player;
-          if (!p) return;
-          S.cam.x = lerp(S.cam.x, p.px - cW / 2, 0.18);
-          S.cam.y = lerp(S.cam.y, p.py - cH / 2, 0.18);
-          S.cam.x = Math.max(0, Math.min(S.mapW * CFG.TS - cW, S.cam.x));
-          S.cam.y = Math.max(0, Math.min(S.mapH * CFG.TS - cH, S.cam.y));
-          const cx = S.cam.x,
-            cy = S.cam.y;
-          ctx.clearRect(0, 0, cW, cH);
-          const ts = CFG.TS,
-            tx0 = Math.max(0, Math.floor(cx / ts)),
-            ty0 = Math.max(0, Math.floor(cy / ts));
-          const tx1 = Math.min(S.mapW - 1, tx0 + Math.ceil(cW / ts) + 1),
-            ty1 = Math.min(S.mapH - 1, ty0 + Math.ceil(cH / ts) + 1);
-          for (let ty = ty0; ty <= ty1; ty++)
-            for (let tx = tx0; tx <= tx1; tx++)
-              Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy);
-          for (const portal of S.portals)
-            if (portal.tenMapDen) Render.portal(portal, cx, cy);
-          for (const npc of S.npcs) Render.npc(npc, cx, cy);
-          // Other players (co-op)
-          for (const [, op] of otherPlayers)
-            if (op.mapCode === S.mapCode) Render.otherPlayer(op, cx, cy);
-          for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
-          const tint = p.root ? p.root.color : "#4488cc";
-          Render.player(p.px - cx, p.py - cy, tint);
-          ctx.fillStyle = tint;
-          ctx.font = "9px monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(p.name, p.px - cx, p.py - cy - 32);
-          for (const fx of S.atkFx) {
-            ctx.strokeStyle = `rgba(255,200,60,${fx.life / 14})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(fx.px - cx, fx.py - cy, fx.r, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-        },
-        tile(t, sx, sy) {
-          const c = TC[t] || ["#333", "#444"];
-          ctx.fillStyle = c[0];
-          ctx.fillRect(sx, sy, CFG.TS, CFG.TS);
-          ctx.fillStyle = c[1];
-          const ts = CFG.TS;
-          if (t === T.GRASS) {
-            ctx.fillRect(sx + 4, sy + 5, 2, 6);
-            ctx.fillRect(sx + 10, sy + 7, 2, 5);
-            ctx.fillRect(sx + 18, sy + 4, 2, 6);
-            ctx.fillRect(sx + 26, sy + 8, 2, 4);
-            ctx.fillRect(sx + 22, sy + 19, 2, 5);
-            ctx.fillRect(sx + 8, sy + 21, 2, 4);
-          } else if (t === T.WATER) {
-            ctx.fillRect(sx + 2, sy + 7, 28, 3);
-            ctx.fillRect(sx + 5, sy + 17, 22, 3);
-            ctx.fillStyle = "#3a7acc";
-            ctx.fillRect(sx, sy + 12, ts, 3);
-          } else if (t === T.WALL) {
-            ctx.fillRect(sx, sy, ts, 4);
-            ctx.fillRect(sx + 8, sy + 4, 3, 10);
-            ctx.fillRect(sx + 22, sy + 4, 3, 10);
-            ctx.fillRect(sx, sy + 17, 8, ts - 17);
-            ctx.fillRect(sx + 16, sy + 17, ts - 16, ts - 17);
-            ctx.fillStyle = "#3a2828";
-            ctx.fillRect(sx, sy, ts, 2);
-          } else if (t === T.FLOOR || t === T.PLAZA) {
-            ctx.globalAlpha = 0.3;
-            ctx.fillRect(sx, sy, ts, 1);
-            ctx.fillRect(sx, sy, 1, ts);
-            ctx.fillRect(sx + 16, sy + 16, ts - 16, 1);
-            ctx.fillRect(sx + 16, sy + 16, 1, ts - 16);
-            ctx.globalAlpha = 1;
-          } else if (t === T.TREE) {
-            ctx.fillStyle = "#1a1208";
-            ctx.fillRect(sx + 13, sy + 20, 6, 12);
-            ctx.fillStyle = "#1e4a18";
-            ctx.fillRect(sx + 6, sy + 8, 20, 16);
-            ctx.fillRect(sx + 10, sy + 2, 12, 10);
-            ctx.fillStyle = "#2a6820";
-            ctx.fillRect(sx + 8, sy + 10, 5, 4);
-          } else if (t === T.MTN) {
-            ctx.fillStyle = "#505060";
-            ctx.fillRect(sx + 2, sy + 18, 28, 14);
-            ctx.fillStyle = "#686878";
-            for (let i = 0; i < 14; i++)
-              ctx.fillRect(
-                sx + 7 + i,
-                sy + 18 - Math.min(i, 13 - i) * 1.5,
-                2,
-                Math.min(i, 13 - i) * 1.5 + 3,
-              );
-            ctx.fillStyle = "#dde8ff";
-            ctx.fillRect(sx + 12, sy + 5, 8, 5);
-          } else if (t === T.STONE) {
-            ctx.fillRect(sx + 3, sy + 8, 10, 8);
-            ctx.fillRect(sx + 18, sy + 14, 8, 7);
-          }
-        },
-        otherPlayer(op, cx, cy) {
-          const sx = Math.floor(op.px - cx),
-            sy = Math.floor(op.py - cy);
-          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
-          // Simple other player sprite
-          ctx.fillStyle = "rgba(0,0,0,.25)";
-          ctx.fillRect(sx - 8, sy + 8, 16, 4);
-          ctx.fillStyle = "#2a4880";
-          ctx.fillRect(sx - 6, sy - 10, 12, 18);
-          ctx.fillStyle = "#3a68b0";
-          ctx.fillRect(sx - 5, sy - 9, 10, 16);
-          ctx.fillStyle = "#e8c080";
-          ctx.fillRect(sx - 4, sy - 20, 8, 9);
-          ctx.fillStyle = "#1a1010";
-          ctx.fillRect(sx - 3, sy - 15, 2, 2);
-          ctx.fillRect(sx + 1, sy - 15, 2, 2);
-          // Name above
-          ctx.fillStyle = "#88bbff";
-          ctx.font = "9px monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(op.username || "?", sx, sy - 25);
-          // Realm badge
-          ctx.fillStyle = "rgba(0,0,0,.5)";
-          const rn = CFG.REALMS[Math.min(op.realm || 0, 11)];
-          const rw = ctx.measureText(rn).width + 6;
-          ctx.fillRect(sx - rw / 2, sy - 35, rw, 11);
-          ctx.fillStyle = "#88bbff";
-          ctx.font = "8px monospace";
-          ctx.fillText(rn, sx, sy - 26);
-        },
-        player(sx, sy, tint) {
-          const x = Math.floor(sx - 9),
-            y = Math.floor(sy - 28);
-          ctx.fillStyle = "rgba(0,0,0,.3)";
-          ctx.fillRect(x + 1, y + 26, 18, 4);
-          ctx.fillStyle = "#1a2848";
-          ctx.fillRect(x + 3, y + 12, 14, 16);
-          ctx.fillStyle = "#22366a";
-          ctx.fillRect(x + 4, y + 13, 12, 13);
-          ctx.fillStyle = tint;
-          ctx.fillRect(x + 3, y + 12, 14, 2);
-          ctx.fillRect(x + 3, y + 12, 2, 16);
-          ctx.fillRect(x + 15, y + 12, 2, 16);
-          ctx.fillStyle = "#e8c080";
-          ctx.fillRect(x + 5, y + 3, 10, 8);
-          ctx.fillStyle = "#221408";
-          ctx.fillRect(x + 5, y + 3, 10, 4);
-          ctx.fillRect(x + 4, y + 1, 3, 3);
-          ctx.fillRect(x + 13, y + 2, 3, 3);
-          ctx.fillStyle = tint;
-          ctx.fillRect(x + 6, y + 0, 8, 3);
-          ctx.fillStyle = "#1a1010";
-          ctx.fillRect(x + 6, y + 7, 2, 2);
-          ctx.fillRect(x + 11, y + 7, 2, 2);
-          ctx.fillStyle = "rgba(255,255,255,.7)";
-          ctx.fillRect(x + 7, y + 7, 1, 1);
-          ctx.fillRect(x + 12, y + 7, 1, 1);
-          ctx.fillStyle = "#101828";
-          if (S.animF) {
-            ctx.fillRect(x + 4, y + 24, 5, 8);
-            ctx.fillRect(x + 11, y + 28, 5, 4);
-          } else {
-            ctx.fillRect(x + 4, y + 24, 5, 8);
-            ctx.fillRect(x + 11, y + 24, 5, 8);
-          }
-          ctx.fillStyle = "#c8c8d0";
-          ctx.fillRect(x + 18, y + 8, 2, 16);
-          ctx.fillStyle = "#7a5018";
-          ctx.fillRect(x + 17, y + 16, 5, 4);
-          ctx.fillStyle = tint;
-          ctx.fillRect(x + 18, y + 8, 2, 5);
-        },
-        monster(m, cx, cy) {
-          const sx = m.px - cx,
-            sy = m.py - cy;
-          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
-          const tmpl = m;
-          const c = tmpl?.color;
-          const x = Math.floor(sx - 14),
-            y = Math.floor(sy - 22);
-          const ti = m.ti;
-          ctx.fillStyle = "rgba(0,0,0,.25)";
-          ctx.fillRect(x + 2, y + 22, 24, 4);
-          if (ti === 0) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 2, y + 8, 22, 12);
-            ctx.fillRect(x + 4, y + 4, 9, 7);
-            ctx.fillRect(x + 2, y + 20, 5, 8);
-            ctx.fillRect(x + 10, y + 20, 5, 8);
-            ctx.fillRect(x + 19, y + 20, 5, 6);
-            ctx.fillStyle = "#aa1111";
-            ctx.fillRect(x + 5, y + 7, 3, 2);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(x + 6, y + 6, 2, 2);
-            ctx.fillRect(x + 10, y + 6, 2, 2);
-          } else if (ti === 1) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 4, y + 8, 18, 12);
-            ctx.fillRect(x + 6, y + 2, 10, 8);
-            ctx.fillRect(x + 2, y + 0, 4, 5);
-            ctx.fillRect(x + 20, y + 0, 4, 5);
-            ctx.fillRect(x + 4, y + 20, 5, 8);
-            ctx.fillRect(x + 17, y + 20, 5, 8);
-            ctx.fillStyle = "#ffeedd";
-            ctx.fillRect(x + 9, y + 4, 6, 4);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(x + 10, y + 5, 2, 2);
-            ctx.fillRect(x + 14, y + 5, 2, 2);
-          } else if (ti === 2) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 2, y + 8, 24, 14);
-            ctx.fillRect(x + 4, y + 4, 10, 7);
-            ctx.fillRect(x + 2, y + 22, 6, 6);
-            ctx.fillRect(x + 18, y + 22, 6, 6);
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(x + 2, y + 14, 3, 3);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(x + 6, y + 7, 2, 2);
-            ctx.fillRect(x + 11, y + 7, 2, 2);
-          } else if (ti === 3) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 6, y + 4, 16, 10);
-            ctx.fillRect(x + 4, y + 10, 20, 14);
-            ctx.fillRect(x + 10, y + 0, 8, 6);
-            ctx.fillStyle = "#ffd700";
-            ctx.fillRect(x + 11, y + 1, 3, 2);
-            ctx.fillRect(x + 16, y + 1, 3, 2);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(x + 12, y + 2, 2, 2);
-            ctx.fillRect(x + 16, y + 2, 2, 2);
-          } else if (ti === 4) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 3, y + 6, 22, 18);
-            ctx.fillRect(x + 6, y + 2, 16, 7);
-            ctx.fillRect(x + 0, y + 12, 5, 10);
-            ctx.fillRect(x + 23, y + 12, 5, 10);
-            ctx.fillStyle = "#7a7a8a";
-            ctx.fillRect(x + 8, y + 8, 6, 5);
-            ctx.fillRect(x + 16, y + 8, 6, 5);
-            ctx.fillStyle = "#ff2200";
-            ctx.fillRect(x + 9, y + 9, 4, 3);
-            ctx.fillRect(x + 17, y + 9, 4, 3);
-          } else if (ti === 5) {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 4, y + 6, 20, 18);
-            ctx.fillRect(x + 7, y + 0, 14, 8);
-            ctx.fillRect(x + 3, y + 22, 6, 8);
-            ctx.fillRect(x + 18, y + 22, 6, 8);
-            ctx.fillStyle = "#ff3333";
-            ctx.fillRect(x + 8, y + 3, 4, 3);
-            ctx.fillRect(x + 16, y + 3, 4, 3);
-            ctx.fillStyle = "#cc2222";
-            ctx.fillRect(x + 4, y + 6, 20, 3);
-          } else {
-            ctx.fillStyle = c;
-            ctx.fillRect(x + 2, y + 6, 24, 14);
-            ctx.fillRect(x + 5, y + 2, 12, 7);
-            ctx.fillRect(x + 2, y + 20, 7, 8);
-            ctx.fillRect(x + 18, y + 20, 7, 8);
-            ctx.fillStyle = "#3344aa";
-            ctx.fillRect(x + 6, y + 4, 3, 3);
-            ctx.fillRect(x + 13, y + 4, 3, 3);
-            ctx.fillStyle = `rgba(100,120,255,${0.3 + 0.1 * Math.sin(S.animT * 0.005)})`;
-            ctx.fillRect(x, y + 4, 28, 18);
-          }
-          if (m.hp < m.maxHp) {
-            ctx.fillStyle = "#111";
-            ctx.fillRect(sx - 14, sy - 34, 28, 5);
-            ctx.fillStyle = "#cc2222";
-            ctx.fillRect(
-              sx - 14,
-              sy - 34,
-              Math.floor((28 * m.hp) / m.maxHp),
-              5,
-            );
-          }
-          if (m.state === "chase") {
-            ctx.fillStyle = "#ff4444";
-            ctx.beginPath();
-            ctx.arc(sx, sy - 38, 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.fillStyle = "#ffaa44";
-          ctx.font = "9px monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(tmpl.name, sx, sy - 38);
-        },
-        npc(npc, cx, cy) {
-          const sx = Math.floor(npc.px - cx),
-            sy = Math.floor(npc.py - cy);
-          if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
-          const col = npc.color || "#88aacc";
-          if (npc.type === "chest") {
-            if (npc.used) {
-              ctx.fillStyle = "#3a2810";
-              ctx.fillRect(sx - 10, sy - 8, 20, 14);
-              ctx.fillStyle = "#5a4020";
-              ctx.fillRect(sx - 8, sy - 6, 16, 10);
-              ctx.fillStyle = "#88aa88";
-              ctx.font = "8px monospace";
-              ctx.textAlign = "center";
-              ctx.fillText("(trống)", sx, sy + 12);
-              return;
-            }
-            ctx.fillStyle = "#5a3010";
-            ctx.fillRect(sx - 12, sy - 10, 24, 16);
-            ctx.fillStyle = "#8a5020";
-            ctx.fillRect(sx - 10, sy - 8, 20, 12);
-            ctx.fillStyle = "#c8a84b";
-            ctx.fillRect(sx - 12, sy - 10, 24, 4);
-            ctx.fillRect(sx - 2, sy - 10, 4, 4);
-            const aa = 0.3 + 0.2 * Math.sin(S.animT * 0.003);
-            ctx.fillStyle = `rgba(200,168,75,${aa})`;
-            ctx.fillRect(sx - 14, sy - 12, 28, 20);
-            ctx.fillStyle = "#ffdd44";
-            ctx.font = "9px monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(npc.name, sx, sy - 16);
-            return;
-          }
-          ctx.fillStyle = "rgba(0,0,0,.25)";
-          ctx.fillRect(sx - 7, sy + 8, 14, 4);
-          ctx.fillStyle = col;
-          ctx.fillRect(sx - 6, sy - 10, 12, 20);
-          ctx.fillStyle = "#ffffff22";
-          ctx.fillRect(sx - 5, sy - 9, 10, 18);
-          ctx.fillStyle = "#e8c080";
-          ctx.fillRect(sx - 5, sy - 20, 10, 9);
-          ctx.fillStyle = "#221408";
-          ctx.fillRect(sx - 5, sy - 20, 10, 4);
-          ctx.fillStyle = "#111";
-          ctx.fillRect(sx - 3, sy - 15, 2, 2);
-          ctx.fillRect(sx + 1, sy - 15, 2, 2);
-          ctx.fillStyle = "rgba(0,0,0,.6)";
-          const nw = ctx.measureText(npc.name).width + 8;
-          ctx.fillRect(sx - nw / 2, sy - 30, nw, 12);
-          ctx.fillStyle = col;
-          ctx.font = "9px monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(npc.name, sx, sy - 21);
-          if (dist(S.player.px, S.player.py, npc.px, npc.py) < CFG.TS * 1.6) {
-            ctx.fillStyle = "rgba(200,168,75,.9)";
-            ctx.font = "9px monospace";
-            ctx.fillText("[F]", sx, sy - 38);
-          }
-        },
-        portal(portal, cx, cy) {
-          const sx = portal.x * CFG.TS + CFG.TS / 2 - cx,
-            sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
-          // if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
-          const a = S.animT * 0.002;
-          const grad = ctx.createRadialGradient(sx, sy, 4, sx, sy, 20);
-          grad.addColorStop(0, `rgba(100,180,255,${0.4 + 0.2 * Math.sin(a)})`);
-          grad.addColorStop(1, "rgba(100,180,255,0)");
-          ctx.fillStyle = grad;
-          ctx.fillRect(sx - 22, sy - 22, 44, 44);
-          ctx.strokeStyle = `rgba(120,200,255,${0.6 + 0.3 * Math.sin(a)})`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 14, 0, Math.PI * 2);
-          ctx.stroke();
-          if (portal.tenMapDen) {
-            ctx.fillStyle = "rgba(0,0,0,.7)";
-            const lw = ctx.measureText(portal.tenMapDen).width + 10;
-            ctx.fillRect(sx - lw / 2, sy - 36, lw, 13);
-            ctx.fillStyle = "#88ddff";
-            ctx.font = "9px monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(portal.tenMapDen, sx, sy - 26);
-          }
-        },
-        floatDmg(wx, wy, offY, text, color) {
-          const area = document
-            .getElementById("canvas-area")
-            .getBoundingClientRect();
-          const sx = wx - S.cam.x + area.left,
-            sy = wy - S.cam.y + offY + area.top;
-          const d = document.createElement("div");
-          d.className = "dmg-float";
-          d.textContent = text;
-          d.style.cssText = `left:${sx}px;top:${sy}px;color:${color}`;
-          document.body.appendChild(d);
-          setTimeout(() => d.remove(), 900);
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §13 · UI
-      // ════════════════════════════════════════════════════════════
-      const UI = {
-        update() {
-          if (!S.player) return;
-          const p = S.player;
-          document.getElementById("ui-name").textContent = p.name;
-          const st = document.getElementById("ui-spirit-tag");
-          st.textContent = `${p.linhCan} thuộc tính`;
-          st.style.color = Linh_CAN[p.linhCan]?.color;
-          document.getElementById("ui-realm").textContent = p.tenCanhGioi;
-          document.getElementById("ui-stage").textContent =
-            `Tầng ${p.tangTuVi}`;
-          document.getElementById("ui-cp").textContent = (
-            (p.stats.str + p.stats.agi + p.stats.vit + p.stats.ene) * 5 +
-              p.canhGioi?.stt || 0 * 150 + p.tangTuVi * 20 + 100
-          ).toLocaleString();
-          const hp = Math.floor(p.hp);
-          document.getElementById("ui-hp").textContent = `${hp}/${p.maxHp}`;
-          document.getElementById("b-hp").style.width =
-            Math.floor((hp / p.maxHp) * 100) + "%";
-          const mp = Math.floor(p.mp);
-          document.getElementById("ui-mp").textContent = `${mp}/${p.maxMp}`;
-          document.getElementById("b-mp").style.width =
-            Math.floor((mp / p.maxMp) * 100) + "%";
-          document.getElementById("ui-tu").textContent =
-            `${Math.floor(p.tuViHienTai)}/${Math.floor(p.tuViLenCap)}`;
-          document.getElementById("b-tu").style.width =
-            Math.min(100, Math.floor((p.tuViHienTai / p.tuViLenCap) * 100)) +
-            "%";
-          document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
-          const s = p.stats;
-          document.getElementById("r-str").textContent = s.str;
-          document.getElementById("r-agi").textContent = s.agi;
-          document.getElementById("r-vit").textContent = s.vit;
-          document.getElementById("r-int").textContent = s.ene;
-          document.getElementById("r-patk").textContent = Combat.pAtk();
-          document.getElementById("r-matk").textContent =
-            5 + s.ene * 2 * p.tangTuVi;
-          document.getElementById("r-def").textContent = Combat.pDef();
-          document.getElementById("r-spd").textContent =
-            3 + Math.floor(s.agi * 0.5);
-          document.getElementById("r-eva").textContent =
-            Math.floor(s.agi * 0.3) + "%";
-          document.getElementById("inv-head").textContent =
-            `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
-        },
-        log(msg, cls = "") {
-          const area = document.getElementById("log-area");
-          const p = document.createElement("p");
-          p.className = "lc lc-" + cls;
-          const t = new Date().toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          });
-          p.textContent = `[${t}] ${msg}`;
-          area.appendChild(p);
-          area.scrollTop = area.scrollHeight;
-          while (area.children.length > 150) area.removeChild(area.firstChild);
-        },
-        buildInv() {
-          const grid = document.getElementById("inv-grid");
-          grid.innerHTML = "";
-          for (let i = 0; i < CFG.INV_MAX; i++) {
-            const sl = document.createElement("div");
-            sl.className = "isl";
-            const item = S.inventory[i];
-            if (item) {
-              sl.textContent = item.icon;
-              if (item.count > 1) {
-                const cnt = document.createElement("span");
-                cnt.className = "icnt";
-                cnt.textContent = item.count;
-                sl.appendChild(cnt);
-              }
-              sl.onclick = () => Inventory.use(i);
-              sl.onmouseenter = (e) => UI.showTip(e, item);
-              sl.onmouseleave = (e) => UI.hideTip();
-            }
-            grid.appendChild(sl);
-          }
-        },
-        showTip(e, item) {
-          const tip = document.getElementById("tip");
-          document.getElementById("tip-name").textContent =
-            item.icon + " " + item.name;
-          document.getElementById("tip-type").textContent =
-            item.type === "STONE"
-              ? "Linh Thạch"
-              : item.type === "ELEMSTONE"
-                ? "Đá Nguyên Tố"
-                : item.type === "MAT"
-                  ? "Nguyên Liệu"
-                  : item.type === "CONSUME"
-                    ? "Đan Dược"
-                    : "Vật Phẩm";
-          document.getElementById("tip-body").innerHTML =
-            `${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
-          tip.style.display = "block";
-          tip.style.left = e.clientX + 14 + "px";
-          tip.style.top = e.clientY - 10 + "px";
-        },
-        hideTip() {
-          document.getElementById("tip").style.display = "none";
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §14 · INPUT
-      // ════════════════════════════════════════════════════════════
-      const Input = {
-        keys: {},
-        _lastMoveEmit: 0,
-        _initialized: false,
-        _resizeHandler: null,
-        init() {
-          if (Input._initialized) return;
-          Input._initialized = true;
-          Input._resizeHandler = () => {
-            const area = document.getElementById("canvas-area");
-            if (!canvas || !ctx || !area) return;
-            cW = area.clientWidth;
-            cH = area.clientHeight;
-            canvas.width = cW;
-            canvas.height = cH;
-            ctx.imageSmoothingEnabled = false;
-          };
-          window.addEventListener("keydown", (e) => {
-            Input.keys[e.code] = true;
-            if (
-              [
-                "ArrowUp",
-                "ArrowDown",
-                "ArrowLeft",
-                "ArrowRight",
-                "Space",
-              ].includes(e.code)
-            )
-              e.preventDefault();
-            if (e.code === "KeyF") World.checkNpcInteract();
-            if (e.code === "Escape") {
-              Shop.close();
-              DialogUI.close();
-            }
-            if (e.code === "Enter") {
-              const ci = document.getElementById("chat-inp");
-              ci.focus();
-            }
-          });
-          window.addEventListener("keyup", (e) => (Input.keys[e.code] = false));
-          window.addEventListener("resize", Input._resizeHandler);
-          document
-            .getElementById("game-canvas")
-            .addEventListener("click", Input.onClick);
-          document
-            .getElementById("chat-inp")
-            .addEventListener("keydown", (e) => {
-              if (e.code === "Enter") {
-                Net.sendChat();
-                e.preventDefault();
-              }
-            });
-        },
-        onClick(e) {
-          if (document.getElementById("shop-modal").classList.contains("open"))
-            return;
-          if (
-            document.getElementById("dialog-modal").classList.contains("open")
-          )
-            return;
-          const r = canvas.getBoundingClientRect();
-          const wx = e.clientX - r.left + S.cam.x,
-            wy = e.clientY - r.top + S.cam.y;
-          for (const m of S.monsters)
-            if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
-              Combat.attack(m);
-              return;
-            }
-          for (const npc of S.npcs)
-            if (dist(npc.px, npc.py, wx, wy) < 26) {
-              if (npc.type === "shop") Shop.open(npc);
-              else if (npc.type === "chest") Chest.open(npc);
-              else DialogUI.open(npc);
-              return;
-            }
-        },
-      };
-
-      // ════════════════════════════════════════════════════════════
-      // §15 · GAME LOOP
-      // ════════════════════════════════════════════════════════════
-      function update(dt) {
-        const p = S.player;
-        if (!p) return;
-        S.animT += dt;
-        if (S.animT > 240) {
-          S.animF ^= 1;
-          S.animT = 0;
-        }
-        if (S.atkCd > 0) S.atkCd -= dt / 16;
-        for (let i = S.atkFx.length - 1; i >= 0; i--) {
-          S.atkFx[i].life -= dt / 16;
-          S.atkFx[i].r += 0.8;
-          if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
-        }
-        const modalOpen =
-          document.getElementById("shop-modal").classList.contains("open") ||
-          document.getElementById("dialog-modal").classList.contains("open");
-        if (!modalOpen) {
-          let dx = 0,
-            dy = 0;
-          if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
-          if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
-          if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
-          if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
-
-          if (dx || dy) {
-            const mag = Math.hypot(dx, dy);
-            const dirX = dx / mag;
-            const dirY = dy / mag;
-            const speedBase = 1;
-            const speedBonus = (p.stats?.agi || 0) * 0.005;
-            const moveStep =
-              ((speedBase + speedBonus) * (dt / 16)) /
-              (15 - Math.max(0, S.player.speed ?? 1));
-            const oldX = p.x;
-            const oldY = p.y;
-
-            const nextX = p.x + dirX * moveStep;
-            if (!World.collides(nextX, p.y)) p.x = nextX;
-            const nextY = p.y + dirY * moveStep;
-            if (!World.collides(p.x, nextY)) p.y = nextY;
-
-            if (
-              Math.abs(p.x - oldX) > 0.0000001 ||
-              Math.abs(p.y - oldY) > 0.0000001
-            ) {
-              Net.emitMove();
-            }
-          }
-
-          p.px = p.x * CFG.TS + CFG.TS / 2;
-          p.py = p.y * CFG.TS + CFG.TS / 2;
-          if (Input.keys["Space"] && S.atkCd <= 0) {
-            let best = null,
-              bd = 5 * CFG.TS;
-            for (const m of S.monsters)
-              if (!m.dead) {
-                const d = dist(m.px, m.py, p.px, p.py);
-                if (d < bd) {
-                  bd = d;
-                  best = m;
-                }
-              }
-            if (best) Combat.attack(best);
-          }
-          if (S.autoFight && S.atkCd <= 0) {
-            let best = null,
-              bd = 4.5 * CFG.TS;
-            for (const m of S.monsters)
-              if (!m.dead) {
-                const d = dist(m.px, m.py, p.px, p.py);
-                if (d < bd) {
-                  bd = d;
-                  best = m;
-                }
-              }
-            if (best) Combat.attack(best);
-          }
-          if (
-            dist(
-              p.px,
-              p.py,
-              p.x * CFG.TS + CFG.TS / 2,
-              p.y * CFG.TS + CFG.TS / 2,
-            ) < 4
-          )
-            World.checkPortals();
-        }
-        for (const m of S.monsters) Monster.update(m, dt);
-        p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
-        p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
-        UI.update();
-      }
-      function loop(ts) {
-        const dt = Math.min(ts - S.lastTs, 50);
-        S.lastTs = ts;
-        update(dt);
-        Render.frame();
-        requestAnimationFrame(loop);
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // §16 · CHARACTER CREATE
-      // ════════════════════════════════════════════════════════════
-      let cRoot = null;
-      const cPts = { str: 5, agi: 5, vit: 5, int: 5, remaining: 20 };
-      function selectRoot(rootId) {
-        const r = CFG.ROOTS.find((item) => item.id === rootId);
-        if (!r) return;
-        cRoot = { ...r };
-        const orb = document.getElementById("spirit-orb");
-        orb.textContent = r.emoji;
-        orb.style.background = r.bg;
-        orb.style.color = r.color;
-        orb.style.borderColor = r.color;
-        orb.style.boxShadow = `0 0 14px ${r.color}66`;
-        document.getElementById("spirit-name").textContent = r.name;
-        document.getElementById("spirit-name").style.color = r.color;
-        document.getElementById("spirit-grade").textContent =
-          "Linh căn đã chọn";
-      }
-      function adj(s, d) {
-        const nv = cPts[s] + d;
-        if (nv < 1) return;
-        const nr = cPts.remaining - d;
-        if (nr < 0) return;
-        cPts[s] = nv;
-        cPts.remaining = nr;
-        document.getElementById("cs-" + s).textContent = nv;
-        document.getElementById("pts-left").textContent = nr;
-      }
-
-      async function createCharacter() {
-        const name = document.getElementById("inp-charname").value.trim();
-        if (!name) {
-          alert("Hãy nhập pháp danh!");
-          return;
-        }
-        if (!cRoot) {
-          alert("Vui lòng chọn một linh căn trước khi tạo nhân vật.");
-          return;
-        }
-        if (cPts.remaining !== 0) {
-          alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
-          return;
-        }
-        const { str, agi, vit, int: int_ } = cPts;
-        S.player = {
-          name,
-          root: cRoot,
-          realm: 0,
-          stage: 1,
-          stats: { str, agi, vit, ene: int_ },
-          hp: 100 + vit * 10,
-          maxHp: 100 + vit * 10,
-          mp: 50 + int_ * 8,
-          maxMp: 50 + int_ * 8,
-          xu: 50,
-          tuExp: 0,
-          tuNeeded: 0,
-          x: 26,
-          y: 30,
-          px: 26 * CFG.TS + CFG.TS / 2,
-          py: 30 * CFG.TS + CFG.TS / 2,
-        };
-
-        const defaultMap = await Net.get("/api/worlds/default");
-        const defaultMapCode = defaultMap?.code || "thien_van_thanh";
-        const defaultStart = defaultMap?.playerStart || defaultMap?.start || {};
-        const startX = defaultStart.x ?? 26;
-        const startY = defaultStart.y ?? 30;
-        S.player.mapCode = defaultMapCode;
-        S.player.mapId = defaultMap?.id || defaultMapCode;
-        S.player.x = startX;
-        S.player.y = startY;
-        S.player.px = startX * CFG.TS + CFG.TS / 2;
-        S.player.py = startY * CFG.TS + CFG.TS / 2;
-
-        const playerData = await Net.post("/api/players", S.player);
-        S.player.tuNeeded = Cultivation.calcTuNeeded(playerData?.canhGioi, 1);
-        Auth._startGameWithData(playerData);
-      }
-
-      function enterGame(map, x, y) {
-        showScreen("game");
-        canvas = document.getElementById("game-canvas");
-        const area = document.getElementById("canvas-area");
-        cW = area.clientWidth;
-        cH = area.clientHeight;
-        canvas.width = cW;
-        canvas.height = cH;
-        ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = false;
-
-        Input.init();
-        World.loadMap(map, x, y);
-        UI.buildInv();
-        UI.update();
-        UI.log("Tu tiên hành trình bắt đầu...", "system");
-        UI.log(
-          "💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.",
-          "system",
-        );
-        UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
-        Net.connectSocket();
-        Net.startAutoSave();
-        requestAnimationFrame((ts) => {
-          S.lastTs = ts;
-          requestAnimationFrame(loop);
-        });
-      }
-
-      function toggleAuto() {
-        S.autoFight = !S.autoFight;
-        document
-          .getElementById("btn-auto")
-          .classList.toggle("active", S.autoFight);
-        UI.log(
-          S.autoFight ? "⚔ Tự động đánh: BẬT" : "⚔ Tự động đánh: TẮT",
-          "system",
-        );
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // §17 · SCREEN MANAGEMENT
-      // ════════════════════════════════════════════════════════════
-      function showScreen(name) {
-        document.getElementById("screen-auth").classList.add("hidden");
-        document.getElementById("screen-create").classList.add("hidden");
-        document.getElementById("screen-game").style.display = "none";
-        if (name === "auth")
-          document.getElementById("screen-auth").classList.remove("hidden");
-        else if (name === "create")
-          document.getElementById("screen-create").classList.remove("hidden");
-        else if (name === "game")
-          document.getElementById("screen-game").style.display = "grid";
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // §18 · BOOT
-      // ════════════════════════════════════════════════════════════
-      // rollRoot();
-      //   (async () => {
-      //     // Try auto-login with saved token
-      //     const ok = await Auth.tryAutoLogin().catch(() => false);
-      //     if (!ok) showScreen("auth");
-      //     // Check server health (show offline note if down)
-      //     try {
-      //       const r = await fetch(API.BASE + "/api/health", {
-      //         signal: AbortSignal.timeout(3000),
-      //       });
-      //       if (!r.ok) throw new Error();
-      //       document.getElementById("auth-status").textContent =
-      //         "✓ Máy chủ đang hoạt động";
-      //     } catch {
-      //       document.getElementById("auth-status").textContent =
-      //         "⚠ Máy chủ offline — Chơi Offline mode";
-      //     }
-      //   })();
-    </script>
-  </body>
+		</div>
+
+		<!-- ══════════════════════════════════════ SCREEN: CREATE CHARACTER -->
+		<div class="screen hidden" id="screen-create">
+			<div class="stars"></div>
+			<div class="title-main">✦ TẠO NHÂN VẬT</div>
+			<div class="title-sub">Chọn linh căn · Phân bổ thuộc tính · Bắt đầu tu luyện</div>
+			<div class="card" style="width: 510px">
+				<div class="field-group">
+					<div class="sec-title">✦ PHÁP DANH</div>
+					<input
+						class="inp"
+						id="inp-charname"
+						placeholder="Nhập pháp danh tu sĩ..."
+						maxlength="16"
+					/>
+				</div>
+				<div class="field-group">
+					<div class="sec-title">✦ LINH CĂN</div>
+					<div class="spirit-box">
+						<div id="spirit-orb">❓</div>
+						<div class="spirit-info">
+							<div id="spirit-name">Chưa chọn linh căn</div>
+							<div id="spirit-grade">Chọn một linh căn để bắt đầu</div>
+						</div>
+					</div>
+					<div
+						style="
+							display: grid;
+							grid-template-columns: repeat(3, 1fr);
+							gap: 8px;
+							margin-top: 12px;
+						"
+					>
+						<button class="sbtn" type="button" onclick="selectRoot('KIM')">
+							⚙ KIM
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('MOC')">
+							🌿 MỘC
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('THUY')">
+							💧 THỦY
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('HOA')">
+							🔥 HỎA
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('THO')">
+							🪨 THỔ
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('QUANG')">
+							✨ QUANG
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('AM')">🌑 ÂM</button>
+						<button class="sbtn" type="button" onclick="selectRoot('PHONG')">
+							💨 PHONG
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('LOI')">
+							⚡ LÔI
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('THOI_GIAN')">
+							⏳ THỜI_GIAN
+						</button>
+						<button class="sbtn" type="button" onclick="selectRoot('KHONG_GIAN')">
+							🌌 KHÔNG_GIAN
+						</button>
+					</div>
+				</div>
+				<div class="field-group">
+					<div class="sec-title">✦ PHÂN BỔ THUỘC TÍNH (20 điểm)</div>
+					<div class="points-display">Điểm còn lại: <em id="pts-left">20</em></div>
+					<div class="stat-grid">
+						<div class="stat-row">
+							<span class="stat-icon">⚔</span><span class="stat-lbl">Sức Mạnh</span>
+							<div class="adj-btn" onclick="adj('str', -1)">−</div>
+							<span class="stat-num" id="cs-str">5</span>
+							<div class="adj-btn" onclick="adj('str', 1)">+</div>
+						</div>
+						<div class="stat-row">
+							<span class="stat-icon">💨</span
+							><span class="stat-lbl">Nhanh Nhẹn</span>
+							<div class="adj-btn" onclick="adj('agi', -1)">−</div>
+							<span class="stat-num" id="cs-agi">5</span>
+							<div class="adj-btn" onclick="adj('agi', 1)">+</div>
+						</div>
+						<div class="stat-row">
+							<span class="stat-icon">🛡</span><span class="stat-lbl">Thể Lực</span>
+							<div class="adj-btn" onclick="adj('vit', -1)">−</div>
+							<span class="stat-num" id="cs-vit">5</span>
+							<div class="adj-btn" onclick="adj('vit', 1)">+</div>
+						</div>
+						<div class="stat-row">
+							<span class="stat-icon">🧠</span><span class="stat-lbl">Trí Tuệ</span>
+							<div class="adj-btn" onclick="adj('int', -1)">−</div>
+							<span class="stat-num" id="cs-int">5</span>
+							<div class="adj-btn" onclick="adj('int', 1)">+</div>
+						</div>
+					</div>
+				</div>
+				<button class="big-btn" onclick="createCharacter()">⚔ GIA NHẬP ⚔</button>
+			</div>
+		</div>
+
+		<!-- ══════════════════════════════════════ SCREEN: GAME -->
+		<div id="screen-game">
+			<div class="gpanel" id="panel-left">
+				<div class="phead">✦ NHÂN VẬT</div>
+				<div class="pbody">
+					<div class="char-name-disp">
+						<div class="cname" id="ui-name">—</div>
+						<div class="cspirit" id="ui-spirit-tag">—</div>
+					</div>
+					<div class="realm-box">
+						<div class="rname" id="ui-realm">Luyện Thể</div>
+						<div class="rstage" id="ui-stage">Tầng 1</div>
+					</div>
+					<div class="cp-box">CHIẾN LỰC<br /><span class="cpval" id="ui-cp">0</span></div>
+					<div class="bar-group">
+						<div class="bar-lbl">
+							<span style="color: #cc4444">❤ HP</span><span id="ui-hp">0/0</span>
+						</div>
+						<div class="bar-track">
+							<div class="bar-fill bar-hp" id="b-hp" style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="bar-group">
+						<div class="bar-lbl">
+							<span style="color: #4466cc">✦ MP</span><span id="ui-mp">0/0</span>
+						</div>
+						<div class="bar-track">
+							<div class="bar-fill bar-mp" id="b-mp" style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="bar-group">
+						<div class="bar-lbl">
+							<span style="color: #9944cc">☯ Tu Vi</span><span id="ui-tu">0/0</span>
+						</div>
+						<div class="bar-track">
+							<div class="bar-fill bar-tu" id="b-tu" style="width: 0%"></div>
+						</div>
+					</div>
+					<div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
+					<div class="online-badge" id="online-badge">● Offline</div>
+					<!-- Online players mini list -->
+					<div
+						class="sec-title"
+						style="font-size: 9px; margin-top: 10px; margin-bottom: 4px"
+					>
+						✦ ĐANG ONLINE
+					</div>
+					<div class="online-list" id="online-list">
+						<div style="color: var(--text2); font-size: 10px">Chưa kết nối...</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="canvas-area">
+				<canvas id="game-canvas"></canvas>
+				<div id="map-name-overlay"></div>
+				<div id="conn-badge" class="offline">● Offline</div>
+			</div>
+
+			<div class="gpanel" id="panel-right">
+				<div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
+				<div class="pbody">
+					<div class="stat-line">
+						<span class="slbl">⚔ Sức Mạnh</span><span class="sv" id="r-str">5</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">💨 Nhanh Nhẹn</span><span class="sv" id="r-agi">5</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">🛡 Thể Lực</span><span class="sv" id="r-vit">5</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">🧠 Trí Tuệ</span><span class="sv" id="r-int">5</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">⚡ Vật Lý ATK</span><span class="sv" id="r-patk">0</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">🔮 Pháp ATK</span><span class="sv" id="r-matk">0</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">🛡 Phòng Thủ</span><span class="sv" id="r-def">0</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">💨 Tốc Độ</span><span class="sv" id="r-spd">0</span>
+					</div>
+					<div class="stat-line">
+						<span class="slbl">🎯 Tránh Né</span><span class="sv" id="r-eva">0%</span>
+					</div>
+					<div class="equip-section">
+						<div class="sec-title" style="font-size: 9px; margin-bottom: 4px">
+							✦ TRANG BỊ
+						</div>
+						<div class="equip-grid">
+							<div class="esl">
+								<div class="eicon">⚔</div>
+								Vũ Khí
+							</div>
+							<div class="esl">
+								<div class="eicon">🪖</div>
+								Mũ
+							</div>
+							<div class="esl">
+								<div class="eicon">🥋</div>
+								Giáp
+							</div>
+							<div class="esl">
+								<div class="eicon">👖</div>
+								Quần
+							</div>
+							<div class="esl">
+								<div class="eicon">👟</div>
+								Giày
+							</div>
+							<div class="esl">
+								<div class="eicon">💍</div>
+								Nhẫn
+							</div>
+							<div class="esl">
+								<div class="eicon">📿</div>
+								Vòng
+							</div>
+							<div class="esl">
+								<div class="eicon">🔗</div>
+								Đai
+							</div>
+							<div class="esl">
+								<div class="eicon">💎</div>
+								Linh Thạch
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="panel-bottom">
+				<div id="log-wrap">
+					<div class="phead">✦ NHẬT KÝ &amp; CHAT</div>
+					<div id="log-area"></div>
+					<div id="chat-bar">
+						<input
+							class="inp"
+							id="chat-inp"
+							placeholder="Chat với người chơi khác (Enter)..."
+							maxlength="100"
+						/>
+						<button id="chat-send" onclick="Net.sendChat()">Gửi</button>
+					</div>
+				</div>
+				<div id="actions-wrap">
+					<div class="phead" style="margin: -6px -6px 5px; padding: 4px 7px">
+						✦ THAO TÁC
+					</div>
+					<button class="act-btn" onclick="Cultivation.absorbStone()">
+						🔮 Hấp Thu Linh Thạch
+					</button>
+					<button class="act-btn" onclick="Cultivation.tryBreakthrough()">
+						⬆ Phá Cảnh
+					</button>
+					<button class="act-btn" id="btn-auto" onclick="toggleAuto()">
+						⚔ Tự Động Đánh
+					</button>
+					<button class="act-btn" onclick="Net.saveNow()">💾 Lưu Thủ Công</button>
+					<button class="act-btn danger" onclick="Auth.logout()">🚪 Đăng Xuất</button>
+					<div class="keys-hint">
+						WASD/↑↓←→ Di chuyển<br />
+						Space: Đánh gần nhất<br />
+						F: Tương tác NPC<br />
+						Enter: Chat
+					</div>
+				</div>
+				<div id="inv-wrap">
+					<div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
+					<div id="inv-grid"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- SHOP -->
+		<div id="shop-modal">
+			<div class="modal-box" style="width: 540px">
+				<div class="modal-header">
+					<span class="modal-title" id="shop-title">🏪 Cửa Hàng</span>
+					<span class="modal-xu">💰 <em id="shop-xu">0</em> xu</span>
+					<button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
+				</div>
+				<div class="shop-cols" style="height: 280px">
+					<div class="shop-col" id="shop-buy-list">
+						<div class="shop-col-head">MUA VẬT PHẨM</div>
+					</div>
+					<div class="shop-col" id="shop-sell-list">
+						<div class="shop-col-head">BÁN VẬT PHẨM</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- DIALOG -->
+		<div id="dialog-modal">
+			<div class="modal-box" style="width: 420px">
+				<div class="modal-header">
+					<span class="modal-title" id="dialog-npc-n">NPC</span>
+					<button class="modal-close-btn" onclick="DialogUI.close()">✕</button>
+				</div>
+				<div id="dialog-text"></div>
+				<div class="dialog-close-wrap">
+					<button class="sbtn" onclick="DialogUI.close()">Đóng [Esc]</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="tip">
+			<div class="tip-name" id="tip-name"></div>
+			<div class="tip-type" id="tip-type"></div>
+			<div id="tip-body"></div>
+		</div>
+
+		<script>
+			"use strict";
+			// ════════════════════════════════════════════════════════════
+			// §0 · API CONFIG  ← Đổi URL này khi deploy server
+			// ════════════════════════════════════════════════════════════
+			const API = {
+				BASE: "http://localhost:8090", // ← server URL
+				SOCKET_URL: "http://localhost:3000", // ← socket URL (thường cùng server)
+				AUTO_SAVE_MS: 60000, // auto-save mỗi 60 giây
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §1 · GAME CONFIG
+			// ════════════════════════════════════════════════════════════
+			const Linh_CAN = {
+				KIM: {
+					emoji: "⚙",
+					color: "#DAA520",
+					bg: "#1a1200",
+				},
+				MOC: {
+					emoji: "🌿",
+					color: "#3db84a",
+					bg: "#0a1200",
+				},
+				THUY: {
+					emoji: "💧",
+					color: "#3d9bda",
+					bg: "#000d1a",
+				},
+				HOA: {
+					emoji: "🔥",
+					color: "#e05520",
+					bg: "#1a0800",
+				},
+				THO: {
+					emoji: "🪨",
+					color: "#b88a3a",
+					bg: "#120a00",
+				},
+				QUANG: {
+					emoji: "✨",
+					color: "#eeee60",
+					bg: "#181800",
+				},
+				AM: {},
+				PHONG: {
+					name: "Phong",
+					emoji: "💨",
+					color: "#8ad4b8",
+					bg: "#001a10",
+				},
+				LOI: {
+					name: "Lôi",
+					emoji: "⚡",
+					color: "#aa50ee",
+					bg: "#100018",
+				},
+				THOI_GIAN: {},
+				KHONG_GIAN: {
+					emoji: "🌑",
+					color: "#8888aa",
+					bg: "#020205",
+				},
+			};
+			const CFG = {
+				TS: 32,
+				INV_MAX: 40,
+				ATK_CD: 42,
+				REGEN_HP: 0.01,
+				REGEN_MP: 0.006,
+				MON_AGGRO: 4.2,
+				MON_LEASH: 11,
+				MON_RESPAWN: 420,
+				REALMS: [
+					"Luyện Thể",
+					"Khí Động",
+					"Ly Hợp",
+					"Chân Nguyên",
+					"Thần Du",
+					"Siêu Phàm",
+					"Nhập Thánh",
+					"Thánh Vương",
+					"Phản Hư",
+					"Hư Vương",
+					"Đạo Nguyên",
+					"Đế Tôn",
+				],
+				ROOTS: [
+					{
+						id: "KIM",
+						name: "KIM",
+						emoji: "⚙",
+						color: "#DAA520",
+						bg: "#1a1200",
+					},
+					{
+						id: "MOC",
+						name: "MỘC",
+						emoji: "🌿",
+						color: "#3db84a",
+						bg: "#0a1200",
+					},
+					{
+						id: "THUY",
+						name: "THỦY",
+						emoji: "💧",
+						color: "#3d9bda",
+						bg: "#000d1a",
+					},
+					{
+						id: "HOA",
+						name: "HỎA",
+						emoji: "🔥",
+						color: "#e05520",
+						bg: "#1a0800",
+					},
+					{
+						id: "THO",
+						name: "THỔ",
+						emoji: "🪨",
+						color: "#b88a3a",
+						bg: "#120a00",
+					},
+					{
+						id: "QUANG",
+						name: "QUANG",
+						emoji: "✨",
+						color: "#eeee60",
+						bg: "#181800",
+					},
+					{
+						id: "AM",
+						name: "ÂM",
+						emoji: "🌑",
+						color: "#8888aa",
+						bg: "#020205",
+					},
+					{
+						id: "PHONG",
+						name: "PHONG",
+						emoji: "💨",
+						color: "#8ad4b8",
+						bg: "#001a10",
+					},
+					{
+						id: "LOI",
+						name: "LÔI",
+						emoji: "⚡",
+						color: "#aa50ee",
+						bg: "#100018",
+					},
+					{
+						id: "THOI_GIAN",
+						name: "THỜI_GIAN",
+						emoji: "⏳",
+						color: "#e0b15c",
+						bg: "#0f0a13",
+					},
+					{
+						id: "KHONG_GIAN",
+						name: "KHÔNG_GIAN",
+						emoji: "🌌",
+						color: "#8a8cff",
+						bg: "#02001f",
+					},
+				],
+				ITEMS: {
+					slo: {
+						id: "slo",
+						name: "Linh Thạch Thấp",
+						emoji: "💠",
+						type: "STONE",
+						tuVal: 18,
+						sell: 3,
+						buyPrice: 28,
+						desc: "Hấp thu → tu vi +18",
+					},
+					smi: {
+						id: "smi",
+						name: "Linh Thạch Trung",
+						emoji: "🔷",
+						type: "STONE",
+						tuVal: 55,
+						sell: 12,
+						buyPrice: 80,
+						desc: "Hấp thu → tu vi +55",
+					},
+					shi: {
+						id: "shi",
+						name: "Linh Thạch Thượng",
+						emoji: "💎",
+						type: "STONE",
+						tuVal: 160,
+						sell: 40,
+						buyPrice: 220,
+						desc: "Hấp thu → tu vi +160",
+					},
+					ef: {
+						id: "ef",
+						name: "Đá Hỏa Nguyên",
+						emoji: "🟠",
+						type: "ELEMSTONE",
+						tuVal: 30,
+						statKey: "str",
+						statVal: 2,
+						sell: 18,
+						desc: "Tu vi +30, STR +2",
+					},
+					em: {
+						id: "em",
+						name: "Đá Mộc Nguyên",
+						emoji: "🟢",
+						type: "ELEMSTONE",
+						tuVal: 30,
+						statKey: "vit",
+						statVal: 2,
+						sell: 18,
+						desc: "Tu vi +30, VIT +2",
+					},
+					ew: {
+						id: "ew",
+						name: "Đá Thủy Nguyên",
+						emoji: "🔵",
+						type: "ELEMSTONE",
+						tuVal: 30,
+						statKey: "int",
+						statVal: 2,
+						sell: 18,
+						desc: "Tu vi +30, INT +2",
+					},
+					her: {
+						id: "her",
+						name: "Linh Thảo",
+						emoji: "🌿",
+						type: "mat",
+						sell: 2,
+						desc: "Nguyên liệu luyện đan",
+					},
+					bon: {
+						id: "bon",
+						name: "Yêu Cốt",
+						emoji: "🦴",
+						type: "mat",
+						sell: 1,
+						desc: "Xương yêu thú",
+					},
+					fur: {
+						id: "fur",
+						name: "Yêu Mao",
+						emoji: "🧶",
+						type: "mat",
+						sell: 3,
+						desc: "Lông yêu thú",
+					},
+					hpd: {
+						id: "hpd",
+						name: "Trị Thương Đan",
+						emoji: "🔴",
+						type: "CONSUME",
+						healHp: 50,
+						sell: 8,
+						buyPrice: 15,
+						desc: "Hồi 50 HP",
+					},
+					mpd: {
+						id: "mpd",
+						name: "Hồi Linh Đan",
+						emoji: "⚫",
+						type: "CONSUME",
+						healMp: 40,
+						sell: 8,
+						buyPrice: 15,
+						desc: "Hồi 40 MP",
+					},
+					bud: {
+						id: "bud",
+						name: "Trúc Cơ Đan",
+						emoji: "🟡",
+						type: "CONSUME",
+						statBoost: 2,
+						sell: 35,
+						buyPrice: 60,
+						desc: "+2 điểm ngẫu nhiên",
+					},
+				},
+				SHOP_SELL: ["hpd", "mpd", "bud", "slo", "smi"],
+				MONSTERS: [
+					{
+						name: "Dã Thú",
+						hp: 50,
+						atk: 6,
+						def: 2,
+						xuR: [2, 6],
+						iChance: 0.3,
+						speed: 1.0,
+						color: "#7a3a1a",
+						drops: ["bon", "fur", "her"],
+					},
+					{
+						name: "Linh Hồ",
+						hp: 85,
+						atk: 10,
+						def: 4,
+						xuR: [4, 12],
+						iChance: 0.25,
+						speed: 1.1,
+						color: "#cc6020",
+						drops: ["fur", "slo"],
+					},
+					{
+						name: "Yêu Lang",
+						hp: 130,
+						atk: 16,
+						def: 8,
+						xuR: [8, 22],
+						iChance: 0.2,
+						speed: 1.1,
+						color: "#6b2737",
+						drops: ["bon", "slo", "smi"],
+					},
+					{
+						name: "Linh Xà",
+						hp: 100,
+						atk: 13,
+						def: 5,
+						xuR: [6, 16],
+						iChance: 0.35,
+						speed: 1.2,
+						color: "#2d6b2d",
+						drops: ["her", "slo", "ef"],
+					},
+					{
+						name: "Thạch Quỷ",
+						hp: 160,
+						atk: 18,
+						def: 12,
+						xuR: [10, 28],
+						iChance: 0.15,
+						speed: 0.8,
+						color: "#5a5a6a",
+						drops: ["bon", "smi", "ew"],
+					},
+					{
+						name: "Ma Tặc",
+						hp: 220,
+						atk: 24,
+						def: 15,
+						xuR: [15, 35],
+						iChance: 0.25,
+						speed: 1.2,
+						color: "#8a1a3a",
+						drops: ["smi", "shi", "em"],
+					},
+					{
+						name: "Hắc Hổ",
+						hp: 300,
+						atk: 32,
+						def: 20,
+						xuR: [20, 50],
+						iChance: 0.2,
+						speed: 1.3,
+						color: "#1a1a3a",
+						drops: ["shi", "ef", "ew"],
+					},
+				],
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §2 · NETWORK / AUTH MODULE
+			// ════════════════════════════════════════════════════════════
+			let socket = null;
+			let authToken = localStorage.getItem("tu_tien_token");
+			var currentUser = null;
+
+			const Net = {
+				_saveTimer: null,
+				_isOnline: false,
+				_pendingRequests: new Map(),
+				_savePromise: null,
+
+				_requestKey(method, path, body) {
+					const payload = typeof body === "string" ? body : JSON.stringify(body || "");
+					return `${method}:${path}:${payload}`;
+				},
+
+				async _fetch(path, opts = {}) {
+					const method = (opts.method || "GET").toUpperCase();
+					const body = opts.body || "";
+					const key = this._requestKey(method, path, body);
+					if (this._pendingRequests.has(key)) {
+						return this._pendingRequests.get(key);
+					}
+					const promise = (async () => {
+						const res = await fetch(API.BASE + path, opts);
+						return res.json();
+					})();
+					this._pendingRequests.set(key, promise);
+					try {
+						return await promise;
+					} finally {
+						this._pendingRequests.delete(key);
+					}
+				},
+
+				async get(path) {
+					return this._fetch(path, {
+						headers: { Authorization: "Bearer " + authToken },
+					});
+				},
+
+				async post(path, body) {
+					return this._fetch(path, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: "Bearer " + authToken,
+						},
+						body: JSON.stringify(body),
+					});
+				},
+
+				async put(path, body) {
+					return this._fetch(path, {
+						method: "PUT",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: "Bearer " + authToken,
+						},
+						body: JSON.stringify(body),
+					});
+				},
+
+				// ── Save ──
+				async saveNow(event) {
+					if (!authToken || !S.player) return;
+					if (this._savePromise) return this._savePromise;
+					this._savePromise = (async () => {
+						const playerData = {
+							...S.player,
+							inventory: S.inventory,
+							x: Math.floor(S.player.x || 0),
+							y: Math.floor(S.player.y || 0),
+							mapCode: S.mapCode || S.player.mapCode,
+							mapId: S.player.mapId || S.mapCode || S.player.mapCode,
+							_event: event || null,
+							tenCanhGioi: S.player.canhGioi?.name || "",
+						};
+						try {
+							playerData.jsonIventory = JSON.stringify(playerData.inventory);
+							const res = await this.put("/api/player/" + playerData.id, playerData);
+							if (res?.ok) UI.log("💾 Đã lưu dữ liệu lên server", "system");
+						} catch {
+							UI.log("⚠ Không thể kết nối server để lưu", "system");
+						} finally {
+							this._savePromise = null;
+						}
+					})();
+					return this._savePromise;
+				},
+
+				startAutoSave() {
+					clearInterval(Net._saveTimer);
+					Net._saveTimer = setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS);
+				},
+
+				// ── Socket.io ──
+				connectSocket() {
+					if (!authToken) return;
+					try {
+						socket = io(API.SOCKET_URL, {
+							auth: { token: authToken },
+							timeout: 5000,
+						});
+
+						socket.on("connect", () => {
+							Net._isOnline = true;
+							Net._setBadge(true);
+							const p = S.player;
+							if (p)
+								socket.emit("join_world", {
+									mapCode: S.mapCode,
+									x: p.x,
+									y: p.y,
+								});
+							UI.log("🌐 Đã kết nối máy chủ!", "system");
+						});
+
+						socket.on("disconnect", () => {
+							Net.saveNow();
+							localStorage.removeItem("tu_tien_token");
+							Net._isOnline = false;
+							Net._setBadge(false);
+							Net._clearOthers();
+							UI.log("⚠ Mất kết nối server...", "system");
+						});
+
+						socket.on("connect_error", () => {
+							Net._setBadge(false);
+						});
+
+						// ── World state (players on same map) ──
+						socket.on("world_state", ({ players }) => {
+							for (const p of players) Net._upsertOther(p);
+							Net._renderOnlineList();
+						});
+
+						socket.on("player_join", (p) => {
+							Net._upsertOther(p);
+							Net._renderOnlineList();
+							UI.log(`👤 ${p.username} gia nhập bản đồ`, "system");
+						});
+
+						socket.on("player_leave", ({ id }) => {
+							Net.saveNow();
+
+							otherPlayers.delete(id);
+							Net._renderOnlineList();
+						});
+
+						socket.on("player_move", ({ id, x, y }) => {
+							if (otherPlayers.has(id)) {
+								const op = otherPlayers.get(id);
+								op.x = x;
+								op.y = y;
+								op.px = x * CFG.TS + CFG.TS / 2;
+								op.py = y * CFG.TS + CFG.TS / 2;
+							}
+						});
+
+						socket.on("player_map", ({ id, mapCode, x, y }) => {
+							if (otherPlayers.has(id)) {
+								const op = otherPlayers.get(id);
+								if (op.mapCode !== S.mapCode) otherPlayers.delete(id);
+								else {
+									op.x = x;
+									op.y = y;
+									op.mapCode = mapCode;
+								}
+							}
+						});
+
+						socket.on("chat_message", ({ username, message, id }) => {
+							const isMe = id === socket.id;
+							UI.log(`[${isMe ? "Tôi" : username}]: ${message}`, "chat");
+						});
+
+						socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
+							// Show attack effect from other player (future: find target by id)
+							UI.log(`[${attackerName}] đánh quái ${damage} sát thương`, "combat");
+						});
+
+						socket.on("server_msg", ({ text }) => {
+							UI.log(text, "system");
+						});
+					} catch (e) {
+						Net._setBadge(false);
+					}
+				},
+
+				emitMove() {
+					if (socket?.connected && S.player) {
+						socket.emit("move", {
+							x: S.player.x,
+							y: S.player.y,
+							mapCode: S.mapCode,
+						});
+					}
+				},
+
+				emitMapChange(mapCode, x, y) {
+					const px = Math.floor(x);
+					const py = Math.floor(y);
+					if (socket?.connected) {
+						socket.emit("map_change", { mapCode, x: px, y: py });
+					}
+					// Save on map change
+					Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
+				},
+
+				sendChat() {
+					const inp = document.getElementById("chat-inp");
+					const msg = inp.value.trim();
+					if (!msg) return;
+					if (socket?.connected) {
+						socket.emit("chat", { message: msg });
+					} else {
+						UI.log(`[Tôi]: ${msg}`, "chat");
+					}
+					inp.value = "";
+				},
+
+				_setBadge(online) {
+					const badge = document.getElementById("conn-badge");
+					const ob = document.getElementById("online-badge");
+					badge.className = online ? "online" : "offline";
+					badge.textContent = online ? "● Online" : "● Offline";
+					ob.textContent = online ? "● Online" : "● Offline";
+					ob.style.color = online ? "var(--green)" : "#aa4444";
+				},
+
+				_upsertOther(p) {
+					const existing = otherPlayers.get(p.id) || {};
+					otherPlayers.set(p.id, {
+						...existing,
+						...p,
+						px: (p.x || 0) * CFG.TS + CFG.TS / 2,
+						py: (p.y || 0) * CFG.TS + CFG.TS / 2,
+					});
+				},
+
+				_clearOthers() {
+					otherPlayers.clear();
+					Net._renderOnlineList();
+				},
+
+				_renderOnlineList() {
+					const el = document.getElementById("online-list");
+					if (otherPlayers.size === 0) {
+						el.innerHTML =
+							'<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
+						return;
+					}
+					el.innerHTML = "";
+					for (const [, p] of otherPlayers) {
+						const d = document.createElement("div");
+						d.className = "online-player";
+						d.innerHTML = `<span class="on-name">${p.username || "?"}</span><span class="on-realm">${p.canhGioi.tenCanhGioi}</span>`;
+						el.appendChild(d);
+					}
+				},
+			};
+
+			// ── Auth Screen ──
+			const Auth = {
+				_mode: "login",
+
+				showTab(mode) {
+					Auth._mode = mode;
+					document.getElementById("tab-login").className =
+						"auth-tab" + (mode === "login" ? " active" : "");
+					document.getElementById("tab-reg").className =
+						"auth-tab" + (mode === "register" ? " active" : "");
+					document.getElementById("reg-confirm-wrap").style.display =
+						mode === "register" ? "" : "none";
+					document.getElementById("auth-btn").textContent =
+						mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+					document.getElementById("auth-alt").innerHTML =
+						mode === "login"
+							? "Chưa có tài khoản? <a onclick=\"Auth.showTab('register')\">Đăng ký ngay</a>"
+							: "Đã có tài khoản? <a onclick=\"Auth.showTab('login')\">Đăng nhập</a>";
+					Auth._clearErr();
+				},
+
+				async submit() {
+					const username = document.getElementById("inp-user").value.trim();
+					const password = document.getElementById("inp-pass").value;
+					Auth._clearErr();
+					if (!username || !password) return Auth._err("Vui lòng điền đầy đủ thông tin");
+
+					if (Auth._mode === "register") {
+						const confirm = document.getElementById("inp-confirm").value;
+						if (password !== confirm) return Auth._err("Mật khẩu xác nhận không khớp");
+					}
+
+					const btn = document.getElementById("auth-btn");
+					btn.disabled = true;
+					btn.textContent = "Đang xử lý...";
+
+					try {
+						const path =
+							Auth._mode === "login" ? "/api/auth/login" : "/api/auth/register";
+						const res = await fetch(API.BASE + path, {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ username, password }),
+						});
+						const data = await res.json();
+						if (!res.ok) {
+							Auth._err(data.error || "Lỗi không xác định");
+							return;
+						}
+
+						authToken = data.token;
+						currentUser = data.user;
+						localStorage.setItem("tu_tien_token", authToken);
+
+						Auth._afterLogin();
+					} catch {
+						Auth._err("Không thể kết nối máy chủ. Thử chơi offline?");
+					} finally {
+						btn.disabled = false;
+						btn.textContent = Auth._mode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
+					}
+				},
+
+				async _afterLogin() {
+					// Try to load existing character
+					try {
+						const data = await Net.get("/api/player/" + currentUser.id);
+						if (data) {
+							Auth._startGameWithData(data);
+							return;
+						}
+					} catch {}
+					// No character → create screen
+					showScreen("create");
+				},
+
+				async _startGameWithData(playerData) {
+					// Restore player from server data
+					S.player = {
+						...playerData,
+						name: playerData.name,
+						realm: playerData.realm,
+						stage: playerData.stage,
+						stats: playerData.stats,
+						hp: playerData.hp,
+						maxHp: playerData.maxHp,
+						mp: playerData.mp,
+						maxMp: playerData.maxMp,
+						xu: playerData.xu,
+						tuExp: playerData.tuExp,
+						tuNeeded: playerData.tuNeeded,
+						x: playerData.x || 26,
+						y: playerData.y || 30,
+						px: (playerData.x || 26) * CFG.TS + CFG.TS / 2,
+						py: (playerData.y || 30) * CFG.TS + CFG.TS / 2,
+					};
+					try {
+						S.inventory = JSON.parse(playerData.jsonIventory) || [];
+					} catch (e) {}
+					const map = await Net.get("/api/worlds/by-code?code=" + playerData.mapCode);
+					enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
+				},
+
+				playOffline() {
+					authToken = null;
+					currentUser = null;
+					showScreen("create");
+				},
+
+				logout() {
+					Net.saveNow().finally(() => {
+						localStorage.removeItem("tu_tien_token");
+						authToken = null;
+						currentUser = null;
+						S.player = null;
+						S.inventory = [];
+						if (socket) {
+							socket.disconnect();
+							socket = null;
+						}
+						clearInterval(Net._saveTimer);
+						location.reload();
+					});
+				},
+
+				_err(msg) {
+					const el = document.getElementById("auth-err");
+					el.textContent = msg;
+					el.classList.add("show");
+				},
+				_clearErr() {
+					document.getElementById("auth-err").classList.remove("show");
+				},
+
+				// Auto-login if token exists
+				async tryAutoLogin() {
+					if (!authToken) return false;
+					try {
+						const res = await fetch(API.BASE + "/api/auth/me", {
+							headers: { Authorization: "Bearer " + authToken },
+						});
+						if (!res.ok) {
+							localStorage.removeItem("tu_tien_token");
+							authToken = null;
+							return false;
+						}
+						const data = await res.json();
+						currentUser = { id: data.userId, username: data.username };
+						document.getElementById("auth-status").textContent =
+							`Chào lại, ${data.username}!`;
+						await Auth._afterLogin();
+						return true;
+					} catch {
+						return false;
+					}
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §3 · TILE / MAP
+			// ════════════════════════════════════════════════════════════
+			const T = {
+				GRASS: 0,
+				STONE: 1,
+				WATER: 2,
+				WALL: 3,
+				FLOOR: 4,
+				TREE: 5,
+				MTN: 6,
+				PLAZA: 7,
+			};
+			const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
+			function isSolid(tx, ty) {
+				if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
+				return SOLID.has(S.tiles[ty][tx]);
+			}
+			function fillRect(t, x, y, w, h, v) {
+				for (let dy = 0; dy < h; dy++)
+					for (let dx = 0; dx < w; dx++) {
+						const ty = y + dy,
+							tx = x + dx;
+						if (ty >= 0 && ty < t.length && tx >= 0 && tx < t[0].length) t[ty][tx] = v;
+					}
+			}
+			function borderWall(t) {
+				const H = t.length,
+					W = t[0].length;
+				for (let x = 0; x < W; x++) {
+					t[0][x] = T.WALL;
+					t[H - 1][x] = T.WALL;
+				}
+				for (let y = 0; y < H; y++) {
+					t[y][0] = T.WALL;
+					t[y][W - 1] = T.WALL;
+				}
+			}
+			function scatter(t, v, n, allow = [T.GRASS]) {
+				const H = t.length,
+					W = t[0].length;
+				for (let i = 0; i < n; i++) {
+					const x = randInt(2, W - 3),
+						y = randInt(2, H - 3);
+					if (allow.includes(t[y][x])) t[y][x] = v;
+				}
+			}
+
+			const MAPS = {
+				wilderness: {
+					id: "wilderness",
+					name: "☁ Hoang Dã Bình Nguyên",
+					w: 54,
+					h: 38,
+					build() {
+						const { w, h } = this;
+						const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+						borderWall(t);
+						fillRect(t, 10, 8, 10, 6, T.WATER);
+						fillRect(t, 38, 18, 8, 5, T.WATER);
+						fillRect(t, 22, 26, 7, 4, T.WATER);
+						fillRect(t, 40, 3, 10, 7, T.MTN);
+						fillRect(t, 3, 25, 6, 9, T.MTN);
+						fillRect(t, 5, 5, 5, 4, T.TREE);
+						fillRect(t, 26, 4, 6, 4, T.TREE);
+						fillRect(t, 44, 27, 7, 7, T.TREE);
+						fillRect(t, 14, 30, 7, 5, T.TREE);
+						scatter(t, T.STONE, 25);
+						for (let y = 2; y < h - 2; y++)
+							if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
+						t[0][26] = T.FLOOR;
+						t[1][26] = T.FLOOR;
+						return t;
+					},
+					spawns: [
+						{ ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
+						{ ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
+						{ ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
+						{ ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
+					],
+					portals: [
+						{
+							tx: 26,
+							ty: 1,
+							toMap: "town",
+							toX: 19,
+							toY: 23,
+							label: "↑ An Lạc Thành",
+						},
+						{
+							tx: 52,
+							ty: 18,
+							toMap: "training",
+							toX: 2,
+							toY: 15,
+							label: "→ Luyện Ma Trường",
+						},
+					],
+					npcs: [
+						{
+							px: 32 * 32 + 16,
+							py: 14 * 32 + 16,
+							type: "info",
+							name: "Lão Tiều Phu",
+							color: "#88aacc",
+							dialog: "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
+						},
+					],
+					playerStart: { x: 26, y: 30 },
+				},
+
+				training: {
+					id: "training",
+					name: "⚔ Luyện Ma Trường",
+					w: 50,
+					h: 34,
+					build() {
+						const { w, h } = this;
+						const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+						borderWall(t);
+						fillRect(t, 6, 5, 8, 8, T.MTN);
+						fillRect(t, 34, 4, 12, 7, T.MTN);
+						fillRect(t, 20, 22, 10, 8, T.MTN);
+						fillRect(t, 3, 22, 7, 8, T.WATER);
+						fillRect(t, 40, 22, 7, 8, T.WATER);
+						fillRect(t, 15, 3, 5, 4, T.TREE);
+						fillRect(t, 28, 14, 5, 5, T.TREE);
+						scatter(t, T.STONE, 40);
+						scatter(t, T.TREE, 8, [T.GRASS]);
+						t[15][0] = T.FLOOR;
+						t[15][1] = T.FLOOR;
+						return t;
+					},
+					spawns: [
+						{ ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
+						{ ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
+						{ ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
+						{ ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
+						{ ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
+					],
+					portals: [
+						{
+							tx: 1,
+							ty: 15,
+							toMap: "wilderness",
+							toX: 51,
+							toY: 18,
+							label: "← Hoang Dã",
+						},
+					],
+					npcs: [],
+					playerStart: { x: 3, y: 15 },
+				},
+
+				town: {
+					id: "town",
+					name: "🏯 An Lạc Thành",
+					w: 42,
+					h: 30,
+					build() {
+						const { w, h } = this;
+						const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
+						borderWall(t);
+						fillRect(t, 2, 2, 12, 9, T.WALL);
+						fillRect(t, 3, 3, 10, 6, T.PLAZA);
+						t[10][7] = T.PLAZA;
+						t[10][8] = T.PLAZA;
+						fillRect(t, 28, 2, 12, 9, T.WALL);
+						fillRect(t, 29, 3, 10, 6, T.PLAZA);
+						t[10][33] = T.PLAZA;
+						t[10][34] = T.PLAZA;
+						fillRect(t, 28, 18, 12, 9, T.WALL);
+						fillRect(t, 29, 19, 10, 6, T.PLAZA);
+						t[18][33] = T.PLAZA;
+						t[18][34] = T.PLAZA;
+						fillRect(t, 18, 11, 6, 6, T.STONE);
+						fillRect(t, 19, 12, 4, 4, T.WATER);
+						for (let x = 2; x < w - 2; x++)
+							if (t[11][x] === T.PLAZA || t[11][x] === T.STONE) t[11][x] = T.STONE;
+						for (let y = 2; y < h - 2; y++) {
+							if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
+							if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
+						}
+						t[3][15] = T.TREE;
+						t[3][26] = T.TREE;
+						t[20][4] = T.TREE;
+						t[20][14] = T.TREE;
+						t[h - 1][20] = T.PLAZA;
+						t[h - 1][21] = T.PLAZA;
+						t[h - 2][20] = T.PLAZA;
+						t[h - 2][21] = T.PLAZA;
+						return t;
+					},
+					spawns: [],
+					portals: [
+						{
+							tx: 20,
+							ty: 28,
+							toMap: "wilderness",
+							toX: 26,
+							toY: 4,
+							label: "↓ Ra Ngoài",
+						},
+						{ tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
+					],
+					npcs: [
+						{
+							px: 7 * 32 + 16,
+							py: 6 * 32 + 16,
+							type: "shop",
+							name: "Lão Bản Vương",
+							color: "#d4a844",
+							dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
+						},
+						{
+							px: 33 * 32 + 16,
+							py: 6 * 32 + 16,
+							type: "quest",
+							name: "Nhiệm Vụ Sứ Lý Văn",
+							color: "#88aacc",
+							dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
+						},
+						{
+							px: 33 * 32 + 16,
+							py: 22 * 32 + 16,
+							type: "chest",
+							name: "Rương Kho Báu",
+							color: "#ffdd44",
+							dialog: "",
+						},
+						{
+							px: 20 * 32 + 16,
+							py: 15 * 32 + 16,
+							type: "info",
+							name: "Thủ Vệ",
+							color: "#8888aa",
+							dialog: "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
+						},
+					],
+					playerStart: { x: 20, y: 24 },
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §4 · GAME STATE
+			// ════════════════════════════════════════════════════════════
+			let canvas, ctx, cW, cH;
+			const S = {
+				player: null,
+				mapCode: "wilderness",
+				tiles: null,
+				mapW: 0,
+				mapH: 0,
+				monsters: [],
+				npcs: [],
+				portals: [],
+				groundItems: [],
+				inventory: [],
+				autoFight: false,
+				atkCd: 0,
+				animT: 0,
+				animF: 0,
+				atkFx: [],
+				cam: { x: 0, y: 0 },
+				moveTimer: 0,
+				lastTs: 0,
+			};
+			const otherPlayers = new Map(); // socketId → {username,x,y,px,py,realm,...}
+
+			// ════════════════════════════════════════════════════════════
+			// §5 · UTILS
+			// ════════════════════════════════════════════════════════════
+			function randInt(a, b) {
+				return a + Math.floor(Math.random() * (b - a + 1));
+			}
+			function lerp(a, b, t) {
+				return a + (b - a) * t;
+			}
+
+			function dist(ax, ay, bx, by) {
+				return Math.hypot(ax - bx, ay - by);
+			}
+
+			// ════════════════════════════════════════════════════════════
+			// §6 · WORLD
+			// ════════════════════════════════════════════════════════════
+			const World = {
+				loadMap(map, toX, toY) {
+					const def = map;
+					S.mapCode = map.code;
+					S.mapW = def.w;
+					S.mapH = def.h;
+					S.tiles = def.jsonMap;
+					S.atkFx = [];
+					S.groundItems = [];
+					if (S.player) {
+						const px = Math.max(0, Math.min(def.w - 1, toX));
+						const py = Math.max(0, Math.min(def.h - 1, toY));
+						S.player.x = px;
+						S.player.y = py;
+						S.player.px = px * CFG.TS + CFG.TS / 2;
+						S.player.py = py * CFG.TS + CFG.TS / 2;
+						S.player.mapCode = map.code;
+						S.player.mapId = map.id || map.code;
+					}
+					S.portals = def.portals;
+					S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
+					S.monsters = [];
+
+					for (const mon of def.monsters) {
+						const pos = World._open({
+							x: mon.spawnX || map.w / 2,
+							y: mon.spawnY || map.h / 2,
+							w: mon.spawnX + 10 > map.w ? mon.spawnX : mon.spawnX + 10,
+							h: mon.spawnY + 10 > map.h ? mon.spawnY : mon.spawnY + 10,
+						});
+
+						if (pos) S.monsters.push(Monster.make(mon, pos.tx, pos.ty));
+					}
+					const ov = document.getElementById("map-name-overlay");
+					ov.textContent = def.name;
+					ov.classList.add("show");
+					setTimeout(() => ov.classList.remove("show"), 2200);
+					UI.log(`── Đến: ${def.name} ──`, "system");
+					Net.emitMapChange(map.code, toX, toY);
+					otherPlayers.clear();
+				},
+				_open(zone) {
+					for (let i = 0; i < 25; i++) {
+						const tx = zone.x + randInt(0, zone.w - 1),
+							ty = zone.y + randInt(0, zone.h - 1);
+						if (!isSolid(tx, ty)) return { tx, ty };
+					}
+					return null;
+				},
+				collides(x, y) {
+					const radius = 0.22;
+					const minX = Math.floor(x - radius);
+					const maxX = Math.floor(x + radius);
+					const minY = Math.floor(y - radius);
+					const maxY = Math.floor(y + radius);
+					for (let ty = minY; ty <= maxY; ty++) {
+						for (let tx = minX; tx <= maxX; tx++) {
+							if (isSolid(tx, ty)) return true;
+						}
+					}
+					return false;
+				},
+				async checkPortals() {
+					const p = S.player;
+					for (const portal of S.portals) {
+						const px = portal.x * CFG.TS + CFG.TS / 2;
+						const py = portal.y * CFG.TS + CFG.TS / 2;
+						if (
+							dist(p.px, p.py, px, py) < CFG.TS * 0.5 &&
+							portal.denMap &&
+							portal.tenMapDen !== ""
+						) {
+							const _map = await Net.get("/api/worlds/by-code?code=" + portal.denMap);
+							World.loadMap(_map, portal.toX, portal.toY);
+							break;
+						}
+					}
+				},
+				checkNpcInteract() {
+					const p = S.player;
+					for (const npc of S.npcs) {
+						if (npc.used && npc.type === "chest") continue;
+						if (dist(p.px, p.py, npc.px, npc.py) < CFG.TS * 1.4) {
+							if (npc.type === "shop") Shop.open(npc);
+							else if (npc.type === "chest") Chest.open(npc);
+							else DialogUI.open(npc);
+							return;
+						}
+					}
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §7 · MONSTER AI
+			// ════════════════════════════════════════════════════════════
+			const Monster = {
+				make(monster, tx, ty) {
+					const tmpl = monster;
+					const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
+					return {
+						...tmpl,
+						hp,
+						maxHp: hp,
+						atk: tmpl.atk + randInt(0, 3),
+						def: tmpl.def,
+						px: tx * CFG.TS + CFG.TS / 2,
+						py: ty * CFG.TS + CFG.TS / 2,
+						hx: tx * CFG.TS + CFG.TS / 2,
+						hy: ty * CFG.TS + CFG.TS / 2,
+						state: "idle",
+						tpx: tx * CFG.TS + CFG.TS / 2,
+						tpy: ty * CFG.TS + CFG.TS / 2,
+						moveTimer: randInt(60, 180),
+						atkCd: 0,
+						dead: false,
+						respawnT: monster.spawnCD,
+					};
+				},
+				update(m, dt) {
+					if (m.dead) {
+						m.respawnT -= dt / 16;
+						if (m.respawnT <= 0) Monster.respawn(m);
+						return;
+					}
+					const tmpl = m;
+					const speed = (tmpl.speed || 1) * (dt / 16);
+					const p = S.player;
+					const dp = dist(m.px, m.py, p.px, p.py);
+					const dh = dist(m.px, m.py, m.hx, m.hy);
+					if (m.state === "idle" || m.state === "patrol") {
+						if (dp < CFG.MON_AGGRO * CFG.TS) m.state = "chase";
+						else {
+							m.moveTimer -= dt / 16;
+							if (m.moveTimer <= 0) {
+								m.moveTimer = randInt(80, 220);
+								if (m.state === "idle" && Math.random() < 0.45) {
+									m.state = "patrol";
+									Monster._patrol(m);
+								} else m.state = "idle";
+							}
+						}
+					}
+					if (m.state === "chase") {
+						if (dh > CFG.MON_LEASH * CFG.TS) {
+							m.state = "return";
+							m.tpx = m.hx;
+							m.tpy = m.hy;
+						} else {
+							m.tpx = p.px;
+							m.tpy = p.py;
+						}
+					}
+					if (m.state === "return") {
+						if (dh < CFG.TS) {
+							m.state = "idle";
+							m.tpx = m.hx;
+							m.tpy = m.hy;
+						}
+						if (dp < CFG.MON_AGGRO * CFG.TS * 0.6) m.state = "chase";
+					}
+					const tdx = m.tpx - m.px,
+						tdy = m.tpy - m.py,
+						td = Math.hypot(tdx, tdy);
+					if (td > 3 && m.state !== "idle") {
+						const vx = (tdx / td) * speed,
+							vy = (tdy / td) * speed;
+						const nx = m.px + vx,
+							ny = m.py + vy;
+						const ntx = Math.floor(nx / CFG.TS),
+							nty = Math.floor(ny / CFG.TS),
+							ctx2 = Math.floor(m.px / CFG.TS),
+							cty2 = Math.floor(m.py / CFG.TS);
+						if (!isSolid(ntx, nty)) {
+							m.px = nx;
+							m.py = ny;
+						} else if (!isSolid(ntx, cty2)) {
+							m.px = nx;
+						} else if (!isSolid(ctx2, nty)) {
+							m.py = ny;
+						}
+					}
+					if (dp < CFG.TS * 1.3 && m.state === "chase") {
+						m.atkCd -= dt / 16;
+						if (m.atkCd <= 0) {
+							m.atkCd = 65;
+							const dmg = Math.max(1, m.atk - Combat.pDef() + randInt(0, 3));
+							p.hp = Math.max(0, p.hp - dmg);
+							Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
+							if (p.hp <= 0) {
+								p.hp = Math.floor(p.maxHp * 0.25);
+								UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
+							}
+						}
+					}
+				},
+				respawn(m) {
+					const tmpl = m;
+					const hp = tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2));
+					m.hp = hp;
+					m.maxHp = hp;
+					m.atk = tmpl.atk + randInt(0, 3);
+					m.def = tmpl.def;
+					m.dead = false;
+					m.state = "idle";
+					m.atkCd = 0;
+					m.px = m.hx;
+					m.py = m.hy;
+					m.tpx = m.hx;
+					m.tpy = m.hy;
+				},
+				_patrol(m) {
+					const r = randInt(2, 4) * CFG.TS,
+						ang = Math.random() * Math.PI * 2;
+					m.tpx = Math.max(
+						CFG.TS,
+						Math.min((S.mapW - 2) * CFG.TS, m.hx + Math.cos(ang) * r),
+					);
+					m.tpy = Math.max(
+						CFG.TS,
+						Math.min((S.mapH - 2) * CFG.TS, m.hy + Math.sin(ang) * r),
+					);
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §8 · COMBAT (đánh quái CHỈ rơi đồ — KHÔNG tăng tu vi)
+			// ════════════════════════════════════════════════════════════
+			const Combat = {
+				pAtk() {
+					const base = 10 + S.player.stats.str * 1.5 + S.player.stats.agi * 0.8;
+					const weapon = Combat.weaponAttack();
+					return base + weapon;
+				},
+				weaponAttack() {
+					let bonus = 0;
+					if (S.player.equipment?.weapon) {
+						bonus += Number(S.player.equipment.weapon.atk || 0);
+					}
+					if (Array.isArray(S.player.inventory)) {
+						for (const item of S.player.inventory) {
+							if (item?.equipped && item.atk) bonus += Number(item.atk || 0);
+						}
+					}
+					return bonus;
+				},
+				critChance() {
+					let chance = 0.05;
+					if (S.player.equipment?.weapon) {
+						chance += Number(S.player.equipment.weapon.critChance || 0);
+					}
+					if (S.player.stats.critChance) {
+						chance += Number(S.player.stats.critChance || 0);
+					}
+					return Math.min(0.5, chance);
+				},
+				critMultiplier() {
+					let extra = 0.1;
+					if (S.player.equipment?.weapon) {
+						extra += Number(S.player.equipment.weapon.critMultiplier || 0);
+					}
+					if (S.player.stats.critMultiplier) {
+						extra += Number(S.player.stats.critMultiplier || 0);
+					}
+					return extra;
+				},
+				pDef() {
+					return (
+						2 +
+						Math.floor(S.player.stats.vit * 0.3) +
+						Math.floor(S.player.stats.agi * 0.7)
+					);
+				},
+				attack(m) {
+					if (S.atkCd > 0 || m.dead) return;
+					const tmpl = m;
+					const baseAtk = Combat.pAtk();
+					const armorDef = m.def * m.level + m.def + m.vit * 0.2;
+					let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
+					const isCrit = Math.random() < Combat.critChance();
+					if (isCrit) {
+						const critAdd = Math.max(1, Math.round(baseAtk * Combat.critMultiplier()));
+						dmg += critAdd;
+					}
+					m.hp -= dmg;
+					S.atkCd = CFG.ATK_CD;
+					S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
+					Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
+					UI.log(
+						`Tấn công ${tmpl.name} gây ${dmg} sát thương${isCrit ? " (CRIT)" : ""}`,
+						"combat",
+					);
+					// Notify other players (visual only)
+					if (socket?.connected)
+						socket.emit("attack_effect", {
+							targetId: null,
+							damage: dmg,
+							mapCode: S.mapCode,
+						});
+					if (m.hp <= 0) {
+						m.dead = true;
+						m.respawnT = m.spawnCD;
+						Combat.dropLoot(m);
+						UI.log(`${tmpl.name} đã bị tiêu diệt!`, "combat");
+					}
+				},
+				dropLoot(m) {
+					if (Math.random() * 100 < m.tyLeRoiTien) {
+						const xu = randInt(m.moneyDropFrom, m.moneyDropTo);
+						S.player.xu += xu;
+						UI.log(`Nhặt được ${xu} xu`, "loot");
+					}
+					if (Math.random() * 100 < m.tyLeRoiDo) {
+						let index = Math.floor(Math.random() * m.dropItems.length - 1 + 1);
+						if (m.dropItems.length > 0) Inventory.add(m.dropItems[index]);
+					}
+
+					//   if (Math.random() < tmpl.tyLeRoiDo) {
+					//     const id = tmpl.drops[randInt(0, tmpl.drops.length - 1)];
+					//     const item = CFG.ITEMS[id];
+					//     if (item) {
+					//       Inventory.add(item);
+					//       UI.log(`Rơi ra: ${item.emoji} ${item.name}`, "loot");
+					//     }
+					//   }
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §9 · CULTIVATION (chỉ hấp thạch → tu vi)
+			// ════════════════════════════════════════════════════════════
+			const Cultivation = {
+				normalizePlayerStats(player) {
+					if (!player.stats) player.stats = { str: 0, agi: 0, vit: 0, ene: 0 };
+					if (player.stats.int != null && player.stats.ene == null) {
+						player.stats.ene = player.stats.int;
+						delete player.stats.int;
+					}
+					player.stats.str = player.stats.str || 0;
+					player.stats.agi = player.stats.agi || 0;
+					player.stats.vit = player.stats.vit || 0;
+					player.stats.ene = player.stats.ene || 0;
+				},
+
+				calcTuNeeded(canhGioi, tangTuVi) {
+					const realm = Math.max(0, Number(canhGioi?.stt) || 0);
+					const stage = Math.max(1, Math.min(9, Number(tangTuVi) || 1));
+					const base = 10;
+					const stageGrowth = Math.pow(1.1, stage - 1); // mỗi tầng tăng ít nhất 10%
+					const realmMultiplier = 1 + realm * 0.1 * stage; // realm cao hơn tăng tỷ lệ theo stage
+					const extra = Number(canhGioi?.tuViTienCap || 1);
+					return Math.floor(base * stage * stageGrowth * realmMultiplier + extra);
+				},
+
+				calcBreakthroughStatGain(canhGioi, tangTuVi, isMajor = false) {
+					const tier = canhGioi?.stt || 0;
+					const stage = tangTuVi;
+					if (!isMajor) {
+						return {
+							str: Math.max(1, Math.round(2 + tier * 0.6 + stage * 0.35)),
+							agi: Math.max(1, Math.round(2 + tier * 0.5 + stage * 0.3)),
+							vit: Math.max(1, Math.round(2 + tier * 0.7 + stage * 0.4)),
+							ene: Math.max(1, Math.round(1 + tier * 0.55 + stage * 0.25)),
+						};
+					}
+					return {
+						str: Math.max(3, Math.round(6 + tier * 1.4 + stage * 0.9)),
+						agi: Math.max(3, Math.round(6 + tier * 1.2 + stage * 0.8)),
+						vit: Math.max(3, Math.round(6 + tier * 1.6 + stage * 1.0)),
+						ene: Math.max(3, Math.round(4 + tier * 1.3 + stage * 0.7)),
+					};
+				},
+
+				applyBreakthroughStats(player, dotPhaDaiCanhGioi = false) {
+					this.normalizePlayerStats(player);
+					const gain = this.calcBreakthroughStatGain(
+						player.canhGioi,
+						player.tangTuVi,
+						dotPhaDaiCanhGioi,
+					);
+					player.stats.str += gain.str;
+					player.stats.agi += gain.agi;
+					player.stats.vit += gain.vit;
+					player.stats.ene += gain.ene;
+					player.maxHp = 100 + player.stats.vit * 10;
+					player.maxMp = 50 + player.stats.ene * 8;
+					player.hp = Math.min(player.hp + gain.vit * 10, player.maxHp);
+					player.mp = Math.min(player.mp + gain.ene * 8, player.maxMp);
+					UI.log(
+						`+${gain.str} STR +${gain.agi} AGI +${gain.vit} VIT +${gain.ene} ENE`,
+						"level",
+					);
+				},
+
+				absorbStone() {
+					const p = S.player;
+					const idx = S.inventory.findIndex(
+						(i) => i.type === "STONE" || i.type === "ELEMSTONE",
+					);
+					if (idx < 0) {
+						UI.log("Không có linh thạch!", "system");
+						return;
+					}
+					const item = S.inventory[idx];
+					this.normalizePlayerStats(p);
+					p.tuViHienTai += item.giaTriTuVi;
+					if (item.str) {
+						p.stats.str += item.giaTriTang;
+						UI.log(`${item.icon} Hấp thu → str +${item.giaTriTang}`, "level");
+					}
+					if (item.agi) {
+						p.stats.agi += item.giaTriTang;
+						UI.log(`${item.icon} Hấp thu → agi +${item.giaTriTang}`, "level");
+					}
+					if (item.vit) {
+						p.stats.vit += item.giaTriTang;
+						UI.log(`${item.icon} Hấp thu → vit +${item.giaTriTang}`, "level");
+					}
+					if (item.ene) {
+						p.stats.ene += item.giaTriTang;
+						UI.log(`${item.icon} Hấp thu → ene +${item.giaTriTang}`, "level");
+					}
+					if (!item.str && !item.agi && !item.vit && !item.ene) {
+						UI.log(
+							`${item.icon} Hấp thu ${item.name} → Tu Vi +${item.giaTriTuVi}`,
+							"level",
+						);
+					}
+					p.maxHp = 100 + p.stats.vit * 10;
+					p.maxMp = 50 + p.stats.ene * 8;
+					Inventory.remove(idx);
+					UI.update();
+				},
+
+				async tryBreakthrough() {
+					const p = S.player;
+					if (p.tuViHienTai < p.tuViLenCap) {
+						UI.log(
+							`Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(
+								p.tuViHienTai,
+							)}`,
+							"system",
+						);
+						return;
+					}
+
+					p.tuViHienTai -= p.tuViLenCap;
+					if (p.tangTuVi < 9) {
+						p.tangTuVi++;
+						this.applyBreakthroughStats(p, false);
+						UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
+					} else {
+						const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
+						p.canhGioi = res;
+						p.realm++;
+						p.tangTuVi = 1;
+						this.applyBreakthroughStats(p, true);
+						UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
+						p.maCanhGioi = res.code;
+					}
+					p.tuViLenCap = Cultivation.calcTuNeeded(p.canhGioi, p.tangTuVi);
+					S.player = { ...p };
+					Net.saveNow({
+						type: "breakthrough",
+						data: { realm: p.realm, tangTuVi: p.tangTuVi },
+					});
+					UI.update();
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §10 · INVENTORY
+			// ════════════════════════════════════════════════════════════
+			const Inventory = {
+				add(item) {
+					if (!S.inventory) S.inventory = [];
+					for (const iv of S.inventory) {
+						if (iv && iv.id === item.id && iv.count < 99) {
+							iv.count++;
+							UI.buildInv();
+							UI.update();
+							return;
+						}
+					}
+					if (S.inventory.length < CFG.INV_MAX) {
+						S.inventory.push({ ...item, count: 1 });
+						UI.buildInv();
+						UI.update();
+					} else UI.log("Túi đồ đầy!", "system");
+				},
+				remove(idx) {
+					const iv = S.inventory[idx];
+					if (!iv) return;
+					iv.count--;
+					if (iv.count <= 0) S.inventory.splice(idx, 1);
+					UI.buildInv();
+					UI.update();
+				},
+				use(idx) {
+					const item = S.inventory[idx];
+					if (!item) return;
+					if (item.type === "STONE" || item.type === "ELEMSTONE") {
+						Cultivation.absorbStone();
+						return;
+					}
+					if (item.type === "CONSUME") {
+						const p = S.player;
+						if (item.healHp) {
+							p.hp = Math.min(p.maxHp, p.hp + item.healHp);
+							UI.log(`Dùng ${item.icon} → Hồi ${item.vit} HP`, "system");
+						}
+						if (item.healMp) {
+							p.mp = Math.min(p.maxMp, p.mp + item.healMp);
+							UI.log(`Dùng ${item.icon} → Hồi ${item.ene} MP`, "system");
+						}
+						if (item.statBoost) {
+							const ss = ["str", "agi", "vit", "int"];
+							const s = ss[randInt(0, 3)];
+							S.player.stats[s] += item.statBoost;
+							UI.log(
+								`Dùng ${item.icon} → +${item.statBoost} ${s.toUpperCase()}`,
+								"level",
+							);
+						}
+						Inventory.remove(idx);
+						UI.update();
+					} else UI.log(`${item.icon} ${item.name}: ${item.desc || ""}`, "system");
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §11 · SHOP / DIALOG / CHEST
+			// ════════════════════════════════════════════════════════════
+			const Shop = {
+				open(npc) {
+					document.getElementById("shop-title").textContent = `🏪 ${npc.name}`;
+					this.render();
+					document.getElementById("shop-modal").classList.add("open");
+				},
+				close() {
+					document.getElementById("shop-modal").classList.remove("open");
+				},
+				render() {
+					document.getElementById("shop-xu").textContent = S.player.xu.toLocaleString();
+					const buy = document.getElementById("shop-buy-list");
+					buy.innerHTML = '<div class="shop-col-head">MUA VẬT PHẨM</div>';
+					for (const id of CFG.SHOP_SELL) {
+						const item = CFG.ITEMS[id];
+						if (!item || !item.buyPrice) continue;
+						const div = document.createElement("div");
+						div.className = "shop-item";
+						div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.buyPrice}xu</span>`;
+						const btn = document.createElement("button");
+						btn.className = "sbtn";
+						btn.textContent = "Mua";
+						btn.onclick = () => Shop.buy(id);
+						div.appendChild(btn);
+						buy.appendChild(div);
+					}
+					const sell = document.getElementById("shop-sell-list");
+					sell.innerHTML = '<div class="shop-col-head">BÁN VẬT PHẨM</div>';
+					if (!S.inventory.length)
+						sell.innerHTML +=
+							'<div style="color:var(--text2);font-size:11px;padding:8px">Túi đồ trống</div>';
+					S.inventory.forEach((item, idx) => {
+						const div = document.createElement("div");
+						div.className = "shop-item";
+						div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.sell || 0}xu/cái</span>`;
+						const btn = document.createElement("button");
+						btn.className = "sbtn ssell";
+						btn.textContent = "Bán";
+						btn.onclick = () => {
+							Shop.sell(idx);
+						};
+						div.appendChild(btn);
+						sell.appendChild(div);
+					});
+				},
+				buy(id) {
+					const item = CFG.ITEMS[id];
+					if (!item) return;
+					if (S.player.xu < item.giaMua) {
+						UI.log("Không đủ xu!", "system");
+						return;
+					}
+					S.player.xu -= item.giaMua;
+					Inventory.add(item);
+					UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
+					this.render();
+				},
+				sell(idx) {
+					const item = S.inventory[idx];
+					if (!item) return;
+					S.player.xu += item.giaBan || 0;
+					UI.log(`Bán: ${item.giaTriTang} ${item.name} (+${item.giaBan || 0}xu)`, "loot");
+					Inventory.remove(idx);
+					this.render();
+				},
+			};
+			const DialogUI = {
+				open(npc) {
+					document.getElementById("dialog-npc-n").textContent = npc.name;
+					document.getElementById("dialog-text").innerHTML = npc.dialog.replace(
+						/\n/g,
+						"<br>",
+					);
+					document.getElementById("dialog-modal").classList.add("open");
+				},
+				close() {
+					document.getElementById("dialog-modal").classList.remove("open");
+				},
+			};
+			const Chest = {
+				open(npc) {
+					if (npc.used) {
+						UI.log("Rương đã trống.", "system");
+						return;
+					}
+					npc.used = true;
+					UI.log("🎁 Mở Rương Kho Báu!", "level");
+					const rewards = [
+						{ item: "slo", count: randInt(2, 4) },
+						{ item: "smi", count: randInt(1, 2) },
+						{ item: "hpd", count: randInt(1, 3) },
+						{ item: "mpd", count: randInt(1, 2) },
+					];
+					for (const r of rewards) {
+						const it = CFG.ITEMS[r.item];
+						if (!it) continue;
+						for (let i = 0; i < r.count; i++) Inventory.add(it);
+						UI.log(`  + ${it.emoji} ${it.name} x${r.count}`, "loot");
+					}
+					const xu = randInt(50, 150);
+					S.player.xu += xu;
+					UI.log(`  + 💰 ${xu} Xu`, "loot");
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §12 · RENDER
+			// ════════════════════════════════════════════════════════════
+			const TC = {
+				[T.GRASS]: ["#2a5a28", "#3a7a38"],
+				[T.STONE]: ["#5a5a68", "#7a7a88"],
+				[T.WATER]: ["#1a3a6a", "#2a5a9a"],
+				[T.WALL]: ["#181010", "#2a1818"],
+				[T.FLOOR]: ["#3a3020", "#4a4028"],
+				[T.TREE]: ["#141a10", "#2a3818"],
+				[T.MTN]: ["#404050", "#606070"],
+				[T.PLAZA]: ["#4a4030", "#5a5040"],
+			};
+			const Render = {
+				frame() {
+					const p = S.player;
+					if (!p) return;
+					S.cam.x = lerp(S.cam.x, p.px - cW / 2, 0.18);
+					S.cam.y = lerp(S.cam.y, p.py - cH / 2, 0.18);
+					S.cam.x = Math.max(0, Math.min(S.mapW * CFG.TS - cW, S.cam.x));
+					S.cam.y = Math.max(0, Math.min(S.mapH * CFG.TS - cH, S.cam.y));
+					const cx = S.cam.x,
+						cy = S.cam.y;
+					ctx.clearRect(0, 0, cW, cH);
+					const ts = CFG.TS,
+						tx0 = Math.max(0, Math.floor(cx / ts)),
+						ty0 = Math.max(0, Math.floor(cy / ts));
+					const tx1 = Math.min(S.mapW - 1, tx0 + Math.ceil(cW / ts) + 1),
+						ty1 = Math.min(S.mapH - 1, ty0 + Math.ceil(cH / ts) + 1);
+					for (let ty = ty0; ty <= ty1; ty++)
+						for (let tx = tx0; tx <= tx1; tx++)
+							Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy);
+					for (const portal of S.portals)
+						if (portal.tenMapDen) Render.portal(portal, cx, cy);
+					for (const npc of S.npcs) Render.npc(npc, cx, cy);
+					// Other players (co-op)
+					for (const [, op] of otherPlayers)
+						if (op.mapCode === S.mapCode) Render.otherPlayer(op, cx, cy);
+					for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
+					const tint = p.root ? p.root.color : "#4488cc";
+					Render.player(p.px - cx, p.py - cy, tint);
+					ctx.fillStyle = tint;
+					ctx.font = "9px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(p.name, p.px - cx, p.py - cy - 32);
+					for (const fx of S.atkFx) {
+						ctx.strokeStyle = `rgba(255,200,60,${fx.life / 14})`;
+						ctx.lineWidth = 2;
+						ctx.beginPath();
+						ctx.arc(fx.px - cx, fx.py - cy, fx.r, 0, Math.PI * 2);
+						ctx.stroke();
+					}
+				},
+				tile(t, sx, sy) {
+					const c = TC[t] || ["#333", "#444"];
+					ctx.fillStyle = c[0];
+					ctx.fillRect(sx, sy, CFG.TS, CFG.TS);
+					ctx.fillStyle = c[1];
+					const ts = CFG.TS;
+					if (t === T.GRASS) {
+						ctx.fillRect(sx + 4, sy + 5, 2, 6);
+						ctx.fillRect(sx + 10, sy + 7, 2, 5);
+						ctx.fillRect(sx + 18, sy + 4, 2, 6);
+						ctx.fillRect(sx + 26, sy + 8, 2, 4);
+						ctx.fillRect(sx + 22, sy + 19, 2, 5);
+						ctx.fillRect(sx + 8, sy + 21, 2, 4);
+					} else if (t === T.WATER) {
+						ctx.fillRect(sx + 2, sy + 7, 28, 3);
+						ctx.fillRect(sx + 5, sy + 17, 22, 3);
+						ctx.fillStyle = "#3a7acc";
+						ctx.fillRect(sx, sy + 12, ts, 3);
+					} else if (t === T.WALL) {
+						ctx.fillRect(sx, sy, ts, 4);
+						ctx.fillRect(sx + 8, sy + 4, 3, 10);
+						ctx.fillRect(sx + 22, sy + 4, 3, 10);
+						ctx.fillRect(sx, sy + 17, 8, ts - 17);
+						ctx.fillRect(sx + 16, sy + 17, ts - 16, ts - 17);
+						ctx.fillStyle = "#3a2828";
+						ctx.fillRect(sx, sy, ts, 2);
+					} else if (t === T.FLOOR || t === T.PLAZA) {
+						ctx.globalAlpha = 0.3;
+						ctx.fillRect(sx, sy, ts, 1);
+						ctx.fillRect(sx, sy, 1, ts);
+						ctx.fillRect(sx + 16, sy + 16, ts - 16, 1);
+						ctx.fillRect(sx + 16, sy + 16, 1, ts - 16);
+						ctx.globalAlpha = 1;
+					} else if (t === T.TREE) {
+						ctx.fillStyle = "#1a1208";
+						ctx.fillRect(sx + 13, sy + 20, 6, 12);
+						ctx.fillStyle = "#1e4a18";
+						ctx.fillRect(sx + 6, sy + 8, 20, 16);
+						ctx.fillRect(sx + 10, sy + 2, 12, 10);
+						ctx.fillStyle = "#2a6820";
+						ctx.fillRect(sx + 8, sy + 10, 5, 4);
+					} else if (t === T.MTN) {
+						ctx.fillStyle = "#505060";
+						ctx.fillRect(sx + 2, sy + 18, 28, 14);
+						ctx.fillStyle = "#686878";
+						for (let i = 0; i < 14; i++)
+							ctx.fillRect(
+								sx + 7 + i,
+								sy + 18 - Math.min(i, 13 - i) * 1.5,
+								2,
+								Math.min(i, 13 - i) * 1.5 + 3,
+							);
+						ctx.fillStyle = "#dde8ff";
+						ctx.fillRect(sx + 12, sy + 5, 8, 5);
+					} else if (t === T.STONE) {
+						ctx.fillRect(sx + 3, sy + 8, 10, 8);
+						ctx.fillRect(sx + 18, sy + 14, 8, 7);
+					}
+				},
+				otherPlayer(op, cx, cy) {
+					const sx = Math.floor(op.px - cx),
+						sy = Math.floor(op.py - cy);
+					if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+					// Simple other player sprite
+					ctx.fillStyle = "rgba(0,0,0,.25)";
+					ctx.fillRect(sx - 8, sy + 8, 16, 4);
+					ctx.fillStyle = "#2a4880";
+					ctx.fillRect(sx - 6, sy - 10, 12, 18);
+					ctx.fillStyle = "#3a68b0";
+					ctx.fillRect(sx - 5, sy - 9, 10, 16);
+					ctx.fillStyle = "#e8c080";
+					ctx.fillRect(sx - 4, sy - 20, 8, 9);
+					ctx.fillStyle = "#1a1010";
+					ctx.fillRect(sx - 3, sy - 15, 2, 2);
+					ctx.fillRect(sx + 1, sy - 15, 2, 2);
+					// Name above
+					ctx.fillStyle = "#88bbff";
+					ctx.font = "9px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(op.username || "?", sx, sy - 25);
+					// Realm badge
+					ctx.fillStyle = "rgba(0,0,0,.5)";
+					const rn = CFG.REALMS[Math.min(op.realm || 0, 11)];
+					const rw = ctx.measureText(rn).width + 6;
+					ctx.fillRect(sx - rw / 2, sy - 35, rw, 11);
+					ctx.fillStyle = "#88bbff";
+					ctx.font = "8px monospace";
+					ctx.fillText(rn, sx, sy - 26);
+				},
+				player(sx, sy, tint) {
+					const x = Math.floor(sx - 9),
+						y = Math.floor(sy - 28);
+					ctx.fillStyle = "rgba(0,0,0,.3)";
+					ctx.fillRect(x + 1, y + 26, 18, 4);
+					ctx.fillStyle = "#1a2848";
+					ctx.fillRect(x + 3, y + 12, 14, 16);
+					ctx.fillStyle = "#22366a";
+					ctx.fillRect(x + 4, y + 13, 12, 13);
+					ctx.fillStyle = tint;
+					ctx.fillRect(x + 3, y + 12, 14, 2);
+					ctx.fillRect(x + 3, y + 12, 2, 16);
+					ctx.fillRect(x + 15, y + 12, 2, 16);
+					ctx.fillStyle = "#e8c080";
+					ctx.fillRect(x + 5, y + 3, 10, 8);
+					ctx.fillStyle = "#221408";
+					ctx.fillRect(x + 5, y + 3, 10, 4);
+					ctx.fillRect(x + 4, y + 1, 3, 3);
+					ctx.fillRect(x + 13, y + 2, 3, 3);
+					ctx.fillStyle = tint;
+					ctx.fillRect(x + 6, y + 0, 8, 3);
+					ctx.fillStyle = "#1a1010";
+					ctx.fillRect(x + 6, y + 7, 2, 2);
+					ctx.fillRect(x + 11, y + 7, 2, 2);
+					ctx.fillStyle = "rgba(255,255,255,.7)";
+					ctx.fillRect(x + 7, y + 7, 1, 1);
+					ctx.fillRect(x + 12, y + 7, 1, 1);
+					ctx.fillStyle = "#101828";
+					if (S.animF) {
+						ctx.fillRect(x + 4, y + 24, 5, 8);
+						ctx.fillRect(x + 11, y + 28, 5, 4);
+					} else {
+						ctx.fillRect(x + 4, y + 24, 5, 8);
+						ctx.fillRect(x + 11, y + 24, 5, 8);
+					}
+					ctx.fillStyle = "#c8c8d0";
+					ctx.fillRect(x + 18, y + 8, 2, 16);
+					ctx.fillStyle = "#7a5018";
+					ctx.fillRect(x + 17, y + 16, 5, 4);
+					ctx.fillStyle = tint;
+					ctx.fillRect(x + 18, y + 8, 2, 5);
+				},
+				monster(m, cx, cy) {
+					const sx = m.px - cx,
+						sy = m.py - cy;
+					if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+					const tmpl = m;
+					const c = tmpl?.color;
+					const x = Math.floor(sx - 14),
+						y = Math.floor(sy - 22);
+					const ti = m.ti;
+					ctx.fillStyle = "rgba(0,0,0,.25)";
+					ctx.fillRect(x + 2, y + 22, 24, 4);
+					if (ti === 0) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 2, y + 8, 22, 12);
+						ctx.fillRect(x + 4, y + 4, 9, 7);
+						ctx.fillRect(x + 2, y + 20, 5, 8);
+						ctx.fillRect(x + 10, y + 20, 5, 8);
+						ctx.fillRect(x + 19, y + 20, 5, 6);
+						ctx.fillStyle = "#aa1111";
+						ctx.fillRect(x + 5, y + 7, 3, 2);
+						ctx.fillStyle = "#111";
+						ctx.fillRect(x + 6, y + 6, 2, 2);
+						ctx.fillRect(x + 10, y + 6, 2, 2);
+					} else if (ti === 1) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 4, y + 8, 18, 12);
+						ctx.fillRect(x + 6, y + 2, 10, 8);
+						ctx.fillRect(x + 2, y + 0, 4, 5);
+						ctx.fillRect(x + 20, y + 0, 4, 5);
+						ctx.fillRect(x + 4, y + 20, 5, 8);
+						ctx.fillRect(x + 17, y + 20, 5, 8);
+						ctx.fillStyle = "#ffeedd";
+						ctx.fillRect(x + 9, y + 4, 6, 4);
+						ctx.fillStyle = "#111";
+						ctx.fillRect(x + 10, y + 5, 2, 2);
+						ctx.fillRect(x + 14, y + 5, 2, 2);
+					} else if (ti === 2) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 2, y + 8, 24, 14);
+						ctx.fillRect(x + 4, y + 4, 10, 7);
+						ctx.fillRect(x + 2, y + 22, 6, 6);
+						ctx.fillRect(x + 18, y + 22, 6, 6);
+						ctx.fillStyle = "#fff";
+						ctx.fillRect(x + 2, y + 14, 3, 3);
+						ctx.fillStyle = "#111";
+						ctx.fillRect(x + 6, y + 7, 2, 2);
+						ctx.fillRect(x + 11, y + 7, 2, 2);
+					} else if (ti === 3) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 6, y + 4, 16, 10);
+						ctx.fillRect(x + 4, y + 10, 20, 14);
+						ctx.fillRect(x + 10, y + 0, 8, 6);
+						ctx.fillStyle = "#ffd700";
+						ctx.fillRect(x + 11, y + 1, 3, 2);
+						ctx.fillRect(x + 16, y + 1, 3, 2);
+						ctx.fillStyle = "#111";
+						ctx.fillRect(x + 12, y + 2, 2, 2);
+						ctx.fillRect(x + 16, y + 2, 2, 2);
+					} else if (ti === 4) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 3, y + 6, 22, 18);
+						ctx.fillRect(x + 6, y + 2, 16, 7);
+						ctx.fillRect(x + 0, y + 12, 5, 10);
+						ctx.fillRect(x + 23, y + 12, 5, 10);
+						ctx.fillStyle = "#7a7a8a";
+						ctx.fillRect(x + 8, y + 8, 6, 5);
+						ctx.fillRect(x + 16, y + 8, 6, 5);
+						ctx.fillStyle = "#ff2200";
+						ctx.fillRect(x + 9, y + 9, 4, 3);
+						ctx.fillRect(x + 17, y + 9, 4, 3);
+					} else if (ti === 5) {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 4, y + 6, 20, 18);
+						ctx.fillRect(x + 7, y + 0, 14, 8);
+						ctx.fillRect(x + 3, y + 22, 6, 8);
+						ctx.fillRect(x + 18, y + 22, 6, 8);
+						ctx.fillStyle = "#ff3333";
+						ctx.fillRect(x + 8, y + 3, 4, 3);
+						ctx.fillRect(x + 16, y + 3, 4, 3);
+						ctx.fillStyle = "#cc2222";
+						ctx.fillRect(x + 4, y + 6, 20, 3);
+					} else {
+						ctx.fillStyle = c;
+						ctx.fillRect(x + 2, y + 6, 24, 14);
+						ctx.fillRect(x + 5, y + 2, 12, 7);
+						ctx.fillRect(x + 2, y + 20, 7, 8);
+						ctx.fillRect(x + 18, y + 20, 7, 8);
+						ctx.fillStyle = "#3344aa";
+						ctx.fillRect(x + 6, y + 4, 3, 3);
+						ctx.fillRect(x + 13, y + 4, 3, 3);
+						ctx.fillStyle = `rgba(100,120,255,${0.3 + 0.1 * Math.sin(S.animT * 0.005)})`;
+						ctx.fillRect(x, y + 4, 28, 18);
+					}
+					if (m.hp < m.maxHp) {
+						ctx.fillStyle = "#111";
+						ctx.fillRect(sx - 14, sy - 34, 28, 5);
+						ctx.fillStyle = "#cc2222";
+						ctx.fillRect(sx - 14, sy - 34, Math.floor((28 * m.hp) / m.maxHp), 5);
+					}
+					if (m.state === "chase") {
+						ctx.fillStyle = "#ff4444";
+						ctx.beginPath();
+						ctx.arc(sx, sy - 38, 3, 0, Math.PI * 2);
+						ctx.fill();
+					}
+					ctx.fillStyle = "#ffaa44";
+					ctx.font = "9px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(tmpl.name, sx, sy - 38);
+				},
+				npc(npc, cx, cy) {
+					const sx = Math.floor(npc.px - cx),
+						sy = Math.floor(npc.py - cy);
+					if (sx < -50 || sx > cW + 50 || sy < -50 || sy > cH + 50) return;
+					const col = npc.color || "#88aacc";
+					if (npc.type === "chest") {
+						if (npc.used) {
+							ctx.fillStyle = "#3a2810";
+							ctx.fillRect(sx - 10, sy - 8, 20, 14);
+							ctx.fillStyle = "#5a4020";
+							ctx.fillRect(sx - 8, sy - 6, 16, 10);
+							ctx.fillStyle = "#88aa88";
+							ctx.font = "8px monospace";
+							ctx.textAlign = "center";
+							ctx.fillText("(trống)", sx, sy + 12);
+							return;
+						}
+						ctx.fillStyle = "#5a3010";
+						ctx.fillRect(sx - 12, sy - 10, 24, 16);
+						ctx.fillStyle = "#8a5020";
+						ctx.fillRect(sx - 10, sy - 8, 20, 12);
+						ctx.fillStyle = "#c8a84b";
+						ctx.fillRect(sx - 12, sy - 10, 24, 4);
+						ctx.fillRect(sx - 2, sy - 10, 4, 4);
+						const aa = 0.3 + 0.2 * Math.sin(S.animT * 0.003);
+						ctx.fillStyle = `rgba(200,168,75,${aa})`;
+						ctx.fillRect(sx - 14, sy - 12, 28, 20);
+						ctx.fillStyle = "#ffdd44";
+						ctx.font = "9px monospace";
+						ctx.textAlign = "center";
+						ctx.fillText(npc.name, sx, sy - 16);
+						return;
+					}
+					ctx.fillStyle = "rgba(0,0,0,.25)";
+					ctx.fillRect(sx - 7, sy + 8, 14, 4);
+					ctx.fillStyle = col;
+					ctx.fillRect(sx - 6, sy - 10, 12, 20);
+					ctx.fillStyle = "#ffffff22";
+					ctx.fillRect(sx - 5, sy - 9, 10, 18);
+					ctx.fillStyle = "#e8c080";
+					ctx.fillRect(sx - 5, sy - 20, 10, 9);
+					ctx.fillStyle = "#221408";
+					ctx.fillRect(sx - 5, sy - 20, 10, 4);
+					ctx.fillStyle = "#111";
+					ctx.fillRect(sx - 3, sy - 15, 2, 2);
+					ctx.fillRect(sx + 1, sy - 15, 2, 2);
+					ctx.fillStyle = "rgba(0,0,0,.6)";
+					const nw = ctx.measureText(npc.name).width + 8;
+					ctx.fillRect(sx - nw / 2, sy - 30, nw, 12);
+					ctx.fillStyle = col;
+					ctx.font = "9px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(npc.name, sx, sy - 21);
+					if (dist(S.player.px, S.player.py, npc.px, npc.py) < CFG.TS * 1.6) {
+						ctx.fillStyle = "rgba(200,168,75,.9)";
+						ctx.font = "9px monospace";
+						ctx.fillText("[F]", sx, sy - 38);
+					}
+				},
+				portal(portal, cx, cy) {
+					const sx = portal.x * CFG.TS + CFG.TS / 2 - cx,
+						sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
+					// if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
+					const a = S.animT * 0.002;
+					const grad = ctx.createRadialGradient(sx, sy, 4, sx, sy, 20);
+					grad.addColorStop(0, `rgba(100,180,255,${0.4 + 0.2 * Math.sin(a)})`);
+					grad.addColorStop(1, "rgba(100,180,255,0)");
+					ctx.fillStyle = grad;
+					ctx.fillRect(sx - 22, sy - 22, 44, 44);
+					ctx.strokeStyle = `rgba(120,200,255,${0.6 + 0.3 * Math.sin(a)})`;
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.arc(sx, sy, 14, 0, Math.PI * 2);
+					ctx.stroke();
+					if (portal.tenMapDen) {
+						ctx.fillStyle = "rgba(0,0,0,.7)";
+						const lw = ctx.measureText(portal.tenMapDen).width + 10;
+						ctx.fillRect(sx - lw / 2, sy - 36, lw, 13);
+						ctx.fillStyle = "#88ddff";
+						ctx.font = "9px monospace";
+						ctx.textAlign = "center";
+						ctx.fillText(portal.tenMapDen, sx, sy - 26);
+					}
+				},
+				floatDmg(wx, wy, offY, text, color) {
+					const area = document.getElementById("canvas-area").getBoundingClientRect();
+					const sx = wx - S.cam.x + area.left,
+						sy = wy - S.cam.y + offY + area.top;
+					const d = document.createElement("div");
+					d.className = "dmg-float";
+					d.textContent = text;
+					d.style.cssText = `left:${sx}px;top:${sy}px;color:${color}`;
+					document.body.appendChild(d);
+					setTimeout(() => d.remove(), 900);
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §13 · UI
+			// ════════════════════════════════════════════════════════════
+			const UI = {
+				update() {
+					if (!S.player) return;
+					const p = S.player;
+					document.getElementById("ui-name").textContent = p.name;
+					const st = document.getElementById("ui-spirit-tag");
+					st.textContent = `${p.linhCan} thuộc tính`;
+					st.style.color = Linh_CAN[p.linhCan]?.color;
+					document.getElementById("ui-realm").textContent = p.tenCanhGioi;
+					document.getElementById("ui-stage").textContent = `Tầng ${p.tangTuVi}`;
+					document.getElementById("ui-cp").textContent = (
+						(p.stats.str + p.stats.agi + p.stats.vit + p.stats.ene) * 5 +
+							p.canhGioi?.stt || 0 * 150 + p.tangTuVi * 20 + 100
+					).toLocaleString();
+					const hp = Math.floor(p.hp);
+					document.getElementById("ui-hp").textContent = `${hp}/${p.maxHp}`;
+					document.getElementById("b-hp").style.width =
+						Math.floor((hp / p.maxHp) * 100) + "%";
+					const mp = Math.floor(p.mp);
+					document.getElementById("ui-mp").textContent = `${mp}/${p.maxMp}`;
+					document.getElementById("b-mp").style.width =
+						Math.floor((mp / p.maxMp) * 100) + "%";
+					document.getElementById("ui-tu").textContent =
+						`${Math.floor(p.tuViHienTai)}/${Math.floor(p.tuViLenCap)}`;
+					document.getElementById("b-tu").style.width =
+						Math.min(100, Math.floor((p.tuViHienTai / p.tuViLenCap) * 100)) + "%";
+					document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
+					const s = p.stats;
+					document.getElementById("r-str").textContent = s.str;
+					document.getElementById("r-agi").textContent = s.agi;
+					document.getElementById("r-vit").textContent = s.vit;
+					document.getElementById("r-int").textContent = s.ene;
+					document.getElementById("r-patk").textContent = Combat.pAtk();
+					document.getElementById("r-matk").textContent = 5 + s.ene * 2 * p.tangTuVi;
+					document.getElementById("r-def").textContent = Combat.pDef();
+					document.getElementById("r-spd").textContent = 3 + Math.floor(s.agi * 0.5);
+					document.getElementById("r-eva").textContent = Math.floor(s.agi * 0.3) + "%";
+					document.getElementById("inv-head").textContent =
+						`✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
+				},
+				log(msg, cls = "") {
+					const area = document.getElementById("log-area");
+					const p = document.createElement("p");
+					p.className = "lc lc-" + cls;
+					const t = new Date().toLocaleTimeString("vi-VN", {
+						hour: "2-digit",
+						minute: "2-digit",
+						second: "2-digit",
+					});
+					p.textContent = `[${t}] ${msg}`;
+					area.appendChild(p);
+					area.scrollTop = area.scrollHeight;
+					while (area.children.length > 150) area.removeChild(area.firstChild);
+				},
+				buildInv() {
+					const grid = document.getElementById("inv-grid");
+					grid.innerHTML = "";
+					for (let i = 0; i < CFG.INV_MAX; i++) {
+						const sl = document.createElement("div");
+						sl.className = "isl";
+						const item = S.inventory[i];
+						if (item) {
+							sl.textContent = item.icon;
+							if (item.count > 1) {
+								const cnt = document.createElement("span");
+								cnt.className = "icnt";
+								cnt.textContent = item.count;
+								sl.appendChild(cnt);
+							}
+							sl.onclick = () => Inventory.use(i);
+							sl.onmouseenter = (e) => UI.showTip(e, item);
+							sl.onmouseleave = (e) => UI.hideTip();
+						}
+						grid.appendChild(sl);
+					}
+				},
+				showTip(e, item) {
+					const tip = document.getElementById("tip");
+					document.getElementById("tip-name").textContent = item.icon + " " + item.name;
+					document.getElementById("tip-type").textContent =
+						item.type === "STONE"
+							? "Linh Thạch"
+							: item.type === "ELEMSTONE"
+								? "Đá Nguyên Tố"
+								: item.type === "MAT"
+									? "Nguyên Liệu"
+									: item.type === "CONSUME"
+										? "Đan Dược"
+										: "Vật Phẩm";
+					document.getElementById("tip-body").innerHTML =
+						`${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
+					tip.style.display = "block";
+					tip.style.left = e.clientX + 14 + "px";
+					tip.style.top = e.clientY - 10 + "px";
+				},
+				hideTip() {
+					document.getElementById("tip").style.display = "none";
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §14 · INPUT
+			// ════════════════════════════════════════════════════════════
+			const Input = {
+				keys: {},
+				_lastMoveEmit: 0,
+				_initialized: false,
+				_resizeHandler: null,
+				init() {
+					if (Input._initialized) return;
+					Input._initialized = true;
+					Input._resizeHandler = () => {
+						const area = document.getElementById("canvas-area");
+						if (!canvas || !ctx || !area) return;
+						cW = area.clientWidth;
+						cH = area.clientHeight;
+						canvas.width = cW;
+						canvas.height = cH;
+						ctx.imageSmoothingEnabled = false;
+					};
+					window.addEventListener("keydown", (e) => {
+						Input.keys[e.code] = true;
+						if (
+							["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(
+								e.code,
+							)
+						)
+							e.preventDefault();
+						if (e.code === "KeyF") World.checkNpcInteract();
+						if (e.code === "Escape") {
+							Shop.close();
+							DialogUI.close();
+						}
+						if (e.code === "Enter") {
+							const ci = document.getElementById("chat-inp");
+							ci.focus();
+						}
+					});
+					window.addEventListener("keyup", (e) => (Input.keys[e.code] = false));
+					window.addEventListener("resize", Input._resizeHandler);
+					document.getElementById("game-canvas").addEventListener("click", Input.onClick);
+					document.getElementById("chat-inp").addEventListener("keydown", (e) => {
+						if (e.code === "Enter") {
+							Net.sendChat();
+							e.preventDefault();
+						}
+					});
+				},
+				onClick(e) {
+					if (document.getElementById("shop-modal").classList.contains("open")) return;
+					if (document.getElementById("dialog-modal").classList.contains("open")) return;
+					const r = canvas.getBoundingClientRect();
+					const wx = e.clientX - r.left + S.cam.x,
+						wy = e.clientY - r.top + S.cam.y;
+					for (const m of S.monsters)
+						if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
+							Combat.attack(m);
+							return;
+						}
+					for (const npc of S.npcs)
+						if (dist(npc.px, npc.py, wx, wy) < 26) {
+							if (npc.type === "shop") Shop.open(npc);
+							else if (npc.type === "chest") Chest.open(npc);
+							else DialogUI.open(npc);
+							return;
+						}
+				},
+			};
+
+			// ════════════════════════════════════════════════════════════
+			// §15 · GAME LOOP
+			// ════════════════════════════════════════════════════════════
+			function update(dt) {
+				const p = S.player;
+				if (!p) return;
+				S.animT += dt;
+				if (S.animT > 240) {
+					S.animF ^= 1;
+					S.animT = 0;
+				}
+				if (S.atkCd > 0) S.atkCd -= dt / 16;
+				for (let i = S.atkFx.length - 1; i >= 0; i--) {
+					S.atkFx[i].life -= dt / 16;
+					S.atkFx[i].r += 0.8;
+					if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
+				}
+				const modalOpen =
+					document.getElementById("shop-modal").classList.contains("open") ||
+					document.getElementById("dialog-modal").classList.contains("open");
+				if (!modalOpen) {
+					let dx = 0,
+						dy = 0;
+					if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
+					if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
+					if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
+					if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
+
+					if (dx || dy) {
+						const mag = Math.hypot(dx, dy);
+						const dirX = dx / mag;
+						const dirY = dy / mag;
+						const speedBase = 1;
+						const speedBonus = (p.stats?.agi || 0) * 0.005;
+						const moveStep =
+							((speedBase + speedBonus) * (dt / 16)) /
+							(15 - Math.max(0, S.player.speed ?? 1));
+						const oldX = p.x;
+						const oldY = p.y;
+
+						const nextX = p.x + dirX * moveStep;
+						if (!World.collides(nextX, p.y)) p.x = nextX;
+						const nextY = p.y + dirY * moveStep;
+						if (!World.collides(p.x, nextY)) p.y = nextY;
+
+						if (Math.abs(p.x - oldX) > 0.0000001 || Math.abs(p.y - oldY) > 0.0000001) {
+							Net.emitMove();
+						}
+					}
+
+					p.px = p.x * CFG.TS + CFG.TS / 2;
+					p.py = p.y * CFG.TS + CFG.TS / 2;
+					if (Input.keys["Space"] && S.atkCd <= 0) {
+						let best = null,
+							bd = 5 * CFG.TS;
+						for (const m of S.monsters)
+							if (!m.dead) {
+								const d = dist(m.px, m.py, p.px, p.py);
+								if (d < bd) {
+									bd = d;
+									best = m;
+								}
+							}
+						if (best) Combat.attack(best);
+					}
+					if (S.autoFight && S.atkCd <= 0) {
+						let best = null,
+							bd = 4.5 * CFG.TS;
+						for (const m of S.monsters)
+							if (!m.dead) {
+								const d = dist(m.px, m.py, p.px, p.py);
+								if (d < bd) {
+									bd = d;
+									best = m;
+								}
+							}
+						if (best) Combat.attack(best);
+					}
+					if (dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4)
+						World.checkPortals();
+				}
+				for (const m of S.monsters) Monster.update(m, dt);
+				p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
+				p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
+				UI.update();
+			}
+			function loop(ts) {
+				const dt = Math.min(ts - S.lastTs, 50);
+				S.lastTs = ts;
+				update(dt);
+				Render.frame();
+				requestAnimationFrame(loop);
+			}
+
+			// ════════════════════════════════════════════════════════════
+			// §16 · CHARACTER CREATE
+			// ════════════════════════════════════════════════════════════
+			let cRoot = null;
+			const cPts = { str: 5, agi: 5, vit: 5, int: 5, remaining: 20 };
+			function selectRoot(rootId) {
+				const r = CFG.ROOTS.find((item) => item.id === rootId);
+				if (!r) return;
+				cRoot = { ...r };
+				const orb = document.getElementById("spirit-orb");
+				orb.textContent = r.emoji;
+				orb.style.background = r.bg;
+				orb.style.color = r.color;
+				orb.style.borderColor = r.color;
+				orb.style.boxShadow = `0 0 14px ${r.color}66`;
+				document.getElementById("spirit-name").textContent = r.name;
+				document.getElementById("spirit-name").style.color = r.color;
+				document.getElementById("spirit-grade").textContent = "Linh căn đã chọn";
+			}
+			function adj(s, d) {
+				const nv = cPts[s] + d;
+				if (nv < 1) return;
+				const nr = cPts.remaining - d;
+				if (nr < 0) return;
+				cPts[s] = nv;
+				cPts.remaining = nr;
+				document.getElementById("cs-" + s).textContent = nv;
+				document.getElementById("pts-left").textContent = nr;
+			}
+
+			async function createCharacter() {
+				const name = document.getElementById("inp-charname").value.trim();
+				if (!name) {
+					alert("Hãy nhập pháp danh!");
+					return;
+				}
+				if (!cRoot) {
+					alert("Vui lòng chọn một linh căn trước khi tạo nhân vật.");
+					return;
+				}
+				if (cPts.remaining !== 0) {
+					alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
+					return;
+				}
+				const { str, agi, vit, int: int_ } = cPts;
+				S.player = {
+					name,
+					root: cRoot,
+					realm: 0,
+					stage: 1,
+					stats: { str, agi, vit, ene: int_ },
+					hp: 100 + vit * 10,
+					maxHp: 100 + vit * 10,
+					mp: 50 + int_ * 8,
+					maxMp: 50 + int_ * 8,
+					xu: 50,
+					tuExp: 0,
+					tuNeeded: 0,
+					x: 26,
+					y: 30,
+					px: 26 * CFG.TS + CFG.TS / 2,
+					py: 30 * CFG.TS + CFG.TS / 2,
+				};
+
+				const defaultMap = await Net.get("/api/worlds/default");
+				const defaultMapCode = defaultMap?.code || "thien_van_thanh";
+				const defaultStart = defaultMap?.playerStart || defaultMap?.start || {};
+				const startX = defaultStart.x ?? 26;
+				const startY = defaultStart.y ?? 30;
+				S.player.mapCode = defaultMapCode;
+				S.player.mapId = defaultMap?.id || defaultMapCode;
+				S.player.x = startX;
+				S.player.y = startY;
+				S.player.px = startX * CFG.TS + CFG.TS / 2;
+				S.player.py = startY * CFG.TS + CFG.TS / 2;
+
+				const playerData = await Net.post("/api/players", S.player);
+				S.player.tuNeeded = Cultivation.calcTuNeeded(playerData?.canhGioi, 1);
+				Auth._startGameWithData(playerData);
+			}
+
+			function enterGame(map, x, y) {
+				showScreen("game");
+				canvas = document.getElementById("game-canvas");
+				const area = document.getElementById("canvas-area");
+				cW = area.clientWidth;
+				cH = area.clientHeight;
+				canvas.width = cW;
+				canvas.height = cH;
+				ctx = canvas.getContext("2d");
+				ctx.imageSmoothingEnabled = false;
+
+				Input.init();
+				World.loadMap(map, x, y);
+				UI.buildInv();
+				UI.update();
+				UI.log("Bắt đầu hành trình...", "system");
+				UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "system");
+				UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
+				Net.connectSocket();
+				Net.startAutoSave();
+				requestAnimationFrame((ts) => {
+					S.lastTs = ts;
+					requestAnimationFrame(loop);
+				});
+			}
+
+			function toggleAuto() {
+				S.autoFight = !S.autoFight;
+				document.getElementById("btn-auto").classList.toggle("active", S.autoFight);
+				UI.log(S.autoFight ? "⚔ Tự động đánh: BẬT" : "⚔ Tự động đánh: TẮT", "system");
+			}
+
+			// ════════════════════════════════════════════════════════════
+			// §17 · SCREEN MANAGEMENT
+			// ════════════════════════════════════════════════════════════
+			function showScreen(name) {
+				document.getElementById("screen-auth").classList.add("hidden");
+				document.getElementById("screen-create").classList.add("hidden");
+				document.getElementById("screen-game").style.display = "none";
+				if (name === "auth")
+					document.getElementById("screen-auth").classList.remove("hidden");
+				else if (name === "create")
+					document.getElementById("screen-create").classList.remove("hidden");
+				else if (name === "game")
+					document.getElementById("screen-game").style.display = "grid";
+			}
+
+			// ════════════════════════════════════════════════════════════
+			// §18 · BOOT
+			// ════════════════════════════════════════════════════════════
+			// rollRoot();
+			(async () => {
+				const ok = await Auth.tryAutoLogin().catch(() => false);
+				if (!ok) showScreen("auth");
+				try {
+					const r = await fetch(API.BASE + "/api/health", {
+						signal: AbortSignal.timeout(3000),
+					});
+					if (!r.ok) throw new Error();
+					document.getElementById("auth-status").textContent = "✓ Máy chủ đang hoạt động";
+				} catch {
+					document.getElementById("auth-status").textContent =
+						"⚠ Máy chủ offline — Chơi Offline mode";
+				}
+			})();
+		</script>
+	</body>
 </html>
