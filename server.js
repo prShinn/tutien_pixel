@@ -4,7 +4,7 @@
  * Stack:
  *   Express  — REST API (auth, save/load)
  *   Socket.io — Real-time co-op (move sync, chat, combat fx)
- *   lowdb     — JSON file DB (dễ migrate sang PostgreSQL/MongoDB)
+ *   Data     — in-memory API placeholders (no file DB)
  * 
  * Start: node server.js
  * Port:  3000 (hoặc PORT env)
@@ -16,9 +16,6 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
 const path       = require('path');
-const fs         = require('fs');
-const low        = require('lowdb');
-const FileSync   = require('lowdb/adapters/FileSync');
 
 // const authRoutes   = require('./routes/auth');
 // const playerRoutes = require('./routes/player');
@@ -41,44 +38,62 @@ app.use(express.json({ limit: '512kb' }));
 // Serve game client (nếu build Angular vào dist/)
 app.use(express.static(path.join(__dirname, 'public')));
 
-const dbDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-const dbFile = path.join(dbDir, 'db.json');
-const adapter = new FileSync(dbFile);
-const db = low(adapter);
-db.defaults({ players: [] }).write();
+const players = new Map();
+let nextPlayerId = 1;
+const worlds = [
+  // TODO: populate world API from backend data
+];
+const canhGiois = [
+  // TODO: populate realm API from backend data
+];
 
 // ── REST Routes ────────────────────────────────────────────────────
 app.get('/api/player/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid player id' });
-  const player = db.get('players').find({ id }).value();
+  const player = players.get(id);
   if (!player) return res.status(404).json({ error: 'Player not found' });
   res.json(player);
 });
 
 app.post('/api/player', (req, res) => {
   const body = req.body || {};
-  const player = {
-    ...body,
-    id: Date.now(),
-  };
-  db.get('players').push(player).write();
+  const id = nextPlayerId++;
+  const player = { ...body, id };
+  players.set(id, player);
   res.json(player);
 });
 
 app.put('/api/player/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid player id' });
-  const existing = db.get('players').find({ id }).value();
+  const existing = players.get(id);
   if (!existing) return res.status(404).json({ error: 'Player not found' });
-  const updated = {
-    ...existing,
-    ...req.body,
-    id,
-  };
-  db.get('players').find({ id }).assign(updated).write();
+  const updated = { ...existing, ...req.body, id };
+  players.set(id, updated);
   res.json(updated);
+});
+
+app.get('/api/worlds/default', (req, res) => {
+  const world = worlds.find((w) => w.isDefault) || worlds[0];
+  if (!world) return res.status(404).json({ error: 'Default world not available' });
+  res.json(world);
+});
+
+app.get('/api/worlds/by-code', (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).json({ error: 'Missing world code' });
+  const world = worlds.find((w) => w.code === code);
+  if (!world) return res.status(404).json({ error: 'World not found' });
+  res.json(world);
+});
+
+app.get('/api/canh-gioi/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid realm id' });
+  const realm = canhGiois.find((r) => r.stt === id || r.id === id);
+  if (!realm) return res.status(404).json({ error: 'Realm not found' });
+  res.json(realm);
 });
 
 // app.use('/api/auth',   authRoutes);
@@ -117,7 +132,7 @@ server.listen(PORT, () => {
 ╔══════════════════════════════════════════╗
 ║  TU TIÊN SERVER — ĐANG CHẠY             ║
 ║  http://localhost:${PORT}                   ║
-║  REST  : /api/auth  /api/player         ║
+║  REST  : /api/player  /api/worlds  /api/canh-gioi
 ║  Socket: ws://localhost:${PORT}              ║
 ╚══════════════════════════════════════════╝
   `);
