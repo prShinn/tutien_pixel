@@ -272,39 +272,39 @@
 							✦ TRANG BỊ
 						</div>
 						<div class="equip-grid">
-							<div class="esl">
+							<div class="esl" id="slot-weapon">
 								<div class="eicon">⚔</div>
 								Vũ Khí
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-helmet">
 								<div class="eicon">🪖</div>
 								Mũ
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-armor">
 								<div class="eicon">🥋</div>
 								Giáp
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-pants">
 								<div class="eicon">👖</div>
 								Quần
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-boots">
 								<div class="eicon">👟</div>
 								Giày
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-ring">
 								<div class="eicon">💍</div>
 								Nhẫn
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-amulet">
 								<div class="eicon">📿</div>
 								Vòng
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-belt">
 								<div class="eicon">🔗</div>
 								Đai
 							</div>
-							<div class="esl">
+							<div class="esl" id="slot-gem">
 								<div class="eicon">💎</div>
 								Linh Thạch
 							</div>
@@ -2828,23 +2828,45 @@
 					y: 30,
 					px: 26 * CFG.TS + CFG.TS / 2,
 					py: 30 * CFG.TS + CFG.TS / 2,
+					equipment: {},
+				};
+				const equipment = {
+					weapon: parseEquipSlot(playerData.vuKhi),
+					armor: parseEquipSlot(playerData.ao),
+					boots: parseEquipSlot(playerData.giay),
+					hat: parseEquipSlot(playerData.mu),
+					gloves: parseEquipSlot(playerData.tay),
+					ring: parseEquipSlot(playerData.nhan),
+					amulet: parseEquipSlot(playerData.vong),
 				};
 
-				const defaultMap = await Net.get("/api/worlds/default");
-				const defaultMapCode = defaultMap?.code || "thien_van_thanh";
-				const defaultStart = defaultMap?.playerStart || defaultMap?.start || {};
-				const startX = defaultStart.x ?? 26;
-				const startY = defaultStart.y ?? 30;
-				S.player.mapCode = defaultMapCode;
-				S.player.mapId = defaultMap?.id || defaultMapCode;
-				S.player.x = startX;
-				S.player.y = startY;
-				S.player.px = startX * CFG.TS + CFG.TS / 2;
-				S.player.py = startY * CFG.TS + CFG.TS / 2;
-
-				const playerData = await Net.post("/api/players", S.player);
-				S.player.tuNeeded = Cultivation.calcTuNeeded(playerData?.canhGioi, 1);
-				Auth._startGameWithData(playerData);
+				S.player = {
+					...playerData,
+					name: playerData.name,
+					root: cRoot,
+					realm: 0,
+					stage: 1,
+					stats: { str, agi, vit, ene: int_ },
+					hp: 100 + vit * 10,
+					maxHp: 100 + vit * 10,
+					mp: 50 + int_ * 8,
+					maxMp: 50 + int_ * 8,
+					xu: 50,
+					tuExp: 0,
+					tuNeeded: 0,
+					x: 26,
+					y: 30,
+					px: 26 * CFG.TS + CFG.TS / 2,
+					py: 30 * CFG.TS + CFG.TS / 2,
+					equipment,
+				};
+				try {
+					S.inventory = JSON.parse(playerData.jsonIventory) || [];
+				} catch (e) {
+					S.inventory = [];
+				}
+				const map = await Net.get("/api/worlds/by-code?code=" + playerData.mapCode);
+				enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
 			}
 
 			function enterGame(map, x, y) {
