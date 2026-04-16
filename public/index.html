@@ -2708,7 +2708,31 @@
             Math.floor(s.agi * 0.3) + "%";
           document.getElementById("inv-head").textContent =
             `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
+          this.renderEquipment();
         },
+
+        renderEquipment() {
+          const eq = S.player?.equipment || {};
+          const slots = [
+            { id: "slot-weapon", label: "Vũ Khí", item: eq.weapon },
+            { id: "slot-helmet", label: "Mũ", item: eq.hat },
+            { id: "slot-armor", label: "Giáp", item: eq.armor },
+            { id: "slot-pants", label: "Quần", item: eq.pants || null },
+            { id: "slot-boots", label: "Giày", item: eq.boots },
+            { id: "slot-ring", label: "Nhẫn", item: eq.ring },
+            { id: "slot-amulet", label: "Vòng", item: eq.amulet },
+            { id: "slot-belt", label: "Đai", item: eq.belt || null },
+            { id: "slot-gem", label: "Linh Thạch", item: eq.gem || null },
+          ];
+          for (const slot of slots) {
+            const el = document.getElementById(slot.id);
+            if (!el) continue;
+            const icon = slot.item?.icon || slot.label.slice(0, 1);
+            el.innerHTML = `<div class="eicon">${icon}</div>${slot.item?.name || slot.label}`;
+            el.title = slot.item?.description || "";
+          }
+        },
+
         log(msg, cls = "") {
           const area = document.getElementById("log-area");
           const p = document.createElement("p");
@@ -2722,51 +2746,6 @@
           area.appendChild(p);
           area.scrollTop = area.scrollHeight;
           while (area.children.length > 150) area.removeChild(area.firstChild);
-        },
-        buildInv() {
-          const grid = document.getElementById("inv-grid");
-          grid.innerHTML = "";
-          for (let i = 0; i < CFG.INV_MAX; i++) {
-            const sl = document.createElement("div");
-            sl.className = "isl";
-            const item = S.inventory[i];
-            if (item) {
-              sl.textContent = item.icon;
-              if (item.count > 1) {
-                const cnt = document.createElement("span");
-                cnt.className = "icnt";
-                cnt.textContent = item.count;
-                sl.appendChild(cnt);
-              }
-              sl.onclick = () => Inventory.use(i);
-              sl.onmouseenter = (e) => UI.showTip(e, item);
-              sl.onmouseleave = (e) => UI.hideTip();
-            }
-            grid.appendChild(sl);
-          }
-        },
-        showTip(e, item) {
-          const tip = document.getElementById("tip");
-          document.getElementById("tip-name").textContent =
-            item.icon + " " + item.name;
-          document.getElementById("tip-type").textContent =
-            item.type === "STONE"
-              ? "Linh Thạch"
-              : item.type === "ELEMSTONE"
-                ? "Đá Nguyên Tố"
-                : item.type === "MAT"
-                  ? "Nguyên Liệu"
-                  : item.type === "CONSUME"
-                    ? "Đan Dược"
-                    : "Vật Phẩm";
-          document.getElementById("tip-body").innerHTML =
-            `${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
-          tip.style.display = "block";
-          tip.style.left = e.clientX + 14 + "px";
-          tip.style.top = e.clientY - 10 + "px";
-        },
-        hideTip() {
-          document.getElementById("tip").style.display = "none";
         },
       };
 
