@@ -391,35 +391,69 @@
           <button class="act-btn danger" onclick="Auth.logout()">
             🚪 Đăng Xuất
           </button>
-          <div class="sec-title" style="font-size:8px;margin:6px 0 3px">✦ KỸ NĂNG [1-4]</div>
+          <div class="sec-title" style="font-size: 8px; margin: 6px 0 3px">
+            ✦ KỸ NĂNG [1-4]
+          </div>
           <div class="skill-slots" id="skill-slots">
-            <div class="skill-slot" id="skill-slot-0" onclick="SkillSystem.useSkill(0)">
+            <div
+              class="skill-slot"
+              id="skill-slot-0"
+              onclick="SkillSystem.useSkill(0)"
+            >
               <span class="sk-key">1</span>
               <div class="sk-icon">—</div>
               <div class="sk-name">Chưa có</div>
               <span class="sk-mp"></span>
-              <div class="sk-cd-overlay" id="sk-cd-0" style="display:none"></div>
+              <div
+                class="sk-cd-overlay"
+                id="sk-cd-0"
+                style="display: none"
+              ></div>
             </div>
-            <div class="skill-slot" id="skill-slot-1" onclick="SkillSystem.useSkill(1)">
+            <div
+              class="skill-slot"
+              id="skill-slot-1"
+              onclick="SkillSystem.useSkill(1)"
+            >
               <span class="sk-key">2</span>
               <div class="sk-icon">—</div>
               <div class="sk-name">Chưa có</div>
               <span class="sk-mp"></span>
-              <div class="sk-cd-overlay" id="sk-cd-1" style="display:none"></div>
+              <div
+                class="sk-cd-overlay"
+                id="sk-cd-1"
+                style="display: none"
+              ></div>
             </div>
-            <div class="skill-slot" id="skill-slot-2" onclick="SkillSystem.useSkill(2)">
+            <div
+              class="skill-slot"
+              id="skill-slot-2"
+              onclick="SkillSystem.useSkill(2)"
+            >
               <span class="sk-key">3</span>
               <div class="sk-icon">—</div>
               <div class="sk-name">Chưa có</div>
               <span class="sk-mp"></span>
-              <div class="sk-cd-overlay" id="sk-cd-2" style="display:none"></div>
+              <div
+                class="sk-cd-overlay"
+                id="sk-cd-2"
+                style="display: none"
+              ></div>
             </div>
-            <div class="skill-slot" id="skill-slot-3" onclick="SkillSystem.useSkill(3)">
+            <div
+              class="skill-slot"
+              id="skill-slot-3"
+              onclick="SkillSystem.useSkill(3)"
+            >
               <span class="sk-key">4</span>
               <div class="sk-icon">—</div>
               <div class="sk-name">Chưa có</div>
               <span class="sk-mp"></span>
-              <div class="sk-cd-overlay" id="sk-cd-3" style="display:none"></div>
+              <div
+                class="sk-cd-overlay"
+                id="sk-cd-3"
+                style="display: none"
+              ></div>
             </div>
           </div>
           <div class="keys-hint">
@@ -760,19 +794,140 @@
             desc: "+2 điểm ngẫu nhiên",
           },
           // ── Linh Đan tăng Tu Vi Linh Căn ──
-          ld_hoa:  { id:"ld_hoa",  name:"Hỏa Linh Đan",      icon:"🔥", type:"LINDAN", linhCan:"HOA",       tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn HỎA +10" },
-          ld_kim:  { id:"ld_kim",  name:"Kim Linh Đan",       icon:"⚙️", type:"LINDAN", linhCan:"KIM",       tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn KIM +10" },
-          ld_moc:  { id:"ld_moc",  name:"Mộc Linh Đan",       icon:"🌿", type:"LINDAN", linhCan:"MOC",       tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn MỘC +10" },
-          ld_thuy: { id:"ld_thuy", name:"Thủy Linh Đan",      icon:"💧", type:"LINDAN", linhCan:"THUY",      tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn THỦY +10" },
-          ld_tho:  { id:"ld_tho",  name:"Thổ Linh Đan",       icon:"🪨", type:"LINDAN", linhCan:"THO",       tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn THỔ +10" },
-          ld_quang:{ id:"ld_quang",name:"Quang Linh Đan",     icon:"✨", type:"LINDAN", linhCan:"QUANG",     tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn QUANG +10" },
-          ld_am:   { id:"ld_am",   name:"Âm Linh Đan",        icon:"🌑", type:"LINDAN", linhCan:"AM",        tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn ÂM +10" },
-          ld_phong:{ id:"ld_phong",name:"Phong Linh Đan",     icon:"💨", type:"LINDAN", linhCan:"PHONG",     tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn PHONG +10" },
-          ld_loi:  { id:"ld_loi",  name:"Lôi Linh Đan",       icon:"⚡", type:"LINDAN", linhCan:"LOI",       tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn LÔI +10" },
-          ld_tg:   { id:"ld_tg",   name:"Thời Gian Đan",      icon:"⏳", type:"LINDAN", linhCan:"THOI_GIAN", tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn THỜI GIAN +10" },
-          ld_kg:   { id:"ld_kg",   name:"Không Gian Đan",     icon:"🌌", type:"LINDAN", linhCan:"KHONG_GIAN",tuViLinhCanVal:10, sell:50, buyPrice:120, desc:"Tu vi linh căn KHÔNG GIAN +10" },
+          ld_hoa: {
+            id: "ld_hoa",
+            name: "Hỏa Linh Đan",
+            icon: "🔥",
+            type: "LINDAN",
+            linhCan: "HOA",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn HỎA +10",
+          },
+          ld_kim: {
+            id: "ld_kim",
+            name: "Kim Linh Đan",
+            icon: "⚙️",
+            type: "LINDAN",
+            linhCan: "KIM",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn KIM +10",
+          },
+          ld_moc: {
+            id: "ld_moc",
+            name: "Mộc Linh Đan",
+            icon: "🌿",
+            type: "LINDAN",
+            linhCan: "MOC",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn MỘC +10",
+          },
+          ld_thuy: {
+            id: "ld_thuy",
+            name: "Thủy Linh Đan",
+            icon: "💧",
+            type: "LINDAN",
+            linhCan: "THUY",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn THỦY +10",
+          },
+          ld_tho: {
+            id: "ld_tho",
+            name: "Thổ Linh Đan",
+            icon: "🪨",
+            type: "LINDAN",
+            linhCan: "THO",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn THỔ +10",
+          },
+          ld_quang: {
+            id: "ld_quang",
+            name: "Quang Linh Đan",
+            icon: "✨",
+            type: "LINDAN",
+            linhCan: "QUANG",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn QUANG +10",
+          },
+          ld_am: {
+            id: "ld_am",
+            name: "Âm Linh Đan",
+            icon: "🌑",
+            type: "LINDAN",
+            linhCan: "AM",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn ÂM +10",
+          },
+          ld_phong: {
+            id: "ld_phong",
+            name: "Phong Linh Đan",
+            icon: "💨",
+            type: "LINDAN",
+            linhCan: "PHONG",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn PHONG +10",
+          },
+          ld_loi: {
+            id: "ld_loi",
+            name: "Lôi Linh Đan",
+            icon: "⚡",
+            type: "LINDAN",
+            linhCan: "LOI",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn LÔI +10",
+          },
+          ld_tg: {
+            id: "ld_tg",
+            name: "Thời Gian Đan",
+            icon: "⏳",
+            type: "LINDAN",
+            linhCan: "THOI_GIAN",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn THỜI GIAN +10",
+          },
+          ld_kg: {
+            id: "ld_kg",
+            name: "Không Gian Đan",
+            icon: "🌌",
+            type: "LINDAN",
+            linhCan: "KHONG_GIAN",
+            tuViLinhCanVal: 10,
+            sell: 50,
+            buyPrice: 120,
+            desc: "Tu vi linh căn KHÔNG GIAN +10",
+          },
         },
-        SHOP_SELL: ["hpd", "mpd", "bud", "slo", "smi", "ld_hoa", "ld_kim", "ld_moc", "ld_thuy", "ld_tho"],
+        SHOP_SELL: [
+          "hpd",
+          "mpd",
+          "bud",
+          "slo",
+          "smi",
+          "ld_hoa",
+          "ld_kim",
+          "ld_moc",
+          "ld_thuy",
+          "ld_tho",
+        ],
         MONSTERS: [
           {
             name: "Dã Thú",
@@ -854,115 +1009,1316 @@
         ],
         // ════ SKILLS: 4 tier per linh căn, player gets 1 random per tier ════
         SKILLS: {
-          HOA:[
-            [{ id:"hoa_cau",      name:"Hỏa Cầu",          icon:"🔥", tier:1, mpCost:15, cd:80,  range:5, effect:"burn",     effectDur:180, effectVal:3,  desc:"Hỏa cầu thiêu đốt mục tiêu" },
-             { id:"hoa_thich",    name:"Tiểu Hỏa Thích",   icon:"🌋", tier:1, mpCost:10, cd:55,  range:6, effect:null,       effectDur:0,   effectVal:0,  desc:"Đòn hỏa tốc độ cao" }],
-            [{ id:"bung_chay",    name:"Bùng Cháy",        icon:"💥", tier:2, mpCost:25, cd:120, range:6, aoe:true, aoeR:3, effect:"burn",     effectDur:240, effectVal:5,  desc:"Bùng lửa diện rộng" },
-             { id:"hoa_lung",     name:"Hỏa Lồng",         icon:"🧱", tier:2, mpCost:22, cd:100, range:5, effect:"slow",     effectDur:150, effectVal:0.5,desc:"Hỏa lồng nhốt mục tiêu" }],
-            [{ id:"hoa_than",     name:"Hỏa Thần Quyền",  icon:"🥊", tier:3, mpCost:40, cd:180, range:3, effect:"burn",     effectDur:300, effectVal:8,  desc:"Hỏa quyền hủy diệt" },
-             { id:"thien_hoa_vu", name:"Thiên Hỏa Vũ",    icon:"☄️", tier:3, mpCost:45, cd:200, range:7, aoe:true, aoeR:4, effect:"burn",     effectDur:200, effectVal:6,  desc:"Mưa lửa trời" }],
-            [{ id:"thien_hoa_tuyet",name:"Thiên Hỏa Tuyệt Kỹ",icon:"🌠",tier:4,mpCost:70,cd:360,range:8, aoe:true, aoeR:5, effect:"burn",     effectDur:420, effectVal:12, desc:"Tuyệt kỹ hỏa hệ" },
-             { id:"hoa_long",     name:"Hỏa Long",         icon:"🐉", tier:4, mpCost:80, cd:400, range:6, effect:"burn",     effectDur:360, effectVal:15, desc:"Hỏa Long phun lửa" }],
+          HOA: [
+            [
+              {
+                id: "hoa_cau",
+                name: "Hỏa Cầu",
+                icon: "🔥",
+                tier: 1,
+                mpCost: 15,
+                cd: 80,
+                range: 5,
+                effect: "burn",
+                effectDur: 180,
+                effectVal: 3,
+                desc: "Hỏa cầu thiêu đốt mục tiêu",
+              },
+              {
+                id: "hoa_thich",
+                name: "Tiểu Hỏa Thích",
+                icon: "🌋",
+                tier: 1,
+                mpCost: 10,
+                cd: 55,
+                range: 6,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Đòn hỏa tốc độ cao",
+              },
+            ],
+            [
+              {
+                id: "bung_chay",
+                name: "Bùng Cháy",
+                icon: "💥",
+                tier: 2,
+                mpCost: 25,
+                cd: 120,
+                range: 6,
+                aoe: true,
+                aoeR: 3,
+                effect: "burn",
+                effectDur: 240,
+                effectVal: 5,
+                desc: "Bùng lửa diện rộng",
+              },
+              {
+                id: "hoa_lung",
+                name: "Hỏa Lồng",
+                icon: "🧱",
+                tier: 2,
+                mpCost: 22,
+                cd: 100,
+                range: 5,
+                effect: "slow",
+                effectDur: 150,
+                effectVal: 0.5,
+                desc: "Hỏa lồng nhốt mục tiêu",
+              },
+            ],
+            [
+              {
+                id: "hoa_than",
+                name: "Hỏa Thần Quyền",
+                icon: "🥊",
+                tier: 3,
+                mpCost: 40,
+                cd: 180,
+                range: 3,
+                effect: "burn",
+                effectDur: 300,
+                effectVal: 8,
+                desc: "Hỏa quyền hủy diệt",
+              },
+              {
+                id: "thien_hoa_vu",
+                name: "Thiên Hỏa Vũ",
+                icon: "☄️",
+                tier: 3,
+                mpCost: 45,
+                cd: 200,
+                range: 7,
+                aoe: true,
+                aoeR: 4,
+                effect: "burn",
+                effectDur: 200,
+                effectVal: 6,
+                desc: "Mưa lửa trời",
+              },
+            ],
+            [
+              {
+                id: "thien_hoa_tuyet",
+                name: "Thiên Hỏa Tuyệt Kỹ",
+                icon: "🌠",
+                tier: 4,
+                mpCost: 70,
+                cd: 360,
+                range: 8,
+                aoe: true,
+                aoeR: 5,
+                effect: "burn",
+                effectDur: 420,
+                effectVal: 12,
+                desc: "Tuyệt kỹ hỏa hệ",
+              },
+              {
+                id: "hoa_long",
+                name: "Hỏa Long",
+                icon: "🐉",
+                tier: 4,
+                mpCost: 80,
+                cd: 400,
+                range: 6,
+                effect: "burn",
+                effectDur: 360,
+                effectVal: 15,
+                desc: "Hỏa Long phun lửa",
+              },
+            ],
           ],
-          KIM:[
-            [{ id:"kim_cuong",    name:"Kim Cương Chưởng", icon:"✊", tier:1, mpCost:14, cd:75,  range:3, effect:null,       effectDur:0,   effectVal:0,  desc:"Chưởng kim cương xuyên phá" },
-             { id:"kiem_khi",     name:"Kiếm Khí",         icon:"⚔️", tier:1, mpCost:12, cd:65,  range:7, effect:"bleed",    effectDur:150, effectVal:2,  desc:"Kiếm khí gây chảy máu" }],
-            [{ id:"kim_cang_pha", name:"Kim Cang Phá",     icon:"💢", tier:2, mpCost:26, cd:120, range:5, aoe:true, aoeR:2, effect:"weaken",   effectDur:200, effectVal:0.8,desc:"Phá kim cang giảm phòng thủ" },
-             { id:"kiem_vu",      name:"Kiếm Vũ",          icon:"🗡️", tier:2, mpCost:22, cd:110, range:7, effect:null,       effectDur:0,   effectVal:0,  desc:"Múa kiếm nhiều đòn" }],
-            [{ id:"thien_kim",    name:"Thiên Kim Kiếm",   icon:"⚡", tier:3, mpCost:48, cd:210, range:8, effect:null,       effectDur:0,   effectVal:0,  desc:"Thiên kiếm chém một đường" },
-             { id:"vang_kim_co",  name:"Vàng Kim Cổ",      icon:"🔱", tier:3, mpCost:42, cd:190, range:5, effect:"weaken",   effectDur:250, effectVal:0.7,desc:"Kim cổ giảm sát thương địch" }],
-            [{ id:"van_kiem",     name:"Vạn Kiếm Quy Tông",icon:"🌟",tier:4, mpCost:75, cd:380, range:10,aoe:true, aoeR:6, effect:"bleed",    effectDur:360, effectVal:8,  desc:"Tuyệt kỹ kim hệ - vạn kiếm" },
-             { id:"kim_long",     name:"Kim Long Quyền",   icon:"👊", tier:4, mpCost:70, cd:350, range:4, effect:"stun",     effectDur:90,  effectVal:0,  desc:"Kim Long Quyền choáng địch" }],
+          KIM: [
+            [
+              {
+                id: "kim_cuong",
+                name: "Kim Cương Chưởng",
+                icon: "✊",
+                tier: 1,
+                mpCost: 14,
+                cd: 75,
+                range: 3,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Chưởng kim cương xuyên phá",
+              },
+              {
+                id: "kiem_khi",
+                name: "Kiếm Khí",
+                icon: "⚔️",
+                tier: 1,
+                mpCost: 12,
+                cd: 65,
+                range: 7,
+                effect: "bleed",
+                effectDur: 150,
+                effectVal: 2,
+                desc: "Kiếm khí gây chảy máu",
+              },
+            ],
+            [
+              {
+                id: "kim_cang_pha",
+                name: "Kim Cang Phá",
+                icon: "💢",
+                tier: 2,
+                mpCost: 26,
+                cd: 120,
+                range: 5,
+                aoe: true,
+                aoeR: 2,
+                effect: "weaken",
+                effectDur: 200,
+                effectVal: 0.8,
+                desc: "Phá kim cang giảm phòng thủ",
+              },
+              {
+                id: "kiem_vu",
+                name: "Kiếm Vũ",
+                icon: "🗡️",
+                tier: 2,
+                mpCost: 22,
+                cd: 110,
+                range: 7,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Múa kiếm nhiều đòn",
+              },
+            ],
+            [
+              {
+                id: "thien_kim",
+                name: "Thiên Kim Kiếm",
+                icon: "⚡",
+                tier: 3,
+                mpCost: 48,
+                cd: 210,
+                range: 8,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Thiên kiếm chém một đường",
+              },
+              {
+                id: "vang_kim_co",
+                name: "Vàng Kim Cổ",
+                icon: "🔱",
+                tier: 3,
+                mpCost: 42,
+                cd: 190,
+                range: 5,
+                effect: "weaken",
+                effectDur: 250,
+                effectVal: 0.7,
+                desc: "Kim cổ giảm sát thương địch",
+              },
+            ],
+            [
+              {
+                id: "van_kiem",
+                name: "Vạn Kiếm Quy Tông",
+                icon: "🌟",
+                tier: 4,
+                mpCost: 75,
+                cd: 380,
+                range: 10,
+                aoe: true,
+                aoeR: 6,
+                effect: "bleed",
+                effectDur: 360,
+                effectVal: 8,
+                desc: "Tuyệt kỹ kim hệ - vạn kiếm",
+              },
+              {
+                id: "kim_long",
+                name: "Kim Long Quyền",
+                icon: "👊",
+                tier: 4,
+                mpCost: 70,
+                cd: 350,
+                range: 4,
+                effect: "stun",
+                effectDur: 90,
+                effectVal: 0,
+                desc: "Kim Long Quyền choáng địch",
+              },
+            ],
           ],
-          MOC:[
-            [{ id:"moc_thich",    name:"Mộc Thích",        icon:"🌿", tier:1, mpCost:12, cd:65,  range:5, effect:"poison",   effectDur:200, effectVal:2,  desc:"Gai mộc gây trúng độc" },
-             { id:"cay_cu",       name:"Cổ Thụ Giáng",     icon:"🌳", tier:1, mpCost:15, cd:80,  range:4, effect:null,       effectDur:0,   effectVal:0,  desc:"Cành cổ thụ giáng xuống" }],
-            [{ id:"moc_troi",     name:"Linh Mộc Trói",    icon:"🌱", tier:2, mpCost:24, cd:120, range:6, effect:"root",     effectDur:180, effectVal:0,  desc:"Rễ cây trói chân địch" },
-             { id:"doc_moc",      name:"Độc Mộc Vân",      icon:"☠️", tier:2, mpCost:26, cd:115, range:5, aoe:true, aoeR:3, effect:"poison",   effectDur:300, effectVal:4,  desc:"Đám mây độc từ mộc" }],
-            [{ id:"moc_tri_lanh", name:"Linh Mộc Trị Lành",icon:"💚", tier:3, mpCost:40, cd:200, range:0, effect:"heal",     effectDur:0,   effectVal:0,  desc:"Linh mộc chữa lành bản thân" },
-             { id:"cao_thu_bao",  name:"Cổ Thụ Bão",       icon:"🌪️", tier:3, mpCost:44, cd:190, range:7, aoe:true, aoeR:4, effect:"root",     effectDur:150, effectVal:0,  desc:"Bão mộc trói diện rộng" }],
-            [{ id:"van_moc",      name:"Vạn Mộc Trưởng",   icon:"🌲", tier:4, mpCost:72, cd:370, range:9, aoe:true, aoeR:6, effect:"poison",   effectDur:480, effectVal:10, desc:"Tuyệt kỹ mộc hệ" },
-             { id:"moc_long",     name:"Mộc Long Xuất Thế", icon:"🐲",tier:4, mpCost:80, cd:400, range:7, effect:"root",     effectDur:360, effectVal:0,  desc:"Long mộc trói và tàn sát" }],
+          MOC: [
+            [
+              {
+                id: "moc_thich",
+                name: "Mộc Thích",
+                icon: "🌿",
+                tier: 1,
+                mpCost: 12,
+                cd: 65,
+                range: 5,
+                effect: "poison",
+                effectDur: 200,
+                effectVal: 2,
+                desc: "Gai mộc gây trúng độc",
+              },
+              {
+                id: "cay_cu",
+                name: "Cổ Thụ Giáng",
+                icon: "🌳",
+                tier: 1,
+                mpCost: 15,
+                cd: 80,
+                range: 4,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Cành cổ thụ giáng xuống",
+              },
+            ],
+            [
+              {
+                id: "moc_troi",
+                name: "Linh Mộc Trói",
+                icon: "🌱",
+                tier: 2,
+                mpCost: 24,
+                cd: 120,
+                range: 6,
+                effect: "root",
+                effectDur: 180,
+                effectVal: 0,
+                desc: "Rễ cây trói chân địch",
+              },
+              {
+                id: "doc_moc",
+                name: "Độc Mộc Vân",
+                icon: "☠️",
+                tier: 2,
+                mpCost: 26,
+                cd: 115,
+                range: 5,
+                aoe: true,
+                aoeR: 3,
+                effect: "poison",
+                effectDur: 300,
+                effectVal: 4,
+                desc: "Đám mây độc từ mộc",
+              },
+            ],
+            [
+              {
+                id: "moc_tri_lanh",
+                name: "Linh Mộc Trị Lành",
+                icon: "💚",
+                tier: 3,
+                mpCost: 40,
+                cd: 200,
+                range: 0,
+                effect: "heal",
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Linh mộc chữa lành bản thân",
+              },
+              {
+                id: "cao_thu_bao",
+                name: "Cổ Thụ Bão",
+                icon: "🌪️",
+                tier: 3,
+                mpCost: 44,
+                cd: 190,
+                range: 7,
+                aoe: true,
+                aoeR: 4,
+                effect: "root",
+                effectDur: 150,
+                effectVal: 0,
+                desc: "Bão mộc trói diện rộng",
+              },
+            ],
+            [
+              {
+                id: "van_moc",
+                name: "Vạn Mộc Trưởng",
+                icon: "🌲",
+                tier: 4,
+                mpCost: 72,
+                cd: 370,
+                range: 9,
+                aoe: true,
+                aoeR: 6,
+                effect: "poison",
+                effectDur: 480,
+                effectVal: 10,
+                desc: "Tuyệt kỹ mộc hệ",
+              },
+              {
+                id: "moc_long",
+                name: "Mộc Long Xuất Thế",
+                icon: "🐲",
+                tier: 4,
+                mpCost: 80,
+                cd: 400,
+                range: 7,
+                effect: "root",
+                effectDur: 360,
+                effectVal: 0,
+                desc: "Long mộc trói và tàn sát",
+              },
+            ],
           ],
-          THUY:[
-            [{ id:"bang_tien",    name:"Băng Tiễn",        icon:"❄️", tier:1, mpCost:14, cd:70,  range:7, effect:"freeze",   effectDur:120, effectVal:0,  desc:"Tên băng đóng băng địch" },
-             { id:"han_luu",      name:"Hàn Lưu",          icon:"💧", tier:1, mpCost:12, cd:60,  range:5, effect:"slow",     effectDur:150, effectVal:0.6,desc:"Sóng băng lạnh làm chậm" }],
-            [{ id:"thuy_nguc",    name:"Thủy Ngục",        icon:"🌊", tier:2, mpCost:28, cd:130, range:5, effect:"root",     effectDur:200, effectVal:0,  desc:"Ngục thủy giam địch" },
-             { id:"bang_tran",    name:"Băng Trận",        icon:"🧊", tier:2, mpCost:24, cd:110, range:6, aoe:true, aoeR:3, effect:"slow",     effectDur:240, effectVal:0.5,desc:"Trận băng làm chậm diện rộng" }],
-            [{ id:"thien_han",    name:"Thiên Hàn Chưởng", icon:"🌨️", tier:3, mpCost:42, cd:195, range:5, effect:"freeze",   effectDur:180, effectVal:0,  desc:"Chưởng hàn đóng băng địch" },
-             { id:"bang_long",    name:"Băng Long Xuất Thủy",icon:"🐟",tier:3,mpCost:46, cd:210, range:7, aoe:true, aoeR:3, effect:"slow",     effectDur:300, effectVal:0.7,desc:"Băng long làm chậm mạnh" }],
-            [{ id:"thien_han_nhat",name:"Thiên Hàn Nhất Chưởng",icon:"☃️",tier:4,mpCost:75,cd:385,range:9,aoe:true,aoeR:6, effect:"freeze",   effectDur:360, effectVal:0,  desc:"Tuyệt kỹ thủy hệ - đóng băng toàn bộ" },
-             { id:"van_nien_bang",name:"Vạn Niên Băng",    icon:"🏔️", tier:4, mpCost:80, cd:420, range:6, effect:"freeze",   effectDur:480, effectVal:0,  desc:"Băng vĩnh hằng không tan" }],
+          THUY: [
+            [
+              {
+                id: "bang_tien",
+                name: "Băng Tiễn",
+                icon: "❄️",
+                tier: 1,
+                mpCost: 14,
+                cd: 70,
+                range: 7,
+                effect: "freeze",
+                effectDur: 120,
+                effectVal: 0,
+                desc: "Tên băng đóng băng địch",
+              },
+              {
+                id: "han_luu",
+                name: "Hàn Lưu",
+                icon: "💧",
+                tier: 1,
+                mpCost: 12,
+                cd: 60,
+                range: 5,
+                effect: "slow",
+                effectDur: 150,
+                effectVal: 0.6,
+                desc: "Sóng băng lạnh làm chậm",
+              },
+            ],
+            [
+              {
+                id: "thuy_nguc",
+                name: "Thủy Ngục",
+                icon: "🌊",
+                tier: 2,
+                mpCost: 28,
+                cd: 130,
+                range: 5,
+                effect: "root",
+                effectDur: 200,
+                effectVal: 0,
+                desc: "Ngục thủy giam địch",
+              },
+              {
+                id: "bang_tran",
+                name: "Băng Trận",
+                icon: "🧊",
+                tier: 2,
+                mpCost: 24,
+                cd: 110,
+                range: 6,
+                aoe: true,
+                aoeR: 3,
+                effect: "slow",
+                effectDur: 240,
+                effectVal: 0.5,
+                desc: "Trận băng làm chậm diện rộng",
+              },
+            ],
+            [
+              {
+                id: "thien_han",
+                name: "Thiên Hàn Chưởng",
+                icon: "🌨️",
+                tier: 3,
+                mpCost: 42,
+                cd: 195,
+                range: 5,
+                effect: "freeze",
+                effectDur: 180,
+                effectVal: 0,
+                desc: "Chưởng hàn đóng băng địch",
+              },
+              {
+                id: "bang_long",
+                name: "Băng Long Xuất Thủy",
+                icon: "🐟",
+                tier: 3,
+                mpCost: 46,
+                cd: 210,
+                range: 7,
+                aoe: true,
+                aoeR: 3,
+                effect: "slow",
+                effectDur: 300,
+                effectVal: 0.7,
+                desc: "Băng long làm chậm mạnh",
+              },
+            ],
+            [
+              {
+                id: "thien_han_nhat",
+                name: "Thiên Hàn Nhất Chưởng",
+                icon: "☃️",
+                tier: 4,
+                mpCost: 75,
+                cd: 385,
+                range: 9,
+                aoe: true,
+                aoeR: 6,
+                effect: "freeze",
+                effectDur: 360,
+                effectVal: 0,
+                desc: "Tuyệt kỹ thủy hệ - đóng băng toàn bộ",
+              },
+              {
+                id: "van_nien_bang",
+                name: "Vạn Niên Băng",
+                icon: "🏔️",
+                tier: 4,
+                mpCost: 80,
+                cd: 420,
+                range: 6,
+                effect: "freeze",
+                effectDur: 480,
+                effectVal: 0,
+                desc: "Băng vĩnh hằng không tan",
+              },
+            ],
           ],
-          THO:[
-            [{ id:"thach_tien",   name:"Thạch Tiễn",       icon:"🪨", tier:1, mpCost:12, cd:70,  range:6, effect:null,       effectDur:0,   effectVal:0,  desc:"Đá từ đất bắn ra" },
-             { id:"dia_chan_nho", name:"Tiểu Địa Chấn",    icon:"💢", tier:1, mpCost:15, cd:80,  range:3, effect:"stun",     effectDur:60,  effectVal:0,  desc:"Rung chuyển đất nhỏ gây choáng" }],
-            [{ id:"dia_chan",     name:"Đại Địa Chấn",     icon:"🌋", tier:2, mpCost:28, cd:130, range:5, aoe:true, aoeR:4, effect:"stun",     effectDur:90,  effectVal:0,  desc:"Đại địa chấn gây choáng diện rộng" },
-             { id:"tho_thuan",    name:"Thổ Phòng Thuẫn",  icon:"🛡️", tier:2, mpCost:22, cd:120, range:0, effect:"buff_def", effectDur:300, effectVal:15, desc:"Thuẫn đất tăng phòng thủ bản thân" }],
-            [{ id:"thach_la",     name:"Thạch Lạn Hoàn",   icon:"⚙️", tier:3, mpCost:40, cd:185, range:6, aoe:true, aoeR:3, effect:"stun",     effectDur:120, effectVal:0,  desc:"Trận đá cuộn gây choáng mạnh" },
-             { id:"dia_long",     name:"Địa Long",          icon:"🐊", tier:3, mpCost:45, cd:200, range:5, effect:"stun",     effectDur:150, effectVal:0,  desc:"Địa long choáng mục tiêu" }],
-            [{ id:"tho_long",     name:"Thổ Long Giáo",    icon:"🏯", tier:4, mpCost:72, cd:375, range:9, aoe:true, aoeR:7, effect:"stun",     effectDur:300, effectVal:0,  desc:"Tuyệt kỹ thổ hệ - thổ long hủy diệt" },
-             { id:"thien_dia",    name:"Thiên Địa Kiếm",   icon:"⚡", tier:4, mpCost:78, cd:400, range:8, effect:"stun",     effectDur:240, effectVal:0,  desc:"Kiếm đất trời hỗn độn" }],
+          THO: [
+            [
+              {
+                id: "thach_tien",
+                name: "Thạch Tiễn",
+                icon: "🪨",
+                tier: 1,
+                mpCost: 12,
+                cd: 70,
+                range: 6,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Đá từ đất bắn ra",
+              },
+              {
+                id: "dia_chan_nho",
+                name: "Tiểu Địa Chấn",
+                icon: "💢",
+                tier: 1,
+                mpCost: 15,
+                cd: 80,
+                range: 3,
+                effect: "stun",
+                effectDur: 60,
+                effectVal: 0,
+                desc: "Rung chuyển đất nhỏ gây choáng",
+              },
+            ],
+            [
+              {
+                id: "dia_chan",
+                name: "Đại Địa Chấn",
+                icon: "🌋",
+                tier: 2,
+                mpCost: 28,
+                cd: 130,
+                range: 5,
+                aoe: true,
+                aoeR: 4,
+                effect: "stun",
+                effectDur: 90,
+                effectVal: 0,
+                desc: "Đại địa chấn gây choáng diện rộng",
+              },
+              {
+                id: "tho_thuan",
+                name: "Thổ Phòng Thuẫn",
+                icon: "🛡️",
+                tier: 2,
+                mpCost: 22,
+                cd: 120,
+                range: 0,
+                effect: "buff_def",
+                effectDur: 300,
+                effectVal: 15,
+                desc: "Thuẫn đất tăng phòng thủ bản thân",
+              },
+            ],
+            [
+              {
+                id: "thach_la",
+                name: "Thạch Lạn Hoàn",
+                icon: "⚙️",
+                tier: 3,
+                mpCost: 40,
+                cd: 185,
+                range: 6,
+                aoe: true,
+                aoeR: 3,
+                effect: "stun",
+                effectDur: 120,
+                effectVal: 0,
+                desc: "Trận đá cuộn gây choáng mạnh",
+              },
+              {
+                id: "dia_long",
+                name: "Địa Long",
+                icon: "🐊",
+                tier: 3,
+                mpCost: 45,
+                cd: 200,
+                range: 5,
+                effect: "stun",
+                effectDur: 150,
+                effectVal: 0,
+                desc: "Địa long choáng mục tiêu",
+              },
+            ],
+            [
+              {
+                id: "tho_long",
+                name: "Thổ Long Giáo",
+                icon: "🏯",
+                tier: 4,
+                mpCost: 72,
+                cd: 375,
+                range: 9,
+                aoe: true,
+                aoeR: 7,
+                effect: "stun",
+                effectDur: 300,
+                effectVal: 0,
+                desc: "Tuyệt kỹ thổ hệ - thổ long hủy diệt",
+              },
+              {
+                id: "thien_dia",
+                name: "Thiên Địa Kiếm",
+                icon: "⚡",
+                tier: 4,
+                mpCost: 78,
+                cd: 400,
+                range: 8,
+                effect: "stun",
+                effectDur: 240,
+                effectVal: 0,
+                desc: "Kiếm đất trời hỗn độn",
+              },
+            ],
           ],
-          QUANG:[
-            [{ id:"quang_tien",   name:"Quang Tiễn",       icon:"✨", tier:1, mpCost:12, cd:55,  range:8, effect:null,       effectDur:0,   effectVal:0,  desc:"Tên sáng tốc độ tối cao" },
-             { id:"thanh_quang_t",name:"Thánh Quang Tiễn", icon:"💫", tier:1, mpCost:14, cd:65,  range:7, effect:"weaken",   effectDur:120, effectVal:0.85,desc:"Thánh quang suy yếu địch" }],
-            [{ id:"quang_tri",    name:"Thánh Quang Trị",  icon:"💛", tier:2, mpCost:25, cd:130, range:0, effect:"heal",     effectDur:0,   effectVal:0,  desc:"Ánh sáng thánh chữa lành" },
-             { id:"quang_thuan",  name:"Quang Thuẫn",      icon:"🌟", tier:2, mpCost:22, cd:120, range:0, effect:"buff_atk", effectDur:240, effectVal:10, desc:"Thuẫn quang tăng tấn công" }],
-            [{ id:"quang_bom",    name:"Thánh Quang Bom",  icon:"💥", tier:3, mpCost:44, cd:195, range:7, aoe:true, aoeR:4, effect:"weaken",   effectDur:240, effectVal:0.8,desc:"Bom thánh quang diện rộng" },
-             { id:"quang_toc",    name:"Tốc Độ Quang",     icon:"⚡", tier:3, mpCost:40, cd:180, range:0, effect:"buff_spd", effectDur:300, effectVal:2,  desc:"Tốc độ ánh sáng tăng di chuyển" }],
-            [{ id:"thien_quang",  name:"Thiên Quang Phán", icon:"☀️", tier:4, mpCost:78, cd:390, range:10,aoe:true, aoeR:7, effect:"weaken",   effectDur:480, effectVal:0.6,desc:"Tuyệt kỹ quang hệ - thiên quang phán tội" },
-             { id:"quang_than",   name:"Quang Thần Phù",   icon:"🔆", tier:4, mpCost:70, cd:360, range:0, aoe:false,        effect:"buff_def", effectDur:360, effectVal:20, desc:"Phù quang bảo vệ mạnh" }],
+          QUANG: [
+            [
+              {
+                id: "quang_tien",
+                name: "Quang Tiễn",
+                icon: "✨",
+                tier: 1,
+                mpCost: 12,
+                cd: 55,
+                range: 8,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Tên sáng tốc độ tối cao",
+              },
+              {
+                id: "thanh_quang_t",
+                name: "Thánh Quang Tiễn",
+                icon: "💫",
+                tier: 1,
+                mpCost: 14,
+                cd: 65,
+                range: 7,
+                effect: "weaken",
+                effectDur: 120,
+                effectVal: 0.85,
+                desc: "Thánh quang suy yếu địch",
+              },
+            ],
+            [
+              {
+                id: "quang_tri",
+                name: "Thánh Quang Trị",
+                icon: "💛",
+                tier: 2,
+                mpCost: 25,
+                cd: 130,
+                range: 0,
+                effect: "heal",
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Ánh sáng thánh chữa lành",
+              },
+              {
+                id: "quang_thuan",
+                name: "Quang Thuẫn",
+                icon: "🌟",
+                tier: 2,
+                mpCost: 22,
+                cd: 120,
+                range: 0,
+                effect: "buff_atk",
+                effectDur: 240,
+                effectVal: 10,
+                desc: "Thuẫn quang tăng tấn công",
+              },
+            ],
+            [
+              {
+                id: "quang_bom",
+                name: "Thánh Quang Bom",
+                icon: "💥",
+                tier: 3,
+                mpCost: 44,
+                cd: 195,
+                range: 7,
+                aoe: true,
+                aoeR: 4,
+                effect: "weaken",
+                effectDur: 240,
+                effectVal: 0.8,
+                desc: "Bom thánh quang diện rộng",
+              },
+              {
+                id: "quang_toc",
+                name: "Tốc Độ Quang",
+                icon: "⚡",
+                tier: 3,
+                mpCost: 40,
+                cd: 180,
+                range: 0,
+                effect: "buff_spd",
+                effectDur: 300,
+                effectVal: 2,
+                desc: "Tốc độ ánh sáng tăng di chuyển",
+              },
+            ],
+            [
+              {
+                id: "thien_quang",
+                name: "Thiên Quang Phán",
+                icon: "☀️",
+                tier: 4,
+                mpCost: 78,
+                cd: 390,
+                range: 10,
+                aoe: true,
+                aoeR: 7,
+                effect: "weaken",
+                effectDur: 480,
+                effectVal: 0.6,
+                desc: "Tuyệt kỹ quang hệ - thiên quang phán tội",
+              },
+              {
+                id: "quang_than",
+                name: "Quang Thần Phù",
+                icon: "🔆",
+                tier: 4,
+                mpCost: 70,
+                cd: 360,
+                range: 0,
+                aoe: false,
+                effect: "buff_def",
+                effectDur: 360,
+                effectVal: 20,
+                desc: "Phù quang bảo vệ mạnh",
+              },
+            ],
           ],
-          AM:[
-            [{ id:"am_tien",      name:"Ám Tiễn",          icon:"🌑", tier:1, mpCost:13, cd:65,  range:6, effect:"weaken",   effectDur:130, effectVal:0.85,desc:"Tên tối suy yếu địch" },
-             { id:"bong_toi",     name:"Bóng Tối",         icon:"🌒", tier:1, mpCost:12, cd:70,  range:5, effect:null,       effectDur:0,   effectVal:0,  desc:"Bóng tối tấn công mục tiêu" }],
-            [{ id:"am_thon",      name:"Ám Thôn Sinh",     icon:"💀", tier:2, mpCost:26, cd:120, range:5, effect:"drain",    effectDur:180, effectVal:5,  desc:"Hút hấp sinh lực địch về ta" },
-             { id:"am_hoa",       name:"Âm Hóa",           icon:"🌘", tier:2, mpCost:22, cd:115, range:4, effect:"weaken",   effectDur:240, effectVal:0.7,desc:"Ám hóa làm suy yếu nặng" }],
-            [{ id:"am_toc",       name:"Cửu U Thần Tốc",   icon:"🌚", tier:3, mpCost:42, cd:190, range:0, effect:"buff_spd", effectDur:360, effectVal:3,  desc:"Tốc độ bóng tối cực nhanh" },
-             { id:"am_thon2",     name:"Ám Không Thôn",    icon:"⚫", tier:3, mpCost:46, cd:200, range:7, effect:"drain",    effectDur:300, effectVal:8,  desc:"Ám khống hút toàn bộ sinh lực" }],
-            [{ id:"cuu_u_minh",   name:"Cửu U Minh Hỏa",  icon:"🔴", tier:4, mpCost:80, cd:400, range:8, aoe:true, aoeR:5, effect:"drain",    effectDur:480, effectVal:12, desc:"Tuyệt kỹ âm hệ - lửa địa ngục" },
-             { id:"am_long",      name:"Ám Long Minh",     icon:"🐍", tier:4, mpCost:75, cd:380, range:6, effect:"weaken",   effectDur:420, effectVal:0.5,desc:"Ám long suy yếu toàn diện" }],
+          AM: [
+            [
+              {
+                id: "am_tien",
+                name: "Ám Tiễn",
+                icon: "🌑",
+                tier: 1,
+                mpCost: 13,
+                cd: 65,
+                range: 6,
+                effect: "weaken",
+                effectDur: 130,
+                effectVal: 0.85,
+                desc: "Tên tối suy yếu địch",
+              },
+              {
+                id: "bong_toi",
+                name: "Bóng Tối",
+                icon: "🌒",
+                tier: 1,
+                mpCost: 12,
+                cd: 70,
+                range: 5,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Bóng tối tấn công mục tiêu",
+              },
+            ],
+            [
+              {
+                id: "am_thon",
+                name: "Ám Thôn Sinh",
+                icon: "💀",
+                tier: 2,
+                mpCost: 26,
+                cd: 120,
+                range: 5,
+                effect: "drain",
+                effectDur: 180,
+                effectVal: 5,
+                desc: "Hút hấp sinh lực địch về ta",
+              },
+              {
+                id: "am_hoa",
+                name: "Âm Hóa",
+                icon: "🌘",
+                tier: 2,
+                mpCost: 22,
+                cd: 115,
+                range: 4,
+                effect: "weaken",
+                effectDur: 240,
+                effectVal: 0.7,
+                desc: "Ám hóa làm suy yếu nặng",
+              },
+            ],
+            [
+              {
+                id: "am_toc",
+                name: "Cửu U Thần Tốc",
+                icon: "🌚",
+                tier: 3,
+                mpCost: 42,
+                cd: 190,
+                range: 0,
+                effect: "buff_spd",
+                effectDur: 360,
+                effectVal: 3,
+                desc: "Tốc độ bóng tối cực nhanh",
+              },
+              {
+                id: "am_thon2",
+                name: "Ám Không Thôn",
+                icon: "⚫",
+                tier: 3,
+                mpCost: 46,
+                cd: 200,
+                range: 7,
+                effect: "drain",
+                effectDur: 300,
+                effectVal: 8,
+                desc: "Ám khống hút toàn bộ sinh lực",
+              },
+            ],
+            [
+              {
+                id: "cuu_u_minh",
+                name: "Cửu U Minh Hỏa",
+                icon: "🔴",
+                tier: 4,
+                mpCost: 80,
+                cd: 400,
+                range: 8,
+                aoe: true,
+                aoeR: 5,
+                effect: "drain",
+                effectDur: 480,
+                effectVal: 12,
+                desc: "Tuyệt kỹ âm hệ - lửa địa ngục",
+              },
+              {
+                id: "am_long",
+                name: "Ám Long Minh",
+                icon: "🐍",
+                tier: 4,
+                mpCost: 75,
+                cd: 380,
+                range: 6,
+                effect: "weaken",
+                effectDur: 420,
+                effectVal: 0.5,
+                desc: "Ám long suy yếu toàn diện",
+              },
+            ],
           ],
-          PHONG:[
-            [{ id:"phong_luoi",   name:"Phong Lưỡi",       icon:"💨", tier:1, mpCost:11, cd:55,  range:7, effect:null,       effectDur:0,   effectVal:0,  desc:"Lưỡi gió tốc độ nhanh" },
-             { id:"phong_tien",   name:"Phong Tiễn",       icon:"🌬️", tier:1, mpCost:13, cd:65,  range:8, effect:"slow",     effectDur:120, effectVal:0.7,desc:"Tên gió thổi chậm địch" }],
-            [{ id:"trien_phong",  name:"Triền Phong",      icon:"🌀", tier:2, mpCost:24, cd:110, range:5, aoe:true, aoeR:2, effect:"slow",     effectDur:180, effectVal:0.6,desc:"Xoáy gió nhiều đòn" },
-             { id:"phong_than_bo",name:"Phong Thần Bộ",    icon:"👟", tier:2, mpCost:20, cd:120, range:0, effect:"buff_spd", effectDur:300, effectVal:2,  desc:"Bộ pháp thần phong tăng tốc" }],
-            [{ id:"phong_long",   name:"Phong Long Vũ",    icon:"🌪️", tier:3, mpCost:44, cd:195, range:7, aoe:true, aoeR:4, effect:"slow",     effectDur:360, effectVal:0.5,desc:"Phong long múa làm chậm diện rộng" },
-             { id:"cuong_phong_t",name:"Cuồng Phong Thiết",icon:"⚡", tier:3, mpCost:42, cd:185, range:6, effect:null,       effectDur:0,   effectVal:0,  desc:"Gió điên cuồng đánh nhiều đòn" }],
-            [{ id:"cuong_phong",  name:"Cuồng Phong Tứ Diệt",icon:"🌊",tier:4,mpCost:74,cd:380, range:9, aoe:true, aoeR:6, effect:"slow",     effectDur:480, effectVal:0.4,desc:"Tuyệt kỹ phong hệ - cuồng phong bốn phương" },
-             { id:"thien_phong",  name:"Thiên Phong Đao",  icon:"🗡️", tier:4, mpCost:78, cd:400, range:8, effect:null,       effectDur:0,   effectVal:0,  desc:"Thiên phong đao tốc độ ánh sáng" }],
+          PHONG: [
+            [
+              {
+                id: "phong_luoi",
+                name: "Phong Lưỡi",
+                icon: "💨",
+                tier: 1,
+                mpCost: 11,
+                cd: 55,
+                range: 7,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Lưỡi gió tốc độ nhanh",
+              },
+              {
+                id: "phong_tien",
+                name: "Phong Tiễn",
+                icon: "🌬️",
+                tier: 1,
+                mpCost: 13,
+                cd: 65,
+                range: 8,
+                effect: "slow",
+                effectDur: 120,
+                effectVal: 0.7,
+                desc: "Tên gió thổi chậm địch",
+              },
+            ],
+            [
+              {
+                id: "trien_phong",
+                name: "Triền Phong",
+                icon: "🌀",
+                tier: 2,
+                mpCost: 24,
+                cd: 110,
+                range: 5,
+                aoe: true,
+                aoeR: 2,
+                effect: "slow",
+                effectDur: 180,
+                effectVal: 0.6,
+                desc: "Xoáy gió nhiều đòn",
+              },
+              {
+                id: "phong_than_bo",
+                name: "Phong Thần Bộ",
+                icon: "👟",
+                tier: 2,
+                mpCost: 20,
+                cd: 120,
+                range: 0,
+                effect: "buff_spd",
+                effectDur: 300,
+                effectVal: 2,
+                desc: "Bộ pháp thần phong tăng tốc",
+              },
+            ],
+            [
+              {
+                id: "phong_long",
+                name: "Phong Long Vũ",
+                icon: "🌪️",
+                tier: 3,
+                mpCost: 44,
+                cd: 195,
+                range: 7,
+                aoe: true,
+                aoeR: 4,
+                effect: "slow",
+                effectDur: 360,
+                effectVal: 0.5,
+                desc: "Phong long múa làm chậm diện rộng",
+              },
+              {
+                id: "cuong_phong_t",
+                name: "Cuồng Phong Thiết",
+                icon: "⚡",
+                tier: 3,
+                mpCost: 42,
+                cd: 185,
+                range: 6,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Gió điên cuồng đánh nhiều đòn",
+              },
+            ],
+            [
+              {
+                id: "cuong_phong",
+                name: "Cuồng Phong Tứ Diệt",
+                icon: "🌊",
+                tier: 4,
+                mpCost: 74,
+                cd: 380,
+                range: 9,
+                aoe: true,
+                aoeR: 6,
+                effect: "slow",
+                effectDur: 480,
+                effectVal: 0.4,
+                desc: "Tuyệt kỹ phong hệ - cuồng phong bốn phương",
+              },
+              {
+                id: "thien_phong",
+                name: "Thiên Phong Đao",
+                icon: "🗡️",
+                tier: 4,
+                mpCost: 78,
+                cd: 400,
+                range: 8,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Thiên phong đao tốc độ ánh sáng",
+              },
+            ],
           ],
-          LOI:[
-            [{ id:"loi_dinh",     name:"Lôi Đình",         icon:"⚡", tier:1, mpCost:16, cd:75,  range:6, effect:"stun",     effectDur:60,  effectVal:0,  desc:"Sét đánh choáng địch" },
-             { id:"loi_cau",      name:"Lôi Cầu",          icon:"🌩️", tier:1, mpCost:14, cd:70,  range:7, effect:null,       effectDur:0,   effectVal:0,  desc:"Cầu sét điện" }],
-            [{ id:"loi_bao",      name:"Lôi Báo",          icon:"🌪️", tier:2, mpCost:26, cd:120, range:5, aoe:true, aoeR:3, effect:"stun",     effectDur:90,  effectVal:0,  desc:"Báo sét bùng nổ" },
-             { id:"loi_hoan",     name:"Lôi Thần Hoàn",    icon:"🔃", tier:2, mpCost:24, cd:115, range:6, effect:"stun",     effectDur:80,  effectVal:0,  desc:"Hoàn sét xoay choáng" }],
-            [{ id:"thien_loi_ho", name:"Thiên Lôi Hộ Thể", icon:"🛡️", tier:3, mpCost:42, cd:200, range:0, effect:"buff_atk", effectDur:300, effectVal:15, desc:"Lôi điện bảo vệ thân tăng tấn công" },
-             { id:"van_loi",      name:"Vạn Lôi Giáng",    icon:"⛈️", tier:3, mpCost:46, cd:195, range:7, aoe:true, aoeR:4, effect:"stun",     effectDur:120, effectVal:0,  desc:"Vạn lôi đổ xuống" }],
-            [{ id:"cuu_thien_loi",name:"Cửu Thiên Thần Lôi",icon:"🌟",tier:4,mpCost:82, cd:410, range:10,aoe:true, aoeR:7, effect:"stun",     effectDur:300, effectVal:0,  desc:"Tuyệt kỹ lôi hệ - thần lôi cửu thiên" },
-             { id:"loi_de",       name:"Lôi Đế Thần Chưởng",icon:"👊",tier:4,mpCost:76, cd:390, range:5, effect:"stun",     effectDur:360, effectVal:0,  desc:"Chưởng lôi đế thần" }],
+          LOI: [
+            [
+              {
+                id: "loi_dinh",
+                name: "Lôi Đình",
+                icon: "⚡",
+                tier: 1,
+                mpCost: 16,
+                cd: 75,
+                range: 6,
+                effect: "stun",
+                effectDur: 60,
+                effectVal: 0,
+                desc: "Sét đánh choáng địch",
+              },
+              {
+                id: "loi_cau",
+                name: "Lôi Cầu",
+                icon: "🌩️",
+                tier: 1,
+                mpCost: 14,
+                cd: 70,
+                range: 7,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Cầu sét điện",
+              },
+            ],
+            [
+              {
+                id: "loi_bao",
+                name: "Lôi Báo",
+                icon: "🌪️",
+                tier: 2,
+                mpCost: 26,
+                cd: 120,
+                range: 5,
+                aoe: true,
+                aoeR: 3,
+                effect: "stun",
+                effectDur: 90,
+                effectVal: 0,
+                desc: "Báo sét bùng nổ",
+              },
+              {
+                id: "loi_hoan",
+                name: "Lôi Thần Hoàn",
+                icon: "🔃",
+                tier: 2,
+                mpCost: 24,
+                cd: 115,
+                range: 6,
+                effect: "stun",
+                effectDur: 80,
+                effectVal: 0,
+                desc: "Hoàn sét xoay choáng",
+              },
+            ],
+            [
+              {
+                id: "thien_loi_ho",
+                name: "Thiên Lôi Hộ Thể",
+                icon: "🛡️",
+                tier: 3,
+                mpCost: 42,
+                cd: 200,
+                range: 0,
+                effect: "buff_atk",
+                effectDur: 300,
+                effectVal: 15,
+                desc: "Lôi điện bảo vệ thân tăng tấn công",
+              },
+              {
+                id: "van_loi",
+                name: "Vạn Lôi Giáng",
+                icon: "⛈️",
+                tier: 3,
+                mpCost: 46,
+                cd: 195,
+                range: 7,
+                aoe: true,
+                aoeR: 4,
+                effect: "stun",
+                effectDur: 120,
+                effectVal: 0,
+                desc: "Vạn lôi đổ xuống",
+              },
+            ],
+            [
+              {
+                id: "cuu_thien_loi",
+                name: "Cửu Thiên Thần Lôi",
+                icon: "🌟",
+                tier: 4,
+                mpCost: 82,
+                cd: 410,
+                range: 10,
+                aoe: true,
+                aoeR: 7,
+                effect: "stun",
+                effectDur: 300,
+                effectVal: 0,
+                desc: "Tuyệt kỹ lôi hệ - thần lôi cửu thiên",
+              },
+              {
+                id: "loi_de",
+                name: "Lôi Đế Thần Chưởng",
+                icon: "👊",
+                tier: 4,
+                mpCost: 76,
+                cd: 390,
+                range: 5,
+                effect: "stun",
+                effectDur: 360,
+                effectVal: 0,
+                desc: "Chưởng lôi đế thần",
+              },
+            ],
           ],
-          THOI_GIAN:[
-            [{ id:"hoan_thoi",    name:"Hoàn Thời",        icon:"⏪", tier:1, mpCost:15, cd:75,  range:5, effect:"slow",     effectDur:180, effectVal:0.5,desc:"Cuộn ngược thời gian làm chậm địch" },
-             { id:"thi_gian",     name:"Thời Gian Thị",    icon:"⏱️", tier:1, mpCost:12, cd:65,  range:7, effect:null,       effectDur:0,   effectVal:0,  desc:"Nhìn thấy thời gian giáng đòn" }],
-            [{ id:"tg_tinh_chi",  name:"Thời Gian Tĩnh Chỉ",icon:"⏸️",tier:2,mpCost:30, cd:140, range:4, effect:"freeze",   effectDur:150, effectVal:0,  desc:"Dừng thời gian quanh mục tiêu" },
-             { id:"qua_khu",      name:"Quá Khứ Tốc",      icon:"⏩", tier:2, mpCost:22, cd:120, range:0, effect:"buff_spd", effectDur:300, effectVal:2.5,desc:"Tốc độ về quá khứ" }],
-            [{ id:"gia_toc",      name:"Gia Tốc Thần",     icon:"🚀", tier:3, mpCost:44, cd:200, range:0, effect:"buff_atk", effectDur:360, effectVal:20, desc:"Gia tốc thần tăng công đến tột cùng" },
-             { id:"lui_tg",       name:"Lui Thời Gian",     icon:"⏮️", tier:3, mpCost:40, cd:190, range:5, aoe:true, aoeR:3, effect:"slow",     effectDur:300, effectVal:0.3,desc:"Đảo ngược thời gian khu vực" }],
-            [{ id:"vinh_hang",    name:"Vĩnh Hằng Đình Lưu",icon:"⏳",tier:4,mpCost:85, cd:420, range:8, aoe:true, aoeR:7, effect:"freeze",   effectDur:480, effectVal:0,  desc:"Tuyệt kỹ thời gian - vĩnh hằng đóng băng" },
-             { id:"tg_quay",      name:"Thời Gian Quay Ngược",icon:"🔄",tier:4,mpCost:80,cd:400,range:5, effect:"freeze",   effectDur:360, effectVal:0,  desc:"Quay ngược thời gian phong ấn địch" }],
+          THOI_GIAN: [
+            [
+              {
+                id: "hoan_thoi",
+                name: "Hoàn Thời",
+                icon: "⏪",
+                tier: 1,
+                mpCost: 15,
+                cd: 75,
+                range: 5,
+                effect: "slow",
+                effectDur: 180,
+                effectVal: 0.5,
+                desc: "Cuộn ngược thời gian làm chậm địch",
+              },
+              {
+                id: "thi_gian",
+                name: "Thời Gian Thị",
+                icon: "⏱️",
+                tier: 1,
+                mpCost: 12,
+                cd: 65,
+                range: 7,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Nhìn thấy thời gian giáng đòn",
+              },
+            ],
+            [
+              {
+                id: "tg_tinh_chi",
+                name: "Thời Gian Tĩnh Chỉ",
+                icon: "⏸️",
+                tier: 2,
+                mpCost: 30,
+                cd: 140,
+                range: 4,
+                effect: "freeze",
+                effectDur: 150,
+                effectVal: 0,
+                desc: "Dừng thời gian quanh mục tiêu",
+              },
+              {
+                id: "qua_khu",
+                name: "Quá Khứ Tốc",
+                icon: "⏩",
+                tier: 2,
+                mpCost: 22,
+                cd: 120,
+                range: 0,
+                effect: "buff_spd",
+                effectDur: 300,
+                effectVal: 2.5,
+                desc: "Tốc độ về quá khứ",
+              },
+            ],
+            [
+              {
+                id: "gia_toc",
+                name: "Gia Tốc Thần",
+                icon: "🚀",
+                tier: 3,
+                mpCost: 44,
+                cd: 200,
+                range: 0,
+                effect: "buff_atk",
+                effectDur: 360,
+                effectVal: 20,
+                desc: "Gia tốc thần tăng công đến tột cùng",
+              },
+              {
+                id: "lui_tg",
+                name: "Lui Thời Gian",
+                icon: "⏮️",
+                tier: 3,
+                mpCost: 40,
+                cd: 190,
+                range: 5,
+                aoe: true,
+                aoeR: 3,
+                effect: "slow",
+                effectDur: 300,
+                effectVal: 0.3,
+                desc: "Đảo ngược thời gian khu vực",
+              },
+            ],
+            [
+              {
+                id: "vinh_hang",
+                name: "Vĩnh Hằng Đình Lưu",
+                icon: "⏳",
+                tier: 4,
+                mpCost: 85,
+                cd: 420,
+                range: 8,
+                aoe: true,
+                aoeR: 7,
+                effect: "freeze",
+                effectDur: 480,
+                effectVal: 0,
+                desc: "Tuyệt kỹ thời gian - vĩnh hằng đóng băng",
+              },
+              {
+                id: "tg_quay",
+                name: "Thời Gian Quay Ngược",
+                icon: "🔄",
+                tier: 4,
+                mpCost: 80,
+                cd: 400,
+                range: 5,
+                effect: "freeze",
+                effectDur: 360,
+                effectVal: 0,
+                desc: "Quay ngược thời gian phong ấn địch",
+              },
+            ],
           ],
-          KHONG_GIAN:[
-            [{ id:"kg_cat",       name:"Không Gian Phân Cắt",icon:"🌌",tier:1,mpCost:14, cd:68,  range:7, effect:null,       effectDur:0,   effectVal:0,  desc:"Cắt không gian xuyên phá phòng thủ" },
-             { id:"hu_khong",     name:"Hư Không Tiễn",    icon:"✦",  tier:1, mpCost:12, cd:60,  range:8, effect:null,       effectDur:0,   effectVal:0,  desc:"Tên từ hư không xuất hiện" }],
-            [{ id:"kg_truyen",    name:"Hư Không Truyền Tống",icon:"🌀",tier:2,mpCost:24,cd:120, range:0, effect:"buff_spd", effectDur:120, effectVal:5,  desc:"Truyền tống qua không gian bùng tốc" },
-             { id:"kg_phong",     name:"Không Gian Phong Tỏa",icon:"🔒",tier:2,mpCost:28,cd:130,range:6, effect:"root",     effectDur:240, effectVal:0,  desc:"Phong tỏa không gian trói địch" }],
-            [{ id:"kg_vo",        name:"Không Gian Vỡ",    icon:"💢", tier:3, mpCost:46, cd:200, range:6, aoe:true, aoeR:3, effect:"weaken",   effectDur:300, effectVal:0.7,desc:"Vỡ không gian suy yếu toàn bộ" },
-             { id:"kg_chiem",     name:"Không Gian Chiếm Đóng",icon:"🗺️",tier:3,mpCost:42,cd:190,range:5,effect:"root",   effectDur:300, effectVal:0,  desc:"Chiếm không gian khóa chân địch" }],
-            [{ id:"van_gioi",     name:"Vạn Giới Quy Hư",  icon:"⭕", tier:4, mpCost:80, cd:400, range:11,aoe:true, aoeR:8, effect:"weaken",   effectDur:600, effectVal:0.5,desc:"Tuyệt kỹ không gian - vạn giới về hư không" },
-             { id:"kg_dao",       name:"Không Gian Đảo Lộn",icon:"🔀",tier:4,mpCost:78, cd:390, range:8, aoe:true, aoeR:5, effect:"root",     effectDur:480, effectVal:0,  desc:"Đảo lộn không gian trói vĩnh cửu" }],
+          KHONG_GIAN: [
+            [
+              {
+                id: "kg_cat",
+                name: "Không Gian Phân Cắt",
+                icon: "🌌",
+                tier: 1,
+                mpCost: 14,
+                cd: 68,
+                range: 7,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Cắt không gian xuyên phá phòng thủ",
+              },
+              {
+                id: "hu_khong",
+                name: "Hư Không Tiễn",
+                icon: "✦",
+                tier: 1,
+                mpCost: 12,
+                cd: 60,
+                range: 8,
+                effect: null,
+                effectDur: 0,
+                effectVal: 0,
+                desc: "Tên từ hư không xuất hiện",
+              },
+            ],
+            [
+              {
+                id: "kg_truyen",
+                name: "Hư Không Truyền Tống",
+                icon: "🌀",
+                tier: 2,
+                mpCost: 24,
+                cd: 120,
+                range: 0,
+                effect: "buff_spd",
+                effectDur: 120,
+                effectVal: 5,
+                desc: "Truyền tống qua không gian bùng tốc",
+              },
+              {
+                id: "kg_phong",
+                name: "Không Gian Phong Tỏa",
+                icon: "🔒",
+                tier: 2,
+                mpCost: 28,
+                cd: 130,
+                range: 6,
+                effect: "root",
+                effectDur: 240,
+                effectVal: 0,
+                desc: "Phong tỏa không gian trói địch",
+              },
+            ],
+            [
+              {
+                id: "kg_vo",
+                name: "Không Gian Vỡ",
+                icon: "💢",
+                tier: 3,
+                mpCost: 46,
+                cd: 200,
+                range: 6,
+                aoe: true,
+                aoeR: 3,
+                effect: "weaken",
+                effectDur: 300,
+                effectVal: 0.7,
+                desc: "Vỡ không gian suy yếu toàn bộ",
+              },
+              {
+                id: "kg_chiem",
+                name: "Không Gian Chiếm Đóng",
+                icon: "🗺️",
+                tier: 3,
+                mpCost: 42,
+                cd: 190,
+                range: 5,
+                effect: "root",
+                effectDur: 300,
+                effectVal: 0,
+                desc: "Chiếm không gian khóa chân địch",
+              },
+            ],
+            [
+              {
+                id: "van_gioi",
+                name: "Vạn Giới Quy Hư",
+                icon: "⭕",
+                tier: 4,
+                mpCost: 80,
+                cd: 400,
+                range: 11,
+                aoe: true,
+                aoeR: 8,
+                effect: "weaken",
+                effectDur: 600,
+                effectVal: 0.5,
+                desc: "Tuyệt kỹ không gian - vạn giới về hư không",
+              },
+              {
+                id: "kg_dao",
+                name: "Không Gian Đảo Lộn",
+                icon: "🔀",
+                tier: 4,
+                mpCost: 78,
+                cd: 390,
+                range: 8,
+                aoe: true,
+                aoeR: 5,
+                effect: "root",
+                effectDur: 480,
+                effectVal: 0,
+                desc: "Đảo lộn không gian trói vĩnh cửu",
+              },
+            ],
           ],
         },
       };
@@ -1064,7 +2420,8 @@
               mapCode: S.mapCode || S.player.mapCode,
               mapId: S.player.mapId || S.mapCode || S.player.mapCode,
               _event: event || null,
-              tenCanhGioi: S.player.tenCanhGioi || S.player.canhGioi?.name || "",
+              tenCanhGioi:
+                S.player.tenCanhGioi || S.player.canhGioi?.name || "",
               trangBi,
               equip_slot: JSON.stringify(trangBi),
             };
@@ -1176,10 +2533,10 @@
 
             socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
               // Show attack effect from other player (future: find target by id)
-              UI.log(
-                `[${attackerName}] đánh quái ${damage} sát thương`,
-                "combat",
-              );
+              // UI.log(
+              //   `[${attackerName}] đánh quái ${damage} sát thương`,
+              //   "combat",
+              // );
             });
 
             socket.on("server_msg", ({ text }) => {
@@ -1353,7 +2710,8 @@
                   }
                 })()
               : playerData.trangBi || null;
-          const equipSource = parsedTrangBi ||
+          const equipSource =
+            parsedTrangBi ||
             (typeof playerData.equip_slot === "string"
               ? (() => {
                   try {
@@ -1372,16 +2730,24 @@
             ring: parseEquipSlot(equipSource?.nhan || null),
             amulet: parseEquipSlot(equipSource?.vong || null),
           };
-          const rootObject = CFG.ROOTS.find(
-            (r) => r.id === playerData.linhCan,
-          );
+          const rootObject = CFG.ROOTS.find((r) => r.id === playerData.linhCan);
           const rawSkills = (() => {
-            try { return typeof playerData.skills === "string" ? JSON.parse(playerData.skills) : playerData.skills; }
-            catch { return null; }
+            try {
+              return typeof playerData.skills === "string"
+                ? JSON.parse(playerData.skills)
+                : playerData.skills;
+            } catch {
+              return null;
+            }
           })();
-          const savedSkills = Array.isArray(rawSkills) && rawSkills.length
-            ? rawSkills.map(sk => (sk.mpTieuHao != null || sk.hoiChieu != null) ? mapBESkillToFE(sk) : { ...sk, cdLeft: 0 })
-            : null;
+          const savedSkills =
+            Array.isArray(rawSkills) && rawSkills.length
+              ? rawSkills.map((sk) =>
+                  sk.mpTieuHao != null || sk.hoiChieu != null
+                    ? mapBESkillToFE(sk)
+                    : { ...sk, cdLeft: 0 },
+                )
+              : null;
           S.player = {
             ...playerData,
             name: playerData.name,
@@ -1396,7 +2762,12 @@
             maxMp: playerData.maxMp,
             xu: playerData.xu,
             tuViHienTai: playerData.tuViHienTai || 0,
-            tuViLenCap: playerData.tuViLenCap || Cultivation.calcTuNeeded(playerData.canhGioi, playerData.tangTuVi || 1),
+            tuViLenCap:
+              playerData.tuViLenCap ||
+              Cultivation.calcTuNeeded(
+                playerData.canhGioi,
+                playerData.tangTuVi || 1,
+              ),
             tuViLinhCan: playerData.tuViLinhCan || 0,
             x: playerData.x || 26,
             y: playerData.y || 30,
@@ -1410,11 +2781,16 @@
           try {
             S.inventory = JSON.parse(playerData.jsonIventory) || [];
           } catch (e) {}
-          let map = []; //MAPS[playerData.mapCode];
-          if (!map && playerData.mapCode) {
+          let map = {}; //MAPS[playerData.mapCode];
+          if (playerData.mapCode) {
             const defaultDto = await Net.get("/api/worlds/default");
             const normalized = normalizeWorldDto(defaultDto);
-            if (normalized?.code === playerData.mapCode) map = normalized;
+            map = normalized;
+          } else {
+            const defaultDto = await Net.get(
+              `/api/worlds/by-code?code=${playerData.mapCode}`,
+            );
+            map = normalizeWorldDto(defaultDto);
           }
           if (!map) return;
           enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
@@ -1464,9 +2840,9 @@
               return false;
             }
             const data = await res.json();
-            currentUser = { id: data.userId, username: data.username };
+            currentUser = { id: data.user.id, username: data.user.username };
             document.getElementById("auth-status").textContent =
-              `Chào lại, ${data.username}!`;
+              `Chào lại, ${data.user.username}!`;
             await Auth._afterLogin();
             return true;
           } catch {
@@ -1980,10 +3356,18 @@
       function parseStringOrObj(val, fallback) {
         if (Array.isArray(val) || (val && typeof val === "object")) return val;
         if (typeof val === "string" && val.trim().startsWith("[")) {
-          try { return JSON.parse(val); } catch { return fallback; }
+          try {
+            return JSON.parse(val);
+          } catch {
+            return fallback;
+          }
         }
         if (typeof val === "string" && val.trim().startsWith("{")) {
-          try { return JSON.parse(val); } catch { return fallback; }
+          try {
+            return JSON.parse(val);
+          } catch {
+            return fallback;
+          }
         }
         return fallback;
       }
@@ -2010,9 +3394,12 @@
           S.mapCode = map.code;
           S.mapW = def.w;
           S.mapH = def.h;
-          S.tiles = Array.isArray(def.jsonMap) && Array.isArray(def.jsonMap[0])
-            ? def.jsonMap
-            : Array.from({ length: def.h || 1 }, () => Array(def.w || 1).fill(0));
+          S.tiles =
+            Array.isArray(def.jsonMap) && Array.isArray(def.jsonMap[0])
+              ? def.jsonMap
+              : Array.from({ length: def.h || 1 }, () =>
+                  Array(def.w || 1).fill(0),
+                );
           S.atkFx = [];
           S.groundItems = [];
           if (S.player) {
@@ -2052,11 +3439,21 @@
           if (!isSolid(tx, ty)) return { tx, ty };
           const visited = new Set();
           const queue = [[tx, ty]];
-          const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+          const dirs = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+            [1, 1],
+            [1, -1],
+            [-1, 1],
+            [-1, -1],
+          ];
           while (queue.length) {
             const [cx, cy] = queue.shift();
             for (const [dx, dy] of dirs) {
-              const nx = cx + dx, ny = cy + dy;
+              const nx = cx + dx,
+                ny = cy + dy;
               const key = nx + "," + ny;
               if (visited.has(key)) continue;
               visited.add(key);
@@ -2217,13 +3614,24 @@
               m.py = ny;
             }
           }
-          if (dp < CFG.TS * 1.3 && m.state === "chase" && !SkillSystem.isFrozenOrStunned(m)) {
+          if (
+            dp < CFG.TS * 1.3 &&
+            m.state === "chase" &&
+            !SkillSystem.isFrozenOrStunned(m)
+          ) {
             m.atkCd -= dt / 16;
             if (m.atkCd <= 0) {
               m.atkCd = 65;
-              const weakenEff = m.statusEffects?.find(e => e.type === "weaken");
+              const weakenEff = m.statusEffects?.find(
+                (e) => e.type === "weaken",
+              );
               const weakenMult = weakenEff ? weakenEff.value : 1;
-              const dmg = Math.max(1, Math.floor((m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult));
+              const dmg = Math.max(
+                1,
+                Math.floor(
+                  (m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult,
+                ),
+              );
               p.hp = Math.max(0, p.hp - dmg);
               Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
               if (p.hp <= 0) {
@@ -2268,7 +3676,8 @@
       const Combat = {
         pAtk() {
           const s = S.player.stats;
-          const base = 10 + Math.floor(s?.str || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
+          const base =
+            10 + Math.floor(s?.str || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
           return Math.floor(base + Combat.weaponAttack());
         },
         weaponAttack() {
@@ -2325,10 +3734,10 @@
           S.atkCd = CFG.ATK_CD;
           S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
           Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
-          UI.log(
-            `Tấn công ${tmpl.name} gây ${dmg} sát thương${isCrit ? " (CRIT)" : ""}`,
-            "combat",
-          );
+          // UI.log(
+          //   `Tấn công ${tmpl.name} gây ${dmg} sát thương${isCrit ? " (CRIT)" : ""}`,
+          //   "combat",
+          // );
           // Notify other players (visual only)
           if (socket?.connected)
             socket.emit("attack_effect", {
@@ -2372,8 +3781,11 @@
         let feRef = null;
         outer: for (const tiers of Object.values(CFG.SKILLS)) {
           for (const tierArr of tiers) {
-            const f = tierArr.find(s => s.id === (sk.code || sk.id));
-            if (f) { feRef = f; break outer; }
+            const f = tierArr.find((s) => s.id === (sk.code || sk.id));
+            if (f) {
+              feRef = f;
+              break outer;
+            }
           }
         }
         return {
@@ -2414,7 +3826,7 @@
         assignSkills(linhCan) {
           const tiers = CFG.SKILLS[linhCan];
           if (!tiers) return [];
-          return tiers.map(tierArr => {
+          return tiers.map((tierArr) => {
             const base = tierArr[randInt(0, tierArr.length - 1)];
             return { ...base, level: 1, cdLeft: 0 };
           });
@@ -2422,27 +3834,48 @@
 
         calcDmg(skill) {
           const p = S.player;
-          const tuViBonus  = (p.tuViLinhCan || 0) * 0.4;
+          const tuViBonus = (p.tuViLinhCan || 0) * 0.4;
           const realmBonus = (p.canhGioi?.stt || 0) * 8;
-          const eneBonus   = (p.stats?.ene || 0) * 2;
+          const eneBonus = (p.stats?.ene || 0) * 2;
           const levelBonus = (skill.level || 1) * 5;
-          const weaponBonus= Combat.weaponAttack() * 0.3;
-          const tierMult   = [1, 1.6, 2.4, 4.0][skill.tier - 1] || 1;
-          return Math.max(1, Math.floor((tuViBonus + realmBonus + eneBonus + levelBonus + weaponBonus) * tierMult));
+          const weaponBonus = Combat.weaponAttack() * 0.3;
+          const tierMult = [1, 1.6, 2.4, 4.0][skill.tier - 1] || 1;
+          return Math.max(
+            1,
+            Math.floor(
+              (tuViBonus + realmBonus + eneBonus + levelBonus + weaponBonus) *
+                tierMult,
+            ),
+          );
         },
 
         effectName(e) {
-          return { burn:"Thiêu Đốt", freeze:"Đóng Băng", slow:"Làm Chậm",
-            poison:"Trúng Độc", stun:"Choáng", root:"Trói", bleed:"Chảy Máu",
-            weaken:"Suy Yếu", drain:"Hút Sinh Lực" }[e] || e;
+          return (
+            {
+              burn: "Thiêu Đốt",
+              freeze: "Đóng Băng",
+              slow: "Làm Chậm",
+              poison: "Trúng Độc",
+              stun: "Choáng",
+              root: "Trói",
+              bleed: "Chảy Máu",
+              weaken: "Suy Yếu",
+              drain: "Hút Sinh Lực",
+            }[e] || e
+          );
         },
 
         applyStatusToMonster(m, skill) {
           const e = skill.effect;
           if (!e || e.startsWith("buff_") || e === "heal") return;
           if (!m.statusEffects) m.statusEffects = [];
-          m.statusEffects = m.statusEffects.filter(x => x.type !== e);
-          m.statusEffects.push({ type: e, duration: skill.effectDur || 120, value: skill.effectVal || 0, tickTimer: 0 });
+          m.statusEffects = m.statusEffects.filter((x) => x.type !== e);
+          m.statusEffects.push({
+            type: e,
+            duration: skill.effectDur || 120,
+            value: skill.effectVal || 0,
+            tickTimer: 0,
+          });
         },
 
         hitMonster(m, dmg, skill) {
@@ -2454,11 +3887,17 @@
           const weapEff = S.player.equipment?.weapon?.effect;
           if (weapEff) {
             if (!m.statusEffects) m.statusEffects = [];
-            if (!m.statusEffects.find(x => x.type === weapEff))
-              m.statusEffects.push({ type: weapEff, duration: 120, value: 3, tickTimer: 0 });
+            if (!m.statusEffects.find((x) => x.type === weapEff))
+              m.statusEffects.push({
+                type: weapEff,
+                duration: 120,
+                value: 3,
+                tickTimer: 0,
+              });
           }
           if (m.hp <= 0 && !m.dead) {
-            m.dead = true; m.respawnT = m.spawnCD;
+            m.dead = true;
+            m.respawnT = m.spawnCD;
             Combat.dropLoot(m);
             UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
           }
@@ -2467,19 +3906,38 @@
         applyBuff(p, skill) {
           if (!p.buffs) p.buffs = {};
           const buffType = skill.effect.replace("buff_", "");
-          p.buffs[buffType] = { value: skill.effectVal, duration: skill.effectDur };
-          const names = { atk:"tấn công", def:"phòng thủ", spd:"tốc độ" };
-          UI.log(`${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`, "level");
+          p.buffs[buffType] = {
+            value: skill.effectVal,
+            duration: skill.effectDur,
+          };
+          const names = { atk: "tấn công", def: "phòng thủ", spd: "tốc độ" };
+          UI.log(
+            `${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`,
+            "level",
+          );
         },
 
         useSkill(slotIdx) {
           const p = S.player;
           if (!p?.skills?.[slotIdx]) return;
-          if (document.getElementById("shop-modal").classList.contains("open")) return;
-          if (document.getElementById("dialog-modal").classList.contains("open")) return;
+          if (document.getElementById("shop-modal").classList.contains("open"))
+            return;
+          if (
+            document.getElementById("dialog-modal").classList.contains("open")
+          )
+            return;
           const skill = p.skills[slotIdx];
-          if (skill.cdLeft > 0) { UI.log(`${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`, "system"); return; }
-          if ((p.mp || 0) < skill.mpCost) { UI.log("Không đủ linh lực!", "system"); return; }
+          if (skill.cdLeft > 0) {
+            UI.log(
+              `${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`,
+              "system",
+            );
+            return;
+          }
+          if ((p.mp || 0) < skill.mpCost) {
+            UI.log("Không đủ linh lực!", "system");
+            return;
+          }
 
           p.mp -= skill.mpCost;
           skill.cdLeft = skill.cd;
@@ -2487,7 +3945,9 @@
           // Heal & buff on self
           if (skill.effect === "heal") {
             const dmg = this.calcDmg(skill);
-            const healAmt = Math.floor(dmg * 0.5 + 20 + (p.tuViLinhCan || 0) * 0.3);
+            const healAmt = Math.floor(
+              dmg * 0.5 + 20 + (p.tuViLinhCan || 0) * 0.3,
+            );
             p.hp = Math.min(p.maxHp, p.hp + healAmt);
             Render.floatDmg(p.px, p.py, -40, "+" + healAmt, "#44ff88");
             UI.log(`${skill.icon} ${skill.name} → Hồi ${healAmt} HP`, "level");
@@ -2503,41 +3963,71 @@
 
           if (skill.aoe) {
             // AoE: center on closest monster in range
-            let center = p; let closestD = maxRange;
+            let center = p;
+            let closestD = maxRange;
             for (const m of S.monsters) {
               if (m.dead) continue;
               const d = dist(m.px, m.py, p.px, p.py);
-              if (d < closestD) { closestD = d; center = m; }
+              if (d < closestD) {
+                closestD = d;
+                center = m;
+              }
             }
             const aoeRange = (skill.aoeR || 3) * CFG.TS;
             let hits = 0;
             for (const m of S.monsters) {
               if (m.dead) continue;
               if (dist(m.px, m.py, center.px, center.py) < aoeRange) {
-                const finalDmg = Math.max(1, dmg - randInt(0, Math.floor(dmg * 0.15)));
+                const finalDmg = Math.max(
+                  1,
+                  dmg - randInt(0, Math.floor(dmg * 0.15)),
+                );
                 this.hitMonster(m, finalDmg, skill);
                 hits++;
               }
             }
-            S.atkFx.push({ px: center.px, py: center.py, r: aoeRange * 0.4, life: 22 });
-            if (hits === 0) UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
-            else UI.log(`${skill.icon} ${skill.name} → ${hits} mục tiêu, ${dmg} ST/mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`, "combat");
+            S.atkFx.push({
+              px: center.px,
+              py: center.py,
+              r: aoeRange * 0.4,
+              life: 22,
+            });
+            if (hits === 0)
+              UI.log(
+                `${skill.icon} ${skill.name} → Không có mục tiêu!`,
+                "system",
+              );
+            else
+              UI.log(
+                `${skill.icon} ${skill.name} → ${hits} mục tiêu, ${dmg} ST/mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
+                "combat",
+              );
           } else {
             // Single target: closest in range
-            let best = null; let bd = maxRange;
+            let best = null;
+            let bd = maxRange;
             for (const m of S.monsters) {
               if (m.dead) continue;
               const d = dist(m.px, m.py, p.px, p.py);
-              if (d < bd) { bd = d; best = m; }
+              if (d < bd) {
+                bd = d;
+                best = m;
+              }
             }
             if (!best) {
-              UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu trong tầm!`, "system");
+              UI.log(
+                `${skill.icon} ${skill.name} → Không có mục tiêu trong tầm!`,
+                "system",
+              );
               skill.cdLeft = Math.floor(skill.cd * 0.25);
               p.mp += skill.mpCost;
               return;
             }
             this.hitMonster(best, dmg, skill);
-            UI.log(`${skill.icon} ${skill.name} → ${best.name} -${dmg} ST${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`, "combat");
+            UI.log(
+              `${skill.icon} ${skill.name} → ${best.name} -${dmg} ST${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
+              "combat",
+            );
           }
         },
 
@@ -2562,17 +4052,31 @@
           for (let i = m.statusEffects.length - 1; i >= 0; i--) {
             const eff = m.statusEffects[i];
             eff.duration -= ticks;
-            if (eff.duration <= 0) { m.statusEffects.splice(i, 1); continue; }
-            if (["burn","poison","bleed","drain"].includes(eff.type)) {
+            if (eff.duration <= 0) {
+              m.statusEffects.splice(i, 1);
+              continue;
+            }
+            if (["burn", "poison", "bleed", "drain"].includes(eff.type)) {
               eff.tickTimer = (eff.tickTimer || 0) - ticks;
               if (eff.tickTimer <= 0) {
                 eff.tickTimer = 30;
                 m.hp -= eff.value;
-                const col = { burn:"#ff6600", poison:"#88ff44", bleed:"#ff4444", drain:"#aa44ff" }[eff.type] || "#ff8888";
+                const col =
+                  {
+                    burn: "#ff6600",
+                    poison: "#88ff44",
+                    bleed: "#ff4444",
+                    drain: "#aa44ff",
+                  }[eff.type] || "#ff8888";
                 Render.floatDmg(m.px, m.py, -20, "-" + eff.value, col);
-                if (eff.type === "drain") S.player.hp = Math.min(S.player.maxHp, S.player.hp + Math.floor(eff.value * 0.5));
+                if (eff.type === "drain")
+                  S.player.hp = Math.min(
+                    S.player.maxHp,
+                    S.player.hp + Math.floor(eff.value * 0.5),
+                  );
                 if (m.hp <= 0 && !m.dead) {
-                  m.dead = true; m.respawnT = m.spawnCD;
+                  m.dead = true;
+                  m.respawnT = m.spawnCD;
                   Combat.dropLoot(m);
                   UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
                 }
@@ -2592,7 +4096,10 @@
         },
 
         isFrozenOrStunned(m) {
-          return m.statusEffects?.some(e => ["freeze","stun"].includes(e.type)) || false;
+          return (
+            m.statusEffects?.some((e) => ["freeze", "stun"].includes(e.type)) ||
+            false
+          );
         },
 
         renderSkillBar() {
@@ -2690,16 +4197,22 @@
           this.normalizePlayerStats(p);
           if (item.linhCan === p.linhCan) {
             p.tuViLinhCan = (p.tuViLinhCan || 0) + item.tuViLinhCanVal;
-            UI.log(`${item.icon} Hấp Thu ${item.name} → Tu Vi Linh Căn +${item.tuViLinhCanVal}`, "level");
+            UI.log(
+              `${item.icon} Hấp Thu ${item.name} → Tu Vi Linh Căn +${item.tuViLinhCanVal}`,
+              "level",
+            );
           } else {
             p.tuViLinhCan = (p.tuViLinhCan || 0) + 1;
-            const statKeys = ["str","agi","vit","ene"];
+            const statKeys = ["str", "agi", "vit", "ene"];
             const sk = statKeys[randInt(0, 3)];
             const sv = Math.max(1, Math.floor(item.tuViLinhCanVal * 0.3));
             p.stats[sk] = (p.stats[sk] || 0) + sv;
             p.maxHp = 100 + p.stats.vit * 10;
             p.maxMp = 50 + p.stats.ene * 8;
-            UI.log(`${item.icon} Hấp Thu (khác hệ) → ${sk.toUpperCase()} +${sv}, Tu Vi Linh Căn +1`, "level");
+            UI.log(
+              `${item.icon} Hấp Thu (khác hệ) → ${sk.toUpperCase()} +${sv}, Tu Vi Linh Căn +1`,
+              "level",
+            );
           }
           Inventory.remove(idx);
           UI.update();
@@ -2765,7 +4278,7 @@
           } else {
             const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
             p.canhGioi = res;
-            p.realm = res.stt || (p.realm + 1);
+            p.realm = res.stt || p.realm + 1;
             p.tangTuVi = 1;
             this.applyBreakthroughStats(p, true);
             UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
@@ -3389,17 +4902,19 @@
             "%";
           document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
           const s = p.stats;
-          const _i = v => Math.floor(Number(v) || 0);
+          const _i = (v) => Math.floor(Number(v) || 0);
           document.getElementById("r-str").textContent = _i(s.str);
           document.getElementById("r-agi").textContent = _i(s.agi);
           document.getElementById("r-vit").textContent = _i(s.vit);
           document.getElementById("r-int").textContent = _i(s.ene);
           document.getElementById("r-patk").textContent = _i(Combat.pAtk());
-          document.getElementById("r-matk").textContent =
-            _i(5 + _i(s.ene) * 2 * (p.tangTuVi || 1));
+          document.getElementById("r-matk").textContent = _i(
+            5 + _i(s.ene) * 2 * (p.tangTuVi || 1),
+          );
           document.getElementById("r-def").textContent = _i(Combat.pDef());
-          document.getElementById("r-spd").textContent =
-            _i(3 + _i(s.agi) * 0.5);
+          document.getElementById("r-spd").textContent = _i(
+            3 + _i(s.agi) * 0.5,
+          );
           document.getElementById("r-eva").textContent =
             _i(_i(s.agi) * 0.3) + "%";
           document.getElementById("r-tvlc").textContent = p.tuViLinhCan || 0;
@@ -3431,18 +4946,68 @@
           }
         },
 
+        showTip(item, e) {
+          const tip = document.getElementById("tip");
+          document.getElementById("tip-name").textContent =
+            item.icon + " " + item.name;
+          document.getElementById("tip-type").textContent =
+            item.type === "STONE"
+              ? "Linh Thạch"
+              : item.type === "ELEMSTONE"
+                ? "Đá Nguyên Tố"
+                : item.type === "MAT"
+                  ? "Nguyên Liệu"
+                  : item.type === "CONSUME"
+                    ? "Đan Dược"
+                    : "Vật Phẩm";
+          document.getElementById("tip-body").innerHTML =
+            `${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
+          tip.style.display = "block";
+          tip.style.left = e.clientX + 14 + "px";
+          tip.style.top = e.clientY - 10 + "px";
+          //   const tip = document.getElementById("tip");
+          //   if (!tip || !item) return;
+          //   document.getElementById("tip-name").textContent =
+          //     item.name || item.id || "Vật phẩm";
+          //   document.getElementById("tip-type").textContent = item.type || "";
+          //   document.getElementById("tip-body").textContent = item.desc || "";
+          //   tip.style.display = "block";
+          //   this.moveTip(e);
+        },
+
+        moveTip(e) {
+          const tip = document.getElementById("tip");
+          if (!tip || tip.style.display === "none") return;
+          const x = e.pageX + 12;
+          const y = e.pageY + 12;
+          tip.style.left = `${x}px`;
+          tip.style.top = `${y}px`;
+        },
+
+        hideTip() {
+          const tip = document.getElementById("tip");
+          if (!tip) return;
+          tip.style.display = "none";
+        },
+
         buildInv() {
           const grid = document.getElementById("inv-grid");
           if (!grid) return;
           grid.innerHTML = "";
-          for (let i = 0; i < S.inventory.length; i++) {
+          for (let i = 0; i < CFG.INV_MAX; i++) {
             const it = S.inventory[i];
-            if (!it) continue;
             const el = document.createElement("div");
-            el.className = "isl";
-            el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
-            el.innerHTML = `${it.icon || "📦"}<span class="icnt">x${it.count || 1}</span>`;
-            el.onclick = () => Inventory.use(i);
+            el.className = it ? "isl" : "isl empty";
+            if (it) {
+              el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
+              el.innerHTML = `${it.icon || "📦"}<span class="icnt">x${it.count || 1}</span>`;
+              el.onclick = () => Inventory.use(i);
+              el.onmouseenter = (e) => this.showTip(it, e);
+              el.onmousemove = (e) => this.moveTip(e);
+              el.onmouseleave = () => this.hideTip();
+            } else {
+              el.textContent = "";
+            }
             grid.appendChild(el);
           }
         },
@@ -3496,8 +5061,14 @@
             )
               e.preventDefault();
             if (e.code === "KeyF") World.checkNpcInteract();
-            if (e.code === "Escape") { Shop.close(); DialogUI.close(); }
-            if (e.code === "Enter") { const ci = document.getElementById("chat-inp"); ci.focus(); }
+            if (e.code === "Escape") {
+              Shop.close();
+              DialogUI.close();
+            }
+            if (e.code === "Enter") {
+              const ci = document.getElementById("chat-inp");
+              ci.focus();
+            }
             if (e.code === "Digit1") SkillSystem.useSkill(0);
             if (e.code === "Digit2") SkillSystem.useSkill(1);
             if (e.code === "Digit3") SkillSystem.useSkill(2);
@@ -3699,7 +5270,9 @@
           Net.get("/api/worlds/default"),
         ]);
         if (!defaultRealm?.code || !defaultWorldDto?.code) {
-          alert("Không thể tải dữ liệu khởi tạo nhân vật. Vui lòng thử lại sau.");
+          alert(
+            "Không thể tải dữ liệu khởi tạo nhân vật. Vui lòng thử lại sau.",
+          );
           return;
         }
 

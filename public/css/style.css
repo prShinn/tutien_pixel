@@ -714,6 +714,10 @@ body {
 .isl:hover {
   border-color: var(--border2);
 }
+.isl.empty {
+  opacity: 0.3;
+  cursor: default;
+}
 .isl .icnt {
   position: absolute;
   bottom: 0;
