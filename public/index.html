@@ -3680,6 +3680,12 @@
             10 + Math.floor(s?.str || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
           return Math.floor(base + Combat.weaponAttack());
         },
+        mAtk() {
+          const s = S.player.stats;
+          const base =
+            10 + Math.floor(s?.ene || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
+          return Math.floor((base + Combat.weaponAttack()) * 0.8);
+        },
         weaponAttack() {
           let bonus = 0;
           if (S.player.equipment?.weapon) {
@@ -4908,9 +4914,7 @@
           document.getElementById("r-vit").textContent = _i(s.vit);
           document.getElementById("r-int").textContent = _i(s.ene);
           document.getElementById("r-patk").textContent = _i(Combat.pAtk());
-          document.getElementById("r-matk").textContent = _i(
-            5 + _i(s.ene) * 2 * (p.tangTuVi || 1),
-          );
+          document.getElementById("r-matk").textContent = _i(Combat.mAtk());
           document.getElementById("r-def").textContent = _i(Combat.pDef());
           document.getElementById("r-spd").textContent = _i(
             3 + _i(s.agi) * 0.5,
