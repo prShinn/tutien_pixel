@@ -247,7 +247,7 @@
             </div>
           </div>
           <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
-          <div class="online-badge" id="online-badge">● Offline</div>
+          <!-- <div class="online-badge" id="online-badge">● Offline</div> -->
           <!-- Online players mini list -->
           <div
             class="sec-title"
@@ -266,7 +266,7 @@
       <div id="canvas-area">
         <canvas id="game-canvas"></canvas>
         <div id="map-name-overlay"></div>
-        <div id="conn-badge" class="offline">● Offline</div>
+        <!-- <div id="conn-badge" class="offline">● Offline</div> -->
       </div>
 
       <div class="gpanel" id="panel-right">
@@ -3428,10 +3428,10 @@
             if (pos) S.monsters.push(Monster.make(mon, pos.tx, pos.ty));
           }
           const ov = document.getElementById("map-name-overlay");
-          ov.textContent = def.name;
+          ov.textContent = def.name ?? def.tenMap;
           ov.classList.add("show");
           setTimeout(() => ov.classList.remove("show"), 2200);
-          UI.log(`── Đến: ${def.name} ──`, "system");
+          UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "system");
           Net.emitMapChange(map.code, toX, toY);
           otherPlayers.clear();
         },
@@ -3684,7 +3684,8 @@
           const s = S.player.stats;
           const base =
             10 + Math.floor(s?.ene || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
-          return Math.floor((base + Combat.weaponAttack()) * 0.8);
+          const raw = Math.floor(base + Combat.weaponAttack());
+          return Math.floor(raw * 1.05);
         },
         weaponAttack() {
           let bonus = 0;
@@ -3755,7 +3756,7 @@
             m.dead = true;
             m.respawnT = m.spawnCD;
             Combat.dropLoot(m);
-            UI.log(`${tmpl.name} đã bị tiêu diệt!`, "combat");
+            // UI.log(`${tmpl.name} đã bị tiêu diệt!`, "combat");
           }
         },
         dropLoot(m) {
@@ -3905,7 +3906,7 @@
             m.dead = true;
             m.respawnT = m.spawnCD;
             Combat.dropLoot(m);
-            UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
+            // UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
           }
         },
 
@@ -4084,7 +4085,7 @@
                   m.dead = true;
                   m.respawnT = m.spawnCD;
                   Combat.dropLoot(m);
-                  UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
+                //   UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
                 }
               }
             }
@@ -4529,6 +4530,26 @@
             ctx.arc(fx.px - cx, fx.py - cy, fx.r, 0, Math.PI * 2);
             ctx.stroke();
           }
+          if (Array.isArray(S.portals) && S.portals.length) {
+            let nearest = null;
+            let bestDist = Infinity;
+            const centerX = cW / 2;
+            const centerY = cH / 2;
+            for (const portal of S.portals) {
+              if (!portal.tenMapDen) continue;
+              const px = portal.x * ts + ts / 2 - cx;
+              const py = portal.y * ts + ts / 2 - cy;
+              if (px >= -20 && px <= cW + 20 && py >= -20 && py <= cH + 20) continue;
+              const dx = px - centerX;
+              const dy = py - centerY;
+              const dist = dx * dx + dy * dy;
+              if (dist < bestDist) {
+                bestDist = dist;
+                nearest = { portal, px, py, dx, dy };
+              }
+            }
+            if (nearest) Render.portalHint(nearest, centerX, centerY, cW, cH);
+          }
         },
         tile(t, sx, sy) {
           const c = TC[t] || ["#333", "#444"];
@@ -4838,7 +4859,6 @@
         portal(portal, cx, cy) {
           const sx = portal.x * CFG.TS + CFG.TS / 2 - cx,
             sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
-          // if (sx < -60 || sx > cW + 60 || sy < -60 || sy > cH + 60) return;
           const a = S.animT * 0.002;
           const grad = ctx.createRadialGradient(sx, sy, 4, sx, sy, 20);
           grad.addColorStop(0, `rgba(100,180,255,${0.4 + 0.2 * Math.sin(a)})`);
@@ -4859,6 +4879,35 @@
             ctx.textAlign = "center";
             ctx.fillText(portal.tenMapDen, sx, sy - 26);
           }
+        },
+        portalHint(nearest, centerX, centerY, cW, cH) {
+          const { portal, dx, dy } = nearest;
+          const angle = Math.atan2(dy, dx);
+          const edgeRadius = Math.min(cW, cH) / 2 - 28;
+          const edgeX = Math.min(cW - 24, Math.max(24, centerX + Math.cos(angle) * edgeRadius));
+          const edgeY = Math.min(cH - 24, Math.max(24, centerY + Math.sin(angle) * edgeRadius));
+          ctx.save();
+          ctx.translate(edgeX, edgeY);
+          ctx.rotate(angle);
+          ctx.fillStyle = "rgba(120,200,255,0.95)";
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(-8, -12);
+          ctx.lineTo(8, -12);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+          const label = portal.tenMapDen || portal.denMap || "Cổng";
+          ctx.font = "10px monospace";
+          ctx.textAlign = "center";
+          const text = `→ ${label}`;
+          const tw = ctx.measureText(text).width + 10;
+          const textX = edgeX;
+          const textY = edgeY + 24;
+          ctx.fillStyle = "rgba(0,0,0,0.65)";
+          ctx.fillRect(textX - tw / 2, textY - 12, tw, 16);
+          ctx.fillStyle = "#a8e3ff";
+          ctx.fillText(text, textX, textY + 2);
         },
         floatDmg(wx, wy, offY, text, color) {
           const area = document
