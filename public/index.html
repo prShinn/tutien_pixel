@@ -1070,10 +1070,10 @@
             };
             try {
               playerData.jsonIventory = JSON.stringify(playerData.inventory);
-              playerData.skills = JSON.stringify(
-                (S.player.skills || []).map(sk => { const { cdLeft, ...rest } = sk; return { ...rest, cdLeft: 0 }; })
-              );
+              playerData.skills = (S.player.skills || []).map(mapFESkillToBE);
               playerData.tuViLinhCan = S.player.tuViLinhCan || 0;
+              playerData.realm = S.player.canhGioi?.stt || S.player.realm || 0;
+              playerData.tangTuVi = S.player.tangTuVi || S.player.stage || 1;
               const res = await this.put(
                 "/api/player/" + playerData.id,
                 playerData,
@@ -1331,7 +1331,7 @@
         async _afterLogin() {
           // Try to load existing character
           try {
-            const data = await Net.get("/api/player/" + currentUser.id);
+            const data = await Net.get("/api/player/by-user/" + currentUser.id);
             if (data?.id && !data.error) {
               Auth._startGameWithData(data);
               return;
@@ -1375,25 +1375,28 @@
           const rootObject = CFG.ROOTS.find(
             (r) => r.id === playerData.linhCan,
           );
-          const savedSkills = (() => {
+          const rawSkills = (() => {
             try { return typeof playerData.skills === "string" ? JSON.parse(playerData.skills) : playerData.skills; }
             catch { return null; }
           })();
+          const savedSkills = Array.isArray(rawSkills) && rawSkills.length
+            ? rawSkills.map(sk => (sk.mpTieuHao != null || sk.hoiChieu != null) ? mapBESkillToFE(sk) : { ...sk, cdLeft: 0 })
+            : null;
           S.player = {
             ...playerData,
             name: playerData.name,
             root: rootObject || cRoot || null,
             linhCan: playerData.linhCan,
-            realm: playerData.realm || 0,
-            stage: playerData.stage || 1,
+            realm: playerData.canhGioi?.stt || 0,
+            stage: playerData.tangTuVi || 1,
             stats: playerData.stats || { str: 0, agi: 0, vit: 0, ene: 0 },
             hp: playerData.hp,
             maxHp: playerData.maxHp,
             mp: playerData.mp,
             maxMp: playerData.maxMp,
             xu: playerData.xu,
-            tuExp: playerData.tuExp || 0,
-            tuNeeded: playerData.tuNeeded || 0,
+            tuViHienTai: playerData.tuViHienTai || 0,
+            tuViLenCap: playerData.tuViLenCap || Cultivation.calcTuNeeded(playerData.canhGioi, playerData.tangTuVi || 1),
             tuViLinhCan: playerData.tuViLinhCan || 0,
             x: playerData.x || 26,
             y: playerData.y || 30,
@@ -1401,20 +1404,19 @@
             py: (playerData.y || 30) * CFG.TS + CFG.TS / 2,
             trangBi: parsedTrangBi,
             equipment,
-            skills: (savedSkills?.length ? savedSkills.map(sk => ({ ...sk, cdLeft: 0 })) : null)
-                    || SkillSystem.assignSkills(playerData.linhCan),
+            skills: savedSkills || SkillSystem.assignSkills(playerData.linhCan),
             buffs: {},
           };
           try {
             S.inventory = JSON.parse(playerData.jsonIventory) || [];
           } catch (e) {}
-          let map = MAPS[playerData.mapCode];
+          let map = []; //MAPS[playerData.mapCode];
           if (!map && playerData.mapCode) {
             const defaultDto = await Net.get("/api/worlds/default");
             const normalized = normalizeWorldDto(defaultDto);
             if (normalized?.code === playerData.mapCode) map = normalized;
           }
-          if (!map) map = MAPS.wilderness;
+          if (!map) return;
           enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
         },
 
@@ -1489,7 +1491,7 @@
       const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
       function isSolid(tx, ty) {
         if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
-        return SOLID.has(S.tiles[ty][tx]);
+        return SOLID.has(S.tiles[ty]?.[tx]);
       }
       function fillRect(t, x, y, w, h, v) {
         for (let dy = 0; dy < h; dy++)
@@ -1522,203 +1524,406 @@
         }
       }
 
-      const MAPS = {
-        wilderness: {
-          id: "wilderness",
-          name: "☁ Hoang Dã Bình Nguyên",
-          w: 54,
-          h: 38,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-            borderWall(t);
-            fillRect(t, 10, 8, 10, 6, T.WATER);
-            fillRect(t, 38, 18, 8, 5, T.WATER);
-            fillRect(t, 22, 26, 7, 4, T.WATER);
-            fillRect(t, 40, 3, 10, 7, T.MTN);
-            fillRect(t, 3, 25, 6, 9, T.MTN);
-            fillRect(t, 5, 5, 5, 4, T.TREE);
-            fillRect(t, 26, 4, 6, 4, T.TREE);
-            fillRect(t, 44, 27, 7, 7, T.TREE);
-            fillRect(t, 14, 30, 7, 5, T.TREE);
-            scatter(t, T.STONE, 25);
-            for (let y = 2; y < h - 2; y++)
-              if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
-            t[0][26] = T.FLOOR;
-            t[1][26] = T.FLOOR;
-            return t;
-          },
-          spawns: [
-            { ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
-            { ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
-            { ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
-            { ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
-          ],
-          portals: [
-            {
-              tx: 26,
-              ty: 1,
-              toMap: "town",
-              toX: 19,
-              toY: 23,
-              label: "↑ An Lạc Thành",
-            },
-            {
-              tx: 52,
-              ty: 18,
-              toMap: "training",
-              toX: 2,
-              toY: 15,
-              label: "→ Luyện Ma Trường",
-            },
-          ],
-          npcs: [
-            {
-              px: 32 * 32 + 16,
-              py: 14 * 32 + 16,
-              type: "info",
-              name: "Lão Tiều Phu",
-              color: "#88aacc",
-              dialog:
-                "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
-            },
-          ],
-          playerStart: { x: 26, y: 30 },
-        },
+      // const MAPS = {
+      //   wilderness: {
+      //     id: "wilderness",
+      //     name: "☁ Hoang Dã Bình Nguyên",
+      //     w: 54,
+      //     h: 38,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+      //       borderWall(t);
+      //       fillRect(t, 10, 8, 10, 6, T.WATER);
+      //       fillRect(t, 38, 18, 8, 5, T.WATER);
+      //       fillRect(t, 22, 26, 7, 4, T.WATER);
+      //       fillRect(t, 40, 3, 10, 7, T.MTN);
+      //       fillRect(t, 3, 25, 6, 9, T.MTN);
+      //       fillRect(t, 5, 5, 5, 4, T.TREE);
+      //       fillRect(t, 26, 4, 6, 4, T.TREE);
+      //       fillRect(t, 44, 27, 7, 7, T.TREE);
+      //       fillRect(t, 14, 30, 7, 5, T.TREE);
+      //       scatter(t, T.STONE, 25);
+      //       for (let y = 2; y < h - 2; y++)
+      //         if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
+      //       t[0][26] = T.FLOOR;
+      //       t[1][26] = T.FLOOR;
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
+      //       { ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
+      //       { ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
+      //       { ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
+      //     ],
+      //     portals: [
+      //       {
+      //         tx: 26,
+      //         ty: 1,
+      //         toMap: "town",
+      //         toX: 19,
+      //         toY: 23,
+      //         label: "↑ An Lạc Thành",
+      //       },
+      //       {
+      //         tx: 52,
+      //         ty: 18,
+      //         toMap: "training",
+      //         toX: 2,
+      //         toY: 15,
+      //         label: "→ Luyện Ma Trường",
+      //       },
+      //     ],
+      //     npcs: [
+      //       {
+      //         px: 32 * 32 + 16,
+      //         py: 14 * 32 + 16,
+      //         type: "info",
+      //         name: "Lão Tiều Phu",
+      //         color: "#88aacc",
+      //         dialog:
+      //           "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
+      //       },
+      //     ],
+      //     playerStart: { x: 26, y: 30 },
+      //   },
 
-        training: {
-          id: "training",
-          name: "⚔ Luyện Ma Trường",
-          w: 50,
-          h: 34,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-            borderWall(t);
-            fillRect(t, 6, 5, 8, 8, T.MTN);
-            fillRect(t, 34, 4, 12, 7, T.MTN);
-            fillRect(t, 20, 22, 10, 8, T.MTN);
-            fillRect(t, 3, 22, 7, 8, T.WATER);
-            fillRect(t, 40, 22, 7, 8, T.WATER);
-            fillRect(t, 15, 3, 5, 4, T.TREE);
-            fillRect(t, 28, 14, 5, 5, T.TREE);
-            scatter(t, T.STONE, 40);
-            scatter(t, T.TREE, 8, [T.GRASS]);
-            t[15][0] = T.FLOOR;
-            t[15][1] = T.FLOOR;
-            return t;
-          },
-          spawns: [
-            { ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
-            { ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
-            { ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
-            { ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
-            { ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
-          ],
-          portals: [
-            {
-              tx: 1,
-              ty: 15,
-              toMap: "wilderness",
-              toX: 51,
-              toY: 18,
-              label: "← Hoang Dã",
-            },
-          ],
-          npcs: [],
-          playerStart: { x: 3, y: 15 },
-        },
+      //   training: {
+      //     id: "training",
+      //     name: "⚔ Luyện Ma Trường",
+      //     w: 50,
+      //     h: 34,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+      //       borderWall(t);
+      //       fillRect(t, 6, 5, 8, 8, T.MTN);
+      //       fillRect(t, 34, 4, 12, 7, T.MTN);
+      //       fillRect(t, 20, 22, 10, 8, T.MTN);
+      //       fillRect(t, 3, 22, 7, 8, T.WATER);
+      //       fillRect(t, 40, 22, 7, 8, T.WATER);
+      //       fillRect(t, 15, 3, 5, 4, T.TREE);
+      //       fillRect(t, 28, 14, 5, 5, T.TREE);
+      //       scatter(t, T.STONE, 40);
+      //       scatter(t, T.TREE, 8, [T.GRASS]);
+      //       t[15][0] = T.FLOOR;
+      //       t[15][1] = T.FLOOR;
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
+      //       { ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
+      //       { ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
+      //       { ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
+      //       { ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
+      //     ],
+      //     portals: [
+      //       {
+      //         tx: 1,
+      //         ty: 15,
+      //         toMap: "wilderness",
+      //         toX: 51,
+      //         toY: 18,
+      //         label: "← Hoang Dã",
+      //       },
+      //     ],
+      //     npcs: [],
+      //     playerStart: { x: 3, y: 15 },
+      //   },
 
-        town: {
-          id: "town",
-          name: "🏯 An Lạc Thành",
-          w: 42,
-          h: 30,
-          build() {
-            const { w, h } = this;
-            const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
-            borderWall(t);
-            fillRect(t, 2, 2, 12, 9, T.WALL);
-            fillRect(t, 3, 3, 10, 6, T.PLAZA);
-            t[10][7] = T.PLAZA;
-            t[10][8] = T.PLAZA;
-            fillRect(t, 28, 2, 12, 9, T.WALL);
-            fillRect(t, 29, 3, 10, 6, T.PLAZA);
-            t[10][33] = T.PLAZA;
-            t[10][34] = T.PLAZA;
-            fillRect(t, 28, 18, 12, 9, T.WALL);
-            fillRect(t, 29, 19, 10, 6, T.PLAZA);
-            t[18][33] = T.PLAZA;
-            t[18][34] = T.PLAZA;
-            fillRect(t, 18, 11, 6, 6, T.STONE);
-            fillRect(t, 19, 12, 4, 4, T.WATER);
-            for (let x = 2; x < w - 2; x++)
-              if (t[11][x] === T.PLAZA || t[11][x] === T.STONE)
-                t[11][x] = T.STONE;
-            for (let y = 2; y < h - 2; y++) {
-              if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
-              if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
-            }
-            t[3][15] = T.TREE;
-            t[3][26] = T.TREE;
-            t[20][4] = T.TREE;
-            t[20][14] = T.TREE;
-            t[h - 1][20] = T.PLAZA;
-            t[h - 1][21] = T.PLAZA;
-            t[h - 2][20] = T.PLAZA;
-            t[h - 2][21] = T.PLAZA;
-            return t;
-          },
-          spawns: [],
-          portals: [
-            {
-              tx: 20,
-              ty: 28,
-              toMap: "wilderness",
-              toX: 26,
-              toY: 4,
-              label: "↓ Ra Ngoài",
-            },
-            { tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
-          ],
-          npcs: [
-            {
-              px: 7 * 32 + 16,
-              py: 6 * 32 + 16,
-              type: "shop",
-              name: "Lão Bản Vương",
-              color: "#d4a844",
-              dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
-            },
-            {
-              px: 33 * 32 + 16,
-              py: 6 * 32 + 16,
-              type: "quest",
-              name: "Nhiệm Vụ Sứ Lý Văn",
-              color: "#88aacc",
-              dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
-            },
-            {
-              px: 33 * 32 + 16,
-              py: 22 * 32 + 16,
-              type: "chest",
-              name: "Rương Kho Báu",
-              color: "#ffdd44",
-              dialog: "",
-            },
-            {
-              px: 20 * 32 + 16,
-              py: 15 * 32 + 16,
-              type: "info",
-              name: "Thủ Vệ",
-              color: "#8888aa",
-              dialog:
-                "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
-            },
-          ],
-          playerStart: { x: 20, y: 24 },
-        },
-      };
+      //   town: {
+      //     id: "town",
+      //     name: "🏯 An Lạc Thành",
+      //     w: 42,
+      //     h: 30,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
+      //       borderWall(t);
+      //       fillRect(t, 2, 2, 12, 9, T.WALL);
+      //       fillRect(t, 3, 3, 10, 6, T.PLAZA);
+      //       t[10][7] = T.PLAZA;
+      //       t[10][8] = T.PLAZA;
+      //       fillRect(t, 28, 2, 12, 9, T.WALL);
+      //       fillRect(t, 29, 3, 10, 6, T.PLAZA);
+      //       t[10][33] = T.PLAZA;
+      //       t[10][34] = T.PLAZA;
+      //       fillRect(t, 28, 18, 12, 9, T.WALL);
+      //       fillRect(t, 29, 19, 10, 6, T.PLAZA);
+      //       t[18][33] = T.PLAZA;
+      //       t[18][34] = T.PLAZA;
+      //       fillRect(t, 18, 11, 6, 6, T.STONE);
+      //       fillRect(t, 19, 12, 4, 4, T.WATER);
+      //       for (let x = 2; x < w - 2; x++)
+      //         if (t[11][x] === T.PLAZA || t[11][x] === T.STONE)
+      //           t[11][x] = T.STONE;
+      //       for (let y = 2; y < h - 2; y++) {
+      //         if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
+      //         if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
+      //       }
+      //       t[3][15] = T.TREE;
+      //       t[3][26] = T.TREE;
+      //       t[20][4] = T.TREE;
+      //       t[20][14] = T.TREE;
+      //       t[h - 1][20] = T.PLAZA;
+      //       t[h - 1][21] = T.PLAZA;
+      //       t[h - 2][20] = T.PLAZA;
+      //       t[h - 2][21] = T.PLAZA;
+      //       return t;
+      //     },
+      //     spawns: [],
+      //     portals: [
+      //       {
+      //         tx: 20,
+      //         ty: 28,
+      //         toMap: "wilderness",
+      //         toX: 26,
+      //         toY: 4,
+      //         label: "↓ Ra Ngoài",
+      //       },
+      //       { tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
+      //     ],
+      //     npcs: [
+      //       {
+      //         px: 7 * 32 + 16,
+      //         py: 6 * 32 + 16,
+      //         type: "shop",
+      //         name: "Lão Bản Vương",
+      //         color: "#d4a844",
+      //         dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
+      //       },
+      //       {
+      //         px: 33 * 32 + 16,
+      //         py: 6 * 32 + 16,
+      //         type: "quest",
+      //         name: "Nhiệm Vụ Sứ Lý Văn",
+      //         color: "#88aacc",
+      //         dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
+      //       },
+      //       {
+      //         px: 33 * 32 + 16,
+      //         py: 22 * 32 + 16,
+      //         type: "chest",
+      //         name: "Rương Kho Báu",
+      //         color: "#ffdd44",
+      //         dialog: "",
+      //       },
+      //       {
+      //         px: 20 * 32 + 16,
+      //         py: 15 * 32 + 16,
+      //         type: "info",
+      //         name: "Thủ Vệ",
+      //         color: "#8888aa",
+      //         dialog:
+      //           "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
+      //       },
+      //     ],
+      //     playerStart: { x: 20, y: 24 },
+      //   },
+
+      //   // ── ĐỒNG BẰNG ── thảo nguyên rộng, ít cản ──────────────
+      //   plains: {
+      //     id: "plains", name: "🌾 Đồng Bằng Vô Tận", w: 60, h: 42,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+      //       borderWall(t);
+      //       fillRect(t,  4,  4,  6,  4, T.TREE);
+      //       fillRect(t, 50,  3,  7,  5, T.TREE);
+      //       fillRect(t,  3, 32,  5,  7, T.TREE);
+      //       fillRect(t, 50, 30,  7,  8, T.TREE);
+      //       for (let x = 8; x < 52; x++) { t[20][x] = T.WATER; t[21][x] = T.WATER; }
+      //       t[20][28] = T.FLOOR; t[21][28] = T.FLOOR;
+      //       t[20][29] = T.FLOOR; t[21][29] = T.FLOOR;
+      //       scatter(t, T.STONE, 30);
+      //       scatter(t, T.TREE, 12, [T.GRASS]);
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 0, count: 6, zone: { x: 2,  y: 2,  w: 26, h: 17 } },
+      //       { ti: 1, count: 5, zone: { x: 30, y: 2,  w: 28, h: 17 } },
+      //       { ti: 0, count: 5, zone: { x: 2,  y: 23, w: 26, h: 16 } },
+      //       { ti: 1, count: 4, zone: { x: 30, y: 23, w: 28, h: 16 } },
+      //     ],
+      //     portals: [
+      //       { tx: 1,  ty: 20, toMap: "wilderness", toX: 52, toY: 18, label: "← Hoang Dã"   },
+      //       { tx: 58, ty: 20, toMap: "highlands",  toX: 2,  toY: 20, label: "→ Cao Nguyên" },
+      //     ],
+      //     npcs: [
+      //       { px: 30*32+16, py: 10*32+16, type:"info", name:"Lão Nông Vương", color:"#a8c060",
+      //         dialog:"Đồng bằng này rộng lắm!\nPhía đông là Cao Nguyên hiểm trở.\nĐừng lội qua suối khi trời tối." },
+      //     ],
+      //     playerStart: { x: 3, y: 20 },
+      //   },
+
+      //   // ── CAO NGUYÊN ── địa hình đá, đường hẹp ────────────────
+      //   highlands: {
+      //     id: "highlands", name: "🗻 Cao Nguyên Thạch Phong", w: 56, h: 40,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.STONE));
+      //       borderWall(t);
+      //       for (let x = 2; x < w-2; x++) { t[5][x] = T.GRASS; t[20][x] = T.GRASS; t[34][x] = T.GRASS; }
+      //       for (let y = 2; y < h-2; y++) { t[y][5] = T.GRASS; t[y][28] = T.GRASS; t[y][w-6] = T.GRASS; }
+      //       fillRect(t,  8,  7, 10,  8, T.MTN);
+      //       fillRect(t, 22,  7, 10,  8, T.MTN);
+      //       fillRect(t, 36,  7,  8,  8, T.MTN);
+      //       fillRect(t,  8, 22,  8,  8, T.MTN);
+      //       fillRect(t, 20, 22, 12,  8, T.MTN);
+      //       fillRect(t, 38, 22,  8,  8, T.MTN);
+      //       fillRect(t, 26, 10,  4,  4, T.WATER);
+      //       fillRect(t, 44, 25,  5,  4, T.WATER);
+      //       fillRect(t, 10,  9,  6,  4, T.GRASS);
+      //       fillRect(t, 24, 24,  8,  4, T.GRASS);
+      //       scatter(t, T.STONE, 15, [T.GRASS]);
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 2, count: 4, zone: { x: 8,  y: 9,  w: 14, h: 9 } },
+      //       { ti: 3, count: 4, zone: { x: 30, y: 9,  w: 14, h: 9 } },
+      //       { ti: 4, count: 3, zone: { x: 8,  y: 23, w: 10, h: 8 } },
+      //       { ti: 4, count: 3, zone: { x: 36, y: 23, w: 10, h: 8 } },
+      //       { ti: 5, count: 2, zone: { x: 20, y: 25, w: 14, h: 8 } },
+      //     ],
+      //     portals: [
+      //       { tx: 1,  ty: 20, toMap: "plains",    toX: 57, toY: 20, label: "← Đồng Bằng" },
+      //       { tx: 54, ty: 20, toMap: "mountain",  toX: 2,  toY: 20, label: "→ Núi Cao"   },
+      //     ],
+      //     npcs: [
+      //       { px: 6*32+16, py: 20*32+16, type:"info", name:"Thạch Tiên Lão Nhân", color:"#aaaacc",
+      //         dialog:"Cao nguyên đầy gió lạnh.\nPhía đông là Núi Cao tử địa.\nCẩn thận yêu thú trên đường hẹp!" },
+      //     ],
+      //     playerStart: { x: 3, y: 20 },
+      //   },
+
+      //   // ── NÚI CAO ── địa hình hiểm trở, quái mạnh ─────────────
+      //   mountain: {
+      //     id: "mountain", name: "⛰ Thiên Phong Tuyệt Đỉnh", w: 52, h: 44,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.MTN));
+      //       borderWall(t);
+      //       // lối đi zigzag qua núi
+      //       for (let x = 2; x < 26; x++) t[6][x] = T.STONE;
+      //       for (let y = 6; y < 18; y++) { t[y][10] = T.STONE; t[y][25] = T.STONE; }
+      //       for (let x = 10; x < 26; x++) t[17][x] = T.STONE;
+      //       for (let x = 10; x < 50; x++) t[28][x] = T.STONE;
+      //       for (let y = 17; y < 29; y++) t[y][25] = T.STONE;
+      //       for (let y = 28; y < 42; y++) t[y][38] = T.STONE;
+      //       for (let x = 25; x < 50; x++) t[38][x] = T.STONE;
+      //       // thung lũng cỏ nhỏ
+      //       fillRect(t, 12,  8,  8,  7, T.GRASS);
+      //       fillRect(t, 28, 18,  8,  8, T.GRASS);
+      //       fillRect(t, 14, 30, 10,  6, T.GRASS);
+      //       fillRect(t, 38, 30,  8,  6, T.GRASS);
+      //       // băng tuyết đỉnh
+      //       fillRect(t,  2,  2, 10,  3, T.WATER);
+      //       fillRect(t, 38,  2, 12,  3, T.WATER);
+      //       scatter(t, T.STONE, 10, [T.GRASS]);
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 4, count: 4, zone: { x: 12, y: 8,  w: 8,  h: 7 } },
+      //       { ti: 5, count: 4, zone: { x: 28, y: 18, w: 8,  h: 8 } },
+      //       { ti: 6, count: 3, zone: { x: 14, y: 30, w: 10, h: 6 } },
+      //       { ti: 7, count: 2, zone: { x: 38, y: 30, w: 8,  h: 6 } },
+      //     ],
+      //     portals: [
+      //       { tx: 1, ty: 6, toMap: "highlands", toX: 53, toY: 20, label: "← Cao Nguyên" },
+      //     ],
+      //     npcs: [
+      //       { px: 16*32+16, py: 11*32+16, type:"info", name:"Khổ Tu Giả", color:"#ccccee",
+      //         dialog:"Ngươi dám lên Thiên Phong?\nYêu vật ở đây cực kỳ hung dữ.\nChỉ tu sĩ cảnh giới cao mới sống sót!" },
+      //     ],
+      //     playerStart: { x: 3, y: 6 },
+      //   },
+
+      //   // ── RỪNG RẬM ── mê cung cây dày, tối tăm ────────────────
+      //   forest: {
+      //     id: "forest", name: "🌲 Ám Mộc Lâm", w: 54, h: 40,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
+      //       borderWall(t);
+      //       fillRect(t,  2,  2, 20, 16, T.TREE);
+      //       fillRect(t, 32,  2, 20, 16, T.TREE);
+      //       fillRect(t,  2, 22, 20, 16, T.TREE);
+      //       fillRect(t, 32, 22, 20, 16, T.TREE);
+      //       // lối giữa rừng
+      //       for (let y = 2; y < h-2; y++) { t[y][22] = T.FLOOR; t[y][23] = T.FLOOR; t[y][24] = T.FLOOR; }
+      //       for (let x = 2; x < w-2; x++) { t[19][x] = T.FLOOR; t[20][x] = T.FLOOR; }
+      //       // khoảng trống trong rừng
+      //       fillRect(t,  6,  5,  8,  6, T.GRASS);
+      //       fillRect(t, 36,  6,  8,  5, T.GRASS);
+      //       fillRect(t,  6, 26,  7,  6, T.GRASS);
+      //       fillRect(t, 37, 26,  8,  6, T.GRASS);
+      //       fillRect(t,  8,  7,  4,  3, T.WATER);
+      //       fillRect(t, 39, 28,  4,  3, T.WATER);
+      //       scatter(t, T.STONE, 15, [T.GRASS]);
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 1, count: 4, zone: { x:  6, y:  5, w: 8, h: 6 } },
+      //       { ti: 2, count: 4, zone: { x: 36, y:  6, w: 8, h: 5 } },
+      //       { ti: 2, count: 3, zone: { x:  6, y: 26, w: 7, h: 6 } },
+      //       { ti: 3, count: 3, zone: { x: 37, y: 26, w: 8, h: 6 } },
+      //     ],
+      //     portals: [
+      //       { tx: 23, ty: 1,  toMap: "wilderness", toX: 26, toY: 36, label: "↑ Hoang Dã" },
+      //       { tx: 23, ty: 38, toMap: "swamp",       toX: 26, toY: 2,  label: "↓ Đầm Lầy"  },
+      //     ],
+      //     npcs: [
+      //       { px: 23*32+16, py: 10*32+16, type:"info", name:"Mộc Linh Đồng Tử", color:"#88cc88",
+      //         dialog:"Ám Mộc Lâm mê cung lắm!\nĐừng lạc vào bụi rậm.\nTiếng cú kêu = có yêu thú gần đó!" },
+      //     ],
+      //     playerStart: { x: 23, y: 3 },
+      //   },
+
+      //   // ── ĐẦM LẦY ── nền nước, đảo nhỏ, độc khí ───────────────
+      //   swamp: {
+      //     id: "swamp", name: "🌿 Độc Lộ Đầm Lầy", w: 50, h: 38,
+      //     build() {
+      //       const { w, h } = this;
+      //       const t = Array.from({ length: h }, () => Array(w).fill(T.WATER));
+      //       borderWall(t);
+      //       // đảo đất
+      //       fillRect(t,  4,  4, 10,  7, T.GRASS);
+      //       fillRect(t, 18,  3,  8,  6, T.GRASS);
+      //       fillRect(t, 34,  4, 12,  7, T.GRASS);
+      //       fillRect(t,  4, 16, 12,  8, T.GRASS);
+      //       fillRect(t, 20, 14, 10, 10, T.GRASS);
+      //       fillRect(t, 34, 16, 12,  8, T.GRASS);
+      //       fillRect(t,  4, 28, 10,  8, T.GRASS);
+      //       fillRect(t, 20, 28, 10,  8, T.GRASS);
+      //       fillRect(t, 36, 28, 10,  8, T.GRASS);
+      //       // cầu gỗ nối đảo
+      //       for (let x = 14; x < 18; x++) t[7][x]  = T.FLOOR;
+      //       for (let x = 26; x < 34; x++) t[7][x]  = T.FLOOR;
+      //       for (let y = 10; y < 16; y++) { t[y][8] = T.FLOOR; t[y][24] = T.FLOOR; t[y][40] = T.FLOOR; }
+      //       for (let x = 16; x < 20; x++) t[20][x] = T.FLOOR;
+      //       for (let x = 30; x < 34; x++) t[20][x] = T.FLOOR;
+      //       for (let y = 24; y < 28; y++) { t[y][8] = T.FLOOR; t[y][24] = T.FLOOR; t[y][40] = T.FLOOR; }
+      //       scatter(t, T.TREE, 12, [T.GRASS]);
+      //       scatter(t, T.STONE, 8, [T.GRASS]);
+      //       return t;
+      //     },
+      //     spawns: [
+      //       { ti: 2, count: 3, zone: { x:  4, y: 16, w: 12, h: 8 } },
+      //       { ti: 3, count: 3, zone: { x: 20, y: 14, w: 10, h: 10} },
+      //       { ti: 3, count: 3, zone: { x: 34, y: 16, w: 12, h: 8 } },
+      //       { ti: 4, count: 2, zone: { x:  4, y: 28, w: 10, h: 8 } },
+      //       { ti: 4, count: 2, zone: { x: 36, y: 28, w: 10, h: 8 } },
+      //     ],
+      //     portals: [
+      //       { tx: 25, ty: 1, toMap: "forest", toX: 24, toY: 37, label: "↑ Rừng Rậm" },
+      //     ],
+      //     npcs: [
+      //       { px: 24*32+16, py: 17*32+16, type:"info", name:"Độc Lão", color:"#88aa44",
+      //         dialog:"Đầm lầy này độc khí nặng!\nChỉ đi trên cầu gỗ, đừng bơi!\nYêu thú đầm lầy rất ngoan cố." },
+      //     ],
+      //     playerStart: { x: 24, y: 3 },
+      //   },
+      // };
 
       // ════════════════════════════════════════════════════════════
       // §4 · GAME STATE
@@ -1752,6 +1957,9 @@
       function randInt(a, b) {
         return a + Math.floor(Math.random() * (b - a + 1));
       }
+      function dist(x1, y1, x2, y2) {
+        return Math.hypot(x2 - x1, y2 - y1);
+      }
       function lerp(a, b, t) {
         return a + (b - a) * t;
       }
@@ -1769,18 +1977,29 @@
         return null;
       }
 
+      function parseStringOrObj(val, fallback) {
+        if (Array.isArray(val) || (val && typeof val === "object")) return val;
+        if (typeof val === "string" && val.trim().startsWith("[")) {
+          try { return JSON.parse(val); } catch { return fallback; }
+        }
+        if (typeof val === "string" && val.trim().startsWith("{")) {
+          try { return JSON.parse(val); } catch { return fallback; }
+        }
+        return fallback;
+      }
+
       function normalizeWorldDto(dto) {
         if (!dto || typeof dto !== "object") return null;
         return {
           id: dto.id,
           code: dto.code,
           name: dto.tenMap || dto.name || dto.code,
-          jsonMap: dto.jsonMap || [],
+          jsonMap: parseStringOrObj(dto.jsonMap, []),
           w: dto.w || 0,
           h: dto.h || 0,
-          portals: dto.portals || [],
-          monsters: dto.monsters || [],
-          npcs: dto.npcs || [],
+          portals: parseStringOrObj(dto.portals, []),
+          monsters: parseStringOrObj(dto.monsters, []),
+          npcs: parseStringOrObj(dto.npcs, []),
           isDefault: dto.isDefault,
         };
       }
@@ -1791,16 +2010,19 @@
           S.mapCode = map.code;
           S.mapW = def.w;
           S.mapH = def.h;
-          S.tiles = def.jsonMap;
+          S.tiles = Array.isArray(def.jsonMap) && Array.isArray(def.jsonMap[0])
+            ? def.jsonMap
+            : Array.from({ length: def.h || 1 }, () => Array(def.w || 1).fill(0));
           S.atkFx = [];
           S.groundItems = [];
           if (S.player) {
-            const px = Math.max(0, Math.min(def.w - 1, toX));
-            const py = Math.max(0, Math.min(def.h - 1, toY));
-            S.player.x = px;
-            S.player.y = py;
-            S.player.px = px * CFG.TS + CFG.TS / 2;
-            S.player.py = py * CFG.TS + CFG.TS / 2;
+            const clampX = Math.max(0, Math.min(def.w - 1, Math.round(toX)));
+            const clampY = Math.max(0, Math.min(def.h - 1, Math.round(toY)));
+            const safe = World.nearestWalkable(clampX, clampY);
+            S.player.x = safe.tx;
+            S.player.y = safe.ty;
+            S.player.px = safe.tx * CFG.TS + CFG.TS / 2;
+            S.player.py = safe.ty * CFG.TS + CFG.TS / 2;
             S.player.mapCode = map.code;
             S.player.mapId = map.id || map.code;
           }
@@ -1808,7 +2030,7 @@
           S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
           S.monsters = [];
 
-          for (const mon of def.monsters) {
+          for (const mon of def.monsters ?? []) {
             const pos = World._open({
               x: mon.spawnX || map.w / 2,
               y: mon.spawnY || map.h / 2,
@@ -1826,6 +2048,25 @@
           Net.emitMapChange(map.code, toX, toY);
           otherPlayers.clear();
         },
+        nearestWalkable(tx, ty) {
+          if (!isSolid(tx, ty)) return { tx, ty };
+          const visited = new Set();
+          const queue = [[tx, ty]];
+          const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+          while (queue.length) {
+            const [cx, cy] = queue.shift();
+            for (const [dx, dy] of dirs) {
+              const nx = cx + dx, ny = cy + dy;
+              const key = nx + "," + ny;
+              if (visited.has(key)) continue;
+              visited.add(key);
+              if (nx < 0 || ny < 0 || nx >= S.mapW || ny >= S.mapH) continue;
+              if (!isSolid(nx, ny)) return { tx: nx, ty: ny };
+              queue.push([nx, ny]);
+            }
+          }
+          return { tx, ty };
+        },
         _open(zone) {
           for (let i = 0; i < 25; i++) {
             const tx = zone.x + randInt(0, zone.w - 1),
@@ -1835,11 +2076,16 @@
           return null;
         },
         collides(x, y) {
-          const radius = 0.22;
-          const minX = Math.floor(x - radius);
-          const maxX = Math.floor(x + radius);
-          const minY = Math.floor(y - radius);
-          const maxY = Math.floor(y + radius);
+          // p.x dùng hệ "tâm tile": tile n có center tại x=n, pixel=(n+0.5)*TS
+          // isSolid dùng raw tile index: tile n chiếm [n*TS, (n+1)*TS)
+          // → cần +0.5 để chuyển sang raw tile coord trước khi floor
+          const R = 0.4;
+          const cx = x + 0.5;
+          const cy = y + 0.5;
+          const minX = Math.floor(cx - R);
+          const maxX = Math.floor(cx + R - 1e-9);
+          const minY = Math.floor(cy - R);
+          const maxY = Math.floor(cy + R - 1e-9);
           for (let ty = minY; ty <= maxY; ty++) {
             for (let tx = minX; tx <= maxX; tx++) {
               if (isSolid(tx, ty)) return true;
@@ -1975,7 +2221,9 @@
             m.atkCd -= dt / 16;
             if (m.atkCd <= 0) {
               m.atkCd = 65;
-              const dmg = Math.max(1, m.atk - Combat.pDef() + randInt(0, 3));
+              const weakenEff = m.statusEffects?.find(e => e.type === "weaken");
+              const weakenMult = weakenEff ? weakenEff.value : 1;
+              const dmg = Math.max(1, Math.floor((m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult));
               p.hp = Math.max(0, p.hp - dmg);
               Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
               if (p.hp <= 0) {
@@ -2019,9 +2267,9 @@
       // ════════════════════════════════════════════════════════════
       const Combat = {
         pAtk() {
-          const base = 10 + S.player.stats.str * 1.5 + S.player.stats.agi * 0.8;
-          const weapon = Combat.weaponAttack();
-          return base + weapon;
+          const s = S.player.stats;
+          const base = 10 + Math.floor(s?.str || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
+          return Math.floor(base + Combat.weaponAttack());
         },
         weaponAttack() {
           let bonus = 0;
@@ -2056,17 +2304,14 @@
           return extra;
         },
         pDef() {
-          return (
-            2 +
-            Math.floor(S.player.stats.vit * 0.3) +
-            Math.floor(S.player.stats.agi * 0.7)
-          );
+          const s = S.player.stats;
+          return Math.floor(2 + (s?.vit || 0) * 0.3 + (s?.agi || 0) * 0.7);
         },
         attack(m) {
           if (S.atkCd > 0 || m.dead) return;
           const tmpl = m;
           const baseAtk = Combat.pAtk();
-          const armorDef = m.def * m.level + m.def + m.vit * 0.2;
+          const armorDef = (m.def || 0) + (m.vit || 0) * 0.2;
           let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
           const isCrit = Math.random() < Combat.critChance();
           if (isCrit) {
@@ -2123,6 +2368,48 @@
       // ════════════════════════════════════════════════════════════
       // §8b · SKILL SYSTEM
       // ════════════════════════════════════════════════════════════
+      function mapBESkillToFE(sk) {
+        let feRef = null;
+        outer: for (const tiers of Object.values(CFG.SKILLS)) {
+          for (const tierArr of tiers) {
+            const f = tierArr.find(s => s.id === (sk.code || sk.id));
+            if (f) { feRef = f; break outer; }
+          }
+        }
+        return {
+          id: sk.code || String(sk.id),
+          name: sk.name,
+          icon: sk.icon || "⚔️",
+          tier: feRef?.tier || 1,
+          mpCost: sk.mpTieuHao ?? sk.mpCost ?? 0,
+          cd: sk.hoiChieu ?? sk.cd ?? 60,
+          range: feRef?.range ?? sk.range ?? 5,
+          aoe: (sk.dienRong ?? sk.aoeR ?? 0) > 0,
+          aoeR: sk.dienRong ?? sk.aoeR ?? 0,
+          effect: sk.type ?? sk.effect ?? null,
+          effectDur: sk.thoiGianBuff ?? sk.effectDur ?? 0,
+          effectVal: sk.satThuong ?? sk.effectVal ?? 0,
+          desc: sk.description ?? sk.desc ?? "",
+          level: sk.level || 1,
+          cdLeft: 0,
+          _beId: sk.id || null,
+        };
+      }
+      function mapFESkillToBE(sk) {
+        return {
+          id: sk._beId || undefined,
+          code: sk.id,
+          name: sk.name,
+          icon: sk.icon,
+          mpTieuHao: sk.mpCost,
+          hoiChieu: sk.cd,
+          satThuong: sk.effectVal || 0,
+          dienRong: sk.aoeR || 0,
+          thoiGianBuff: sk.effectDur || 0,
+          type: sk.effect || null,
+          description: sk.desc || "",
+        };
+      }
       const SkillSystem = {
         assignSkills(linhCan) {
           const tiers = CFG.SKILLS[linhCan];
@@ -2478,7 +2765,7 @@
           } else {
             const res = await Net.get("/api/canh-gioi/" + (p.canhGioi.stt + 1));
             p.canhGioi = res;
-            p.realm++;
+            p.realm = res.stt || (p.realm + 1);
             p.tangTuVi = 1;
             this.applyBreakthroughStats(p, true);
             UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
@@ -2537,14 +2824,14 @@
             const p = S.player;
             if (item.healHp) {
               p.hp = Math.min(p.maxHp, p.hp + item.healHp);
-              UI.log(`Dùng ${item.icon} → Hồi ${item.vit} HP`, "system");
+              UI.log(`Dùng ${item.icon} → Hồi ${item.healHp} HP`, "system");
             }
             if (item.healMp) {
               p.mp = Math.min(p.maxMp, p.mp + item.healMp);
-              UI.log(`Dùng ${item.icon} → Hồi ${item.ene} MP`, "system");
+              UI.log(`Dùng ${item.icon} → Hồi ${item.healMp} MP`, "system");
             }
             if (item.statBoost) {
-              const ss = ["str", "agi", "vit", "int"];
+              const ss = ["str", "agi", "vit", "ene"];
               const s = ss[randInt(0, 3)];
               S.player.stats[s] += item.statBoost;
               UI.log(
@@ -3102,18 +3389,19 @@
             "%";
           document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
           const s = p.stats;
-          document.getElementById("r-str").textContent = s.str;
-          document.getElementById("r-agi").textContent = s.agi;
-          document.getElementById("r-vit").textContent = s.vit;
-          document.getElementById("r-int").textContent = s.ene;
-          document.getElementById("r-patk").textContent = Combat.pAtk();
+          const _i = v => Math.floor(Number(v) || 0);
+          document.getElementById("r-str").textContent = _i(s.str);
+          document.getElementById("r-agi").textContent = _i(s.agi);
+          document.getElementById("r-vit").textContent = _i(s.vit);
+          document.getElementById("r-int").textContent = _i(s.ene);
+          document.getElementById("r-patk").textContent = _i(Combat.pAtk());
           document.getElementById("r-matk").textContent =
-            5 + s.ene * 2 * p.tangTuVi;
-          document.getElementById("r-def").textContent = Combat.pDef();
+            _i(5 + _i(s.ene) * 2 * (p.tangTuVi || 1));
+          document.getElementById("r-def").textContent = _i(Combat.pDef());
           document.getElementById("r-spd").textContent =
-            3 + Math.floor(s.agi * 0.5);
+            _i(3 + _i(s.agi) * 0.5);
           document.getElementById("r-eva").textContent =
-            Math.floor(s.agi * 0.3) + "%";
+            _i(_i(s.agi) * 0.3) + "%";
           document.getElementById("r-tvlc").textContent = p.tuViLinhCan || 0;
           document.getElementById("inv-head").textContent =
             `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
@@ -3140,6 +3428,22 @@
             const icon = slot.item?.icon || slot.label.slice(0, 1);
             el.innerHTML = `<div class="eicon">${icon}</div>${slot.item?.name || slot.label}`;
             el.title = slot.item?.description || "";
+          }
+        },
+
+        buildInv() {
+          const grid = document.getElementById("inv-grid");
+          if (!grid) return;
+          grid.innerHTML = "";
+          for (let i = 0; i < S.inventory.length; i++) {
+            const it = S.inventory[i];
+            if (!it) continue;
+            const el = document.createElement("div");
+            el.className = "isl";
+            el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
+            el.innerHTML = `${it.icon || "📦"}<span class="icnt">x${it.count || 1}</span>`;
+            el.onclick = () => Inventory.use(i);
+            grid.appendChild(el);
           }
         },
 
@@ -3427,8 +3731,6 @@
           tangTuVi: 1,
           maCanhGioi: defaultRealm.code,
           canhGioi: defaultRealm,
-          realm: 0,
-          stage: 1,
           stats: { str, agi, vit, ene: int_ },
           hp: 100 + vit * 10,
           maxHp: 100 + vit * 10,
@@ -3450,7 +3752,7 @@
           heal_hp: 0,
           heal_mp: 0,
           jsonIventory: JSON.stringify([]),
-          skills: JSON.stringify(assignedSkills.map(sk => { const { cdLeft, ...r } = sk; return r; })),
+          skills: assignedSkills.map(mapFESkillToBE),
           crit: "0",
           speed: 1,
           equip_slot: JSON.stringify(trangBi),
@@ -3462,6 +3764,8 @@
         S.player = {
           ...playerData,
           root: cRoot,
+          realm: defaultRealm.stt || 0,
+          stage: 1,
           skills: assignedSkills,
           buffs: {},
           equipment: {
