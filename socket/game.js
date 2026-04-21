@@ -20,36 +20,103 @@
  *   server_msg   { text }
  */
 
+const http = require("http");
+const https = require("https");
+const { URL } = require("url");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../middleware/auth");
+const AUTH_BACKEND = process.env.AUTH_BACKEND || "http://localhost:8090";
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
 const sessions = new Map();
 
-function setupSocket(io) {
+async function requestJson(urlString, headers = {}) {
+  const url = new URL(urlString);
+  const lib = url.protocol === "https:" ? https : http;
+
+  return new Promise((resolve, reject) => {
+    const req = lib.request(
+      url,
+      {
+        method: "GET",
+        headers,
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(body || "{}");
+            resolve({
+              ok: res.statusCode >= 200 && res.statusCode < 300,
+              status: res.statusCode,
+              json,
+            });
+          } catch (err) {
+            reject(err);
+          }
+        });
+      },
+    );
+
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+function setupSocket(io, players = new Map()) {
   // ── Auth middleware cho Socket.io ──────────────────────────────
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error("Không có token"));
+
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       socket.userId = decoded.userId;
       socket.username = decoded.username;
-      next();
-    } catch {
-      next(new Error("Token không hợp lệ"));
+      return next();
+    } catch (jwtError) {
+      try {
+        const authUrl = `${AUTH_BACKEND.replace(/\/+$/, "")}/api/auth/me`;
+        const res = await requestJson(authUrl, {
+          Authorization: `Bearer ${token}`,
+        });
+        if (!res.ok) throw new Error(`Remote auth failed: ${res.status}`);
+        const data = res.json;
+        if (!data?.user?.id || !data?.user?.username)
+          throw new Error("Remote auth response missing user");
+        socket.userId = data.user.id;
+        socket.username = data.user.username;
+        return next();
+      } catch (remoteError) {
+        console.warn(
+          "Socket auth failed:",
+          jwtError.message,
+          remoteError.message,
+        );
+        return next(new Error("Token không hợp lệ"));
+      }
     }
   });
 
   io.on("connection", (socket) => {
     // ── join_world ────────────────────────────────────────────────
-    socket.on("join_world", ({ mapId = "wilderness", x = 26, y = 30 } = {}) => {
+    socket.on("join_world", ({ mapCode, x = 26, y = 30 } = {}) => {
+      const roomId = mapCode;
+      // Lấy tên nhân vật từ player data
+      const playerData = [...players.values()].find((p) => p.userId === socket.userId);
       const session = {
         id: socket.id,
         userId: socket.userId,
         username: socket.username,
-        mapId,
+        name: playerData?.name || socket.username,
+        realm: playerData?.realm || 0,
+        stage: playerData?.stage || playerData?.tangTuVi || 1,
+        mapId: roomId,
+        mapCode: roomId,
         x,
         y,
         joinedAt: Date.now(),
@@ -57,48 +124,53 @@ function setupSocket(io) {
       sessions.set(socket.id, session);
 
       // Join map room
-      socket.join(`map:${mapId}`);
+      socket.join(`map:${roomId}`);
 
       // Send current world state to this client
       const worldPlayers = [...sessions.values()].filter(
-        (s) => s.id !== socket.id,
+        (s) => s.mapId === roomId && s.id !== socket.id,
       );
       socket.emit("world_state", { players: worldPlayers });
 
       // Notify others on same map
-      socket.to(`map:${mapId}`).emit("player_join", session);
+      socket.to(`map:${roomId}`).emit("player_join", session);
     });
 
     // ── move ──────────────────────────────────────────────────────
-    socket.on("move", ({ x, y, mapId }) => {
+    socket.on("move", ({ x, y, mapId, mapCode }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
+      const roomId = mapId || mapCode || session.mapId;
       session.x = x;
       session.y = y;
-      session.mapId = mapId;
+      session.mapId = roomId;
+      session.mapCode = roomId;
       // Broadcast to same map only (không gửi cho chính mình)
-      socket.to(`map:${mapId}`).emit("player_move", { id: socket.id, x, y });
+      socket
+        .to(`map:${roomId}`)
+        .emit("player_move", { id: socket.id, x, y, mapCode: roomId });
     });
 
     // ── map_change ────────────────────────────────────────────────
-    socket.on("map_change", ({ mapId, x, y }) => {
+    socket.on("map_change", ({ mapId, mapCode, x, y }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
+      const roomId = mapId || mapCode || session.mapId;
 
       // Leave old room
       socket.leave(`map:${session.mapId}`);
       socket.to(`map:${session.mapId}`).emit("player_leave", { id: socket.id });
 
       // Join new room
-      session.mapId = mapId;
+      session.mapId = roomId;
       session.x = x;
       session.y = y;
-      socket.join(`map:${mapId}`);
-      socket.to(`map:${mapId}`).emit("player_join", { ...session });
+      socket.join(`map:${roomId}`);
+      socket.to(`map:${roomId}`).emit("player_join", { ...session });
 
       // Send updated world state (players on new map)
       const mapPlayers = [...sessions.values()].filter(
-        (s) => s.mapId === mapId && s.id !== socket.id,
+        (s) => s.mapId === roomId && s.id !== socket.id,
       );
       socket.emit("world_state", { players: mapPlayers });
     });

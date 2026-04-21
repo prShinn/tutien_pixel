@@ -16,6 +16,7 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
 const path       = require('path');
+const { authMiddleware, signToken } = require('./middleware/auth');
 
 // const authRoutes   = require('./routes/auth');
 // const playerRoutes = require('./routes/player');
@@ -35,9 +36,48 @@ const io     = new Server(server, {
 app.use(cors());
 app.use(express.json({ limit: '512kb' }));
 
+// Auth API
+app.post('/api/auth/register', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password)
+    return res.status(400).json({ error: 'Username và password là bắt buộc' });
+  const existing = [...users.values()].find((u) => u.username === username);
+  if (existing) return res.status(409).json({ error: 'Tên tài khoản đã tồn tại' });
+  const id = nextUserId++;
+  const user = { id, username, password };
+  users.set(id, user);
+  res.json({ token: signToken(id, username), user: { id, username } });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password)
+    return res.status(400).json({ error: 'Username và password là bắt buộc' });
+  const user = [...users.values()].find(
+    (u) => u.username === username && u.password === password,
+  );
+  if (!user) return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu sai' });
+  res.json({ token: signToken(user.id, user.username), user: { id: user.id, username: user.username } });
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({ user: { id: req.userId, username: req.username } });
+});
+
+app.get('/api/player/by-user/:userId', authMiddleware, (req, res) => {
+  const userId = Number(req.params.userId);
+  if (!userId || userId !== req.userId)
+    return res.status(403).json({ error: 'Không được phép' });
+  const player = [...players.values()].find((p) => p.userId === userId);
+  if (!player) return res.status(404).json({ error: 'Không tìm thấy nhân vật' });
+  res.json(player);
+});
+
 // Serve game client (nếu build Angular vào dist/)
 app.use(express.static(path.join(__dirname, 'public')));
 
+const users = new Map();
+let nextUserId = 1;
 const players = new Map();
 let nextPlayerId = 1;
 const worlds = [
@@ -117,7 +157,7 @@ app.get('*', (req, res) => {
 });
 
 // ── Socket.io ─────────────────────────────────────────────────────
-const { broadcast, sessions } = setupSocket(io);
+const { broadcast, sessions } = setupSocket(io, players);
 
 // Optional: periodic world stats broadcast
 setInterval(() => {

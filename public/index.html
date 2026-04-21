@@ -247,7 +247,7 @@
             </div>
           </div>
           <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
-          <!-- <div class="online-badge" id="online-badge">● Offline</div> -->
+          <div class="online-badge" id="online-badge">● Offline</div>
           <!-- Online players mini list -->
           <div
             class="sec-title"
@@ -266,7 +266,7 @@
       <div id="canvas-area">
         <canvas id="game-canvas"></canvas>
         <div id="map-name-overlay"></div>
-        <!-- <div id="conn-badge" class="offline">● Offline</div> -->
+        <div id="conn-badge" class="offline">● Offline</div>
       </div>
 
       <div class="gpanel" id="panel-right">
@@ -2465,7 +2465,7 @@
               const p = S.player;
               if (p)
                 socket.emit("join_world", {
-                  mapCode: S.mapCode,
+                  mapId: S.mapCode,
                   x: p.x,
                   y: p.y,
                 });
@@ -2514,14 +2514,15 @@
               }
             });
 
-            socket.on("player_map", ({ id, mapCode, x, y }) => {
+            socket.on("player_map", ({ id, mapCode, mapId, x, y }) => {
+              const newMapCode = mapCode || mapId;
               if (otherPlayers.has(id)) {
                 const op = otherPlayers.get(id);
                 if (op.mapCode !== S.mapCode) otherPlayers.delete(id);
                 else {
                   op.x = x;
                   op.y = y;
-                  op.mapCode = mapCode;
+                  op.mapCode = newMapCode;
                 }
               }
             });
@@ -2552,7 +2553,7 @@
             socket.emit("move", {
               x: S.player.x,
               y: S.player.y,
-              mapCode: S.mapCode,
+              mapId: S.mapCode,
             });
           }
         },
@@ -2561,7 +2562,7 @@
           const px = Math.floor(x);
           const py = Math.floor(y);
           if (socket?.connected) {
-            socket.emit("map_change", { mapCode, x: px, y: py });
+            socket.emit("map_change", { mapId: mapCode, x: px, y: py });
           }
           // Save on map change
           Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
@@ -2590,9 +2591,13 @@
 
         _upsertOther(p) {
           const existing = otherPlayers.get(p.id) || {};
+          const mapCode = p.mapCode || p.mapId || S.mapCode;
           otherPlayers.set(p.id, {
             ...existing,
             ...p,
+            mapCode,
+            realm: p.realm ?? 0,
+            stage: p.stage ?? 1,
             px: (p.x || 0) * CFG.TS + CFG.TS / 2,
             py: (p.y || 0) * CFG.TS + CFG.TS / 2,
           });
@@ -2614,7 +2619,7 @@
           for (const [, p] of otherPlayers) {
             const d = document.createElement("div");
             d.className = "online-player";
-            d.innerHTML = `<span class="on-name">${p.username || "?"}</span><span class="on-realm">${p.canhGioi.tenCanhGioi}</span>`;
+            d.innerHTML = `<span class="on-name">${p.name || p.username || "?"}</span>`;
             el.appendChild(d);
           }
         },
@@ -2781,15 +2786,13 @@
           try {
             S.inventory = JSON.parse(playerData.jsonIventory) || [];
           } catch (e) {}
-          let map = {}; //MAPS[playerData.mapCode];
-          if (playerData.mapCode) {
-            const defaultDto = await Net.get("/api/worlds/default");
-            const normalized = normalizeWorldDto(defaultDto);
-            map = normalized;
+          let map = {}; //MAPS[playerData.mapCode || playerData.mapId];
+          const mapCode = playerData.mapCode || playerData.mapId;
+          if (mapCode) {
+            const dto = await Net.get(`/api/worlds/by-code?code=${mapCode}`);
+            map = normalizeWorldDto(dto);
           } else {
-            const defaultDto = await Net.get(
-              `/api/worlds/by-code?code=${playerData.mapCode}`,
-            );
+            const defaultDto = await Net.get("/api/worlds/default");
             map = normalizeWorldDto(defaultDto);
           }
           if (!map) return;
@@ -3626,17 +3629,21 @@
                 (e) => e.type === "weaken",
               );
               const weakenMult = weakenEff ? weakenEff.value : 1;
-              const dmg = Math.max(
-                1,
-                Math.floor(
-                  (m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult,
-                ),
-              );
-              p.hp = Math.max(0, p.hp - dmg);
-              Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
-              if (p.hp <= 0) {
-                p.hp = Math.floor(p.maxHp * 0.25);
-                UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
+              if (Math.random() < Combat.evasion()) {
+                Render.floatDmg(p.px, p.py, -36, "MISS", "#88ff88");
+              } else {
+                const dmg = Math.max(
+                  1,
+                  Math.floor(
+                    (m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult,
+                  ),
+                );
+                p.hp = Math.max(0, p.hp - dmg);
+                Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
+                if (p.hp <= 0) {
+                  p.hp = Math.floor(p.maxHp * 0.25);
+                  UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
+                }
               }
             }
           }
@@ -3722,6 +3729,15 @@
         pDef() {
           const s = S.player.stats;
           return Math.floor(2 + (s?.vit || 0) * 0.3 + (s?.agi || 0) * 0.7);
+        },
+        evasion() {
+          const s = S.player.stats;
+          const agi = Math.max(0, Math.floor(s?.agi || 0));
+          const bonus =
+            Number(S.player.stats?.eva || 0) +
+            Number(S.player.equipment?.eva || 0);
+          const rate = 0.1 + agi * 0.02 + bonus;
+          return Math.min(0.35, Math.max(0.001, rate));
         },
         attack(m) {
           if (S.atkCd > 0 || m.dead) return;
@@ -4085,7 +4101,7 @@
                   m.dead = true;
                   m.respawnT = m.spawnCD;
                   Combat.dropLoot(m);
-                //   UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
+                  //   UI.log(`${m.name} đã bị tiêu diệt!`, "combat");
                 }
               }
             }
@@ -4539,7 +4555,8 @@
               if (!portal.tenMapDen) continue;
               const px = portal.x * ts + ts / 2 - cx;
               const py = portal.y * ts + ts / 2 - cy;
-              if (px >= -20 && px <= cW + 20 && py >= -20 && py <= cH + 20) continue;
+              if (px >= -20 && px <= cW + 20 && py >= -20 && py <= cH + 20)
+                continue;
               const dx = px - centerX;
               const dy = py - centerY;
               const dist = dx * dx + dy * dy;
@@ -4882,32 +4899,89 @@
         },
         portalHint(nearest, centerX, centerY, cW, cH) {
           const { portal, dx, dy } = nearest;
-          const angle = Math.atan2(dy, dx);
-          const edgeRadius = Math.min(cW, cH) / 2 - 28;
-          const edgeX = Math.min(cW - 24, Math.max(24, centerX + Math.cos(angle) * edgeRadius));
-          const edgeY = Math.min(cH - 24, Math.max(24, centerY + Math.sin(angle) * edgeRadius));
-          ctx.save();
-          ctx.translate(edgeX, edgeY);
-          ctx.rotate(angle);
+          const margin = 24;
+          let edgeX = centerX;
+          let edgeY = centerY;
+          const candidates = [];
+          if (dx !== 0) {
+            const tx =
+              dx > 0 ? (cW - margin - centerX) / dx : (margin - centerX) / dx;
+            const yAtTx = centerY + dy * tx;
+            if (tx > 0 && yAtTx >= margin && yAtTx <= cH - margin)
+              candidates.push({ x: centerX + dx * tx, y: yAtTx, t: tx });
+          }
+          if (dy !== 0) {
+            const ty =
+              dy > 0 ? (cH - margin - centerY) / dy : (margin - centerY) / dy;
+            const xAtTy = centerX + dx * ty;
+            if (ty > 0 && xAtTy >= margin && xAtTy <= cW - margin)
+              candidates.push({ x: xAtTy, y: centerY + dy * ty, t: ty });
+          }
+          if (candidates.length) {
+            candidates.sort((a, b) => a.t - b.t);
+            edgeX = candidates[0].x;
+            edgeY = candidates[0].y;
+          } else {
+            edgeX = Math.min(
+              cW - margin,
+              Math.max(margin, centerX + Math.sign(dx) * (cW / 2 - margin)),
+            );
+            edgeY = Math.min(
+              cH - margin,
+              Math.max(margin, centerY + Math.sign(dy) * (cH / 2 - margin)),
+            );
+          }
+          const isLeft = edgeX <= margin + 0.5;
+          const isRight = edgeX >= cW - margin - 0.5;
+          const isTop = edgeY <= margin + 0.5;
+          const isBottom = edgeY >= cH - margin - 0.5;
           ctx.fillStyle = "rgba(120,200,255,0.95)";
           ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(-8, -12);
-          ctx.lineTo(8, -12);
+          if (isLeft) {
+            ctx.moveTo(edgeX, edgeY);
+            ctx.lineTo(edgeX + 14, edgeY - 10);
+            ctx.lineTo(edgeX + 14, edgeY + 10);
+          } else if (isRight) {
+            ctx.moveTo(edgeX, edgeY);
+            ctx.lineTo(edgeX - 14, edgeY - 10);
+            ctx.lineTo(edgeX - 14, edgeY + 10);
+          } else if (isTop) {
+            ctx.moveTo(edgeX, edgeY);
+            ctx.lineTo(edgeX - 10, edgeY + 14);
+            ctx.lineTo(edgeX + 10, edgeY + 14);
+          } else {
+            ctx.moveTo(edgeX, edgeY);
+            ctx.lineTo(edgeX - 10, edgeY - 14);
+            ctx.lineTo(edgeX + 10, edgeY - 14);
+          }
           ctx.closePath();
           ctx.fill();
-          ctx.restore();
           const label = portal.tenMapDen || portal.denMap || "Cổng";
+          let text = `→ ${label}`;
+          let textX = edgeX;
+          let textY = edgeY + 24;
+          if (isLeft) {
+            text = `→ ${label}`;
+            textX = edgeX + 20;
+            textY = edgeY + 4;
+          } else if (isRight) {
+            text = `${label} ←`;
+            textX = edgeX - 20;
+            textY = edgeY + 4;
+          } else if (isTop) {
+            text = `↓ ${label}`;
+            textY = edgeY + 20;
+          } else if (isBottom) {
+            text = `↑ ${label}`;
+            textY = edgeY - 14;
+          }
           ctx.font = "10px monospace";
           ctx.textAlign = "center";
-          const text = `→ ${label}`;
           const tw = ctx.measureText(text).width + 10;
-          const textX = edgeX;
-          const textY = edgeY + 24;
-          ctx.fillStyle = "rgba(0,0,0,0.65)";
-          ctx.fillRect(textX - tw / 2, textY - 12, tw, 16);
+          ctx.fillStyle = "rgba(0,0,0,0.75)";
+          ctx.fillRect(textX - tw / 2, textY - 10, tw, 18);
           ctx.fillStyle = "#a8e3ff";
-          ctx.fillText(text, textX, textY + 2);
+          ctx.fillText(text, textX, textY + 4);
         },
         floatDmg(wx, wy, offY, text, color) {
           const area = document
@@ -4969,7 +5043,7 @@
             3 + _i(s.agi) * 0.5,
           );
           document.getElementById("r-eva").textContent =
-            _i(_i(s.agi) * 0.3) + "%";
+            Combat.evasion().toFixed(1) + "%";
           document.getElementById("r-tvlc").textContent = p.tuViLinhCan || 0;
           document.getElementById("inv-head").textContent =
             `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
@@ -5471,10 +5545,10 @@
         const ok = await Auth.tryAutoLogin().catch(() => false);
         if (!ok) showScreen("auth");
         try {
-          const r = await fetch(API.BASE + "/api/health", {
-            signal: AbortSignal.timeout(3000),
-          });
-          if (!r.ok) throw new Error();
+        //   const r = await fetch(API.BASE + "/api/health", {
+        //     signal: AbortSignal.timeout(3000),
+        //   });
+        //   if (!r.ok) throw new Error();
           document.getElementById("auth-status").textContent =
             "✓ Máy chủ đang hoạt động";
         } catch {
