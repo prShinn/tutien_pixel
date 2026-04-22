@@ -20,37 +20,6 @@ function isSolid(tx, ty) {
   if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
   return SOLID.has(S.tiles[ty]?.[tx]);
 }
-function fillRect(t, x, y, w, h, v) {
-  for (let dy = 0; dy < h; dy++)
-    for (let dx = 0; dx < w; dx++) {
-      const ty = y + dy,
-        tx = x + dx;
-      if (ty >= 0 && ty < t.length && tx >= 0 && tx < t[0].length)
-        t[ty][tx] = v;
-    }
-}
-function borderWall(t) {
-  const H = t.length,
-    W = t[0].length;
-  for (let x = 0; x < W; x++) {
-    t[0][x] = T.WALL;
-    t[H - 1][x] = T.WALL;
-  }
-  for (let y = 0; y < H; y++) {
-    t[y][0] = T.WALL;
-    t[y][W - 1] = T.WALL;
-  }
-}
-function scatter(t, v, n, allow = [T.GRASS]) {
-  const H = t.length,
-    W = t[0].length;
-  for (let i = 0; i < n; i++) {
-    const x = randInt(2, W - 3),
-      y = randInt(2, H - 3);
-    if (allow.includes(t[y][x])) t[y][x] = v;
-  }
-}
-
 // ════════════════════════════════════════════════════════════
 // World Module
 // ════════════════════════════════════════════════════════════
@@ -79,8 +48,12 @@ const World = {
       S.player.mapCode = map.code;
       S.player.mapId = map.id || map.code;
     }
-    S.portals = def.portals;
-    S.npcs = def.npcs.map((n) => ({ ...n, used: false }));
+    S.portals = def.portals ?? [];
+    S.npcs = (def.npcs ?? []).map((n) => ({
+      ...n,
+      used: false,
+      type: n.loaiNpc ? n.loaiNpc.toLowerCase() : n.type,
+    }));
     S.monsters = [];
 
     for (const mon of def.monsters ?? []) {
