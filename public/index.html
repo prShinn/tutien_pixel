@@ -269,6 +269,80 @@
         <div id="conn-badge" class="offline">● Offline</div>
       </div>
 
+      <!-- ══ SKILL BAR — hàng ngang giữa canvas và bottom panel ══ -->
+      <div id="skill-bar">
+        <div class="skbar-label">⚔ KỸ NĂNG</div>
+        <div class="skbar-slots">
+          <!-- Slot 0 -->
+          <div class="skbar-slot" id="skbar-slot-0" onclick="SkillSystem.useSkill(0)"
+               onmouseenter="SkillSystem.showTooltip(0,event)" onmouseleave="SkillSystem.hideTooltip()">
+            <span class="skbar-key">1</span>
+            <div class="skbar-icon" id="skbar-icon-0">—</div>
+            <div class="skbar-name" id="skbar-name-0">Chưa có</div>
+            <div class="skbar-mp"   id="skbar-mp-0"></div>
+            <!-- CD sweep overlay dùng SVG conic-gradient -->
+            <div class="skbar-cd-wrap" id="skbar-cd-wrap-0" style="display:none">
+              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-0">
+                <circle cx="20" cy="20" r="18" class="cd-track"/>
+                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-0"
+                        stroke-dasharray="113" stroke-dashoffset="0"/>
+              </svg>
+              <span class="skbar-cd-text" id="skbar-cd-text-0"></span>
+            </div>
+          </div>
+          <!-- Slot 1 -->
+          <div class="skbar-slot" id="skbar-slot-1" onclick="SkillSystem.useSkill(1)"
+               onmouseenter="SkillSystem.showTooltip(1,event)" onmouseleave="SkillSystem.hideTooltip()">
+            <span class="skbar-key">2</span>
+            <div class="skbar-icon" id="skbar-icon-1">—</div>
+            <div class="skbar-name" id="skbar-name-1">Chưa có</div>
+            <div class="skbar-mp"   id="skbar-mp-1"></div>
+            <div class="skbar-cd-wrap" id="skbar-cd-wrap-1" style="display:none">
+              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-1">
+                <circle cx="20" cy="20" r="18" class="cd-track"/>
+                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-1"
+                        stroke-dasharray="113" stroke-dashoffset="0"/>
+              </svg>
+              <span class="skbar-cd-text" id="skbar-cd-text-1"></span>
+            </div>
+          </div>
+          <!-- Slot 2 -->
+          <div class="skbar-slot" id="skbar-slot-2" onclick="SkillSystem.useSkill(2)"
+               onmouseenter="SkillSystem.showTooltip(2,event)" onmouseleave="SkillSystem.hideTooltip()">
+            <span class="skbar-key">3</span>
+            <div class="skbar-icon" id="skbar-icon-2">—</div>
+            <div class="skbar-name" id="skbar-name-2">Chưa có</div>
+            <div class="skbar-mp"   id="skbar-mp-2"></div>
+            <div class="skbar-cd-wrap" id="skbar-cd-wrap-2" style="display:none">
+              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-2">
+                <circle cx="20" cy="20" r="18" class="cd-track"/>
+                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-2"
+                        stroke-dasharray="113" stroke-dashoffset="0"/>
+              </svg>
+              <span class="skbar-cd-text" id="skbar-cd-text-2"></span>
+            </div>
+          </div>
+          <!-- Slot 3 -->
+          <div class="skbar-slot" id="skbar-slot-3" onclick="SkillSystem.useSkill(3)"
+               onmouseenter="SkillSystem.showTooltip(3,event)" onmouseleave="SkillSystem.hideTooltip()">
+            <span class="skbar-key">4</span>
+            <div class="skbar-icon" id="skbar-icon-3">—</div>
+            <div class="skbar-name" id="skbar-name-3">Chưa có</div>
+            <div class="skbar-mp"   id="skbar-mp-3"></div>
+            <div class="skbar-cd-wrap" id="skbar-cd-wrap-3" style="display:none">
+              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-3">
+                <circle cx="20" cy="20" r="18" class="cd-track"/>
+                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-3"
+                        stroke-dasharray="113" stroke-dashoffset="0"/>
+              </svg>
+              <span class="skbar-cd-text" id="skbar-cd-text-3"></span>
+            </div>
+          </div>
+        </div>
+        <div class="skbar-hint">WASD Di chuyển · Space Đánh · 1-4 Kỹ năng · F NPC</div>
+      </div>
+
+
       <div class="gpanel" id="panel-right">
         <div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
         <div class="pbody">
@@ -391,76 +465,6 @@
           <button class="act-btn danger" onclick="Auth.logout()">
             🚪 Đăng Xuất
           </button>
-          <div class="sec-title" style="font-size: 8px; margin: 6px 0 3px">
-            ✦ KỸ NĂNG [1-4]
-          </div>
-          <div class="skill-slots" id="skill-slots">
-            <div
-              class="skill-slot"
-              id="skill-slot-0"
-              onclick="SkillSystem.useSkill(0)"
-            >
-              <span class="sk-key">1</span>
-              <div class="sk-icon">—</div>
-              <div class="sk-name">Chưa có</div>
-              <span class="sk-mp"></span>
-              <div
-                class="sk-cd-overlay"
-                id="sk-cd-0"
-                style="display: none"
-              ></div>
-            </div>
-            <div
-              class="skill-slot"
-              id="skill-slot-1"
-              onclick="SkillSystem.useSkill(1)"
-            >
-              <span class="sk-key">2</span>
-              <div class="sk-icon">—</div>
-              <div class="sk-name">Chưa có</div>
-              <span class="sk-mp"></span>
-              <div
-                class="sk-cd-overlay"
-                id="sk-cd-1"
-                style="display: none"
-              ></div>
-            </div>
-            <div
-              class="skill-slot"
-              id="skill-slot-2"
-              onclick="SkillSystem.useSkill(2)"
-            >
-              <span class="sk-key">3</span>
-              <div class="sk-icon">—</div>
-              <div class="sk-name">Chưa có</div>
-              <span class="sk-mp"></span>
-              <div
-                class="sk-cd-overlay"
-                id="sk-cd-2"
-                style="display: none"
-              ></div>
-            </div>
-            <div
-              class="skill-slot"
-              id="skill-slot-3"
-              onclick="SkillSystem.useSkill(3)"
-            >
-              <span class="sk-key">4</span>
-              <div class="sk-icon">—</div>
-              <div class="sk-name">Chưa có</div>
-              <span class="sk-mp"></span>
-              <div
-                class="sk-cd-overlay"
-                id="sk-cd-3"
-                style="display: none"
-              ></div>
-            </div>
-          </div>
-          <div class="keys-hint">
-            WASD/↑↓←→ Di chuyển<br />
-            Space: Đánh thường | 1-4: Kỹ năng<br />
-            F: Tương tác NPC | Enter: Chat
-          </div>
         </div>
         <div id="inv-wrap">
           <div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
@@ -506,6 +510,17 @@
       <div class="tip-name" id="tip-name"></div>
       <div class="tip-type" id="tip-type"></div>
       <div id="tip-body"></div>
+    </div>
+
+    <!-- Skill tooltip (hover trên skbar-slot) -->
+    <div id="skill-tip">
+      <div class="stip-name" id="stip-name"></div>
+      <div class="stip-row"><span>Loại</span><span class="sv" id="stip-type"></span></div>
+      <div class="stip-row"><span>Sát thương</span><span class="sv" id="stip-dmg"></span></div>
+      <div class="stip-row"><span>MP tiêu hao</span><span class="sv" id="stip-mp"></span></div>
+      <div class="stip-row"><span>Hồi chiêu</span><span class="sv" id="stip-cd"></span></div>
+      <div class="stip-row"><span>Tầm đánh</span><span class="sv" id="stip-range"></span></div>
+      <div class="stip-desc" id="stip-desc"></div>
     </div>
 
     <!-- ══ JS Modules — thứ tự load quan trọng ══ -->

@@ -121,13 +121,17 @@ const Auth = {
         return null;
       }
     })();
+    // Luôn dùng mapBESkillToFE để đảm bảo damageType + satThuong luôn có
     const savedSkills =
       Array.isArray(rawSkills) && rawSkills.length
-        ? rawSkills.map((sk) =>
-            sk.mpTieuHao != null || sk.hoiChieu != null
-              ? mapBESkillToFE(sk)
-              : { ...sk, cdLeft: 0 },
-          )
+        ? rawSkills.map((sk) => {
+            // Nếu skill đã có damageType (FE format cũ) → map lại để cập nhật format
+            // Nếu có mpTieuHao/hoiChieu (BE format) → map từ BE
+            // Trường hợp còn lại: giữ nguyên nhưng đảm bảo có cdLeft
+            if (sk.mpTieuHao != null || sk.hoiChieu != null) return mapBESkillToFE(sk);
+            if (!sk.damageType) return mapBESkillToFE(sk); // Force re-map nếu thiếu field
+            return { ...sk, cdLeft: sk.cdLeft ?? 0 };
+          })
         : null;
     S.player = {
       ...playerData,

@@ -106,7 +106,14 @@ const GameData = {
   // ════ SKILLS ════
   // GET /api/skills → [{id, code, name, icon, tier, linhCan, range, aoe, aoeR,
   //                    mpTieuHao, hoiChieu, satThuong, dienRong, thoiGianBuff,
-  //                    type/effect, moTa}]
+  //                    type (PHYS|MAGIC), sfx_code, description}]
+  //
+  // Quy ước FE:
+  //   damageType : "PHYS" | "MAGIC"  — loại sát thương (từ sk.type)
+  //   satThuong  : number            — hệ số nhân (1.5 = 150% pAtk/mAtk)
+  //   effect     : string | null     — debuff/buff code (burn, slow, root...)
+  //   effectDur  : number            — ticks (frames) hiệu ứng tồn tại
+  //   effectVal  : number            — giá trị hiệu ứng (DoT, slow%...)
   async loadSkills() {
     const data = await this._get("/api/skills");
     if (!Array.isArray(data) || data.length === 0) {
@@ -121,20 +128,34 @@ const GameData = {
       if (!lc) continue;
       if (!grouped[lc]) grouped[lc] = {};
       if (!grouped[lc][tier]) grouped[lc][tier] = [];
+
+      // sk.type từ BE là "PHYS" hoặc "MAGIC" — đây là damageType
+      // sk.sfx_code (nếu có) hoặc sk.effect là debuff/buff effect
+      const damageType = (sk.type === "PHYS" || sk.type === "MAGIC")
+        ? sk.type
+        : "PHYS"; // default
+      // effect riêng: lấy sk.sfx_code hoặc sk.effect (nếu không phải PHYS/MAGIC)
+      const effectCode = sk.sfx_code && sk.sfx_code !== "string"
+        ? sk.sfx_code
+        : (sk.effect && sk.effect !== "PHYS" && sk.effect !== "MAGIC" ? sk.effect : null);
+
       grouped[lc][tier].push({
         id: sk.code || sk.maNangLuc || String(sk.id),
         name: sk.name || sk.tenNangLuc,
-        icon: sk.icon,
+        icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
+        linhCan: lc,
         tier,
+        damageType,                          // "PHYS" | "MAGIC"
+        satThuong: sk.satThuong ?? 1,        // hệ số nhân sát thương
         mpCost: sk.mpTieuHao ?? sk.mpCost ?? 0,
-        cd: sk.hoiChieu ?? sk.cd ?? 60,
+        cd: (sk.hoiChieu ?? sk.cd ?? 60) * 60, // BE gửi giây → đổi sang ticks (60fps)
         range: sk.range ?? sk.tamDanh ?? 5,
         aoe: (sk.dienRong ?? sk.aoeR ?? 0) > 0 || sk.aoe || false,
         aoeR: sk.dienRong ?? sk.aoeR ?? 0,
-        effect: sk.type ?? sk.effect ?? null,
-        effectDur: sk.thoiGianBuff ?? sk.effectDur ?? 0,
-        effectVal: sk.satThuong ?? sk.effectVal ?? 0,
-        desc: sk.moTa ?? sk.description ?? sk.desc ?? "",
+        effect: effectCode,                  // debuff/buff code
+        effectDur: (sk.thoiGianBuff ?? sk.effectDur ?? 0) * 60, // giây → ticks
+        effectVal: sk.effectVal ?? 0,        // giá trị effect (không phải satThuong)
+        desc: sk.description ?? sk.moTa ?? sk.desc ?? "",
         _beId: sk.id || null,
       });
     }
