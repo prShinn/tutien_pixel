@@ -98,7 +98,7 @@ function loop(ts) {
 // §16 · CHARACTER CREATE
 // ════════════════════════════════════════════════════════════
 let cRoot = null;
-const cPts = { str: 5, agi: 5, vit: 5, int: 5, remaining: 20 };
+const cPts = { str: 5, agi: 5, vit: 5, ene: 5, remaining: 20 };
 
 function selectRoot(rootId) {
   const r = CFG.ROOTS.find((item) => item.id === rootId);
@@ -140,7 +140,7 @@ async function createCharacter() {
     alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
     return;
   }
-  const { str, agi, vit, int: int_ } = cPts;
+  const { str, agi, vit, ene } = cPts;
 
   const [defaultRealm, defaultWorldDto] = await Promise.all([
     Net.get("/api/canh-gioi/stt/1"),
@@ -173,11 +173,11 @@ async function createCharacter() {
     tangTuVi: 1,
     maCanhGioi: defaultRealm.code,
     canhGioi: defaultRealm,
-    stats: { str, agi, vit, ene: int_ },
+    stats: { str, agi, vit, ene },
     hp: 100 + vit * 10,
     maxHp: 100 + vit * 10,
-    mp: 50 + int_ * 8,
-    maxMp: 50 + int_ * 8,
+    mp: 50 + ene * 8,
+    maxMp: 50 + ene * 8,
     xu: 50,
     tuViHienTai: 0,
     tuViLenCap: Cultivation.calcTuNeeded(defaultRealm, 1),

@@ -58,7 +58,11 @@ const Auth = {
       currentUser = data.user;
       localStorage.setItem("tu_tien_token", authToken);
 
-      Auth._afterLogin();
+      if (Auth._mode === "register") {
+        showScreen("create");
+      } else {
+        Auth._afterLogin();
+      }
     } catch {
       Auth._err("Không thể kết nối máy chủ. Thử lại sau?");
     } finally {

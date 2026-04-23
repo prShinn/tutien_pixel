@@ -4,19 +4,77 @@
 // ════════════════════════════════════════════════════════════
 
 const Combat = {
+  // ── Hệ thống Vai Trò (Role) dựa trên thuộc tính ──
+  getRole() {
+    const s = S.player?.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
+    const { str, agi, vit, ene } = s;
+
+    // Ưu tiên theo chỉ số cao nhất
+    const max = Math.max(str, agi, vit, ene);
+
+    if (str === max) return { id: "WARRIOR", name: "Chiến Binh", color: "#ff4444" };
+    if (vit === max) return { id: "GLADIATOR", name: "Đấu Sĩ", color: "#ffaa44" };
+    if (ene === max) return { id: "MAGE", name: "Pháp Sư", color: "#4488ff" };
+    if (agi === max) return { id: "ASSASSIN", name: "Sát Thủ", color: "#44ffaa" };
+
+    return { id: "NONE", name: "Tu Sĩ", color: "#ffffff" };
+  },
+
   pAtk() {
     const s = S.player.stats;
-    const base =
-      10 + Math.floor(s?.str || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
+    const role = Combat.getRole();
+    let base = 10 + (s?.str || 0) * 1.8 + (s?.agi || 0) * 0.5;
+
+    // Bonus Chiến Binh
+    if (role.id === "WARRIOR") base *= 1.15;
     return Math.floor(base + Combat.weaponAttack());
   },
 
   mAtk() {
     const s = S.player.stats;
-    const base =
-      10 + Math.floor(s?.ene || 0) * 1.5 + Math.floor(s?.agi || 0) * 0.8;
-    const raw = Math.floor(base + Combat.weaponAttack());
-    return Math.floor(raw * 1.05);
+    const role = Combat.getRole();
+    let base = 10 + (s?.ene || 0) * 1.8 + (s?.agi || 0) * 0.5;
+
+    // Bonus Pháp Sư
+    if (role.id === "MAGE") base *= 1.15;
+    return Math.floor(base + Combat.weaponAttack());
+  },
+
+  pDef() {
+    const s = S.player.stats;
+    const role = Combat.getRole();
+    let def = 2 + (s?.vit || 0) * 0.8 + (s?.agi || 0) * 0.4;
+
+    // Bonus Đấu Sĩ
+    if (role.id === "GLADIATOR") def *= 1.2;
+    return Math.floor(def);
+  },
+
+  critChance() {
+    const s = S.player.stats;
+    const role = Combat.getRole();
+    let chance = 0.05 + (s?.agi || 0) * 0.005;
+
+    // Bonus Sát Thủ
+    if (role.id === "ASSASSIN") chance += 0.1;
+
+    if (S.player.equipment?.weapon) {
+      chance += Number(S.player.equipment.weapon.critChance || 0);
+    }
+    return Math.min(0.5, chance);
+  },
+
+  evasion() {
+    const s = S.player.stats;
+    const role = Combat.getRole();
+    let rate = 0.05 + (s?.agi || 0) * 0.01;
+
+    // Bonus Sát Thủ & Pháp Sư (pháp sư bay nhảy)
+    if (role.id === "ASSASSIN") rate += 0.1;
+    if (role.id === "MAGE") rate += 0.05;
+
+    const bonus = Number(S.player.equipment?.eva || 0);
+    return Math.min(0.4, rate + bonus);
   },
 
   weaponAttack() {
@@ -32,41 +90,12 @@ const Combat = {
     return bonus;
   },
 
-  critChance() {
-    let chance = 0.05;
-    if (S.player.equipment?.weapon) {
-      chance += Number(S.player.equipment.weapon.critChance || 0);
-    }
-    if (S.player.stats.critChance) {
-      chance += Number(S.player.stats.critChance || 0);
-    }
-    return Math.min(0.5, chance);
-  },
-
   critMultiplier() {
     let extra = 0.1;
     if (S.player.equipment?.weapon) {
       extra += Number(S.player.equipment.weapon.critMultiplier || 0);
     }
-    if (S.player.stats.critMultiplier) {
-      extra += Number(S.player.stats.critMultiplier || 0);
-    }
     return extra;
-  },
-
-  pDef() {
-    const s = S.player.stats;
-    return Math.floor(2 + (s?.vit || 0) * 0.3 + (s?.agi || 0) * 0.7);
-  },
-
-  evasion() {
-    const s = S.player.stats;
-    const agi = Math.max(0, Math.floor(s?.agi || 0));
-    const bonus =
-      Number(S.player.stats?.eva || 0) +
-      Number(S.player.equipment?.eva || 0);
-    const rate = 0.1 + agi * 0.02 + bonus;
-    return Math.min(0.35, Math.max(0.001, rate));
   },
 
   attack(m) {
@@ -76,13 +105,13 @@ const Combat = {
     let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
     const isCrit = Math.random() < Combat.critChance();
     if (isCrit) {
-      const critAdd = Math.max(1, Math.round(baseAtk * Combat.critMultiplier()));
+      const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));
       dmg += critAdd;
     }
     m.hp -= dmg;
     S.atkCd = CFG.ATK_CD;
     S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
-    Render.floatDmg(m.px, m.py, -26, "-" + dmg, "#ff6666");
+    Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#ffff00" : "#ff6666");
     if (socket?.connected)
       socket.emit("attack_effect", {
         targetId: null,
@@ -103,8 +132,9 @@ const Combat = {
       UI.log(`Nhặt được ${xu} xu`, "loot");
     }
     if (Math.random() * 100 < m.tyLeRoiDo) {
-      let index = Math.floor(Math.random() * m.dropItems.length - 1 + 1);
+      let index = Math.floor(Math.random() * m.dropItems.length);
       if (m.dropItems.length > 0) Inventory.add(m.dropItems[index]);
     }
   },
 };
+

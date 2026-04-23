@@ -88,30 +88,42 @@ const SkillSystem = {
   //   damageType === "PHYS" → baseAtk = Combat.pAtk()
   //   damageType === "MAGIC" → baseAtk = Combat.mAtk()
   //   finalDmg = baseAtk × satThuong − monsterDef×0.5
+  // Tính sát thương kỹ năng dựa trên thuộc tính và vai trò
   calcDmg(skill, target) {
     const p = S.player;
-    const damageType = skill.damageType || "PHYS";
-    const baseAtk = damageType === "MAGIC" ? Combat.mAtk() : Combat.pAtk();
+    const stats = p.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
+    
+    // 1. Xác định base sát thương (mặc định theo pAtk/mAtk nếu không có scalingStat cụ thể)
+    let baseDmg = skill.damageType === "MAGIC" ? Combat.mAtk() : Combat.pAtk();
+    
+    // 2. Nếu kỹ năng có scaling theo thuộc tính cụ thể (từ backend hoặc định nghĩa thêm)
+    // Ví dụ: Kỹ năng của Đấu Sĩ scale thêm theo VIT, Sát Thủ theo AGI
+    const scalingStat = skill.scalingStat || (skill.damageType === "MAGIC" ? "ene" : "str");
+    const statVal = stats[scalingStat.toLowerCase()] || 0;
+    
+    // Công thức: (BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)
     const satThuong = skill.satThuong ?? 1;
+    let dmg = Math.floor(baseDmg * satThuong + statVal * 2);
 
-    // Hệ số cộng thêm từ tu vi linh căn
+    // 3. Hệ số cộng thêm từ tu vi linh căn
     const tvlcMult = 1 + (p.tuViLinhCan || 0) / 10000;
+    dmg = Math.floor(dmg * tvlcMult);
 
-    let dmg = Math.floor(baseAtk * satThuong * tvlcMult);
-
-    // Giảm theo def quái (phép chỉ bị giảm 50% def)
+    // 4. Giảm theo def quái (phép xuyên 50% giáp)
     if (target) {
       const def = (target.def || 0);
-      const defReduction = damageType === "MAGIC" ? def * 0.5 : def;
+      const defReduction = skill.damageType === "MAGIC" ? def * 0.5 : def;
       dmg = Math.max(1, dmg - Math.floor(defReduction));
     }
 
-    // Crit
+    // 5. Chí mạng (Crit)
     if (Math.random() < Combat.critChance()) {
       dmg = Math.floor(dmg * (1.5 + Combat.critMultiplier()));
     }
 
-    return Math.max(1, dmg + randInt(0, Math.max(1, Math.floor(dmg * 0.08))));
+    // 6. Random biến thiên (+- 8%)
+    const variance = Math.floor(dmg * 0.08);
+    return Math.max(1, dmg + randInt(-variance, variance));
   },
 
   effectName(e) {

@@ -13,6 +13,12 @@ const UI = {
     st.textContent = `${p.linhCan} thuộc tính`;
     st.style.color = Linh_CAN[p.linhCan]?.color || "#aaa";
 
+    const role = Combat.getRole();
+    const roleEl = document.getElementById("ui-role");
+    roleEl.textContent = role.name;
+    roleEl.style.color = role.color;
+    roleEl.style.textShadow = `0 0 8px ${role.color}88`;
+
     // Realm name: ưu tiên từ canhGioi object, fallback sang CFG.REALMS
     const realmName =
       p.tenCanhGioi ||
@@ -48,7 +54,7 @@ const UI = {
     document.getElementById("r-str").textContent = _i(s.str);
     document.getElementById("r-agi").textContent = _i(s.agi);
     document.getElementById("r-vit").textContent = _i(s.vit);
-    document.getElementById("r-int").textContent = _i(s.ene);
+    document.getElementById("r-ene").textContent = _i(s.ene);
     document.getElementById("r-patk").textContent = _i(Combat.pAtk());
     document.getElementById("r-matk").textContent = _i(Combat.mAtk());
     document.getElementById("r-def").textContent = _i(Combat.pDef());

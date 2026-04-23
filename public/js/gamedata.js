@@ -35,16 +35,26 @@ const GameData = {
   async loadRoots() {
     const data = await this._get("/api/linh-can");
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn("[GameData] Không load được ROOTS từ API.");
-      return;
+      console.warn("[GameData] Không load được ROOTS từ API. Sử dụng fallback.");
+      // Fallback data
+      CFG.ROOTS = [
+        { id: "KIM", name: "KIM", emoji: "⚙", color: "#e8e8e8", bg: "#4a4a4a" },
+        { id: "MOC", name: "MỘC", emoji: "🌿", color: "#88ff88", bg: "#1a3a1a" },
+        { id: "THUY", name: "THỦY", emoji: "💧", color: "#88ffff", bg: "#1a2a3a" },
+        { id: "HOA", name: "HỎA", emoji: "🔥", color: "#ff8888", bg: "#3a1a1a" },
+        { id: "THO", name: "THỔ", emoji: "🪨", color: "#ffcc88", bg: "#2a1a1a" },
+        { id: "QUANG", name: "QUANG", emoji: "✨", color: "#ffff88", bg: "#3a3a1a" },
+        { id: "AM", name: "ÂM", emoji: "🌑", color: "#8888ff", bg: "#1a1a3a" }
+      ];
+    } else {
+      CFG.ROOTS = data.map((r) => ({
+        id: r.maLinhCan || r.id,
+        name: r.tenLinhCan || r.name,
+        emoji: r.emoji,
+        color: r.mauSac || r.color,
+        bg: r.background || r.bg,
+      }));
     }
-    CFG.ROOTS = data.map((r) => ({
-      id: r.maLinhCan || r.id,
-      name: r.tenLinhCan || r.name,
-      emoji: r.emoji,
-      color: r.mauSac || r.color,
-      bg: r.background || r.bg,
-    }));
     // Build Linh_CAN lookup map
     Linh_CAN = {};
     for (const r of CFG.ROOTS) {
