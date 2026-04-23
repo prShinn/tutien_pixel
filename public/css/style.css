@@ -195,7 +195,7 @@ body {
   background: rgba(180, 40, 40, 0.15);
   border: 1px solid #802020;
   color: #ff8080;
-  padding: 7px 12px;
+  padding: 4px 7px;
   font-size: 11px;
   margin-bottom: 12px;
   display: none;
@@ -354,7 +354,7 @@ body {
   inset: 0;
   display: none;
   grid-template-columns: 188px 1fr 188px;
-  grid-template-rows: 1fr 50px 142px; /* canvas | skill-bar | bottom */
+  grid-template-rows: 1fr 50px 160px; /* canvas | skill-bar | bottom (tăng để thấy logout) */
 }
 .gpanel {
   background: var(--panel);
@@ -583,6 +583,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  overflow-y: auto; /* Thêm để không bị cắt nút */
 }
 .act-btn {
   background: var(--panel2);
@@ -590,7 +591,7 @@ body {
   color: var(--text2);
   font-family: "Share Tech Mono", monospace;
   font-size: 11px;
-  padding: 5px 7px;
+  padding: 4px 7px;
   cursor: pointer;
   text-align: left;
 }
