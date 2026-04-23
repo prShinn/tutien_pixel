@@ -68,48 +68,66 @@ const Net = {
   // ── Save ──
   async saveNow(event) {
     if (!authToken || !S.player) return;
-    if (this._savePromise) return this._savePromise;
+    
+    // Tránh race condition: Nếu đang lưu, đợi xong rồi check xem có cần lưu tiếp không
+    if (this._savePromise) {
+      return this._savePromise.then(() => this.saveNow(event));
+    }
+
     this._savePromise = (async () => {
-      const trangBi =
-        typeof S.player.trangBi === "string"
-          ? (() => {
-              try {
-                return JSON.parse(S.player.trangBi);
-              } catch {
-                return null;
-              }
-            })()
-          : S.player.trangBi || {
-              vuKhi: null,
-              ao: null,
-              giay: null,
-              mu: null,
-              tay: null,
-              nhan: null,
-              vong: null,
-            };
-      const playerData = {
-        ...S.player,
-        inventory: S.inventory,
-        x: Math.floor(S.player.x || 0),
-        y: Math.floor(S.player.y || 0),
-        mapCode: S.mapCode || S.player.mapCode,
-        mapId: S.player.mapId || S.mapCode || S.player.mapCode,
-        _event: event || null,
-        tenCanhGioi: S.player.tenCanhGioi || S.player.canhGioi?.name || "",
-        trangBi,
-        equip_slot: JSON.stringify(trangBi),
+      const p = S.player;
+      
+      // Lấy dữ liệu trang bị từ state mới nhất
+      const trangBi = p.trangBi || {
+        vuKhi: null, ao: null, giay: null, mu: null, 
+        tay: null, nhan: null, vong: null,
       };
+
+      // Chỉ build object với các trường BE thực sự cần theo schema
+      const playerData = {
+        id: p.id,
+        userId: p.userId,
+        name: p.name,
+        linhCan: p.linhCan,
+        maCanhGioi: p.maCanhGioi || p.canhGioi?.code,
+        tangTuVi: p.tangTuVi || p.stage || 1,
+        tuViHienTai: Math.floor(p.tuViHienTai || 0),
+        tuViLenCap: Math.floor(p.tuViLenCap || 0),
+        tuViLinhCan: Math.floor(p.tuViLinhCan || 0),
+        stats: p.stats || { str: 5, agi: 5, vit: 5, ene: 5 },
+        hp: Math.floor(p.hp || 0),
+        maxHp: p.maxHp || 100,
+        mp: Math.floor(p.mp || 0),
+        maxMp: p.maxMp || 100,
+        xu: Math.floor(p.xu || 0),
+        
+        // Cực kỳ quan trọng: Tọa độ và Bản đồ
+        x: Math.floor(p.x || 0),
+        y: Math.floor(p.y || 0),
+        mapCode: S.mapCode || p.mapCode,
+        mapId: p.mapId || S.mapCode || p.mapCode,
+
+        // Stringify các trường JSON
+        jsonIventory: JSON.stringify(S.inventory || []),
+        skills: JSON.stringify((p.skills || []).map(sk => mapFESkillToBE(sk))),
+        equip_slot: JSON.stringify(trangBi),
+        
+        // Các trường khác
+        faction: p.faction || "CHINH",
+        guildId: p.guildId || null,
+        crit: String(p.crit || "0"),
+        speed: p.speed || 1,
+        _event: event ? (event.type || "manual") : "auto"
+      };
+
       try {
-        playerData.jsonIventory = JSON.stringify(playerData.inventory);
-        playerData.skills = (S.player.skills || []).map(mapFESkillToBE);
-        playerData.tuViLinhCan = S.player.tuViLinhCan || 0;
-        playerData.realm = S.player.canhGioi?.stt || S.player.realm || 0;
-        playerData.tangTuVi = S.player.tangTuVi || S.player.stage || 1;
         const res = await this.put("/api/player/" + playerData.id, playerData);
-        if (res?.ok) UI.log("💾 Đã lưu dữ liệu lên server", "system");
-      } catch {
-        UI.log("⚠ Không thể kết nối server để lưu", "system");
+        if (res?.id || res?.ok) {
+          if (event) console.log("💾 Đã lưu dữ liệu (Map/Event):", event);
+        }
+      } catch (err) {
+        console.error("⚠ Lỗi lưu dữ liệu:", err);
+        UI.log("⚠ Không thể lưu dữ liệu lên máy chủ", "system");
       } finally {
         this._savePromise = null;
       }

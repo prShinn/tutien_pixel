@@ -8,7 +8,7 @@
 const API = {
   BASE: "http://localhost:8090",         // ← server URL
   SOCKET_URL: "http://localhost:3000",   // ← socket URL
-  AUTO_SAVE_MS: 60000,                   // auto-save mỗi 60 giây
+  AUTO_SAVE_MS: 30000,                   // auto-save mỗi 30 giây
 };
 
 // ── Static game rules (không thay đổi theo data) ──

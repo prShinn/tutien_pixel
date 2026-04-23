@@ -242,6 +242,12 @@ function enterGame(map, x, y) {
   UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
   Net.connectSocket();
   Net.startAutoSave();
+
+  // Lưu dữ liệu khi đóng tab/reload
+  window.addEventListener("beforeunload", () => {
+    Net.saveNow({ type: "browser_close" });
+  });
+
   requestAnimationFrame((ts) => {
     S.lastTs = ts;
     requestAnimationFrame(loop);
