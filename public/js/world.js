@@ -56,14 +56,14 @@ const World = {
     }));
     S.monsters = [];
 
+    let monIndex = 0;
     for (const mon of def.monsters ?? []) {
-      const pos = World._open({
-        x: mon.spawnX || map.w / 2,
-        y: mon.spawnY || map.h / 2,
-        w: mon.spawnX + 10 > map.w ? mon.spawnX : mon.spawnX + 10,
-        h: mon.spawnY + 10 > map.h ? mon.spawnY : mon.spawnY + 10,
-      });
-      if (pos) S.monsters.push(Monster.make(mon, pos.tx, pos.ty));
+      // Sử dụng tọa độ spawn cố định thay vì ngẫu nhiên để đồng bộ giữa các player
+      const tx = mon.spawnX || Math.floor(map.w / 2);
+      const ty = mon.spawnY || Math.floor(map.h / 2);
+      
+      const fixedId = `mon_${map.code}_${monIndex++}`;
+      S.monsters.push(Monster.make(mon, tx, ty, fixedId));
     }
     const ov = document.getElementById("map-name-overlay");
     ov.textContent = def.name ?? def.tenMap;

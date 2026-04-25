@@ -142,12 +142,14 @@ const Net = {
         Net._isOnline = true;
         Net._setBadge(true);
         const p = S.player;
-        if (p)
+        if (p) {
           socket.emit("join_world", {
-            mapId: S.mapCode,
+            mapCode: S.mapCode,
+            mapId: S.mapCode, // Gửi cả 2 cho chắc chắn
             x: p.x,
             y: p.y,
           });
+        }
         UI.log("🌐 Đã kết nối máy chủ!", "system");
       });
 
@@ -193,8 +195,15 @@ const Net = {
       });
 
       socket.on("player_move", (data) => {
-        const pid = data.id || data.socketId || data.userId;
-        if (otherPlayers.has(pid)) {
+        try {
+          const pid = data.id || data.socketId || data.userId;
+          if (!pid) return;
+          
+          if (!otherPlayers.has(pid)) {
+            // Nếu người chơi này chưa có trong danh sách, thêm vào luôn
+            Net._upsertOther(data);
+          }
+          
           const op = otherPlayers.get(pid);
           // Lưu vị trí đích để nội suy (interpolation)
           op.tx = data.x;
@@ -202,12 +211,14 @@ const Net = {
           op.tpx = data.x * CFG.TS + CFG.TS / 2;
           op.tpy = data.y * CFG.TS + CFG.TS / 2;
           
-          // Nếu đứng quá xa (> 3 ô), nhảy tới luôn để tránh đơ
-          if (dist(op.px, op.py, op.tpx, op.tpy) > CFG.TS * 3) {
+          // Nếu đứng quá xa (> 4 ô), nhảy tới luôn để tránh đơ
+          const dx = op.tpx - op.px;
+          const dy = op.tpy - op.py;
+          if (Math.hypot(dx, dy) > CFG.TS * 4) {
             op.px = op.tpx;
             op.py = op.tpy;
           }
-        }
+        } catch (e) { console.error("player_move error:", e); }
       });
 
       socket.on("player_map", (data) => {
@@ -259,12 +270,18 @@ const Net = {
         S.monsters.push(Monster.make(monster, monster.x, monster.y, monster.id));
       });
 
-      socket.on("attack_fx", ({ attackerName, targetId, damage, isMonster }) => {
-        if (isMonster) {
+      socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
+        if (targetId && targetId.startsWith("mon_")) {
           const m = S.monsters.find(mon => mon.id === targetId);
-          if (m) {
+          if (m && !m.dead) {
             Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
             S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
+            // Trừ máu đồng bộ từ người chơi khác
+            m.hp -= damage;
+            if (m.hp <= 0) {
+              m.dead = true;
+              m.respawnT = m.spawnCD || 10;
+            }
           }
         }
       });
@@ -333,18 +350,24 @@ const Net = {
     const pid = p.id || p.socketId || p.userId;
     if (!pid) return;
 
-    const existing = otherPlayers.get(pid) || {};
+    const existing = otherPlayers.get(pid);
     // Chuẩn hóa mapCode để so sánh chính xác
     const mapCode = (p.mapCode || p.mapId || S.mapCode || "").toLowerCase();
     
-    otherPlayers.set(pid, {
+    const updatedData = {
       ...existing,
       ...p,
       id: pid,
       mapCode: mapCode,
-      px: (p.x || 0) * CFG.TS + CFG.TS / 2,
-      py: (p.y || 0) * CFG.TS + CFG.TS / 2,
-    });
+    };
+
+    // Chỉ khởi tạo tọa độ pixel nếu là người chơi mới
+    if (!existing || existing.px === undefined) {
+      updatedData.px = (p.x || 0) * CFG.TS + CFG.TS / 2;
+      updatedData.py = (p.y || 0) * CFG.TS + CFG.TS / 2;
+    }
+
+    otherPlayers.set(pid, updatedData);
   },
 
   _clearOthers() {

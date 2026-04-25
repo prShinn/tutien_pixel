@@ -47,16 +47,30 @@ function update(dt) {
         if (!World.collides(nextX, p.y)) p.x = nextX;
         const nextY = p.y + dirY * moveStep;
         if (!World.collides(p.x, nextY)) p.y = nextY;
-        if (
-          Math.abs(p.x - oldX) > 0.0000001 ||
-          Math.abs(p.y - oldY) > 0.0000001
-        ) {
-          S.moveTimer -= dt;
-          if (S.moveTimer <= 0) {
-            S.moveTimer = 100; // Gửi dữ liệu tối đa 10 lần/giây
+      
+        // Cập nhật tọa độ di chuyển
+        const moved = Math.abs(p.x - oldX) > 0.0001 || Math.abs(p.y - oldY) > 0.0001;
+        if (moved) {
+          if (!p.isMoving) {
+            p.isMoving = true;
+            Net.emitMove(); // Gửi ngay khi bắt đầu
+          }
+          
+          if (p.lastEmitX === undefined) p.lastEmitX = p.x;
+          if (p.lastEmitY === undefined) p.lastEmitY = p.y;
+          
+          if (Math.hypot(p.x - p.lastEmitX, p.y - p.lastEmitY) > 0.1) {
+            p.lastEmitX = p.x;
+            p.lastEmitY = p.y;
             Net.emitMove();
           }
+        } else if (p.isMoving) {
+          p.isMoving = false;
+          Net.emitMove(); // Gửi tọa độ cuối cùng khi dừng lại
         }
+      } else if (p.isMoving) {
+        p.isMoving = false;
+        Net.emitMove();
       }
 
       p.px = p.x * CFG.TS + CFG.TS / 2;
