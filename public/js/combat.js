@@ -108,21 +108,25 @@ const Combat = {
       const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));
       dmg += critAdd;
     }
-    m.hp -= dmg;
+    Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#ffff00" : "#ff6666");
+    
     S.atkCd = CFG.ATK_CD;
     S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
-    Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#ffff00" : "#ff6666");
-    if (socket?.connected)
-      socket.emit("attack_effect", {
-        targetId: null,
-        damage: dmg,
-        mapCode: S.mapCode,
-      });
+
+    m.hp -= dmg;
     if (m.hp <= 0) {
       m.dead = true;
-      m.respawnT = m.spawnCD;
+      m.respawnT = m.spawnCD || 10;
       Combat.dropLoot(m);
     }
+
+    if (socket?.connected)
+      socket.emit("attack_effect", {
+        targetId: m.id,
+        damage: dmg,
+        isMonster: true,
+        mapCode: S.mapCode,
+      });
   },
 
   dropLoot(m) {

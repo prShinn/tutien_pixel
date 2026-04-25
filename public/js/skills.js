@@ -156,11 +156,26 @@ const SkillSystem = {
   },
 
   hitMonster(m, dmg, skill) {
-    m.hp -= dmg;
     S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 16 });
-    // Màu float damage: MAGIC → tím, PHYS → đỏ cam
     const dmgColor = skill?.damageType === "MAGIC" ? "#ee88ff" : "#ff9966";
     Render.floatDmg(m.px, m.py, -26, "-" + dmg, dmgColor);
+
+    m.hp -= dmg;
+    if (m.hp <= 0) {
+      m.dead = true;
+      m.respawnT = m.spawnCD || 10;
+      Combat.dropLoot(m);
+    }
+    
+    if (socket?.connected) {
+      socket.emit("attack_effect", {
+        targetId: m.id,
+        damage: dmg,
+        isMonster: true,
+        mapCode: S.mapCode,
+      });
+    }
+
     this.applyStatusToMonster(m, skill);
     // Weapon proc effect
     const weapEff = S.player.equipment?.weapon?.effect;

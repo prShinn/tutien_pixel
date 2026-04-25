@@ -35,8 +35,11 @@ const Render = {
     for (const portal of S.portals)
       if (portal.tenMapDen) Render.portal(portal, cx, cy);
     for (const npc of S.npcs) Render.npc(npc, cx, cy);
-    for (const [, op] of otherPlayers)
-      if (op.mapCode === S.mapCode) Render.otherPlayer(op, cx, cy);
+    for (const [, op] of otherPlayers) {
+      const opMap = (op.mapCode || "").toLowerCase();
+      const myMap = (S.mapCode || "").toLowerCase();
+      if (opMap === myMap) Render.otherPlayer(op, cx, cy);
+    }
     for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
     const tint = p.root ? p.root.color : "#4488cc";
     Render.player(p.px - cx, p.py - cy, tint);

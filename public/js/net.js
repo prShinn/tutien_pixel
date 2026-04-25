@@ -69,21 +69,17 @@ const Net = {
   async saveNow(event) {
     if (!authToken || !S.player) return;
     
-    // Tránh race condition: Nếu đang lưu, đợi xong rồi check xem có cần lưu tiếp không
     if (this._savePromise) {
       return this._savePromise.then(() => this.saveNow(event));
     }
 
     this._savePromise = (async () => {
       const p = S.player;
-      
-      // Lấy dữ liệu trang bị từ state mới nhất
       const trangBi = p.trangBi || {
         vuKhi: null, ao: null, giay: null, mu: null, 
         tay: null, nhan: null, vong: null,
       };
 
-      // Chỉ build object với các trường BE thực sự cần theo schema
       const playerData = {
         id: p.id,
         userId: p.userId,
@@ -100,19 +96,13 @@ const Net = {
         mp: Math.floor(p.mp || 0),
         maxMp: p.maxMp || 100,
         xu: Math.floor(p.xu || 0),
-        
-        // Cực kỳ quan trọng: Tọa độ và Bản đồ
         x: Math.floor(p.x || 0),
         y: Math.floor(p.y || 0),
         mapCode: S.mapCode || p.mapCode,
         mapId: p.mapId || S.mapCode || p.mapCode,
-
-        // Stringify các trường JSON
         jsonIventory: JSON.stringify(S.inventory || []),
         skills: JSON.stringify((p.skills || []).map(sk => mapFESkillToBE(sk))),
         equip_slot: JSON.stringify(trangBi),
-        
-        // Các trường khác
         faction: p.faction || "CHINH",
         guildId: p.guildId || null,
         crit: String(p.crit || "0"),
@@ -127,7 +117,6 @@ const Net = {
         }
       } catch (err) {
         console.error("⚠ Lỗi lưu dữ liệu:", err);
-        UI.log("⚠ Không thể lưu dữ liệu lên máy chủ", "system");
       } finally {
         this._savePromise = null;
       }
@@ -176,42 +165,106 @@ const Net = {
       });
 
       // ── World state (players on same map) ──
-      socket.on("world_state", ({ players }) => {
-        for (const p of players) Net._upsertOther(p);
-        Net._renderOnlineList();
+      socket.on("world_state", (data) => {
+        try {
+          const players = data?.players || (Array.isArray(data) ? data : []);
+          for (const p of players) {
+            if (p && p.id !== socket.id) Net._upsertOther(p);
+          }
+          Net._renderOnlineList();
+        } catch (e) { console.error("world_state error:", e); }
       });
 
       socket.on("player_join", (p) => {
-        Net._upsertOther(p);
-        Net._renderOnlineList();
-        UI.log(`👤 ${p.username} gia nhập bản đồ`, "system");
+        try {
+          if (p && p.id !== socket.id) {
+            Net._upsertOther(p);
+            Net._renderOnlineList();
+            UI.log(`👤 ${p.username || "Người chơi ẩn danh"} gia nhập bản đồ`, "system");
+          }
+        } catch (e) { console.error("player_join error:", e); }
       });
 
-      socket.on("player_leave", ({ id }) => {
+      socket.on("player_leave", (data) => {
+        const pid = data.id || data.socketId || data.userId;
         Net.saveNow();
-        otherPlayers.delete(id);
+        otherPlayers.delete(pid);
         Net._renderOnlineList();
       });
 
-      socket.on("player_move", ({ id, x, y }) => {
-        if (otherPlayers.has(id)) {
-          const op = otherPlayers.get(id);
-          op.x = x;
-          op.y = y;
-          op.px = x * CFG.TS + CFG.TS / 2;
-          op.py = y * CFG.TS + CFG.TS / 2;
+      socket.on("player_move", (data) => {
+        const pid = data.id || data.socketId || data.userId;
+        if (otherPlayers.has(pid)) {
+          const op = otherPlayers.get(pid);
+          // Lưu vị trí đích để nội suy (interpolation)
+          op.tx = data.x;
+          op.ty = data.y;
+          op.tpx = data.x * CFG.TS + CFG.TS / 2;
+          op.tpy = data.y * CFG.TS + CFG.TS / 2;
+          
+          // Nếu đứng quá xa (> 3 ô), nhảy tới luôn để tránh đơ
+          if (dist(op.px, op.py, op.tpx, op.tpy) > CFG.TS * 3) {
+            op.px = op.tpx;
+            op.py = op.tpy;
+          }
         }
       });
 
-      socket.on("player_map", ({ id, mapCode, mapId, x, y }) => {
-        const newMapCode = mapCode || mapId;
-        if (otherPlayers.has(id)) {
-          const op = otherPlayers.get(id);
-          if (op.mapCode !== S.mapCode) otherPlayers.delete(id);
-          else {
-            op.x = x;
-            op.y = y;
+      socket.on("player_map", (data) => {
+        const pid = data.id || data.socketId || data.userId;
+        const newMapCode = data.mapCode || data.mapId;
+        if (otherPlayers.has(pid)) {
+          const op = otherPlayers.get(pid);
+          if ((newMapCode || "").toLowerCase() !== (S.mapCode || "").toLowerCase()) {
+            otherPlayers.delete(pid);
+          } else {
+            op.x = data.x;
+            op.y = data.y;
             op.mapCode = newMapCode;
+          }
+        }
+      });
+
+      // ── Monster Synchronization ──
+      socket.on("monster_state", ({ monsters }) => {
+        if (!monsters) return;
+        S.monsters = monsters.map((m) =>
+          Monster.make(m, m.x, m.y, m.id)
+        );
+      });
+
+      socket.on("monster_update", (data) => {
+        const m = S.monsters.find((mon) => mon.id === data.id);
+        if (m) {
+          m.tpx = data.x * CFG.TS + CFG.TS / 2;
+          m.tpy = data.y * CFG.TS + CFG.TS / 2;
+          m.hp = data.hp;
+          m.state = data.state || m.state;
+          m.targetId = data.targetId;
+          if (data.hp <= 0) m.dead = true;
+          else m.dead = false;
+        }
+      });
+
+      socket.on("monster_death", ({ id }) => {
+        const m = S.monsters.find((mon) => mon.id === id);
+        if (m) {
+          m.dead = true;
+          m.hp = 0;
+        }
+      });
+
+      socket.on("monster_spawn", ({ monster }) => {
+        if (S.monsters.find(m => m.id === monster.id)) return;
+        S.monsters.push(Monster.make(monster, monster.x, monster.y, monster.id));
+      });
+
+      socket.on("attack_fx", ({ attackerName, targetId, damage, isMonster }) => {
+        if (isMonster) {
+          const m = S.monsters.find(mon => mon.id === targetId);
+          if (m) {
+            Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
+            S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
           }
         }
       });
@@ -221,14 +274,12 @@ const Net = {
         UI.log(`[${isMe ? "Tôi" : username}]: ${message}`, "chat");
       });
 
-      socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
-        // visual only — future use
-      });
-
       socket.on("server_msg", ({ text }) => {
         UI.log(text, "system");
       });
+
     } catch (e) {
+      console.error("Socket error:", e);
       Net._setBadge(false);
     }
   },
@@ -252,6 +303,12 @@ const Net = {
     Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
   },
 
+  emitAttackMonster(monsterId, damage, skillCode = null) {
+    if (socket?.connected) {
+      socket.emit("attack_monster", { monsterId, damage, skillCode });
+    }
+  },
+
   sendChat() {
     const inp = document.getElementById("chat-inp");
     const msg = inp.value.trim();
@@ -265,23 +322,26 @@ const Net = {
   },
 
   _setBadge(online) {
-    const badge = document.getElementById("conn-badge");
     const ob = document.getElementById("online-badge");
-    badge.className = online ? "online" : "offline";
-    badge.textContent = online ? "● Online" : "● Offline";
-    ob.textContent = online ? "● Online" : "● Offline";
-    ob.style.color = online ? "var(--green)" : "#aa4444";
+    if (ob) {
+      ob.textContent = online ? "● Online" : "● Offline";
+      ob.style.color = online ? "var(--green)" : "#aa4444";
+    }
   },
 
   _upsertOther(p) {
-    const existing = otherPlayers.get(p.id) || {};
-    const mapCode = p.mapCode || p.mapId || S.mapCode;
-    otherPlayers.set(p.id, {
+    const pid = p.id || p.socketId || p.userId;
+    if (!pid) return;
+
+    const existing = otherPlayers.get(pid) || {};
+    // Chuẩn hóa mapCode để so sánh chính xác
+    const mapCode = (p.mapCode || p.mapId || S.mapCode || "").toLowerCase();
+    
+    otherPlayers.set(pid, {
       ...existing,
       ...p,
-      mapCode,
-      realm: p.realm ?? 0,
-      stage: p.stage ?? 1,
+      id: pid,
+      mapCode: mapCode,
       px: (p.x || 0) * CFG.TS + CFG.TS / 2,
       py: (p.y || 0) * CFG.TS + CFG.TS / 2,
     });
@@ -294,9 +354,9 @@ const Net = {
 
   _renderOnlineList() {
     const el = document.getElementById("online-list");
+    if (!el) return;
     if (otherPlayers.size === 0) {
-      el.innerHTML =
-        '<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
+      el.innerHTML = '<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
       return;
     }
     el.innerHTML = "";

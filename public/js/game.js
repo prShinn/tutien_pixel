@@ -7,83 +7,108 @@
 // §15 · GAME LOOP
 // ════════════════════════════════════════════════════════════
 function update(dt) {
-  const p = S.player;
-  if (!p) return;
-  S.animT += dt;
-  if (S.animT > 240) {
-    S.animF ^= 1;
-    S.animT = 0;
-  }
-  if (S.atkCd > 0) S.atkCd -= dt / 16;
-  SkillSystem.tickCooldowns(dt);
-  for (let i = S.atkFx.length - 1; i >= 0; i--) {
-    S.atkFx[i].life -= dt / 16;
-    S.atkFx[i].r += 0.8;
-    if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
-  }
-  const modalOpen =
-    document.getElementById("shop-modal").classList.contains("open") ||
-    document.getElementById("dialog-modal").classList.contains("open");
-  if (!modalOpen) {
-    let dx = 0, dy = 0;
-    if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
-    if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
-    if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
-    if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
+  try {
+    const p = S.player;
+    if (!p) return;
+    S.animT += dt;
+    if (S.animT > 240) {
+      S.animF ^= 1;
+      S.animT = 0;
+    }
+    if (S.atkCd > 0) S.atkCd -= dt / 16;
+    SkillSystem.tickCooldowns(dt);
+    for (let i = S.atkFx.length - 1; i >= 0; i--) {
+      S.atkFx[i].life -= dt / 16;
+      S.atkFx[i].r += 0.8;
+      if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
+    }
+    const modalOpen =
+      document.getElementById("shop-modal").classList.contains("open") ||
+      document.getElementById("dialog-modal").classList.contains("open");
+    if (!modalOpen) {
+      let dx = 0, dy = 0;
+      if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
+      if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
+      if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
+      if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
 
-    if (dx || dy) {
-      const mag = Math.hypot(dx, dy);
-      const dirX = dx / mag;
-      const dirY = dy / mag;
-      const speedBase = 1;
-      const speedBonus = (p.stats?.agi || 0) * 0.005;
-      const moveStep =
-        ((speedBase + speedBonus) * (dt / 16)) /
-        (15 - Math.max(0, S.player.speed ?? 1));
-      const oldX = p.x;
-      const oldY = p.y;
-      const nextX = p.x + dirX * moveStep;
-      if (!World.collides(nextX, p.y)) p.x = nextX;
-      const nextY = p.y + dirY * moveStep;
-      if (!World.collides(p.x, nextY)) p.y = nextY;
+      if (dx || dy) {
+        const mag = Math.hypot(dx, dy);
+        const dirX = dx / mag;
+        const dirY = dy / mag;
+        const speedBase = 1;
+        const speedBonus = (p.stats?.agi || 0) * 0.005;
+        const moveStep =
+          ((speedBase + speedBonus) * (dt / 16)) /
+          (15 - Math.max(0, S.player.speed ?? 1));
+        const oldX = p.x;
+        const oldY = p.y;
+        const nextX = p.x + dirX * moveStep;
+        if (!World.collides(nextX, p.y)) p.x = nextX;
+        const nextY = p.y + dirY * moveStep;
+        if (!World.collides(p.x, nextY)) p.y = nextY;
+        if (
+          Math.abs(p.x - oldX) > 0.0000001 ||
+          Math.abs(p.y - oldY) > 0.0000001
+        ) {
+          S.moveTimer -= dt;
+          if (S.moveTimer <= 0) {
+            S.moveTimer = 100; // Gửi dữ liệu tối đa 10 lần/giây
+            Net.emitMove();
+          }
+        }
+      }
+
+      p.px = p.x * CFG.TS + CFG.TS / 2;
+      p.py = p.y * CFG.TS + CFG.TS / 2;
+
+      if (Input.keys["Space"] && S.atkCd <= 0) {
+        let best = null, bd = 5 * CFG.TS;
+        for (const m of S.monsters)
+          if (!m.dead) {
+            const d = dist(m.px, m.py, p.px, p.py);
+            if (d < bd) { bd = d; best = m; }
+          }
+        if (best) Combat.attack(best);
+      }
+      if (S.autoFight && S.atkCd <= 0) {
+        let best = null, bd = 4.5 * CFG.TS;
+        for (const m of S.monsters)
+          if (!m.dead) {
+            const d = dist(m.px, m.py, p.px, p.py);
+            if (d < bd) { bd = d; best = m; }
+          }
+        if (best) Combat.attack(best);
+      }
       if (
-        Math.abs(p.x - oldX) > 0.0000001 ||
-        Math.abs(p.y - oldY) > 0.0000001
-      ) {
-        Net.emitMove();
+        dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4
+      )
+        World.checkPortals();
+    }
+    
+    // Cập nhật vị trí cho Other Players (Interpolation)
+    for (const [, op] of otherPlayers) {
+      if (op && op.tpx !== undefined && op.tpy !== undefined) {
+        const dx = op.tpx - op.px;
+        const dy = op.tpy - op.py;
+        const d = Math.hypot(dx, dy);
+        if (d > 1) {
+          const step = 2.5 * (dt / 16); // Tốc độ di chuyển mượt
+          op.px += (dx / d) * Math.min(d, step);
+          op.py += (dy / d) * Math.min(d, step);
+        }
       }
     }
 
-    p.px = p.x * CFG.TS + CFG.TS / 2;
-    p.py = p.y * CFG.TS + CFG.TS / 2;
-
-    if (Input.keys["Space"] && S.atkCd <= 0) {
-      let best = null, bd = 5 * CFG.TS;
-      for (const m of S.monsters)
-        if (!m.dead) {
-          const d = dist(m.px, m.py, p.px, p.py);
-          if (d < bd) { bd = d; best = m; }
-        }
-      if (best) Combat.attack(best);
+    for (const m of S.monsters) {
+      if (m) Monster.update(m, dt);
     }
-    if (S.autoFight && S.atkCd <= 0) {
-      let best = null, bd = 4.5 * CFG.TS;
-      for (const m of S.monsters)
-        if (!m.dead) {
-          const d = dist(m.px, m.py, p.px, p.py);
-          if (d < bd) { bd = d; best = m; }
-        }
-      if (best) Combat.attack(best);
-    }
-    if (
-      dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4
-    )
-      World.checkPortals();
+    p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
+    p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
+    UI.update();
+  } catch (e) {
+    console.error("Game loop error:", e);
   }
-  for (const m of S.monsters) Monster.update(m, dt);
-  p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
-  p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
-  UI.update();
 }
 
 function loop(ts) {
