@@ -25,8 +25,9 @@ function isSolid(tx, ty) {
 // ════════════════════════════════════════════════════════════
 const World = {
   loadMap(map, toX, toY) {
+    if (!map) return;
     const def = map;
-    S.mapCode = map.code;
+    S.mapCode = (map.code || "").toLowerCase();
     S.mapW = def.w;
     S.mapH = def.h;
     S.tiles =
@@ -45,8 +46,8 @@ const World = {
       S.player.y = safe.ty;
       S.player.px = safe.tx * CFG.TS + CFG.TS / 2;
       S.player.py = safe.ty * CFG.TS + CFG.TS / 2;
-      S.player.mapCode = map.code;
-      S.player.mapId = map.id || map.code;
+      S.player.mapCode = S.mapCode;
+      S.player.mapId = S.mapCode;
     }
     S.portals = def.portals ?? [];
     S.npcs = (def.npcs ?? []).map((n) => ({
@@ -62,7 +63,7 @@ const World = {
       const tx = mon.spawnX || Math.floor(map.w / 2);
       const ty = mon.spawnY || Math.floor(map.h / 2);
       
-      const fixedId = `mon_${map.code}_${monIndex++}`;
+      const fixedId = `mon_${S.mapCode}_${monIndex++}`;
       S.monsters.push(Monster.make(mon, tx, ty, fixedId));
     }
     const ov = document.getElementById("map-name-overlay");
@@ -70,7 +71,7 @@ const World = {
     ov.classList.add("show");
     setTimeout(() => ov.classList.remove("show"), 2200);
     UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "system");
-    Net.emitMapChange(map.code, toX, toY);
+    Net.emitMapChange(S.mapCode, toX, toY);
     otherPlayers.clear();
   },
 

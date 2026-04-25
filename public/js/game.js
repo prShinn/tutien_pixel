@@ -117,6 +117,16 @@ function update(dt) {
     for (const m of S.monsters) {
       if (m) Monster.update(m, dt);
     }
+
+    // Host gửi dữ liệu đồng bộ quái vật định kỳ
+    if (Net._isOnline && S.isHost) {
+      S.monsterSyncTimer -= dt;
+      if (S.monsterSyncTimer <= 0) {
+        S.monsterSyncTimer = 300; // Gửi 3.3 lần/giây
+        Net.emitMonsterSync();
+      }
+    }
+
     p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
     p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
     UI.update();

@@ -68,7 +68,7 @@ const Net = {
   // ── Save ──
   async saveNow(event) {
     if (!authToken || !S.player) return;
-    
+
     if (this._savePromise) {
       return this._savePromise.then(() => this.saveNow(event));
     }
@@ -76,7 +76,7 @@ const Net = {
     this._savePromise = (async () => {
       const p = S.player;
       const trangBi = p.trangBi || {
-        vuKhi: null, ao: null, giay: null, mu: null, 
+        vuKhi: null, ao: null, giay: null, mu: null,
         tay: null, nhan: null, vong: null,
       };
 
@@ -173,7 +173,7 @@ const Net = {
           for (const p of players) {
             if (p && p.id !== socket.id) Net._upsertOther(p);
           }
-          Net._renderOnlineList();
+          Net._updateHost();
         } catch (e) { console.error("world_state error:", e); }
       });
 
@@ -181,36 +181,36 @@ const Net = {
         try {
           if (p && p.id !== socket.id) {
             Net._upsertOther(p);
-            Net._renderOnlineList();
+            UI.update();
             UI.log(`👤 ${p.username || "Người chơi ẩn danh"} gia nhập bản đồ`, "system");
+            Net._updateHost();
           }
         } catch (e) { console.error("player_join error:", e); }
       });
 
       socket.on("player_leave", (data) => {
         const pid = data.id || data.socketId || data.userId;
-        Net.saveNow();
         otherPlayers.delete(pid);
-        Net._renderOnlineList();
+        Net._updateHost();
       });
 
       socket.on("player_move", (data) => {
         try {
           const pid = data.id || data.socketId || data.userId;
           if (!pid) return;
-          
+
           if (!otherPlayers.has(pid)) {
             // Nếu người chơi này chưa có trong danh sách, thêm vào luôn
             Net._upsertOther(data);
           }
-          
+
           const op = otherPlayers.get(pid);
           // Lưu vị trí đích để nội suy (interpolation)
           op.tx = data.x;
           op.ty = data.y;
           op.tpx = data.x * CFG.TS + CFG.TS / 2;
           op.tpy = data.y * CFG.TS + CFG.TS / 2;
-          
+
           // Nếu đứng quá xa (> 4 ô), nhảy tới luôn để tránh đơ
           const dx = op.tpx - op.px;
           const dy = op.tpy - op.py;
@@ -234,14 +234,25 @@ const Net = {
             op.mapCode = newMapCode;
           }
         }
+        Net._updateHost();
       });
 
       // ── Monster Synchronization ──
-      socket.on("monster_state", ({ monsters }) => {
+      socket.on("monster_state_update", ({ monsters }) => {
         if (!monsters) return;
-        S.monsters = monsters.map((m) =>
-          Monster.make(m, m.x, m.y, m.id)
-        );
+        for (const mData of monsters) {
+          const m = S.monsters.find(mon => mon.id === mData.id);
+          if (m) {
+            // Cập nhật vị trí đích để máy khách nội suy
+            m.tx = mData.x;
+            m.ty = mData.y;
+            m.tpx = mData.x * CFG.TS + CFG.TS / 2;
+            m.tpy = mData.y * CFG.TS + CFG.TS / 2;
+            m.hp = mData.hp;
+            m.state = mData.state;
+            m.dead = mData.dead;
+          }
+        }
       });
 
       socket.on("monster_update", (data) => {
@@ -311,11 +322,46 @@ const Net = {
     }
   },
 
+  emitMonsterSync() {
+    if (socket?.connected && S.isHost) {
+      const monsters = S.monsters.map(m => ({
+        id: m.id,
+        x: m.x || (m.px / CFG.TS),
+        y: m.y || (m.py / CFG.TS),
+        hp: m.hp,
+        state: m.state,
+        dead: m.dead
+      }));
+      socket.emit("monster_sync", { mapId: S.mapCode, monsters });
+    }
+  },
+
+  _updateHost() {
+    if (!socket?.connected) {
+      S.isHost = true;
+      return;
+    }
+    const myId = socket.id;
+    const playerIds = [myId];
+    for (const [pid, p] of otherPlayers) {
+      const opMap = (p.mapCode || "").toLowerCase();
+      const myMap = (S.mapCode || "").toLowerCase();
+      if (opMap === myMap) playerIds.push(pid);
+    }
+    playerIds.sort();
+    const newHost = (playerIds[0] === myId);
+    if (newHost !== S.isHost) {
+      S.isHost = newHost;
+      if (newHost) UI.log("👑 Bạn hiện là Host của bản đồ này", "system");
+    }
+  },
+
   emitMapChange(mapCode, x, y) {
     const px = Math.floor(x);
     const py = Math.floor(y);
     if (socket?.connected) {
-      socket.emit("map_change", { mapId: mapCode, x: px, y: py });
+      Net._clearOthers();
+      socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py });
     }
     Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
   },
@@ -351,23 +397,30 @@ const Net = {
     if (!pid) return;
 
     const existing = otherPlayers.get(pid);
-    // Chuẩn hóa mapCode để so sánh chính xác
     const mapCode = (p.mapCode || p.mapId || S.mapCode || "").toLowerCase();
-    
+
+    // Gộp dữ liệu: giữ lại px, py cũ nếu dữ liệu mới (p) không có
     const updatedData = {
       ...existing,
       ...p,
       id: pid,
-      mapCode: mapCode,
+      mapCode: mapCode
     };
 
-    // Chỉ khởi tạo tọa độ pixel nếu là người chơi mới
-    if (!existing || existing.px === undefined) {
-      updatedData.px = (p.x || 0) * CFG.TS + CFG.TS / 2;
-      updatedData.py = (p.y || 0) * CFG.TS + CFG.TS / 2;
+    // QUAN TRỌNG: Nếu p không có px/py, tuyệt đối phải giữ lại giá trị từ existing hoặc tính mới
+    if (p.px === undefined) {
+      if (existing && existing.px !== undefined) {
+        updatedData.px = existing.px;
+        updatedData.py = existing.py;
+      } else {
+        // Nếu là người mới hoàn toàn, tính toán từ tọa độ ô (x, y)
+        updatedData.px = (p.x || 0) * CFG.TS + CFG.TS / 2;
+        updatedData.py = (p.y || 0) * CFG.TS + CFG.TS / 2;
+      }
     }
 
     otherPlayers.set(pid, updatedData);
+    console.debug(`[Net] Upsert player ${pid} in map ${mapCode}. Pos: (${updatedData.px}, ${updatedData.py})`);
   },
 
   _clearOthers() {

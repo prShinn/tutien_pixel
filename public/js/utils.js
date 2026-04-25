@@ -49,16 +49,18 @@ function parseStringOrObj(val, fallback) {
 
 function normalizeWorldDto(dto) {
   if (!dto || typeof dto !== "object") return null;
+  // Hỗ trợ cả code/maMap, id, tenMap/name
+  const code = dto.code || dto.maMap || dto.id || "";
   return {
-    id: dto.id,
-    code: dto.code,
-    name: dto.tenMap || dto.name || dto.code,
-    jsonMap: parseStringOrObj(dto.jsonMap, []),
-    w: dto.w || 0,
-    h: dto.h || 0,
-    portals: parseStringOrObj(dto.portals, []),
-    monsters: parseStringOrObj(dto.monsters, []),
-    npcs: parseStringOrObj(dto.npcs, []),
+    id: dto.id || code,
+    code: code,
+    name: dto.tenMap || dto.name || code,
+    jsonMap: parseStringOrObj(dto.jsonMap || dto.mapData || dto.tiles, []),
+    w: dto.w || dto.width || 0,
+    h: dto.h || dto.height || 0,
+    portals: parseStringOrObj(dto.portals || dto.danhSachCong || [], []),
+    monsters: parseStringOrObj(dto.monsters || dto.danhSachQuai || [], []),
+    npcs: parseStringOrObj(dto.npcs || dto.danhSachNpc || [], []),
     isDefault: dto.isDefault,
   };
 }

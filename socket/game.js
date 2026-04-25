@@ -30,6 +30,7 @@ const AUTH_BACKEND = process.env.AUTH_BACKEND || "http://localhost:8090";
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
 const sessions = new Map();
+const roomMonsters = new Map();
 
 async function requestJson(urlString, headers = {}) {
   const url = new URL(urlString);
@@ -105,7 +106,7 @@ function setupSocket(io, players = new Map()) {
   io.on("connection", (socket) => {
     // ── join_world ────────────────────────────────────────────────
     socket.on("join_world", ({ mapCode, x = 26, y = 30 } = {}) => {
-      const roomId = mapCode;
+      const roomId = (mapCode || "wilderness").toLowerCase();
       // Lấy tên nhân vật từ player data
       const playerData = [...players.values()].find((p) => p.userId === socket.userId);
       const session = {
@@ -126,11 +127,14 @@ function setupSocket(io, players = new Map()) {
       // Join map room
       socket.join(`map:${roomId}`);
 
-      // Send current world state to this client
       const worldPlayers = [...sessions.values()].filter(
         (s) => s.mapId === roomId && s.id !== socket.id,
       );
       socket.emit("world_state", { players: worldPlayers });
+      
+      if (roomMonsters.has(roomId)) {
+        socket.emit("monster_state_update", { monsters: roomMonsters.get(roomId) });
+      }
 
       // Notify others on same map
       socket.to(`map:${roomId}`).emit("player_join", session);
@@ -140,7 +144,7 @@ function setupSocket(io, players = new Map()) {
     socket.on("move", ({ x, y, mapId, mapCode }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
-      const roomId = mapId || mapCode || session.mapId;
+      const roomId = (mapId || mapCode || session.mapId || "wilderness").toLowerCase();
       session.x = x;
       session.y = y;
       session.mapId = roomId;
@@ -155,24 +159,27 @@ function setupSocket(io, players = new Map()) {
     socket.on("map_change", ({ mapId, mapCode, x, y }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
-      const roomId = mapId || mapCode || session.mapId;
+      const roomId = (mapId || mapCode || session.mapId || "wilderness").toLowerCase();
 
       // Leave old room
-      socket.leave(`map:${session.mapId}`);
-      socket.to(`map:${session.mapId}`).emit("player_leave", { id: socket.id });
+      if (session.mapId) {
+        socket.leave(`map:${session.mapId}`);
+        socket.to(`map:${session.mapId}`).emit("player_leave", { id: socket.id });
+      }
 
       // Join new room
       session.mapId = roomId;
+      session.mapCode = roomId;
       session.x = x;
       session.y = y;
       socket.join(`map:${roomId}`);
       socket.to(`map:${roomId}`).emit("player_join", { ...session });
 
-      // Send updated world state (players on new map)
-      const mapPlayers = [...sessions.values()].filter(
-        (s) => s.mapId === roomId && s.id !== socket.id,
-      );
       socket.emit("world_state", { players: mapPlayers });
+      
+      if (roomMonsters.has(roomId)) {
+        socket.emit("monster_state_update", { monsters: roomMonsters.get(roomId) });
+      }
     });
 
     // ── chat ──────────────────────────────────────────────────────
@@ -207,6 +214,12 @@ function setupSocket(io, players = new Map()) {
       });
     });
 
+    // ── monster_sync (Host syncs monster positions to others) ──
+    socket.on("monster_sync", ({ mapId, monsters }) => {
+      roomMonsters.set(mapId, monsters);
+      socket.to(`map:${mapId}`).emit("monster_state_update", { monsters });
+    });
+
     // ── disconnect ────────────────────────────────────────────────
     socket.on("disconnect", () => {
       const session = sessions.get(socket.id);
@@ -215,6 +228,12 @@ function setupSocket(io, players = new Map()) {
           .to(`map:${session.mapId}`)
           .emit("player_leave", { id: socket.id });
         sessions.delete(socket.id);
+
+        // Dọn dẹp nếu không còn ai trong map
+        const leftInRoom = [...sessions.values()].filter(s => s.mapId === session.mapId).length;
+        if (leftInRoom === 0) {
+          roomMonsters.delete(session.mapId);
+        }
       }
     });
   });

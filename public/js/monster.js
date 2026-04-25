@@ -40,6 +40,22 @@ const Monster = {
     SkillSystem.updateMonsterStatus(m, dt);
     if (m.dead) return;
 
+    // ── MONSTER SYNC (CHỈ HOST MỚI CHẠY AI) ──
+    if (Net._isOnline && !S.isHost) {
+      // Nội suy vị trí quái vật từ dữ liệu của Host
+      if (m.tpx !== undefined && m.tpy !== undefined) {
+        const dx = m.tpx - m.px;
+        const dy = m.tpy - m.py;
+        const d = Math.hypot(dx, dy);
+        if (d > 1) {
+          const step = 2.0 * (dt / 16); // Tốc độ nội suy quái
+          m.px += (dx / d) * Math.min(d, step);
+          m.py += (dy / d) * Math.min(d, step);
+        }
+      }
+      return; // Không chạy AI logic nếu không phải Host
+    }
+
     const p = S.player;
     if (!p) return;
 

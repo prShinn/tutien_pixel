@@ -35,14 +35,24 @@ const Render = {
     for (const portal of S.portals)
       if (portal.tenMapDen) Render.portal(portal, cx, cy);
     for (const npc of S.npcs) Render.npc(npc, cx, cy);
+    // Vẽ tất cả người chơi khác (Bỏ bộ lọc map để debug triệt để)
     for (const [, op] of otherPlayers) {
-      const opMap = (op.mapCode || "").toLowerCase();
-      const myMap = (S.mapCode || "").toLowerCase();
-      if (opMap === myMap) Render.otherPlayer(op, cx, cy);
+      Render.otherPlayer(op, cx, cy);
+      // Vẽ text debug tọa độ ngay trên đầu người chơi khác
+      ctx.fillStyle = "yellow";
+      ctx.font = "10px Arial";
+      ctx.fillText(`ID: ${op.id.slice(0,4)} | Map: ${op.mapCode} | Pos: ${Math.floor(op.px)},${Math.floor(op.py)}`, op.px - cx, op.py - cy - 45);
     }
     for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
     const tint = p.root ? p.root.color : "#4488cc";
     Render.player(p.px - cx, p.py - cy, tint);
+
+    // Debug info (tạm thời)
+    ctx.fillStyle = "rgba(0,255,0,0.5)";
+    ctx.font = "10px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`Map: ${S.mapCode} | Others: ${otherPlayers.size}`, 10, 20);
+
     ctx.fillStyle = tint;
     ctx.font = "9px monospace";
     ctx.textAlign = "center";

@@ -24,6 +24,9 @@ const S = {
   cam: { x: 0, y: 0 },
   moveTimer: 0,
   lastTs: 0,
+  isHost: true,
+  monsterSyncTimer: 0,
+  lastMoveEmit: 0,
 };
 
 // socketId → { username, x, y, px, py, realm, ... }
