@@ -48,16 +48,30 @@ function parseStringOrObj(val, fallback) {
 }
 
 function normalizeWorldDto(dto) {
-  if (!dto || typeof dto !== "object") return null;
-  // Hỗ trợ cả code/maMap, id, tenMap/name
-  const code = dto.code || dto.maMap || dto.id || "";
+  if (!dto) return null;
+  console.log("[Utils] Đang chuẩn hóa DTO bản đồ:", dto);
+  
+  // Hỗ trợ cả trường hợp dto chính là mảng gạch (tiles)
+  let tiles = [];
+  if (Array.isArray(dto)) {
+    tiles = dto;
+  } else {
+    tiles = parseStringOrObj(dto.jsonMap || dto.mapData || dto.tiles || dto.data, []);
+  }
+
+  // Nếu tiles là mảng 2 chiều, tự động tính w, h nếu thiếu
+  let w = dto.w || dto.width || (Array.isArray(tiles[0]) ? tiles[0].length : 0);
+  let h = dto.h || dto.height || (Array.isArray(tiles) ? tiles.length : 0);
+  
+  const code = dto.code || dto.maMap || dto.id || "unknown";
+  
   return {
     id: dto.id || code,
     code: code,
     name: dto.tenMap || dto.name || code,
-    jsonMap: parseStringOrObj(dto.jsonMap || dto.mapData || dto.tiles, []),
-    w: dto.w || dto.width || 0,
-    h: dto.h || dto.height || 0,
+    jsonMap: tiles,
+    w: w,
+    h: h,
     portals: parseStringOrObj(dto.portals || dto.danhSachCong || [], []),
     monsters: parseStringOrObj(dto.monsters || dto.danhSachQuai || [], []),
     npcs: parseStringOrObj(dto.npcs || dto.danhSachNpc || [], []),

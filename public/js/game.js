@@ -36,7 +36,7 @@ function update(dt) {
         const mag = Math.hypot(dx, dy);
         const dirX = dx / mag;
         const dirY = dy / mag;
-        const speedBase = 1;
+        const speedBase = 3.0; // Tăng tốc độ vì Tile 8x8 nhỏ hơn 4 lần
         const speedBonus = (p.stats?.agi || 0) * 0.005;
         const moveStep =
           ((speedBase + speedBonus) * (dt / 16)) /
@@ -283,7 +283,9 @@ function enterGame(map, x, y) {
   ctx.imageSmoothingEnabled = false;
 
   Input.init();
-  World.loadMap(map, x, y);
+  if (map) World.loadMap(map, x, y);
+  else UI.log("Đang chờ dữ liệu thế giới từ máy chủ...", "system");
+  
   UI.buildInv();
   UI.update();
   UI.log("Bắt đầu hành trình...", "system");

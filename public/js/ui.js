@@ -4,6 +4,14 @@
 // ════════════════════════════════════════════════════════════
 
 const UI = {
+  showLoading() {
+    const el = document.getElementById("loading-screen");
+    if (el) el.style.display = "flex";
+  },
+  hideLoading() {
+    const el = document.getElementById("loading-screen");
+    if (el) el.style.display = "none";
+  },
   update() {
     if (!S.player) return;
     const p = S.player;

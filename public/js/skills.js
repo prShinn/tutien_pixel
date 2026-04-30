@@ -73,39 +73,76 @@ function mapFESkillToBE(sk) {
 // SkillSystem
 // ════════════════════════════════════════════════════════════
 const SkillSystem = {
-  // Gán kỹ năng ngẫu nhiên từng tier cho linhCan
+  // Gán kỹ năng ngẫu nhiên: 2 thấp (tier 1-2) và 2 cao (tier 3-4) theo kịch bản
   assignSkills(linhCan) {
     const tiers = CFG.SKILLS[linhCan];
     if (!tiers || tiers.length === 0) return [];
-    return tiers.map((tierArr) => {
-      if (!tierArr || tierArr.length === 0) return null;
-      const base = tierArr[randInt(0, tierArr.length - 1)];
-      return { ...base, level: 1, cdLeft: 0 };
-    }).filter(Boolean);
+    
+    let result = [];
+    // 2 kỹ năng thấp (Tier 1 & 2)
+    const lowTiers = [0, 1]; 
+    lowTiers.forEach(tIdx => {
+      const arr = tiers[tIdx];
+      if (arr && arr.length) {
+        const sk = arr[randInt(0, arr.length - 1)];
+        result.push({ ...sk, level: 1, cdLeft: 0 });
+      }
+    });
+    
+    // 2 kỹ năng cao (Tier 3 & 4)
+    const highTiers = [2, 3];
+    highTiers.forEach(tIdx => {
+      const arr = tiers[tIdx];
+      if (arr && arr.length) {
+        const sk = arr[randInt(0, arr.length - 1)];
+        result.push({ ...sk, level: 1, cdLeft: 0 });
+      }
+    });
+
+    return result.filter(Boolean);
   },
 
-  // Tính sát thương kỹ năng:
-  //   damageType === "PHYS" → baseAtk = Combat.pAtk()
-  //   damageType === "MAGIC" → baseAtk = Combat.mAtk()
-  //   finalDmg = baseAtk × satThuong − monsterDef×0.5
-  // Tính sát thương kỹ năng dựa trên thuộc tính và vai trò
+  // Logic Tương Khắc Ngũ Hành
+  getElementalMult(atkLC, defLC) {
+    if (!atkLC || !defLC) return 1.0;
+    const counters = {
+      "KIM": "MOC",
+      "MOC": "THO",
+      "THO": "THUY",
+      "THUY": "HOA",
+      "HOA": "KIM"
+    };
+    if (counters[atkLC] === defLC) return 1.3; // Khắc hệ: +30% dmg
+    
+    const resisted = {
+      "MOC": "KIM",
+      "THO": "MOC",
+      "THUY": "THO",
+      "HOA": "THUY",
+      "KIM": "HOA"
+    };
+    if (resisted[atkLC] === defLC) return 0.7; // Bị khắc: -30% dmg
+    return 1.0;
+  },
+
+  // Tính sát thương kỹ năng dựa trên thuộc tính, vai trò và ngũ hành
   calcDmg(skill, target) {
     const p = S.player;
     const stats = p.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
     
-    // 1. Xác định base sát thương (mặc định theo pAtk/mAtk nếu không có scalingStat cụ thể)
+    // 1. Xác định base sát thương
     let baseDmg = skill.damageType === "MAGIC" ? Combat.mAtk() : Combat.pAtk();
-    
-    // 2. Nếu kỹ năng có scaling theo thuộc tính cụ thể (từ backend hoặc định nghĩa thêm)
-    // Ví dụ: Kỹ năng của Đấu Sĩ scale thêm theo VIT, Sát Thủ theo AGI
     const scalingStat = skill.scalingStat || (skill.damageType === "MAGIC" ? "ene" : "str");
     const statVal = stats[scalingStat.toLowerCase()] || 0;
     
-    // Công thức: (BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)
+    // 2. Hệ số ngũ hành (Tương khắc)
+    const eleMult = this.getElementalMult(p.linhCan, target.linhCan || target.element);
+    
+    // 3. Công thức: ((BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)) * Ngũ Hành
     const satThuong = skill.satThuong ?? 1;
-    let dmg = Math.floor(baseDmg * satThuong + statVal * 2);
+    let dmg = Math.floor((baseDmg * satThuong + statVal * 2) * eleMult);
 
-    // 3. Hệ số cộng thêm từ tu vi linh căn
+    // 4. Hệ số cộng thêm từ tu vi linh căn
     const tvlcMult = 1 + (p.tuViLinhCan || 0) / 10000;
     dmg = Math.floor(dmg * tvlcMult);
 

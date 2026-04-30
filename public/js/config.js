@@ -13,13 +13,14 @@ const API = {
 
 // ── Static game rules (không thay đổi theo data) ──
 const CFG = {
-  TS: 32,           // tile size (pixels)
+  TS: 8,            // tile size (logical 8x8 pixel)
+  DS: 4,            // display scale (phóng to UI/Map 4 lần cho dễ nhìn)
   INV_MAX: 40,      // max inventory slots
   ATK_CD: 42,       // ticks cooldown đánh thường
   REGEN_HP: 0.01,   // HP regen per ms
   REGEN_MP: 0.006,  // MP regen per ms
-  MON_AGGRO: 4.2,   // tile aggro range
-  MON_LEASH: 11,    // tile leash range
+  MON_AGGRO: 15,    // Tăng tầm aggro vì tile nhỏ đi
+  MON_LEASH: 35,    // Tăng tầm leash vì tile nhỏ đi
   MON_RESPAWN: 420, // respawn ticks
 
   // ── Data được populate bởi GameData.load() ──

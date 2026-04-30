@@ -24,10 +24,9 @@ function isSolid(tx, ty) {
 // World Module
 // ════════════════════════════════════════════════════════════
 const World = {
-  loadMap(map, toX, toY) {
-    if (!map) return;
-    const def = map;
-    S.mapCode = (map.code || "").toLowerCase();
+  loadMap(def, toX, toY) {
+    if (!def) return;
+    S.mapCode = (def.code || "").toLowerCase();
     S.mapW = def.w;
     S.mapH = def.h;
     S.tiles =
@@ -60,8 +59,8 @@ const World = {
     let monIndex = 0;
     for (const mon of def.monsters ?? []) {
       // Sử dụng tọa độ spawn cố định thay vì ngẫu nhiên để đồng bộ giữa các player
-      const tx = mon.spawnX || Math.floor(map.w / 2);
-      const ty = mon.spawnY || Math.floor(map.h / 2);
+      const tx = mon.spawnX || Math.floor(def.w / 2);
+      const ty = mon.spawnY || Math.floor(def.h / 2);
       
       const fixedId = `mon_${S.mapCode}_${monIndex++}`;
       S.monsters.push(Monster.make(mon, tx, ty, fixedId));
@@ -71,7 +70,7 @@ const World = {
     ov.classList.add("show");
     setTimeout(() => ov.classList.remove("show"), 2200);
     UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "system");
-    Net.emitMapChange(S.mapCode, toX, toY);
+    
     otherPlayers.clear();
   },
 
@@ -140,8 +139,7 @@ const World = {
         portal.denMap &&
         portal.tenMapDen !== ""
       ) {
-        const _map = await Net.get("/api/worlds/by-code?code=" + portal.denMap);
-        World.loadMap(_map, portal.toX, portal.toY);
+        Net.emitMapChange(portal.denMap, portal.toX, portal.toY);
         break;
       }
     }

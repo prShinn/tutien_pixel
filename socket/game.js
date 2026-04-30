@@ -103,10 +103,52 @@ function setupSocket(io, players = new Map()) {
     }
   });
 
+  const mapCache = new Map();
+
   io.on("connection", (socket) => {
     // ── join_world ────────────────────────────────────────────────
-    socket.on("join_world", ({ mapCode, x = 26, y = 30 } = {}) => {
-      const roomId = (mapCode || "wilderness").toLowerCase();
+    socket.on("join_world", async ({ mapCode, x = 26, y = 30 } = {}) => {
+      let roomId = (mapCode || "").trim().toLowerCase();
+      console.log(`[Socket] ${socket.username} gia nhập. MapCode nhận được: "${roomId || "RỖNG"}"`);
+
+      const { ApiService } = require("./api-service");
+      const token = socket.handshake.auth?.token;
+      let worldData = null;
+
+      // 1. Quy trình bắt buộc: Gọi API trực tiếp từ Backend (Bỏ qua cache để kiểm chứng)
+      try {
+        const endpoint = roomId
+          ? `worlds/by-code?code=${roomId}`
+          : `worlds/default`;
+
+        console.log(`[Socket] ĐANG GỌI API BACKEND: ${endpoint}`);
+        const res = await ApiService.get(endpoint, token);
+
+        if (res && res.data && !res.data.error) {
+          worldData = res.data;
+          if (Array.isArray(worldData)) {
+            worldData = { tiles: worldData, w: worldData[0]?.length || 0, h: worldData.length || 0 };
+          }
+
+          const backendCode = worldData.code || worldData.maMap || worldData.id;
+          if (backendCode) roomId = String(backendCode).toLowerCase();
+          
+          // Cập nhật cache sau khi đã nạp thành công
+          mapCache.set(roomId, worldData);
+          console.log(`[Socket] Backend trả về Map: ${roomId} (${worldData.w}x${worldData.h})`);
+        } else {
+          console.error(`[Socket] Backend KHÔNG trả về dữ liệu hợp lệ cho ${endpoint}.`);
+        }
+      } catch (err) {
+        console.error(`[Socket] Lỗi khi kết nối Backend:`, err.message);
+      }
+
+
+      if (!worldData) {
+        console.error(`[Socket] Lỗi: Không có dữ liệu bản đồ cho ${socket.username}.`);
+        return;
+      }
+
       // Lấy tên nhân vật từ player data
       const playerData = [...players.values()].find((p) => p.userId === socket.userId);
       const session = {
@@ -127,14 +169,16 @@ function setupSocket(io, players = new Map()) {
       // Join map room
       socket.join(`map:${roomId}`);
 
+      // Gửi toàn bộ thông tin thế giới cho người chơi vừa vào
       const worldPlayers = [...sessions.values()].filter(
         (s) => s.mapId === roomId && s.id !== socket.id,
       );
-      socket.emit("world_state", { players: worldPlayers });
-      
-      if (roomMonsters.has(roomId)) {
-        socket.emit("monster_state_update", { monsters: roomMonsters.get(roomId) });
-      }
+
+      socket.emit("world_init", {
+        map: worldData,
+        players: worldPlayers,
+        monsters: roomMonsters.get(roomId) || []
+      });
 
       // Notify others on same map
       socket.to(`map:${roomId}`).emit("player_join", session);
@@ -144,7 +188,7 @@ function setupSocket(io, players = new Map()) {
     socket.on("move", ({ x, y, mapId, mapCode }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
-      const roomId = (mapId || mapCode || session.mapId || "wilderness").toLowerCase();
+      const roomId = (mapId || mapCode || session.mapId).toLowerCase();
       session.x = x;
       session.y = y;
       session.mapId = roomId;
@@ -156,10 +200,10 @@ function setupSocket(io, players = new Map()) {
     });
 
     // ── map_change ────────────────────────────────────────────────
-    socket.on("map_change", ({ mapId, mapCode, x, y }) => {
+    socket.on("map_change", async ({ mapId, mapCode, x, y }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
-      const roomId = (mapId || mapCode || session.mapId || "wilderness").toLowerCase();
+      const roomId = (mapId || mapCode || session.mapId).toLowerCase();
 
       // Leave old room
       if (session.mapId) {
@@ -167,19 +211,43 @@ function setupSocket(io, players = new Map()) {
         socket.to(`map:${session.mapId}`).emit("player_leave", { id: socket.id });
       }
 
-      // Join new room
+      const oldMapId = session.mapId;
       session.mapId = roomId;
       session.mapCode = roomId;
       session.x = x;
       session.y = y;
       socket.join(`map:${roomId}`);
-      socket.to(`map:${roomId}`).emit("player_join", { ...session });
 
-      socket.emit("world_state", { players: mapPlayers });
-      
-      if (roomMonsters.has(roomId)) {
-        socket.emit("monster_state_update", { monsters: roomMonsters.get(roomId) });
+      // CHỈ gửi world_init nếu thực sự đổi sang map KHÁC
+      if (oldMapId === roomId) {
+        return;
       }
+
+      // 1. Đảm bảo Map đã được nạp vào RAM Server
+      let worldData = mapCache.get(roomId);
+      if (!worldData) {
+        const { ApiService } = require("./api-service");
+        try {
+          const res = await ApiService.get(`worlds/by-code?code=${roomId}`);
+          if (res.data && !res.data.error) {
+            worldData = res.data;
+            mapCache.set(roomId, worldData);
+          }
+        } catch (err) { }
+      }
+
+      const worldPlayers = [...sessions.values()].filter(
+        (s) => s.mapId === roomId && s.id !== socket.id,
+      );
+
+      // Gửi dữ liệu map và state cho người chơi
+      socket.emit("world_init", {
+        map: worldData,
+        players: worldPlayers,
+        monsters: roomMonsters.get(roomId) || []
+      });
+
+      socket.to(`map:${roomId}`).emit("player_join", { ...session });
     });
 
     // ── chat ──────────────────────────────────────────────────────

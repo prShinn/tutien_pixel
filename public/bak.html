@@ -2178,10 +2178,10 @@
 					xu: playerData.xu,
 					tuExp: playerData.tuExp,
 					tuNeeded: playerData.tuNeeded,
-					x: playerData.mapX || 26,
-					y: playerData.mapY || 30,
-					px: (playerData.mapX || 26) * CFG.TS + CFG.TS / 2,
-					py: (playerData.mapY || 30) * CFG.TS + CFG.TS / 2,
+					x: playerData.mapX,
+					y: playerData.mapY,
+					px: (playerData.mapX) * CFG.TS + CFG.TS / 2,
+					py: (playerData.mapY) * CFG.TS + CFG.TS / 2,
 					tusSkill: playerData.tusSkill,
 					tusSkillCount: playerData.tusSkillCount,
 				};
@@ -2189,9 +2189,9 @@
 					.map((i) => ({ ...CFG.ITEMS[i.id], count: i.count }))
 					.filter(Boolean);
 				enterGame(
-					playerData.mapId || "wilderness",
-					playerData.mapX || 26,
-					playerData.mapY || 30,
+					playerData.mapId,
+					playerData.mapX,
+					playerData.mapY,
 				);
 			},
 
@@ -2299,198 +2299,6 @@
 		}
 
 		const MAPS = {
-			wilderness: {
-				id: "wilderness",
-				name: "☁ Hoang Dã Bình Nguyên",
-				w: 54,
-				h: 38,
-				build() {
-					const { w, h } = this;
-					const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-					borderWall(t);
-					fillRect(t, 10, 8, 10, 6, T.WATER);
-					fillRect(t, 38, 18, 8, 5, T.WATER);
-					fillRect(t, 22, 26, 7, 4, T.WATER);
-					fillRect(t, 40, 3, 10, 7, T.MTN);
-					fillRect(t, 3, 25, 6, 9, T.MTN);
-					fillRect(t, 5, 5, 5, 4, T.TREE);
-					fillRect(t, 26, 4, 6, 4, T.TREE);
-					fillRect(t, 44, 27, 7, 7, T.TREE);
-					fillRect(t, 14, 30, 7, 5, T.TREE);
-					scatter(t, T.STONE, 25);
-					for (let y = 2; y < h - 2; y++)
-						if (t[y][26] === T.GRASS) t[y][26] = T.FLOOR;
-					t[0][26] = T.FLOOR;
-					t[1][26] = T.FLOOR;
-					return t;
-				},
-				spawns: [
-					{ ti: 0, count: 5, zone: { x: 2, y: 2, w: 18, h: 10 } },
-					{ ti: 1, count: 3, zone: { x: 22, y: 10, w: 16, h: 10 } },
-					{ ti: 2, count: 2, zone: { x: 3, y: 16, w: 16, h: 14 } },
-					{ ti: 3, count: 3, zone: { x: 28, y: 20, w: 16, h: 12 } },
-				],
-				portals: [
-					{
-						tx: 26,
-						ty: 1,
-						toMap: "town",
-						toX: 19,
-						toY: 23,
-						label: "↑ An Lạc Thành",
-					},
-					{
-						tx: 52,
-						ty: 18,
-						toMap: "training",
-						toX: 2,
-						toY: 15,
-						label: "→ Luyện Ma Trường",
-					},
-				],
-				npcs: [
-					{
-						px: 32 * 32 + 16,
-						py: 14 * 32 + 16,
-						type: "info",
-						name: "Lão Tiều Phu",
-						color: "#88aacc",
-						dialog: "Chào ngươi, tu sĩ trẻ!\nHoang dã đầy yêu thú.\nPhía bắc có An Lạc Thành an toàn.\nPhía đông là Luyện Ma Trường hiểm nguy!",
-					},
-				],
-				playerStart: { x: 26, y: 30 },
-			},
-
-			training: {
-				id: "training",
-				name: "⚔ Luyện Ma Trường",
-				w: 50,
-				h: 34,
-				build() {
-					const { w, h } = this;
-					const t = Array.from({ length: h }, () => Array(w).fill(T.GRASS));
-					borderWall(t);
-					fillRect(t, 6, 5, 8, 8, T.MTN);
-					fillRect(t, 34, 4, 12, 7, T.MTN);
-					fillRect(t, 20, 22, 10, 8, T.MTN);
-					fillRect(t, 3, 22, 7, 8, T.WATER);
-					fillRect(t, 40, 22, 7, 8, T.WATER);
-					fillRect(t, 15, 3, 5, 4, T.TREE);
-					fillRect(t, 28, 14, 5, 5, T.TREE);
-					scatter(t, T.STONE, 40);
-					scatter(t, T.TREE, 8, [T.GRASS]);
-					t[15][0] = T.FLOOR;
-					t[15][1] = T.FLOOR;
-					return t;
-				},
-				spawns: [
-					{ ti: 2, count: 5, zone: { x: 2, y: 2, w: 22, h: 14 } },
-					{ ti: 3, count: 4, zone: { x: 24, y: 2, w: 24, h: 14 } },
-					{ ti: 4, count: 3, zone: { x: 2, y: 16, w: 20, h: 14 } },
-					{ ti: 5, count: 3, zone: { x: 26, y: 16, w: 22, h: 14 } },
-					{ ti: 6, count: 2, zone: { x: 14, y: 12, w: 22, h: 14 } },
-				],
-				portals: [
-					{
-						tx: 1,
-						ty: 15,
-						toMap: "wilderness",
-						toX: 51,
-						toY: 18,
-						label: "← Hoang Dã",
-					},
-				],
-				npcs: [],
-				playerStart: { x: 3, y: 15 },
-			},
-
-			town: {
-				id: "town",
-				name: "🏯 An Lạc Thành",
-				w: 42,
-				h: 30,
-				build() {
-					const { w, h } = this;
-					const t = Array.from({ length: h }, () => Array(w).fill(T.PLAZA));
-					borderWall(t);
-					fillRect(t, 2, 2, 12, 9, T.WALL);
-					fillRect(t, 3, 3, 10, 6, T.PLAZA);
-					t[10][7] = T.PLAZA;
-					t[10][8] = T.PLAZA;
-					fillRect(t, 28, 2, 12, 9, T.WALL);
-					fillRect(t, 29, 3, 10, 6, T.PLAZA);
-					t[10][33] = T.PLAZA;
-					t[10][34] = T.PLAZA;
-					fillRect(t, 28, 18, 12, 9, T.WALL);
-					fillRect(t, 29, 19, 10, 6, T.PLAZA);
-					t[18][33] = T.PLAZA;
-					t[18][34] = T.PLAZA;
-					fillRect(t, 18, 11, 6, 6, T.STONE);
-					fillRect(t, 19, 12, 4, 4, T.WATER);
-					for (let x = 2; x < w - 2; x++)
-						if (t[11][x] === T.PLAZA || t[11][x] === T.STONE) t[11][x] = T.STONE;
-					for (let y = 2; y < h - 2; y++) {
-						if (t[y][20] === T.PLAZA) t[y][20] = T.STONE;
-						if (t[y][21] === T.PLAZA) t[y][21] = T.STONE;
-					}
-					t[3][15] = T.TREE;
-					t[3][26] = T.TREE;
-					t[20][4] = T.TREE;
-					t[20][14] = T.TREE;
-					t[h - 1][20] = T.PLAZA;
-					t[h - 1][21] = T.PLAZA;
-					t[h - 2][20] = T.PLAZA;
-					t[h - 2][21] = T.PLAZA;
-					return t;
-				},
-				spawns: [],
-				portals: [
-					{
-						tx: 20,
-						ty: 28,
-						toMap: "wilderness",
-						toX: 26,
-						toY: 4,
-						label: "↓ Ra Ngoài",
-					},
-					{ tx: 21, ty: 28, toMap: "wilderness", toX: 27, toY: 4, label: "" },
-				],
-				npcs: [
-					{
-						px: 7 * 32 + 16,
-						py: 6 * 32 + 16,
-						type: "shop",
-						name: "Lão Bản Vương",
-						color: "#d4a844",
-						dialog: "Chào ngươi! Ta có nhiều bảo vật. Xem thử đi!",
-					},
-					{
-						px: 33 * 32 + 16,
-						py: 6 * 32 + 16,
-						type: "quest",
-						name: "Nhiệm Vụ Sứ Lý Văn",
-						color: "#88aacc",
-						dialog: "Hệ thống nhiệm vụ đang phát triển.\nQuay lại sau nhé!",
-					},
-					{
-						px: 33 * 32 + 16,
-						py: 22 * 32 + 16,
-						type: "chest",
-						name: "Rương Kho Báu",
-						color: "#ffdd44",
-						dialog: "",
-					},
-					{
-						px: 20 * 32 + 16,
-						py: 15 * 32 + 16,
-						type: "info",
-						name: "Thủ Vệ",
-						color: "#8888aa",
-						dialog: "Chào mừng đến An Lạc Thành!\nCửa hàng: Tây Bắc\nRương kho: Đông Nam\nCổng ra: Cửa Nam",
-					},
-				],
-				playerStart: { x: 20, y: 24 },
-			},
 		};
 
 		// ════════════════════════════════════════════════════════════
@@ -2499,7 +2307,7 @@
 		let canvas, ctx, cW, cH;
 		const S = {
 			player: null,
-			mapId: "wilderness",
+			mapId: "",
 			tiles: null,
 			mapW: 0,
 			mapH: 0,
@@ -3715,9 +3523,9 @@
 			// Save new character to server
 			await Net.saveNow();
 			enterGame(
-				"wilderness",
-				MAPS.wilderness.playerStart.x,
-				MAPS.wilderness.playerStart.y,
+				S.player.mapCode,
+				S.player.mapX,
+				S.player.mapY,
 			);
 		}
 

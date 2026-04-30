@@ -1,5 +1,9 @@
-- Xây dựng 1 game có cốt truyện phiêu lưu bắt đầu game người chơi hóa thân thành 1 người bình thường với Linh Căn tự chọn, bước lên con đường tu luyện, 
+- Xây dựng 1 webgame online có cốt truyện phiêu lưu bắt đầu game người chơi hóa thân thành 1 người bình thường với Linh Căn tự chọn, bước lên con đường tu luyện, 
     ra khỏi thành trì + thông làng để đi phiêu lưu tìm kiếm cơ duyên, làm nhiệm vụ, đánh quái diệt boss để kiếm vật phẩm + trang bị. có thể chơi coop;
+- Hệ thống cấu trúc code: Toàn bộ dữ liệu về map(thiết kế, npcs, monster trong map), client load về và chỉ hiển thị, 
+    chỉ có player và monster được đồng bộ. nếu có player mới vào, client chỉ cần gửi mapId, mapCode, x, y, map được tự động load ở server;
+- Đồ họa: 2d Pixel, góc nhìn từ trên xuống, map sẽ được tính theo ô pixel, 1 ô pixel tương đương 1 màu để vẽ map, 1 player chiếm 1 vùng là 8x8 pixel để khi di chuyển có thể mượt mà.
+    
 Hệ thống trang bị: phân chia trang bị của player như: vũ khí, quần, áo, giày, găng tay, cánh, nhẫn, vòng gồm các cấp 
     Thường < Bảo Khí < Linh Khí < Thánh Khí < Thần Khí < Đế Bảo < Truyền Thuyết, vũ khí có thể đa dạng (cung, kiếm, nỏ, đao, thương, quạt(phiến), sáo, trượng, gậy,....)
 Hệ thống linh căn: Bao gồm tu vi của linh căn, Loại linh căn (Kim, Mộc, Thủy,...)

@@ -69,8 +69,11 @@ const Net = {
   async saveNow(event) {
     if (!authToken || !S.player) return;
 
+    // Tránh việc gọi save liên tục tạo ra hàng đợi vô hạn
     if (this._savePromise) {
-      return this._savePromise.then(() => this.saveNow(event));
+      // Nếu đang có một yêu cầu lưu, ta ghi nhận là cần lưu thêm một lần nữa sau khi xong
+      this._needsSaveAgain = true;
+      return this._savePromise;
     }
 
     this._savePromise = (async () => {
@@ -119,6 +122,11 @@ const Net = {
         console.error("⚠ Lỗi lưu dữ liệu:", err);
       } finally {
         this._savePromise = null;
+        // Nếu trong lúc lưu có yêu cầu mới, thực hiện lưu tiếp một lần cuối
+        if (this._needsSaveAgain) {
+          this._needsSaveAgain = false;
+          this.saveNow({ type: "follow_up" });
+        }
       }
     })();
     return this._savePromise;
@@ -143,12 +151,14 @@ const Net = {
         Net._setBadge(true);
         const p = S.player;
         if (p) {
+          const mCode = p.mapCode || p.mapId || S.mapCode || "";
           socket.emit("join_world", {
-            mapCode: S.mapCode,
-            mapId: S.mapCode, // Gửi cả 2 cho chắc chắn
+            mapCode: mCode,
+            mapId: mCode,
             x: p.x,
             y: p.y,
           });
+          UI.showLoading();
         }
         UI.log("🌐 Đã kết nối máy chủ!", "system");
       });
@@ -164,6 +174,51 @@ const Net = {
 
       socket.on("connect_error", () => {
         Net._setBadge(false);
+      });
+
+      // ── World Init (Server Authoritative) ──
+      socket.on("world_init", (data) => {
+        try {
+          console.log("[Net] Nhận dữ liệu thế giới từ Server:", data);
+          if (data.map) {
+            // Chuẩn hóa DTO trước khi nạp
+            const map = normalizeWorldDto(data.map);
+            if (map) {
+              World.loadMap(map, S.player.x, S.player.y);
+              console.log("[Net] Bản đồ đã được nạp và chuẩn hóa.");
+              UI.hideLoading();
+            } else {
+              UI.log("⚠ Lỗi: Dữ liệu bản đồ không hợp lệ!", "system");
+            }
+          } else {
+            UI.log("⚠ Lỗi: Server không gửi dữ liệu bản đồ!", "system");
+          }
+
+          // Nạp người chơi khác
+          const players = data.players || [];
+          console.log(`[Net] Đồng bộ ${players.length} người chơi khác.`);
+          for (const p of players) {
+            if (p && p.id !== socket.id) Net._upsertOther(p);
+          }
+
+          // Nạp trạng thái quái vật (nếu có)
+          const mList = data.monsters || [];
+          console.log(`[Net] Đồng bộ ${mList.length} quái vật.`);
+          if (mList.length > 0) {
+            for (const mData of data.monsters) {
+              const m = S.monsters.find(mon => mon.id === mData.id);
+              if (m) {
+                m.tpx = mData.px || (mData.x * CFG.TS + CFG.TS / 2);
+                m.tpy = mData.py || (mData.y * CFG.TS + CFG.TS / 2);
+                m.hp = mData.hp;
+                m.dead = mData.dead;
+              }
+            }
+          }
+
+          Net._updateHost();
+          UI.update();
+        } catch (e) { console.error("world_init error:", e); }
       });
 
       // ── World state (players on same map) ──
@@ -363,7 +418,7 @@ const Net = {
       Net._clearOthers();
       socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py });
     }
-    Net.saveNow({ type: "map_change", data: { mapCode, x: px, y: py } });
+    // Loại bỏ Net.saveNow ở đây để tránh vòng lặp API khi nạp bản đồ
   },
 
   emitAttackMonster(monsterId, damage, skillCode = null) {

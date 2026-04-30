@@ -19,9 +19,9 @@ const Cultivation = {
   calcTuNeeded(canhGioi, tangTuVi) {
     const realm = Math.max(0, Number(canhGioi?.stt) || 0);
     const stage = Math.max(1, Math.min(9, Number(tangTuVi) || 1));
-    const base = 10;
-    const stageGrowth = Math.pow(1.1, stage - 1);
-    const realmMultiplier = 1 + realm * 0.1 * stage;
+    const base = 20; // Tăng base để khởi đầu không quá nhanh
+    const stageGrowth = Math.pow(1.2, stage - 1); // 20% mỗi tầng nhỏ theo kịch bản
+    const realmMultiplier = 1 + realm * 0.5 * stage; // Đại cảnh giới cách biệt lớn hơn
     const extra = Number(canhGioi?.tuViTienCap || 1);
     return Math.floor(base * stage * stageGrowth * realmMultiplier + extra);
   },

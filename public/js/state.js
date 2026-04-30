@@ -7,7 +7,7 @@ let canvas, ctx, cW, cH;
 
 const S = {
   player: null,
-  mapCode: "wilderness",
+  mapCode: "",
   tiles: null,
   mapW: 0,
   mapH: 0,

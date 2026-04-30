@@ -170,17 +170,8 @@ const Auth = {
     try {
       S.inventory = JSON.parse(playerData.jsonIventory) || [];
     } catch (e) {}
-    let map = {};
-    const mapCode = playerData.mapCode || playerData.mapId;
-    if (mapCode) {
-      const dto = await Net.get(`/api/worlds/by-code?code=${mapCode}`);
-      map = normalizeWorldDto(dto);
-    } else {
-      const defaultDto = await Net.get("/api/worlds/default");
-      map = normalizeWorldDto(defaultDto);
-    }
-    if (!map) return;
-    enterGame(map, playerData.x || map.w / 2, playerData.y || map.h / 2);
+    // World state will be initialized by Socket (Server Authoritative)
+    enterGame(null, playerData.x ?? 26, playerData.y ?? 30);
   },
 
   playOffline() {
