@@ -43,7 +43,7 @@ const Combat = {
   pDef() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let def = 2 + (s?.vit || 0) * 0.8 + (s?.agi || 0) * 0.4;
+    let def = 2 + (Number(s?.vit) || 0) * 0.8 + (Number(s?.agi) || 0) * 0.4;
 
     // Bonus Đấu Sĩ
     if (role.id === "GLADIATOR") def *= 1.2;
@@ -101,7 +101,7 @@ const Combat = {
   attack(m) {
     if (S.atkCd > 0 || m.dead) return;
     const baseAtk = Combat.pAtk();
-    const armorDef = (m.def || 0) + (m.vit || 0) * 0.2;
+    const armorDef = (Number(m.def) || 0) + (Number(m.vit) || 0) * 0.2;
     let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
     const isCrit = Math.random() < Combat.critChance();
     if (isCrit) {

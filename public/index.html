@@ -102,6 +102,13 @@
           />
         </div>
         <div class="field-group">
+          <div class="sec-title">✦ GIỚI TÍNH</div>
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <button class="sbtn active" id="btn-gender-male" onclick="selectGender('MALE')">♂ NAM</button>
+            <button class="sbtn" id="btn-gender-female" onclick="selectGender('FEMALE')">♀ NỮ</button>
+          </div>
+        </div>
+        <div class="field-group">
           <div class="sec-title">✦ LINH CĂN</div>
           <div class="spirit-box">
             <div id="spirit-orb">❓</div>
@@ -207,270 +214,112 @@
 
     <!-- ══════════════════════════════════════ SCREEN: GAME -->
     <div id="screen-game">
-      <div class="gpanel" id="panel-left">
-        <div class="phead">✦ NHÂN VẬT</div>
-        <div class="pbody">
-          <div class="char-name-disp">
-            <div class="cname" id="ui-name">—</div>
-            <div id="ui-role" class="crole">Tân Thủ</div>
-            <div class="cspirit" id="ui-spirit-tag">—</div>
-          </div>
-          <div class="realm-box">
-            <div class="rname" id="ui-realm">Luyện Thể</div>
-            <div class="rstage" id="ui-stage">Tầng 1</div>
-          </div>
-          <div class="cp-box">
-            CHIẾN LỰC<br /><span class="cpval" id="ui-cp">0</span>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #cc4444">❤ HP</span
-              ><span id="ui-hp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-hp" id="b-hp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #4466cc">✦ MP</span
-              ><span id="ui-mp">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-mp" id="b-mp" style="width: 100%"></div>
-            </div>
-          </div>
-          <div class="bar-group">
-            <div class="bar-lbl">
-              <span style="color: #9944cc">☯ Tu Vi</span
-              ><span id="ui-tu">0/0</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill bar-tu" id="b-tu" style="width: 0%"></div>
-            </div>
-          </div>
-          <div class="xu-line">💰 <span id="ui-xu">0</span> Xu</div>
-          <div class="online-badge" id="online-badge">● Offline</div>
-          <!-- Online players mini list -->
-          <div
-            class="sec-title"
-            style="font-size: 9px; margin-top: 10px; margin-bottom: 4px"
-          >
-            ✦ ĐANG ONLINE
-          </div>
-          <div class="online-list" id="online-list">
-            <div style="color: var(--text2); font-size: 10px">
-              Chưa kết nối...
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <!-- 1. FULL SCREEN CANVAS -->
       <div id="canvas-area">
         <canvas id="game-canvas"></canvas>
         <div id="map-name-overlay"></div>
-        <div id="conn-badge" class="offline">● Offline</div>
       </div>
 
-      <!-- ══ SKILL BAR — hàng ngang giữa canvas và bottom panel ══ -->
-      <div id="skill-bar">
-        <div class="skbar-label">⚔ KỸ NĂNG</div>
-        <div class="skbar-slots">
-          <!-- Slot 0 -->
-          <div class="skbar-slot" id="skbar-slot-0" onclick="SkillSystem.useSkill(0)"
-               onmouseenter="SkillSystem.showTooltip(0,event)" onmouseleave="SkillSystem.hideTooltip()">
-            <span class="skbar-key">1</span>
-            <div class="skbar-icon" id="skbar-icon-0">—</div>
-            <div class="skbar-name" id="skbar-name-0">Chưa có</div>
-            <div class="skbar-mp"   id="skbar-mp-0"></div>
-            <!-- CD sweep overlay dùng SVG conic-gradient -->
-            <div class="skbar-cd-wrap" id="skbar-cd-wrap-0" style="display:none">
-              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-0">
-                <circle cx="20" cy="20" r="18" class="cd-track"/>
-                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-0"
-                        stroke-dasharray="113" stroke-dashoffset="0"/>
-              </svg>
-              <span class="skbar-cd-text" id="skbar-cd-text-0"></span>
-            </div>
-          </div>
-          <!-- Slot 1 -->
-          <div class="skbar-slot" id="skbar-slot-1" onclick="SkillSystem.useSkill(1)"
-               onmouseenter="SkillSystem.showTooltip(1,event)" onmouseleave="SkillSystem.hideTooltip()">
-            <span class="skbar-key">2</span>
-            <div class="skbar-icon" id="skbar-icon-1">—</div>
-            <div class="skbar-name" id="skbar-name-1">Chưa có</div>
-            <div class="skbar-mp"   id="skbar-mp-1"></div>
-            <div class="skbar-cd-wrap" id="skbar-cd-wrap-1" style="display:none">
-              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-1">
-                <circle cx="20" cy="20" r="18" class="cd-track"/>
-                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-1"
-                        stroke-dasharray="113" stroke-dashoffset="0"/>
-              </svg>
-              <span class="skbar-cd-text" id="skbar-cd-text-1"></span>
-            </div>
-          </div>
-          <!-- Slot 2 -->
-          <div class="skbar-slot" id="skbar-slot-2" onclick="SkillSystem.useSkill(2)"
-               onmouseenter="SkillSystem.showTooltip(2,event)" onmouseleave="SkillSystem.hideTooltip()">
-            <span class="skbar-key">3</span>
-            <div class="skbar-icon" id="skbar-icon-2">—</div>
-            <div class="skbar-name" id="skbar-name-2">Chưa có</div>
-            <div class="skbar-mp"   id="skbar-mp-2"></div>
-            <div class="skbar-cd-wrap" id="skbar-cd-wrap-2" style="display:none">
-              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-2">
-                <circle cx="20" cy="20" r="18" class="cd-track"/>
-                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-2"
-                        stroke-dasharray="113" stroke-dashoffset="0"/>
-              </svg>
-              <span class="skbar-cd-text" id="skbar-cd-text-2"></span>
-            </div>
-          </div>
-          <!-- Slot 3 -->
-          <div class="skbar-slot" id="skbar-slot-3" onclick="SkillSystem.useSkill(3)"
-               onmouseenter="SkillSystem.showTooltip(3,event)" onmouseleave="SkillSystem.hideTooltip()">
-            <span class="skbar-key">4</span>
-            <div class="skbar-icon" id="skbar-icon-3">—</div>
-            <div class="skbar-name" id="skbar-name-3">Chưa có</div>
-            <div class="skbar-mp"   id="skbar-mp-3"></div>
-            <div class="skbar-cd-wrap" id="skbar-cd-wrap-3" style="display:none">
-              <svg class="skbar-cd-svg" viewBox="0 0 40 40" id="skbar-cd-svg-3">
-                <circle cx="20" cy="20" r="18" class="cd-track"/>
-                <circle cx="20" cy="20" r="18" class="cd-ring" id="skbar-cd-ring-3"
-                        stroke-dasharray="113" stroke-dashoffset="0"/>
-              </svg>
-              <span class="skbar-cd-text" id="skbar-cd-text-3"></span>
-            </div>
-          </div>
+      <!-- 2. KPAH HUD: TOP LEFT -->
+      <div id="kpah-hud-topleft">
+        <div class="hud-avatar">
+          <img id="ui-avatar" src="./assets/char_male.png" alt="" />
         </div>
-        <div class="skbar-hint">WASD Di chuyển · Space Đánh · 1-4 Kỹ năng · F NPC</div>
-      </div>
-
-
-      <div class="gpanel" id="panel-right">
-        <div class="phead">✦ THUỘC TÍNH &amp; TRANG BỊ</div>
-        <div class="pbody">
-          <div class="stat-line">
-            <span class="slbl">⚔ Sức Mạnh</span
-            ><span class="sv" id="r-str">5</span>
+        <div class="hud-bars">
+          <div class="hud-name-row">
+            <span id="ui-name">—</span>
+            <span id="ui-realm" class="hud-realm">Luyện Thể</span>
           </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Nhanh Nhẹn</span
-            ><span class="sv" id="r-agi">5</span>
+          <div class="hud-bar-wrap">
+            <div class="hud-bar-bg"><div class="hud-bar-fill bar-hp" id="b-hp" style="width:100%"></div></div>
+            <div class="hud-bar-text" id="ui-hp">0/0</div>
           </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Thể Lực</span
-            ><span class="sv" id="r-vit">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🧠 Năng Lượng</span><span class="sv" id="r-ene">5</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">⚡ Vật Lý ATK</span
-            ><span class="sv" id="r-patk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🔮 Pháp ATK</span
-            ><span class="sv" id="r-matk">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🛡 Phòng Thủ</span
-            ><span class="sv" id="r-def">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💨 Tốc Độ</span
-            ><span class="sv" id="r-spd">0</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">🎯 Tránh Né</span
-            ><span class="sv" id="r-eva">0%</span>
-          </div>
-          <div class="stat-line">
-            <span class="slbl">💠 Tu Vi Linh Căn</span
-            ><span class="sv" id="r-tvlc">0</span>
-          </div>
-          <div class="equip-section">
-            <div class="sec-title" style="font-size: 9px; margin-bottom: 4px">
-              ✦ TRANG BỊ
-            </div>
-            <div class="equip-grid">
-              <div class="esl" id="slot-weapon">
-                <div class="eicon">⚔</div>
-                Vũ Khí
-              </div>
-              <div class="esl" id="slot-helmet">
-                <div class="eicon">🪖</div>
-                Mũ
-              </div>
-              <div class="esl" id="slot-armor">
-                <div class="eicon">🥋</div>
-                Giáp
-              </div>
-              <div class="esl" id="slot-pants">
-                <div class="eicon">👖</div>
-                Quần
-              </div>
-              <div class="esl" id="slot-boots">
-                <div class="eicon">👟</div>
-                Giày
-              </div>
-              <div class="esl" id="slot-ring">
-                <div class="eicon">💍</div>
-                Nhẫn
-              </div>
-              <div class="esl" id="slot-amulet">
-                <div class="eicon">📿</div>
-                Vòng
-              </div>
-              <div class="esl" id="slot-belt">
-                <div class="eicon">🔗</div>
-                Đai
-              </div>
-              <div class="esl" id="slot-gem">
-                <div class="eicon">💎</div>
-                Linh Thạch
-              </div>
-            </div>
+          <div class="hud-bar-wrap">
+            <div class="hud-bar-bg"><div class="hud-bar-fill bar-mp" id="b-mp" style="width:100%"></div></div>
+            <div class="hud-bar-text" id="ui-mp">0/0</div>
           </div>
         </div>
       </div>
 
-      <div id="panel-bottom">
-        <div id="log-wrap">
-          <div class="phead">✦ NHẬT KÝ &amp; CHAT</div>
+      <!-- 3. KPAH HUD: TOP RIGHT -->
+      <div id="kpah-hud-topright">
+        <div class="online-badge" id="online-badge">● Offline</div>
+        <div class="hud-xu">💰 <span id="ui-xu">0</span></div>
+      </div>
+
+      <!-- 4. KPAH HUD: BOTTOM LEFT (Menu / Chat) -->
+      <div id="kpah-hud-bottomleft">
+        <div id="kpah-chat-log">
           <div id="log-area"></div>
-          <div id="chat-bar">
-            <input
-              class="inp"
-              id="chat-inp"
-              placeholder="Chat với người chơi khác (Enter)..."
-              maxlength="100"
-            />
+          <div id="chat-bar" style="display:none;">
+            <input class="inp" id="chat-inp" placeholder="Chat..." maxlength="100"/>
             <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
           </div>
         </div>
-        <div id="actions-wrap">
-          <div class="phead" style="margin: -6px -6px 5px; padding: 4px 7px">
-            ✦ THAO TÁC
-          </div>
-          <button class="act-btn" onclick="Cultivation.absorbStone()">
-            🔮 Hấp Thu Linh Thạch
-          </button>
-          <button class="act-btn" onclick="Cultivation.tryBreakthrough()">
-            ⬆ Phá Cảnh
-          </button>
-          <button class="act-btn" id="btn-auto" onclick="toggleAuto()">
-            ⚔ Tự Động Đánh
-          </button>
-          <button class="act-btn" onclick="Net.saveNow()">
-            💾 Lưu Thủ Công
-          </button>
-          <button class="act-btn danger" onclick="Auth.logout()">
-            🚪 Đăng Xuất
-          </button>
+        <div class="bottom-btns">
+          <button class="kpah-btn" onclick="UI.toggleKpahMenu()">Hành Trang</button>
+          <button class="kpah-btn" onclick="UI.toggleChat()">Chat</button>
+          <button class="kpah-btn" id="btn-auto" onclick="toggleAuto()">Tự Động</button>
         </div>
-        <div id="inv-wrap">
-          <div class="phead" id="inv-head">✦ TÚI ĐỒ (0/40)</div>
-          <div id="inv-grid"></div>
+      </div>
+
+      <!-- 5. KPAH HUD: BOTTOM RIGHT (Skills) -->
+      <div id="kpah-hud-bottomright">
+        <div class="kpah-skill-ring">
+          <div class="sk-main" onclick="Input.keys['Space'] = true; setTimeout(()=>Input.keys['Space']=false, 100)">Đánh<br/>(Space)</div>
+          <div class="sk-sub" id="skbar-slot-0" onclick="SkillSystem.useSkill(0)">1<br/><span id="skbar-name-0" style="font-size:8px;">—</span></div>
+          <div class="sk-sub" id="skbar-slot-1" onclick="SkillSystem.useSkill(1)">2<br/><span id="skbar-name-1" style="font-size:8px;">—</span></div>
+          <div class="sk-sub" id="skbar-slot-2" onclick="SkillSystem.useSkill(2)">3<br/><span id="skbar-name-2" style="font-size:8px;">—</span></div>
+          <div class="sk-sub" id="skbar-slot-3" onclick="SkillSystem.useSkill(3)">4<br/><span id="skbar-name-3" style="font-size:8px;">—</span></div>
+        </div>
+      </div>
+
+      <!-- 6. KPAH MODAL: MENU CHÍNH -->
+      <div id="kpah-menu-modal" class="kpah-modal" style="display:none;">
+        <div class="kpah-modal-box">
+          <div class="kpah-modal-header">
+            <span>Hành Trang & Thuộc Tính</span>
+            <button class="kpah-close-btn" onclick="UI.toggleKpahMenu()">✕</button>
+          </div>
+          <div class="kpah-modal-body">
+            <div class="kpah-col-left">
+              <div class="phead">THUỘC TÍNH</div>
+              <div class="stat-line"><span class="slbl">Chiến Lực</span><span class="sv" id="ui-cp" style="color:var(--gold)">0</span></div>
+              <div class="stat-line"><span class="slbl">Tu Vi Linh Căn</span><span class="sv" id="ui-tu">0/0</span></div>
+              <div class="stat-line"><span class="slbl">⚔ Sức Mạnh</span><span class="sv" id="r-str">5</span></div>
+              <div class="stat-line"><span class="slbl">💨 Nhanh Nhẹn</span><span class="sv" id="r-agi">5</span></div>
+              <div class="stat-line"><span class="slbl">🛡 Thể Lực</span><span class="sv" id="r-vit">5</span></div>
+              <div class="stat-line"><span class="slbl">🧠 Năng Lượng</span><span class="sv" id="r-ene">5</span></div>
+              <div class="stat-line"><span class="slbl">⚡ Vật Lý ATK</span><span class="sv" id="r-patk">0</span></div>
+              <div class="stat-line"><span class="slbl">🔮 Pháp ATK</span><span class="sv" id="r-matk">0</span></div>
+              <div class="stat-line"><span class="slbl">🛡 Phòng Thủ</span><span class="sv" id="r-def">0</span></div>
+              <div class="stat-line"><span class="slbl">💨 Tốc Độ</span><span class="sv" id="r-spd">0</span></div>
+              <div class="stat-line"><span class="slbl">🎯 Tránh Né</span><span class="sv" id="r-eva">0%</span></div>
+              <div class="phead" style="margin-top:10px;">THAO TÁC</div>
+              <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
+                <button class="sbtn" onclick="Cultivation.absorbStone()">Hấp Thu</button>
+                <button class="sbtn" onclick="Cultivation.tryBreakthrough()">Phá Cảnh</button>
+                <button class="sbtn" onclick="Net.saveNow()">Lưu</button>
+                <button class="sbtn" onclick="Auth.logout()">Thoát</button>
+              </div>
+            </div>
+            <div class="kpah-col-right">
+              <div class="phead">TRANG BỊ</div>
+              <div class="equip-grid" style="margin-bottom:10px;">
+                <div class="esl" id="slot-weapon"><div class="eicon">⚔</div>Vũ Khí</div>
+                <div class="esl" id="slot-helmet"><div class="eicon">🪖</div>Mũ</div>
+                <div class="esl" id="slot-armor"><div class="eicon">🥋</div>Giáp</div>
+                <div class="esl" id="slot-pants"><div class="eicon">👖</div>Quần</div>
+                <div class="esl" id="slot-boots"><div class="eicon">👟</div>Giày</div>
+                <div class="esl" id="slot-ring"><div class="eicon">💍</div>Nhẫn</div>
+                <div class="esl" id="slot-amulet"><div class="eicon">📿</div>Vòng</div>
+                <div class="esl" id="slot-belt"><div class="eicon">🔗</div>Đai</div>
+                <div class="esl" id="slot-gem"><div class="eicon">💎</div>Linh Thạch</div>
+              </div>
+              <div class="phead" id="inv-head">TÚI ĐỒ (0/40)</div>
+              <div id="inv-grid"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

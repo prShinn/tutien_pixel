@@ -1,4 +1,4 @@
-- Xây dựng 1 webgame online có cốt truyện phiêu lưu bắt đầu game người chơi hóa thân thành 1 người bình thường với Linh Căn tự chọn, bước lên con đường tu luyện, 
+- Xây dựng 1 webgame online MMORPG nhập vai tiên hiệp kiếm hiệp có cốt truyện phiêu lưu bắt đầu game người chơi hóa thân thành 1 người bình thường với Linh Căn tự chọn, bước lên con đường tu luyện, 
     ra khỏi thành trì + thông làng để đi phiêu lưu tìm kiếm cơ duyên, làm nhiệm vụ, đánh quái diệt boss để kiếm vật phẩm + trang bị. có thể chơi coop;
 - Hệ thống cấu trúc code: Toàn bộ dữ liệu về map(thiết kế, npcs, monster trong map), client load về và chỉ hiển thị, 
     chỉ có player và monster được đồng bộ. nếu có player mới vào, client chỉ cần gửi mapId, mapCode, x, y, map được tự động load ở server;

@@ -184,6 +184,11 @@ const Net = {
             // Chuẩn hóa DTO trước khi nạp
             const map = normalizeWorldDto(data.map);
             if (map) {
+              if (!S.player) {
+                console.warn("[Net] world_init: S.player chưa sẵn sàng, đang đợi...");
+                setTimeout(() => socket.emit("join_world", { mapCode: map.code, x: 0, y: 0 }), 500);
+                return;
+              }
               World.loadMap(map, S.player.x, S.player.y);
               console.log("[Net] Bản đồ đã được nạp và chuẩn hóa.");
               UI.hideLoading();
@@ -205,13 +210,15 @@ const Net = {
           const mList = data.monsters || [];
           console.log(`[Net] Đồng bộ ${mList.length} quái vật.`);
           if (mList.length > 0) {
-            for (const mData of data.monsters) {
+            for (const mData of mList) {
               const m = S.monsters.find(mon => mon.id === mData.id);
               if (m) {
-                m.tpx = mData.px || (mData.x * CFG.TS + CFG.TS / 2);
-                m.tpy = mData.py || (mData.y * CFG.TS + CFG.TS / 2);
-                m.hp = mData.hp;
-                m.dead = mData.dead;
+                m.hp = Number(mData.hp) ?? m.hp;
+                m.dead = !!mData.dead;
+                if (mData.x !== undefined && mData.y !== undefined) {
+                   m.tpx = mData.x * CFG.TS + CFG.TS / 2;
+                   m.tpy = mData.y * CFG.TS + CFG.TS / 2;
+                }
               }
             }
           }
@@ -294,18 +301,17 @@ const Net = {
 
       // ── Monster Synchronization ──
       socket.on("monster_state_update", ({ monsters }) => {
-        if (!monsters) return;
+        if (!monsters || !Array.isArray(monsters)) return;
         for (const mData of monsters) {
           const m = S.monsters.find(mon => mon.id === mData.id);
           if (m) {
-            // Cập nhật vị trí đích để máy khách nội suy
             m.tx = mData.x;
             m.ty = mData.y;
             m.tpx = mData.x * CFG.TS + CFG.TS / 2;
             m.tpy = mData.y * CFG.TS + CFG.TS / 2;
-            m.hp = mData.hp;
-            m.state = mData.state;
-            m.dead = mData.dead;
+            m.hp = Number(mData.hp) ?? m.hp;
+            m.state = mData.state || m.state;
+            m.dead = !!mData.dead;
           }
         }
       });
@@ -414,11 +420,17 @@ const Net = {
   emitMapChange(mapCode, x, y) {
     const px = Math.floor(x);
     const py = Math.floor(y);
+    if (S.player) {
+      S.player.x = px;
+      S.player.y = py;
+      S.player.px = px * CFG.TS + CFG.TS / 2;
+      S.player.py = py * CFG.TS + CFG.TS / 2;
+    }
     if (socket?.connected) {
+      UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
       Net._clearOthers();
       socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py });
     }
-    // Loại bỏ Net.saveNow ở đây để tránh vòng lặp API khi nạp bản đồ
   },
 
   emitAttackMonster(monsterId, damage, skillCode = null) {

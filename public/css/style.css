@@ -1205,3 +1205,217 @@ body {
   position: absolute;
   pointer-events: none;
 }
+
+/* ── KPAH GAME LAYOUT ──────────────────────────── */
+#screen-game {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: #000;
+}
+#canvas-area {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+#game-canvas {
+  display: block;
+  image-rendering: pixelated;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── HUD TOP LEFT (Avatar, HP, MP) ──────────────────────────── */
+#kpah-hud-topleft {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  gap: 8px;
+  z-index: 10;
+}
+.hud-avatar img {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border2);
+  background: #111;
+}
+.hud-bars {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: 120px;
+}
+.hud-name-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--gold);
+}
+.hud-realm {
+  font-size: 9px;
+  color: #fff;
+  background: rgba(200, 168, 75, 0.3);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+.hud-bar-wrap {
+  position: relative;
+  width: 100%;
+  height: 10px;
+}
+.hud-bar-bg {
+  width: 100%;
+  height: 100%;
+  background: #222;
+  border: 1px solid #000;
+  position: absolute;
+}
+.hud-bar-fill {
+  height: 100%;
+  transition: width 0.2s linear;
+}
+.hud-bar-text {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  font-size: 9px;
+  line-height: 10px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+}
+.bar-hp { background: linear-gradient(90deg, #aa2222, #ee4444); }
+.bar-mp { background: linear-gradient(90deg, #2244aa, #4466ee); }
+
+/* ── HUD TOP RIGHT ──────────────────────────── */
+#kpah-hud-topright {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  text-align: right;
+  z-index: 10;
+}
+.hud-xu {
+  margin-top: 5px;
+  background: rgba(0,0,0,0.6);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  color: var(--gold);
+  border-radius: 4px;
+}
+
+/* ── HUD BOTTOM LEFT (Chat/Menu) ──────────────────────────── */
+#kpah-hud-bottomleft {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10;
+}
+#kpah-chat-log {
+  width: 250px;
+  height: 120px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.bottom-btns {
+  display: flex;
+  gap: 5px;
+}
+.kpah-btn {
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  padding: 6px 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.kpah-btn:hover { background: rgba(200,168,75,0.3); }
+
+/* ── HUD BOTTOM RIGHT (Skills) ──────────────────────────── */
+#kpah-hud-bottomright {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  z-index: 10;
+}
+.kpah-skill-ring {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+.sk-main {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: rgba(200,40,40,0.7);
+  border: 2px solid #ffaaaa;
+  color: #fff;
+  display: flex;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+}
+.sk-sub {
+  position: absolute;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(40,40,200,0.7);
+  border: 2px solid #aaaaff;
+  color: #fff;
+  display: flex;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  cursor: pointer;
+  font-size: 12px;
+}
+.sk-sub:nth-child(2) { bottom: 70px; right: 0px; }
+.sk-sub:nth-child(3) { bottom: 55px; right: 60px; }
+.sk-sub:nth-child(4) { bottom: 15px; right: 75px; }
+.sk-sub:nth-child(5) { bottom: -10px; right: -10px; display:none; }
+
+/* ── MODAL MENU ──────────────────────────── */
+.kpah-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.kpah-modal-box {
+  width: 480px; height: 320px;
+  background: var(--panel);
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+}
+.kpah-modal-header {
+  background: linear-gradient(90deg, #2a1850, transparent);
+  color: var(--gold);
+  padding: 8px 12px;
+  display: flex; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.kpah-close-btn {
+  background: none; border: none; color: #ff5555; cursor: pointer; font-size: 16px;
+}
+.kpah-modal-body {
+  display: flex; flex: 1; overflow: hidden;
+}
+.kpah-col-left, .kpah-col-right {
+  flex: 1; padding: 10px; overflow-y: auto; border-right: 1px solid var(--border);
+}
+.kpah-col-right { border-right: none; }

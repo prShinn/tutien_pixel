@@ -72,9 +72,27 @@ function normalizeWorldDto(dto) {
     jsonMap: tiles,
     w: w,
     h: h,
-    portals: parseStringOrObj(dto.portals || dto.danhSachCong || [], []),
-    monsters: parseStringOrObj(dto.monsters || dto.danhSachQuai || [], []),
-    npcs: parseStringOrObj(dto.npcs || dto.danhSachNpc || [], []),
+    portals: parseStringOrObj(dto.portals || dto.danhSachCong || [], []).map(p => ({
+      ...p,
+      x: Number(p.x || 0),
+      y: Number(p.y || 0),
+      toX: Number(p.toX || 0),
+      toY: Number(p.toY || 0)
+    })),
+    monsters: parseStringOrObj(dto.monsters || dto.danhSachQuai || [], []).map(m => ({
+      ...m,
+      hp: Number(m.hp || 0),
+      maxHp: Number(m.maxHp || m.hp || 0),
+      atk: Number(m.atk || 0),
+      def: Number(m.def || 0),
+      spawnX: Number(m.spawnX ?? Math.floor(w / 2)),
+      spawnY: Number(m.spawnY ?? Math.floor(h / 2))
+    })),
+    npcs: parseStringOrObj(dto.npcs || dto.danhSachNpc || [], []).map(n => ({
+      ...n,
+      x: Number(n.x || 0),
+      y: Number(n.y || 0)
+    })),
     isDefault: dto.isDefault,
   };
 }

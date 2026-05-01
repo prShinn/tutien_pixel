@@ -4,6 +4,19 @@
 // ════════════════════════════════════════════════════════════
 
 const UI = {
+  toggleKpahMenu() {
+    const el = document.getElementById("kpah-menu-modal");
+    if (el) el.style.display = (el.style.display === "none") ? "flex" : "none";
+  },
+  toggleChat() {
+    const el = document.getElementById("chat-bar");
+    if (el) {
+      el.style.display = (el.style.display === "none") ? "flex" : "none";
+      if (el.style.display === "flex") {
+        document.getElementById("chat-inp").focus();
+      }
+    }
+  },
   showLoading() {
     const el = document.getElementById("loading-screen");
     if (el) el.style.display = "flex";
@@ -18,14 +31,18 @@ const UI = {
     document.getElementById("ui-name").textContent = p.name;
 
     const st = document.getElementById("ui-spirit-tag");
-    st.textContent = `${p.linhCan} thuộc tính`;
-    st.style.color = Linh_CAN[p.linhCan]?.color || "#aaa";
+    if (st) {
+      st.textContent = `${p.linhCan} thuộc tính`;
+      st.style.color = Linh_CAN[p.linhCan]?.color || "#aaa";
+    }
 
     const role = Combat.getRole();
     const roleEl = document.getElementById("ui-role");
-    roleEl.textContent = role.name;
-    roleEl.style.color = role.color;
-    roleEl.style.textShadow = `0 0 8px ${role.color}88`;
+    if (roleEl) {
+      roleEl.textContent = role.name;
+      roleEl.style.color = role.color;
+      roleEl.style.textShadow = `0 0 8px ${role.color}88`;
+    }
 
     // Realm name: ưu tiên từ canhGioi object, fallback sang CFG.REALMS
     const realmName =
@@ -33,45 +50,60 @@ const UI = {
       p.canhGioi?.tenCanhGioi ||
       (CFG.REALMS[p.realm || 0]?.tenCanhGioi) ||
       "Luyện Thể";
-    document.getElementById("ui-realm").textContent = realmName;
-    document.getElementById("ui-stage").textContent = `Tầng ${p.tangTuVi}`;
+    
+    const uiStage = document.getElementById("ui-stage");
+    if (uiStage) {
+      document.getElementById("ui-realm").textContent = realmName;
+      uiStage.textContent = `Tầng ${p.tangTuVi}`;
+    } else {
+      // Nếu không có ui-stage (KPAH HUD), gộp chung vào ui-realm
+      const uiRealm = document.getElementById("ui-realm");
+      if (uiRealm) uiRealm.textContent = `${realmName} - Tầng ${p.tangTuVi}`;
+    }
     document.getElementById("ui-cp").textContent = (
-      (p.stats.str + p.stats.agi + p.stats.vit + p.stats.ene) * 5 +
-        p.canhGioi?.stt || 0 * 150 + p.tangTuVi * 20 + 100
+      ((Number(p.stats.str) || 0) + (Number(p.stats.agi) || 0) + (Number(p.stats.vit) || 0) + (Number(p.stats.ene) || 0)) * 5 +
+        (p.canhGioi?.stt || 0) * 150 + (p.tangTuVi || 1) * 20 + 100
     ).toLocaleString();
 
-    const hp = Math.floor(p.hp);
-    document.getElementById("ui-hp").textContent = `${hp}/${p.maxHp}`;
+    const hp = Math.floor(p.hp || 0);
+    const maxHp = Math.max(1, p.maxHp || 100);
+    document.getElementById("ui-hp").textContent = `${hp}/${maxHp}`;
     document.getElementById("b-hp").style.width =
-      Math.floor((hp / p.maxHp) * 100) + "%";
+      Math.min(100, Math.max(0, Math.floor((hp / maxHp) * 100))) + "%";
 
-    const mp = Math.floor(p.mp);
-    document.getElementById("ui-mp").textContent = `${mp}/${p.maxMp}`;
+    const mp = Math.floor(p.mp || 0);
+    const maxMp = Math.max(1, p.maxMp || 100);
+    document.getElementById("ui-mp").textContent = `${mp}/${maxMp}`;
     document.getElementById("b-mp").style.width =
-      Math.floor((mp / p.maxMp) * 100) + "%";
+      Math.min(100, Math.max(0, Math.floor((mp / maxMp) * 100))) + "%";
 
-    document.getElementById("ui-tu").textContent =
-      `${Math.floor(p.tuViHienTai)}/${Math.floor(p.tuViLenCap)}`;
-    document.getElementById("b-tu").style.width =
-      Math.min(100, Math.floor((p.tuViHienTai / p.tuViLenCap) * 100)) + "%";
+    const tuViHienTai = Number(p.tuViHienTai) || 0;
+    const tuViLenCap = Math.max(1, Number(p.tuViLenCap) || 100);
+    const uiTu = document.getElementById("ui-tu");
+    if (uiTu) uiTu.textContent = `${Math.floor(tuViHienTai)}/${Math.floor(tuViLenCap)}`;
+    const bTu = document.getElementById("b-tu");
+    if (bTu) bTu.style.width = Math.min(100, Math.max(0, Math.floor((tuViHienTai / tuViLenCap) * 100))) + "%";
+
+    const uiXu = document.getElementById("ui-xu");
+    if (uiXu) uiXu.textContent = p.xu.toLocaleString();
 
     document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
 
     const s = p.stats;
     const _i = (v) => Math.floor(Number(v) || 0);
-    document.getElementById("r-str").textContent = _i(s.str);
-    document.getElementById("r-agi").textContent = _i(s.agi);
-    document.getElementById("r-vit").textContent = _i(s.vit);
-    document.getElementById("r-ene").textContent = _i(s.ene);
-    document.getElementById("r-patk").textContent = _i(Combat.pAtk());
-    document.getElementById("r-matk").textContent = _i(Combat.mAtk());
-    document.getElementById("r-def").textContent = _i(Combat.pDef());
-    document.getElementById("r-spd").textContent = _i(3 + _i(s.agi) * 0.5);
-    document.getElementById("r-eva").textContent =
-      Combat.evasion().toFixed(1) + "%";
-    document.getElementById("r-tvlc").textContent = p.tuViLinhCan || 0;
-    document.getElementById("inv-head").textContent =
-      `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`;
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    setTxt("r-str", _i(s.str));
+    setTxt("r-agi", _i(s.agi));
+    setTxt("r-vit", _i(s.vit));
+    setTxt("r-ene", _i(s.ene));
+    setTxt("r-patk", _i(Combat.pAtk()));
+    setTxt("r-matk", _i(Combat.mAtk()));
+    setTxt("r-def", _i(Combat.pDef()));
+    setTxt("r-spd", _i(3 + _i(s.agi) * 0.5));
+    setTxt("r-eva", Combat.evasion().toFixed(1) + "%");
+    setTxt("r-tvlc", p.tuViLinhCan || 0);
+    setTxt("inv-head", `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`);
 
     this.renderEquipment();
     SkillSystem.renderSkillBar();

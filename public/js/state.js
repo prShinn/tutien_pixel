@@ -21,6 +21,7 @@ const S = {
   animT: 0,
   animF: 0,
   atkFx: [],
+  floatingTexts: [],
   cam: { x: 0, y: 0 },
   moveTimer: 0,
   lastTs: 0,

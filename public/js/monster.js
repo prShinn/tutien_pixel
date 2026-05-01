@@ -7,14 +7,21 @@ const Monster = {
   // Tạo quái vật từ template hoặc data server
   make(data, tx, ty, id = null) {
     const tmpl = data;
-    const hp = data.hp || (tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2)));
+    // Đảm bảo các giá trị số luôn hợp lệ
+    const hp = Number(data.hp || (tmpl.hp + randInt(0, Math.floor(tmpl.hp * 0.2))));
+    const maxHp = Number(data.maxHp || hp);
+    const atk = Number(tmpl.atk + randInt(0, 3));
+    const def = Number(tmpl.def || 2);
+    const vit = Number(tmpl.vit || 2);
+    
     return {
       ...tmpl,
-      id: id || `mon_${Math.random().toString(36).substr(2, 9)}`, // ID duy nhất
+      id: id || `mon_${Math.random().toString(36).substr(2, 9)}`, 
       hp,
-      maxHp: data.maxHp || hp,
-      atk: tmpl.atk + randInt(0, 3),
-      def: tmpl.def,
+      maxHp,
+      atk,
+      def,
+      vit,
       px: tx * CFG.TS + CFG.TS / 2,
       py: ty * CFG.TS + CFG.TS / 2,
       hx: tx * CFG.TS + CFG.TS / 2,
@@ -24,7 +31,7 @@ const Monster = {
       tpy: ty * CFG.TS + CFG.TS / 2,
       moveTimer: randInt(60, 180),
       atkCd: 0,
-      dead: data.dead || false,
+      dead: !!data.dead,
       respawnT: data.spawnCD || 10,
       targetId: data.targetId || null,
     };
@@ -48,7 +55,7 @@ const Monster = {
         const dy = m.tpy - m.py;
         const d = Math.hypot(dx, dy);
         if (d > 1) {
-          const step = 2.0 * (dt / 16); // Tốc độ nội suy quái
+          const step = 1.0 * (dt / 16); // Tốc độ nội suy quái giảm đi 1 nửa
           m.px += (dx / d) * Math.min(d, step);
           m.py += (dy / d) * Math.min(d, step);
         }
@@ -62,7 +69,7 @@ const Monster = {
     // ── LOCAL AI (Luôn chạy để tránh đơ quái) ──
     const speedMult = SkillSystem.getSpeedMult(m);
     const tmpl = m;
-    const speed = (tmpl.speed || 1) * (dt / 16) * speedMult;
+    const speed = (tmpl.speed || 1) * 0.5 * (dt / 16) * speedMult; // Giảm 1 nửa tốc độ
     const dp = dist(m.px, m.py, p.px, p.py);
     const dh = dist(m.px, m.py, m.hx, m.hy);
 

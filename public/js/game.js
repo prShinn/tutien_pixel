@@ -36,11 +36,11 @@ function update(dt) {
         const mag = Math.hypot(dx, dy);
         const dirX = dx / mag;
         const dirY = dy / mag;
-        const speedBase = 3.0; // Tăng tốc độ vì Tile 8x8 nhỏ hơn 4 lần
+        const speedBase = 1.5; // Giảm tốc độ di chuyển theo yêu cầu
         const speedBonus = (p.stats?.agi || 0) * 0.005;
         const moveStep =
           ((speedBase + speedBonus) * (dt / 16)) /
-          (15 - Math.max(0, S.player.speed ?? 1));
+          (15 - Math.max(0, Math.min(14, S.player.speed ?? 1)));
         const oldX = p.x;
         const oldY = p.y;
         const nextX = p.x + dirX * moveStep;
@@ -106,8 +106,8 @@ function update(dt) {
         const dx = op.tpx - op.px;
         const dy = op.tpy - op.py;
         const d = Math.hypot(dx, dy);
-        if (d > 1) {
-          const step = 2.5 * (dt / 16); // Tốc độ di chuyển mượt
+        if (d > 0.1) {
+          const step = 1.4 * (dt / 16); // Tốc độ nội suy giảm tương ứng
           op.px += (dx / d) * Math.min(d, step);
           op.py += (dy / d) * Math.min(d, step);
         }
@@ -117,6 +117,14 @@ function update(dt) {
     for (const m of S.monsters) {
       if (m) Monster.update(m, dt);
     }
+
+    // Cập nhật hiệu ứng FX và Floating Texts
+    S.atkFx = S.atkFx.filter((f) => { f.life -= dt * 0.05; return f.life > 0; });
+    S.floatingTexts = S.floatingTexts.filter((f) => { 
+      f.life -= dt; 
+      f.y -= dt * 0.02; // bay lên từ từ
+      return f.life > 0; 
+    });
 
     // Host gửi dữ liệu đồng bộ quái vật định kỳ
     if (Net._isOnline && S.isHost) {
@@ -147,7 +155,14 @@ function loop(ts) {
 // §16 · CHARACTER CREATE
 // ════════════════════════════════════════════════════════════
 let cRoot = null;
+let cGender = "MALE";
 const cPts = { str: 5, agi: 5, vit: 5, ene: 5, remaining: 20 };
+
+function selectGender(g) {
+  cGender = g;
+  document.getElementById("btn-gender-male").classList.toggle("active", g === "MALE");
+  document.getElementById("btn-gender-female").classList.toggle("active", g === "FEMALE");
+}
 
 function selectRoot(rootId) {
   const r = CFG.ROOTS.find((item) => item.id === rootId);
@@ -246,6 +261,8 @@ async function createCharacter() {
     skills: assignedSkills.map(mapFESkillToBE),
     crit: "0",
     speed: 1,
+    gender: cGender,
+    img: cGender === "MALE" ? "./assets/char_male.png" : "./assets/char_female.png",
     equip_slot: JSON.stringify(trangBi),
   };
   const saved = await Net.post("/api/player", playerData);

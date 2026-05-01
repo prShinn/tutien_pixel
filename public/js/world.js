@@ -131,15 +131,24 @@ const World = {
 
   async checkPortals() {
     const p = S.player;
+    // Ngăn chặn việc nhảy map liên tục do va chạm nhiều frame
+    if (p.isTeleporting) return;
+
     for (const portal of S.portals) {
       const px = portal.x * CFG.TS + CFG.TS / 2;
       const py = portal.y * CFG.TS + CFG.TS / 2;
+      // Tính toán khoảng cách: Portal radius ~ 6, Player radius ~ 10. Chạm nhau ở 16.
+      // Khi 1/3 nhân vật (6.6px) vào vòng tròn -> khoảng cách là ~9.5
       if (
-        dist(p.px, p.py, px, py) < CFG.TS * 0.5 &&
+        dist(p.px, p.py, px, py) < 9.5 &&
         portal.denMap &&
-        portal.tenMapDen !== ""
+        portal.denMap !== ""
       ) {
+        p.isTeleporting = true;
         Net.emitMapChange(portal.denMap, portal.toX, portal.toY);
+        
+        // Mở lại trạng thái sau 2 giây để tránh kẹt vĩnh viễn nếu mạng lỗi
+        setTimeout(() => { p.isTeleporting = false; }, 2000);
         break;
       }
     }
