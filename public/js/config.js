@@ -6,8 +6,8 @@
 // ════════════════════════════════════════════════════════════
 
 const API = {
-  BASE: "http://localhost:8090",         // ← server URL
-  SOCKET_URL: "http://localhost:3000",   // ← socket URL
+  BASE: window.location.origin,
+  SOCKET_URL: window.location.origin,
   AUTO_SAVE_MS: 30000,                   // auto-save mỗi 30 giây
 };
 

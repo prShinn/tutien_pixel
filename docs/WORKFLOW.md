@@ -69,11 +69,13 @@ tutien_pixel/
 
 | Service | URL | Mục đích |
 |---------|-----|----------|
-| Backend API | `http://localhost:8090` | REST API (players, items, maps, skills...) |
+| Node.js API | `http://localhost:3000/api` | REST API mock/authoritative |
 | Socket.io | `http://localhost:3000` | Realtime multiplayer |
 | Frontend | `http://localhost:3000` | Static files served by Express |
 
-> **config.js** phải luôn trỏ `API.BASE = "http://localhost:8090"` và `API.SOCKET_URL = "http://localhost:3000"`
+> Giai đoạn MVP dùng một Node.js server duy nhất. `config.js` phải trỏ API và Socket về cùng origin `http://localhost:3000`.
+
+Chi tiết roadmap nằm tại [`PLAN_ONLINE_MVP.md`](./PLAN_ONLINE_MVP.md).
 
 ---
 
@@ -82,33 +84,42 @@ tutien_pixel/
 ### 1. Thứ tự ưu tiên khi thêm tính năng
 ```
 1. Thiết kế logic → cập nhật file docs/*.md liên quan
-2. Thêm/sửa API endpoint (backend :8090)
-3. Thêm/sửa data fetch trong gamedata.js
-4. Implement logic trong JS module tương ứng
-5. Cập nhật HTML nếu cần thêm UI element
-6. Cập nhật CSS nếu cần style mới
+2. Xác định data contract và quyền sở hữu state
+3. Thêm/sửa API hoặc Socket handler trong Node.js :3000
+4. Thêm/sửa data fetch trong gamedata.js
+5. Implement logic trong JS module tương ứng
+6. Cập nhật HTML nếu cần thêm UI element
+7. Cập nhật CSS nếu cần style mới
 ```
 
-### 2. Quy tắc JS modules
+### 2. Nguyên tắc server-authoritative
+
+- Client gửi **intent**, không gửi kết quả gameplay đã tính sẵn.
+- Server là nguồn sự thật cho vị trí hợp lệ, HP, damage, cooldown, loot, inventory, tu vi và cảnh giới.
+- Client chỉ render state server trả về và nội suy chuyển động.
+- Mỗi event Socket phải có payload tối thiểu, validate ở server và event phản hồi thành công/thất bại.
+- Tính năng realtime phải kiểm tra với tối thiểu hai client.
+
+### 3. Quy tắc JS modules
 - **KHÔNG** đặt logic vào `index.html` — tất cả JS phải nằm trong `js/*.js`
 - **KHÔNG** dùng `var` — dùng `const` / `let`
 - **KHÔNG** truy cập DOM trực tiếp trong `combat.js`, `skills.js`, `cultivation.js` — dùng `UI.*` hoặc trả về kết quả
 - Mỗi module expose 1 object global duy nhất (ví dụ `const Combat = { ... }`)
 - **Thứ tự load** trong index.html phải tuân theo dependency graph (xem WORKFLOW này)
 
-### 3. Quy tắc State
+### 4. Quy tắc State
 - **Toàn bộ game state** nằm trong object `S` (state.js)
 - `S.player` = dữ liệu nhân vật hiện tại
 - `S.inventory` = mảng vật phẩm
 - `S.monsters`, `S.npcs`, `S.portals`, `S.groundItems` = entities trên map
 - **KHÔNG** lưu state game vào global variable rời rạc (ngoại trừ `canvas`, `ctx`, `cW`, `cH` và `socket`, `authToken`, `currentUser` trong net.js/auth.js)
 
-### 4. Quy tắc API
+### 5. Quy tắc API
 - Tất cả call API đi qua `Net.get()`, `Net.post()`, `Net.put()`
 - Data tĩnh (items, skills, realms, roots) được fetch 1 lần lúc boot qua `GameData.load()`
 - Không hardcode data game trong JS — luôn tham chiếu `CFG.ITEMS`, `CFG.SKILLS`, `CFG.REALMS`, `CFG.ROOTS`
 
-### 5. Quy tắc Render
+### 6. Quy tắc Render
 - **Tất cả vẽ** nằm trong `render.js` — pixel-art thủ công bằng `ctx.fillRect()`
 - Không dùng ảnh/sprite sheet (trừ khi có quyết định đổi sang tileset)
 - Render order: tiles → portals → npcs → otherPlayers → monsters → player → effects → UI overlays
@@ -153,16 +164,33 @@ utils.js ───┘                │
 9. [ ] Test end-to-end
 ```
 
+### Mẫu workflow cho tính năng realtime
+
+```markdown
+1. [ ] Mô tả state nào thuộc server, state nào chỉ thuộc client
+2. [ ] Định nghĩa request/response hoặc Socket event contract
+3. [ ] Tạo mock data/seed nếu tính năng cần dữ liệu
+4. [ ] Implement server validation và state transition
+5. [ ] Implement client Net event và cập nhật S
+6. [ ] Implement UI/render từ state, không tính lại nghiệp vụ quan trọng
+7. [ ] Test một client
+8. [ ] Test hai client cùng map
+9. [ ] Test reconnect, payload sai và map khác nhau
+10. [ ] Cập nhật API_REFERENCE.md và PLAN_ONLINE_MVP.md nếu milestone thay đổi
+```
+
 ---
 
 ## 📋 Checklist Trước Khi Deploy
 
-- [ ] `API.BASE` và `API.SOCKET_URL` đúng
+- [ ] `API.BASE` và `API.SOCKET_URL` cùng trỏ về Node.js server :3000 trong MVP
 - [ ] Tất cả `console.log` debug đã xóa hoặc đổi thành `console.info`
 - [ ] Không có hardcoded data trong JS
 - [ ] `server.js` có đầy đủ routes cần thiết
 - [ ] Data seed (worlds, canh-gioi, items, skills) đã được nạp vào backend
 - [ ] Socket handlers cập nhật cho tính năng mới
+- [ ] Server không tin damage, loot, inventory hoặc tu vi do client gửi lên
+- [ ] Tính năng realtime đã test với hai client
 
 ---
 

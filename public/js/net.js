@@ -144,6 +144,8 @@ const Net = {
       socket = io(API.SOCKET_URL, {
         auth: { token: authToken },
         timeout: 5000,
+        reconnection: true,
+        reconnectionAttempts: 10,
       });
 
       socket.on("connect", () => {
@@ -165,14 +167,17 @@ const Net = {
 
       socket.on("disconnect", () => {
         Net.saveNow();
-        localStorage.removeItem("tu_tien_token");
         Net._isOnline = false;
         Net._setBadge(false);
         Net._clearOthers();
-        UI.log("⚠ Mất kết nối server...", "system");
+        UI.log("⚠ Mất kết nối server, đang thử kết nối lại...", "system");
       });
 
-      socket.on("connect_error", () => {
+      socket.on("connect_error", (err) => {
+        if (err?.message === "Token không hợp lệ" || err?.message === "Không có token") {
+          localStorage.removeItem("tu_tien_token");
+          authToken = null;
+        }
         Net._setBadge(false);
       });
 
