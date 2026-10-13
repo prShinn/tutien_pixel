@@ -23,37 +23,37 @@ const Combat = {
   pAtk() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let base = 10 + (s?.str || 0) * 1.8 + (s?.agi || 0) * 0.5;
+    let base = GAME_BALANCE.base.pAtk + (s?.str || 0) * 4 + (s?.agi || 0) * 0.5;
 
     // Bonus Chiến Binh
-    if (role.id === "WARRIOR") base *= 1.15;
+    if (role.id === "WARRIOR") base *= 1.0;
     return Math.floor(base + Combat.weaponAttack());
   },
 
   mAtk() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let base = 10 + (s?.ene || 0) * 1.8 + (s?.agi || 0) * 0.5;
+    let base = GAME_BALANCE.base.mAtk + (s?.ene || 0) * 4 + (s?.agi || 0) * 0.5;
 
     // Bonus Pháp Sư
-    if (role.id === "MAGE") base *= 1.15;
+    if (role.id === "MAGE") base *= 1.0;
     return Math.floor(base + Combat.weaponAttack());
   },
 
   pDef() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let def = 2 + (Number(s?.vit) || 0) * 0.8 + (Number(s?.agi) || 0) * 0.4;
+    let def = GAME_BALANCE.base.pDef + (Number(s?.vit) || 0) * 2 + (Number(s?.agi) || 0) * 0.25;
 
     // Bonus Đấu Sĩ
-    if (role.id === "GLADIATOR") def *= 1.2;
+    if (role.id === "GLADIATOR") def *= 1.0;
     return Math.floor(def);
   },
 
   critChance() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let chance = 0.05 + (s?.agi || 0) * 0.005;
+    let chance = 0.05 + (s?.agi || 0) * 0.003;
 
     // Bonus Sát Thủ
     if (role.id === "ASSASSIN") chance += 0.1;
@@ -67,7 +67,7 @@ const Combat = {
   evasion() {
     const s = S.player.stats;
     const role = Combat.getRole();
-    let rate = 0.05 + (s?.agi || 0) * 0.01;
+    let rate = 0.03 + (s?.agi || 0) * 0.004;
 
     // Bonus Sát Thủ & Pháp Sư (pháp sư bay nhảy)
     if (role.id === "ASSASSIN") rate += 0.1;
@@ -100,9 +100,13 @@ const Combat = {
 
   attack(m) {
     if (S.atkCd > 0 || m.dead) return;
+    if (socket?.connected) {
+      socket.emit("attack_request", { targetId: m.id, mapId: S.mapCode });
+      return;
+    }
     const baseAtk = Combat.pAtk();
     const armorDef = (Number(m.def) || 0) + (Number(m.vit) || 0) * 0.2;
-    let dmg = Math.max(1, Math.floor(baseAtk - armorDef + randInt(0, 6)));
+    let dmg = Math.max(1, Math.floor(baseAtk * 100 / (100 + Math.max(0, armorDef)) + randInt(0, 3)));
     const isCrit = Math.random() < Combat.critChance();
     if (isCrit) {
       const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));

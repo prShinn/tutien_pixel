@@ -34,6 +34,20 @@ const GameData = {
 	// GET /api/linh-can → [{ maLinhCan, tenLinhCan, emoji, mauSac, background }]
 	async loadRoots() {
 		const data = await this._get("/api/linh-can");
+		if (Array.isArray(data) && data.length > 0) {
+			CFG.ROOTS = data.map((r) => ({
+				...r,
+				id: r.maLinhCan || r.id,
+				name: r.tenLinhCan || r.name,
+				emoji: r.emoji || "✨",
+				color: r.mauSac || r.color || "#ffffff",
+				bg: r.background || r.bg || "#202030",
+			}));
+			Linh_CAN = {};
+			for (const r of CFG.ROOTS) Linh_CAN[r.id] = { emoji: r.emoji, color: r.color, bg: r.bg };
+			console.info(`[GameData] ROOTS: ${CFG.ROOTS.length} linh căn đã tải.`);
+			return;
+		}
 		// if (!Array.isArray(data) || data.length === 0) {
 		//   console.warn("[GameData] Không load được ROOTS từ API. Sử dụng fallback.");
 		//   // Fallback data

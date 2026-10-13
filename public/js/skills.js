@@ -73,6 +73,62 @@ function mapFESkillToBE(sk) {
 // SkillSystem
 // ════════════════════════════════════════════════════════════
 const SkillSystem = {
+  _book: null,
+  _selected: new Set(),
+
+  async loadBook() {
+    if (!S.player?.id) return;
+    try {
+      this._book = await Net.get("/api/skills/catalog");
+      this._selected = new Set(this._book.equippedSkills || (S.player.skills || []).map((skill) => skill.id));
+      this.renderSkillBook();
+    } catch (error) {
+      console.warn("[Skill] Không tải được sổ thần thông", error);
+    }
+  },
+
+  async learnSkill(code) {
+    const result = await Net.post("/api/player/skills/learn", { skillCode: code, source: "book" });
+    if (result?.learnedSkills) {
+      if (!this._book) await this.loadBook();
+      this._book.learnedSkills = result.learnedSkills;
+      this.renderSkillBook();
+      UI.log("Đã lĩnh hội thần thông: " + (result.skill?.name || code), "level");
+    }
+  },
+
+  toggleEquip(code) {
+    if (this._selected.has(code)) this._selected.delete(code);
+    else if (this._selected.size < 4) this._selected.add(code);
+    else return UI.log("Chỉ được trang bị tối đa 4 kỹ năng chủ động.", "system");
+    this.renderSkillBook();
+  },
+
+  async saveLoadout() {
+    const result = await Net.put("/api/player/skills/equip", { skillCodes: [...this._selected] });
+    if (result?.skills) {
+      S.player.skills = result.skills.map(mapBESkillToFE);
+      S.player.equippedSkills = result.equippedSkills;
+      UI.update();
+      UI.log("Đã thay đổi kỹ năng trang bị.", "level");
+    }
+  },
+
+  renderSkillBook() {
+    const host = document.getElementById("skill-book-list");
+    if (!host || !this._book) return;
+    const learned = new Set(this._book.learnedSkills || []);
+    const visible = (this._book.skills || []).filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player?.linhCan);
+    host.innerHTML = visible.map((skill) => {
+      const known = learned.has(skill.code);
+      const passive = skill.category === "PASSIVE";
+      const marked = this._selected.has(skill.code);
+      const action = known ? (passive ? "BỊ ĐỘNG" : (marked ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
+      const fn = known ? (passive ? "" : `SkillSystem.toggleEquip('${skill.code}')`) : `SkillSystem.learnSkill('${skill.code}')`;
+      return `<div class="skill-book-row"><span>${skill.icon || "✦"} ${skill.name}</span><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
+    }).join("") + `<button class="sbtn" onclick="SkillSystem.saveLoadout()">Lưu loadout</button>`;
+  },
+
   // Gán kỹ năng ngẫu nhiên: 2 thấp (tier 1-2) và 2 cao (tier 3-4) theo kịch bản
   assignSkills(linhCan) {
     const tiers = CFG.SKILLS[linhCan];
@@ -104,7 +160,8 @@ const SkillSystem = {
 
   // Logic Tương Khắc Ngũ Hành
   getElementalMult(atkLC, defLC) {
-    if (!atkLC || !defLC) return 1.0;
+    return affinityMultiplier(atkLC, defLC);
+    /*
     const counters = {
       "KIM": "MOC",
       "MOC": "THO",
@@ -122,7 +179,7 @@ const SkillSystem = {
       "KIM": "HOA"
     };
     if (resisted[atkLC] === defLC) return 0.7; // Bị khắc: -30% dmg
-    return 1.0;
+    return 1.0; */
   },
 
   // Tính sát thương kỹ năng dựa trên thuộc tính, vai trò và ngũ hành
@@ -140,7 +197,7 @@ const SkillSystem = {
     
     // 3. Công thức: ((BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)) * Ngũ Hành
     const satThuong = skill.satThuong ?? 1;
-    let dmg = Math.floor((baseDmg * satThuong + statVal * 2) * eleMult);
+    let dmg = Math.floor((baseDmg * satThuong + statVal * 1.5) * eleMult);
 
     // 4. Hệ số cộng thêm từ tu vi linh căn
     const tvlcMult = 1 + (p.tuViLinhCan || 0) / 10000;
@@ -148,9 +205,9 @@ const SkillSystem = {
 
     // 4. Giảm theo def quái (phép xuyên 50% giáp)
     if (target) {
-      const def = (target.def || 0);
-      const defReduction = skill.damageType === "MAGIC" ? def * 0.5 : def;
-      dmg = Math.max(1, dmg - Math.floor(defReduction));
+      const def = skill.damageType === "MAGIC" ? (target.mDef ?? target.def ?? 0) : (target.pDef ?? target.def ?? 0);
+      const reduction = def / (100 + def);
+      dmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
     }
 
     // 5. Chí mạng (Crit)
@@ -255,6 +312,18 @@ const SkillSystem = {
     }
     if ((p.mp || 0) < skill.mpCost) {
       UI.log("Không đủ linh lực!", "system");
+      return;
+    }
+
+    if (socket?.connected && (skill.effect === "heal" || skill.effect?.startsWith("buff_"))) {
+      socket.emit("skill_request", { skillCode: skill.id });
+      return;
+    }
+
+    if (socket?.connected && skill.effect !== "heal" && !skill.effect?.startsWith("buff_")) {
+      const target = S.monsters.find((monster) => !monster.dead);
+      if (!target) return UI.log("Không có mục tiêu.", "system");
+      socket.emit("attack_request", { targetId: target.id, skillCode: skill.id, mapId: S.mapCode });
       return;
     }
 

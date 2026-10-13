@@ -7,6 +7,7 @@ const UI = {
   toggleKpahMenu() {
     const el = document.getElementById("kpah-menu-modal");
     if (el) el.style.display = (el.style.display === "none") ? "flex" : "none";
+    if (el?.style.display === "flex") SkillSystem.loadBook();
   },
   toggleChat() {
     const el = document.getElementById("chat-bar");
@@ -29,6 +30,13 @@ const UI = {
     if (!S.player) return;
     const p = S.player;
     document.getElementById("ui-name").textContent = p.name;
+    const rootEl = document.getElementById("ui-root");
+    if (rootEl) {
+      rootEl.textContent = p.linhCan || p.root?.name || "Chưa định linh căn";
+      rootEl.style.color = Linh_CAN[p.linhCan]?.color || p.root?.color || "#a8a4b8";
+    }
+    const ovrEl = document.getElementById("ui-ovr");
+    if (ovrEl) ovrEl.textContent = calcCombatPower(p).toLocaleString();
 
     const st = document.getElementById("ui-spirit-tag");
     if (st) {
@@ -60,10 +68,7 @@ const UI = {
       const uiRealm = document.getElementById("ui-realm");
       if (uiRealm) uiRealm.textContent = `${realmName} - Tầng ${p.tangTuVi}`;
     }
-    document.getElementById("ui-cp").textContent = (
-      ((Number(p.stats.str) || 0) + (Number(p.stats.agi) || 0) + (Number(p.stats.vit) || 0) + (Number(p.stats.ene) || 0)) * 5 +
-        (p.canhGioi?.stt || 0) * 150 + (p.tangTuVi || 1) * 20 + 100
-    ).toLocaleString();
+    document.getElementById("ui-cp").textContent = calcCombatPower(p).toLocaleString();
 
     const hp = Math.floor(p.hp || 0);
     const maxHp = Math.max(1, p.maxHp || 100);
@@ -88,6 +93,11 @@ const UI = {
     if (uiXu) uiXu.textContent = p.xu.toLocaleString();
 
     document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
+
+    const mapName = document.getElementById("mini-map-name");
+    if (mapName) mapName.textContent = S.mapName || S.mapCode || "Bản đồ";
+    const coords = document.getElementById("map-coords");
+    if (coords) coords.textContent = `${Math.floor(p.x)},${Math.floor(p.y)}`;
 
     const s = p.stats;
     const _i = (v) => Math.floor(Number(v) || 0);

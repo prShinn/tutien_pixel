@@ -29,20 +29,10 @@ const Cultivation = {
   calcBreakthroughStatGain(canhGioi, tangTuVi, isMajor = false) {
     const tier = canhGioi?.stt || 0;
     const stage = tangTuVi;
-    if (!isMajor) {
-      return {
-        str: Math.max(1, Math.round(2 + tier * 0.6 + stage * 0.35)),
-        agi: Math.max(1, Math.round(2 + tier * 0.5 + stage * 0.3)),
-        vit: Math.max(1, Math.round(2 + tier * 0.7 + stage * 0.4)),
-        ene: Math.max(1, Math.round(1 + tier * 0.55 + stage * 0.25)),
-      };
-    }
-    return {
-      str: Math.max(3, Math.round(6 + tier * 1.4 + stage * 0.9)),
-      agi: Math.max(3, Math.round(6 + tier * 1.2 + stage * 0.8)),
-      vit: Math.max(3, Math.round(6 + tier * 1.6 + stage * 1.0)),
-      ene: Math.max(3, Math.round(4 + tier * 1.3 + stage * 0.7)),
-    };
+    const budget = (isMajor ? 10 : 4) + Math.floor(tier * 0.75) + Math.floor(stage * 0.25);
+    const base = Math.floor(budget / 4);
+    const remainder = budget % 4;
+    return { str: base + (remainder > 0 ? 1 : 0), agi: base + (remainder > 1 ? 1 : 0), vit: base + (remainder > 2 ? 1 : 0), ene: base };
   },
 
   applyBreakthroughStats(player, dotPhaDaiCanhGioi = false) {
@@ -56,9 +46,9 @@ const Cultivation = {
     player.stats.agi += gain.agi;
     player.stats.vit += gain.vit;
     player.stats.ene += gain.ene;
-    player.maxHp = 100 + player.stats.vit * 10;
-    player.maxMp = 50 + player.stats.ene * 8;
-    player.hp = Math.min(player.hp + gain.vit * 10, player.maxHp);
+    player.maxHp = GAME_BALANCE.base.hp + player.stats.vit * GAME_BALANCE.stats.vit.maxHp;
+    player.maxMp = GAME_BALANCE.base.mp + player.stats.ene * GAME_BALANCE.stats.ene.maxMp;
+    player.hp = Math.min(player.hp + gain.vit * GAME_BALANCE.stats.vit.maxHp, player.maxHp);
     player.mp = Math.min(player.mp + gain.ene * 8, player.maxMp);
     UI.log(
       `+${gain.str} STR +${gain.agi} AGI +${gain.vit} VIT +${gain.ene} ENE`,
@@ -83,8 +73,8 @@ const Cultivation = {
       const sk = statKeys[randInt(0, 3)];
       const sv = Math.max(1, Math.floor(item.tuViLinhCanVal * 0.3));
       p.stats[sk] = (p.stats[sk] || 0) + sv;
-      p.maxHp = 100 + p.stats.vit * 10;
-      p.maxMp = 50 + p.stats.ene * 8;
+      p.maxHp = GAME_BALANCE.base.hp + p.stats.vit * GAME_BALANCE.stats.vit.maxHp;
+      p.maxMp = GAME_BALANCE.base.mp + p.stats.ene * GAME_BALANCE.stats.ene.maxMp;
       UI.log(
         `${item.icon} Hấp Thu (khác hệ) → ${sk.toUpperCase()} +${sv}, Tu Vi Linh Căn +1`,
         "level",
@@ -94,7 +84,7 @@ const Cultivation = {
     UI.update();
   },
 
-  absorbStone() {
+  async absorbStone() {
     const p = S.player;
     const idx = S.inventory.findIndex(
       (i) => i.type === "STONE" || i.type === "ELEMSTONE",
@@ -104,6 +94,15 @@ const Cultivation = {
       return;
     }
     const item = S.inventory[idx];
+    if (authToken) {
+      const result = await Net.post("/api/player/cultivation/absorb", { itemId: item.id, amount: item.giaTriTuVi || 0 });
+      if (!result?.player) return UI.log(result?.error || "Không thể hấp thụ tu vi.", "system");
+      Object.assign(p, result.player);
+      Inventory.remove(idx);
+      UI.log(`${item.icon} Hấp thu ${item.name} → Tu Vi +${result.result.amount}`, "level");
+      UI.update();
+      return;
+    }
     this.normalizePlayerStats(p);
     p.tuViHienTai += item.giaTriTuVi;
     if (item.str) {
@@ -128,8 +127,8 @@ const Cultivation = {
         "level",
       );
     }
-    p.maxHp = 100 + p.stats.vit * 10;
-    p.maxMp = 50 + p.stats.ene * 8;
+    p.maxHp = GAME_BALANCE.base.hp + p.stats.vit * GAME_BALANCE.stats.vit.maxHp;
+    p.maxMp = GAME_BALANCE.base.mp + p.stats.ene * GAME_BALANCE.stats.ene.maxMp;
     Inventory.remove(idx);
     UI.update();
   },
@@ -141,6 +140,16 @@ const Cultivation = {
         `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(p.tuViHienTai)}`,
         "system",
       );
+      return;
+    }
+
+    if (authToken) {
+      const result = await Net.post("/api/player/cultivation/breakthrough", {});
+      if (!result?.player) return UI.log(result?.error || "Không thể đột phá.", "system");
+      Object.assign(p, result.player);
+      S.player = { ...p };
+      UI.log(result.result?.major ? "🌟 Thăng cảnh giới!" : `⚡ Đột phá tầng ${p.tangTuVi}!`, "level");
+      UI.update();
       return;
     }
 

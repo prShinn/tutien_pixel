@@ -4,8 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 let socket = null;
-let authToken = localStorage.getItem("tu_tien_token");
-var currentUser = null;
+let authToken = sessionStorage.getItem("tu_tien_token");
 
 const Net = {
   _saveTimer: null,
@@ -140,6 +139,7 @@ const Net = {
   // ── Socket.io ──
   connectSocket() {
     if (!authToken) return;
+    if (socket?.connected || socket?.active) return;
     try {
       socket = io(API.SOCKET_URL, {
         auth: { token: authToken },
@@ -175,7 +175,7 @@ const Net = {
 
       socket.on("connect_error", (err) => {
         if (err?.message === "Token không hợp lệ" || err?.message === "Không có token") {
-          localStorage.removeItem("tu_tien_token");
+          sessionStorage.removeItem("tu_tien_token");
           authToken = null;
         }
         Net._setBadge(false);
@@ -185,6 +185,18 @@ const Net = {
       socket.on("world_init", (data) => {
         try {
           console.log("[Net] Nhận dữ liệu thế giới từ Server:", data);
+          if (data.player && S.player) {
+            const authoritative = data.player;
+            Object.assign(S.player, {
+              hp: authoritative.hp, maxHp: authoritative.maxHp, mp: authoritative.mp, maxMp: authoritative.maxMp,
+              xu: authoritative.xu, x: authoritative.x, y: authoritative.y, mapCode: authoritative.mapCode,
+              tuViHienTai: authoritative.tuViHienTai, tuViLenCap: authoritative.tuViLenCap,
+              tuViLinhCan: authoritative.tuViLinhCan, tangTuVi: authoritative.tangTuVi,
+              stats: authoritative.stats, combatPower: authoritative.combatPower,
+              learnedSkills: authoritative.learnedSkills, equippedSkills: authoritative.equippedSkills,
+            });
+            try { S.inventory = typeof authoritative.jsonIventory === "string" ? JSON.parse(authoritative.jsonIventory || "[]") : (authoritative.inventory || S.inventory); } catch { }
+          }
           if (data.map) {
             // Chuẩn hóa DTO trước khi nạp
             const map = normalizeWorldDto(data.map);
@@ -257,7 +269,7 @@ const Net = {
 
       socket.on("player_leave", (data) => {
         const pid = data.id || data.socketId || data.userId;
-        otherPlayers.delete(pid);
+          S.players.delete(pid);
         Net._updateHost();
       });
 
@@ -266,12 +278,15 @@ const Net = {
           const pid = data.id || data.socketId || data.userId;
           if (!pid) return;
 
-          if (!otherPlayers.has(pid)) {
+          if (!S.players.has(pid)) {
             // Nếu người chơi này chưa có trong danh sách, thêm vào luôn
             Net._upsertOther(data);
           }
 
-          const op = otherPlayers.get(pid);
+          const op = S.players.get(pid);
+          op.isMoving = true;
+          clearTimeout(op._moveTimer);
+          op._moveTimer = setTimeout(() => { op.isMoving = false; }, 180);
           // Lưu vị trí đích để nội suy (interpolation)
           op.tx = data.x;
           op.ty = data.y;
@@ -291,10 +306,10 @@ const Net = {
       socket.on("player_map", (data) => {
         const pid = data.id || data.socketId || data.userId;
         const newMapCode = data.mapCode || data.mapId;
-        if (otherPlayers.has(pid)) {
-          const op = otherPlayers.get(pid);
+        if (S.players.has(pid)) {
+          const op = S.players.get(pid);
           if ((newMapCode || "").toLowerCase() !== (S.mapCode || "").toLowerCase()) {
-            otherPlayers.delete(pid);
+            S.players.delete(pid);
           } else {
             op.x = data.x;
             op.y = data.y;
@@ -345,6 +360,39 @@ const Net = {
       socket.on("monster_spawn", ({ monster }) => {
         if (S.monsters.find(m => m.id === monster.id)) return;
         S.monsters.push(Monster.make(monster, monster.x, monster.y, monster.id));
+      });
+
+      socket.on("combat_result", ({ attackerId, targetId, damage, hp, maxHp, dead, skillCode, mp, cooldownMs, loot }) => {
+        const m = S.monsters.find(mon => mon.id === targetId);
+        if (!m) return;
+        m.hp = hp;
+        m.maxHp = maxHp || m.maxHp;
+        m.dead = !!dead;
+        if (attackerId === socket.id && S.player) {
+          if (typeof mp === "number") S.player.mp = mp;
+          S.atkCd = Math.max(S.atkCd, Math.floor((cooldownMs || 700) / 16));
+          if (skillCode) {
+            const skill = S.player.skills?.find(item => item.id === skillCode);
+            if (skill) skill.cdLeft = Math.floor((cooldownMs || 700) / 16);
+          }
+          if (loot?.xu) {
+            S.player.xu = Number(S.player.xu || 0) + loot.xu;
+            UI.log(`Nhặt được ${loot.xu} xu`, "loot");
+          }
+        }
+        Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
+        S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
+      });
+
+      socket.on("skill_result", ({ skillCode, hp, mp, heal, buffs, cooldownMs }) => {
+        if (!S.player) return;
+        S.player.hp = hp;
+        S.player.mp = mp;
+        S.player.buffs = buffs || {};
+        const skill = S.player.skills?.find(item => item.id === skillCode);
+        if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
+        if (heal) UI.log(`${skill?.icon || "✦"} Hồi ${heal} HP`, "level");
+        UI.update();
       });
 
       socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
@@ -409,7 +457,7 @@ const Net = {
     }
     const myId = socket.id;
     const playerIds = [myId];
-    for (const [pid, p] of otherPlayers) {
+    for (const [pid, p] of S.players) {
       const opMap = (p.mapCode || "").toLowerCase();
       const myMap = (S.mapCode || "").toLowerCase();
       if (opMap === myMap) playerIds.push(pid);
@@ -468,7 +516,7 @@ const Net = {
     const pid = p.id || p.socketId || p.userId;
     if (!pid) return;
 
-    const existing = otherPlayers.get(pid);
+    const existing = S.players.get(pid);
     const mapCode = (p.mapCode || p.mapId || S.mapCode || "").toLowerCase();
 
     // Gộp dữ liệu: giữ lại px, py cũ nếu dữ liệu mới (p) không có
@@ -491,24 +539,24 @@ const Net = {
       }
     }
 
-    otherPlayers.set(pid, updatedData);
+    S.players.set(pid, updatedData);
     console.debug(`[Net] Upsert player ${pid} in map ${mapCode}. Pos: (${updatedData.px}, ${updatedData.py})`);
   },
 
   _clearOthers() {
-    otherPlayers.clear();
+    S.players.clear();
     Net._renderOnlineList();
   },
 
   _renderOnlineList() {
     const el = document.getElementById("online-list");
     if (!el) return;
-    if (otherPlayers.size === 0) {
+    if (S.players.size === 0) {
       el.innerHTML = '<div style="color:var(--text2);font-size:10px">Chỉ có bạn trực tuyến</div>';
       return;
     }
     el.innerHTML = "";
-    for (const [, p] of otherPlayers) {
+    for (const [, p] of S.players) {
       const d = document.createElement("div");
       d.className = "online-player";
       d.innerHTML = `<span class="on-name">${p.name || p.username || "?"}</span>`;

@@ -57,11 +57,11 @@ const Render = {
     // Draw entities
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
     for (const npc of S.npcs) Render.npc(npc, cx, cy);
-    for (const [, op] of otherPlayers) Render.otherPlayer(op, cx, cy);
+    for (const [, op] of S.players) Render.otherPlayer(op, cx, cy);
     for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
     
     const tint = p.root ? p.root.color : "#4488cc";
-    Render.player(p.px - cx, p.py - cy, tint);
+    Render.player(p.px - cx, p.py - cy, tint, p);
 
     // KPAH Name Tags & HP Bar
     ctx.font = "bold 6px monospace";
@@ -109,6 +109,30 @@ const Render = {
       if (nearest) Render.portalHint(nearest, centerX, centerY, lcW, lcH);
     }
     ctx.restore();
+    Render.miniMap();
+  },
+
+  miniMap() {
+    const map = document.getElementById("mini-map");
+    if (!map || !S.tiles?.length) return;
+    const mini = map.getContext("2d");
+    const w = map.width, h = map.height;
+    const sx = w / Math.max(1, S.mapW), sy = h / Math.max(1, S.mapH);
+    mini.clearRect(0, 0, w, h);
+    const colors = { 0: "#274c35", 1: "#4d5363", 2: "#183c68", 3: "#251d2b", 4: "#66543c", 5: "#173022", 6: "#5e6072", 7: "#806644" };
+    for (let y = 0; y < S.mapH; y++) for (let x = 0; x < S.mapW; x++) {
+      mini.fillStyle = colors[S.tiles[y]?.[x]] || "#202333";
+      mini.fillRect(Math.floor(x * sx), Math.floor(y * sy), Math.ceil(sx), Math.ceil(sy));
+    }
+    for (const portal of S.portals || []) {
+      mini.fillStyle = "#d7b65a";
+      mini.fillRect(portal.x * sx, portal.y * sy, Math.max(2, sx), Math.max(2, sy));
+    }
+    if (S.player) {
+      mini.fillStyle = "#fff3c4";
+      mini.beginPath(); mini.arc((S.player.x + .5) * sx, (S.player.y + .5) * sy, 3, 0, Math.PI * 2); mini.fill();
+      mini.strokeStyle = "#f0a85a"; mini.stroke();
+    }
   },
 
   tile(t, sx, sy) {
@@ -121,12 +145,15 @@ const Render = {
     
     // Vẽ chi tiết pixel cho từng loại tile (8x8 style)
     ctx.fillStyle = c[1];
+    ctx.strokeStyle = "rgba(255,255,255,.035)";
+    ctx.strokeRect(fsx + .5, fsy + .5, ts - 1, ts - 1);
     if (t === 0) { // GRASS
       ctx.fillRect(fsx + 2, fsy + 2, 1, 1);
       ctx.fillRect(fsx + 5, fsy + 4, 1, 1);
     } else if (t === 2) { // WATER
       ctx.globalAlpha = 0.5;
-      ctx.fillRect(fsx, fsy + 3, ts, 1);
+      ctx.fillRect(fsx, fsy + 2 + Math.floor(Math.sin(S.animT * .002 + fsx) * 1), ts, 1);
+      ctx.fillRect(fsx + 2, fsy + 6, 3, 1);
       ctx.globalAlpha = 1.0;
     } else if (t === 3) { // WALL
       ctx.fillStyle = "rgba(0,0,0,0.2)";
@@ -148,16 +175,38 @@ const Render = {
     }
   },
 
-  player(sx, sy, tint) {
-    const p = S.player;
-    const defaultImg = p.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png";
-    const imgToDraw = p.img || defaultImg;
+  player(sx, sy, tint, actor = S.player) {
+    const defaultImg = actor?.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png";
+    const imgToDraw = actor?.img || defaultImg;
+    const moving = !!actor?.isMoving;
+    const phase = S.animT * (moving ? 0.025 : 0.006);
+    const bob = Math.sin(phase) * (moving ? 0.9 : 0.25);
+    const sway = Math.sin(phase * 0.72) * (moving ? 0.035 : 0.012);
+    const attackPulse = actor === S.player ? Math.max(0, 1 - S.atkCd / CFG.ATK_CD) : 0;
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
-      // Giảm size xuống 20 theo yêu cầu
-      const drawn = this.drawSprite(imgToDraw, sx, sy, 20, 20);
-      if (drawn) return;
+      // Aura linh căn nhẹ giúp sprite có chiều sâu mà không che pixel art.
+      ctx.save();
+      ctx.globalAlpha = moving ? 0.16 : 0.1;
+      ctx.fillStyle = tint;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 2 + bob, moving ? 10 : 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = "rgba(0,0,0,.28)";
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + 10, moving ? 5.5 : 5, 1.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(sx, sy + bob);
+      ctx.rotate(sway - attackPulse * 0.08);
+      ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
+      const drawn = this.drawSprite(imgToDraw, 0, 0, 22, 24);
+      ctx.restore();
+      if (drawn) {
+        return;
+      }
     }
 
     const x = sx - 4, y = sy - 8;
@@ -191,7 +240,7 @@ const Render = {
   otherPlayer(op, cx, cy) {
     const sx = op.px - cx, sy = op.py - cy;
     if (sx < -20 || sx > (cW/CFG.DS) + 20 || sy < -20 || sy > (cH/CFG.DS) + 20) return;
-    this.player(sx, sy, op.color || "#888");
+    this.player(sx, sy, op.color || "#888", op);
     ctx.fillStyle = "#fff";
     ctx.font = "7px monospace";
     ctx.textAlign = "center";

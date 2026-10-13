@@ -839,6 +839,9 @@ body {
 }
 
 /* ─ Skill tooltip ─ */
+.skill-book-row { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid #29263d; }
+.skill-book-row button { border:1px solid #72552a; background:#211a2d; color:#f3d28a; font-size:10px; padding:2px 5px; cursor:pointer; }
+.skill-book-row button:disabled { color:#77dca1; border-color:#356746; cursor:default; }
 #skill-tip {
   position: fixed;
   bottom: 220px;
@@ -1419,3 +1422,76 @@ body {
   flex: 1; padding: 10px; overflow-y: auto; border-right: 1px solid var(--border);
 }
 .kpah-col-right { border-right: none; }
+
+/* ── V2 cultivation HUD ─────────────────────────────────────────────── */
+:root {
+  --ink: #080a12;
+  --glass: rgba(10, 12, 23, .84);
+  --glass-soft: rgba(18, 20, 36, .68);
+  --line: rgba(215, 182, 90, .28);
+  --cyan: #80d8dc;
+}
+#canvas-area::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 48%, rgba(2, 3, 10, .42) 100%);
+  z-index: 2;
+}
+#game-canvas { position: relative; z-index: 1; }
+#kpah-hud-topleft, #kpah-hud-topright, #kpah-chat-log, .kpah-btn, #map-widget {
+  background: var(--glass);
+  border-color: var(--line);
+  box-shadow: 0 8px 28px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(8px);
+}
+#kpah-hud-topleft {
+  top: 18px; left: 18px; padding: 7px; gap: 10px; border-radius: 10px;
+}
+.hud-avatar { position: relative; padding: 2px; border: 1px solid rgba(215,182,90,.5); border-radius: 8px; background: #121426; }
+.hud-avatar::after { content: ""; position: absolute; inset: 3px; border: 1px solid rgba(128,216,220,.35); border-radius: 5px; pointer-events: none; }
+.hud-avatar img { width: 48px; height: 48px; border: 0; border-radius: 6px; }
+.hud-bars { width: 190px; gap: 4px; }
+.hud-name-row { font-family: "Noto Serif SC", serif; font-size: 13px; }
+.hud-meta { display: flex; justify-content: space-between; color: #85849a; font-size: 9px; letter-spacing: .5px; }
+.hud-meta b { color: var(--gold2); font-weight: normal; }
+.hud-realm { color: #fff1c0; background: rgba(215,182,90,.18); border: 1px solid rgba(215,182,90,.3); border-radius: 8px; padding: 1px 6px; }
+.hud-bar-wrap { height: 11px; border-radius: 5px; overflow: hidden; }
+.hud-bar-bg { border: 1px solid rgba(255,255,255,.08); border-radius: 5px; }
+.hud-bar-fill { border-radius: 4px; }
+#kpah-hud-topright { top: 18px; right: 18px; padding: 7px; border-radius: 10px; }
+.online-badge { margin: 0; padding: 3px 8px; border: 1px solid rgba(128,216,220,.24); border-radius: 99px; background: rgba(128,216,220,.08); }
+.hud-xu { border: 0; margin: 6px 0 0; background: transparent; text-align: right; padding: 0 3px; }
+#map-widget {
+  position: absolute; z-index: 10; top: 18px; right: 18px; width: 174px; padding: 9px; border: 1px solid var(--line); border-radius: 10px;
+  transform: translateY(66px);
+}
+.map-widget-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 7px; }
+.map-widget-head strong { color: #f5e6b0; font: 13px "Noto Serif SC", serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eyebrow { color: var(--cyan); font-size: 8px; letter-spacing: 2px; }
+#mini-map { display: block; width: 154px; height: 104px; image-rendering: pixelated; border: 1px solid rgba(255,255,255,.1); background: #060810; }
+.map-widget-foot { color: #8e8ca0; font-size: 8px; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+.map-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 7px #f0a85a; }
+#kpah-hud-bottomleft { left: 18px; bottom: 18px; gap: 7px; }
+#kpah-chat-log { width: 290px; height: 128px; border-radius: 10px; }
+.bottom-btns { gap: 6px; }
+.kpah-btn { border-radius: 7px; padding: 7px 12px; color: #d8c77e; transition: transform .15s, background .15s; }
+.kpah-btn:hover { transform: translateY(-1px); background: rgba(215,182,90,.16); }
+#kpah-hud-bottomright { right: 22px; bottom: 20px; }
+.kpah-skill-ring { filter: drop-shadow(0 8px 12px rgba(0,0,0,.35)); }
+.sk-main, .sk-sub { backdrop-filter: blur(5px); transition: transform .15s, box-shadow .15s; }
+.sk-main:hover, .sk-sub:hover { transform: scale(1.06); box-shadow: 0 0 18px rgba(128,216,220,.3); }
+.sk-main { background: linear-gradient(135deg, rgba(135,56,61,.92), rgba(72,22,35,.92)); border-color: #e7a17d; }
+.sk-sub { background: linear-gradient(135deg, rgba(42,75,123,.92), rgba(22,31,72,.92)); border-color: #86c9d5; }
+.kpah-modal { background: rgba(3,5,12,.76); backdrop-filter: blur(6px); }
+.kpah-modal-box { width: min(760px, calc(100vw - 30px)); height: min(520px, calc(100vh - 30px)); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 80px rgba(0,0,0,.55); }
+.kpah-modal-header { padding: 13px 16px; border-radius: 13px 13px 0 0; }
+@media (max-width: 700px) {
+  #map-widget { top: auto; right: 12px; bottom: 122px; transform: none; width: 122px; padding: 6px; }
+  #mini-map { width: 108px; height: 72px; }
+  #kpah-hud-topleft { top: 10px; left: 10px; }
+  .hud-bars { width: 145px; }
+  #kpah-chat-log { width: 210px; height: 82px; }
+  #kpah-hud-bottomleft { left: 10px; bottom: 10px; }
+  #kpah-hud-bottomright { right: 6px; bottom: 8px; transform: scale(.82); transform-origin: bottom right; }
+}

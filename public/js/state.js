@@ -6,12 +6,16 @@
 let canvas, ctx, cW, cH;
 
 const S = {
+  session: { user: null },
   player: null,
   mapCode: "",
+  mapName: "",
   tiles: null,
   mapW: 0,
   mapH: 0,
   monsters: [],
+  // socketId -> remote player snapshot; state thuộc về runtime, không phải global module.
+  players: new Map(),
   npcs: [],
   portals: [],
   groundItems: [],
@@ -28,7 +32,9 @@ const S = {
   isHost: true,
   monsterSyncTimer: 0,
   lastMoveEmit: 0,
+  creation: {
+    root: null,
+    gender: "MALE",
+    points: { str: 5, agi: 5, vit: 5, ene: 5, remaining: 20 },
+  },
 };
-
-// socketId → { username, x, y, px, py, realm, ... }
-const otherPlayers = new Map();

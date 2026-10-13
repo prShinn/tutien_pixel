@@ -56,9 +56,18 @@ const Shop = {
     });
   },
 
-  buy(id) {
+  async buy(id) {
     const item = CFG.ITEMS[id];
     if (!item) return;
+    if (authToken) {
+      const result = await Net.post("/api/player/shop/buy", { itemId: id });
+      if (!result?.player) return UI.log(result?.error || "Không thể mua vật phẩm.", "system");
+      Object.assign(S.player, result.player);
+      try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }
+      UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
+      UI.buildInv(); UI.update(); this.render();
+      return;
+    }
     if (S.player.xu < item.giaMua) {
       UI.log("Không đủ xu!", "system");
       return;
@@ -69,9 +78,18 @@ const Shop = {
     this.render();
   },
 
-  sell(idx) {
+  async sell(idx) {
     const item = S.inventory[idx];
     if (!item) return;
+    if (authToken) {
+      const result = await Net.post("/api/player/shop/sell", { index: idx });
+      if (!result?.player) return UI.log(result?.error || "Không thể bán vật phẩm.", "system");
+      Object.assign(S.player, result.player);
+      try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }
+      UI.log(`Bán: ${item.name} (+${result.result?.price || 0}xu)`, "loot");
+      UI.buildInv(); UI.update(); this.render();
+      return;
+    }
     S.player.xu += item.giaBan || 0;
     UI.log(
       `Bán: ${item.name} (+${item.giaBan || 0}xu)`,

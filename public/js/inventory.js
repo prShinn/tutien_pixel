@@ -30,9 +30,19 @@ const Inventory = {
     UI.update();
   },
 
-  use(idx) {
+  async use(idx) {
     const item = S.inventory[idx];
     if (!item) return;
+    if (authToken) {
+      const result = await Net.post("/api/player/inventory/use", { index: idx, itemId: item.id });
+      if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");
+      Object.assign(S.player, result.player);
+      try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+      UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
+      UI.buildInv();
+      UI.update();
+      return;
+    }
     if (item.type === "LINDAN") {
       Cultivation.absorbLinDan(idx);
       return;

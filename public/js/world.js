@@ -27,6 +27,7 @@ const World = {
   loadMap(def, toX, toY) {
     if (!def) return;
     S.mapCode = (def.code || "").toLowerCase();
+    S.mapName = def.name ?? def.tenMap ?? S.mapCode;
     S.mapW = def.w;
     S.mapH = def.h;
     S.tiles =
@@ -71,7 +72,7 @@ const World = {
     setTimeout(() => ov.classList.remove("show"), 2200);
     UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "system");
     
-    otherPlayers.clear();
+    S.players.clear();
   },
 
   nearestWalkable(tx, ty) {

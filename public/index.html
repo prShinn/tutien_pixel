@@ -60,6 +60,9 @@
         <button class="big-btn" id="auth-btn" onclick="Auth.submit()">
           ĐĂNG NHẬP
         </button>
+        <button class="sbtn" type="button" onclick="Auth.playDemo()" style="margin-top:10px;width:100%;">
+          ⚡ VÀO DEMO NGAY
+        </button>
         <div class="alt-link" id="auth-alt">
           Chưa có tài khoản?
           <a onclick="Auth.showTab('register')">Đăng ký ngay</a>
@@ -220,6 +223,15 @@
         <div id="map-name-overlay"></div>
       </div>
 
+      <div id="map-widget" aria-label="Bản đồ thu nhỏ">
+        <div class="map-widget-head">
+          <span class="eyebrow">THIÊN ĐỊA</span>
+          <strong id="mini-map-name">Bản đồ</strong>
+        </div>
+        <canvas id="mini-map" width="144" height="96"></canvas>
+        <div class="map-widget-foot"><span class="map-dot player"></span> Vị trí hiện tại <span id="map-coords">—</span></div>
+      </div>
+
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
         <div class="hud-avatar">
@@ -230,6 +242,7 @@
             <span id="ui-name">—</span>
             <span id="ui-realm" class="hud-realm">Luyện Thể</span>
           </div>
+          <div class="hud-meta"><span id="ui-root">Chưa định linh căn</span><span>OVR <b id="ui-ovr">0</b></span></div>
           <div class="hud-bar-wrap">
             <div class="hud-bar-bg"><div class="hud-bar-fill bar-hp" id="b-hp" style="width:100%"></div></div>
             <div class="hud-bar-text" id="ui-hp">0/0</div>
@@ -302,6 +315,8 @@
                 <button class="sbtn" onclick="Net.saveNow()">Lưu</button>
                 <button class="sbtn" onclick="Auth.logout()">Thoát</button>
               </div>
+              <div class="phead" style="margin-top:10px;">SỔ THẦN THÔNG</div>
+              <div id="skill-book-list" style="max-height:180px; overflow:auto; font-size:11px;"></div>
             </div>
             <div class="kpah-col-right">
               <div class="phead">TRANG BỊ</div>
@@ -379,6 +394,7 @@
     <script src="./js/config.js"></script>
     <script src="./js/state.js"></script>
     <script src="./js/utils.js"></script>
+    <script src="./js/balance.js"></script>
     <!-- Tầng 2: Cần config -->
     <script src="./js/gamedata.js"></script>
     <script src="./js/net.js"></script>

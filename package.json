@@ -5,7 +5,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "smoke": "node scripts/smoke-multiplayer.js"
+    "smoke": "node scripts/smoke-multiplayer.js",
+    "smoke:state": "node scripts/smoke-server-state.js",
+    "validate:roots": "node scripts/validate-root-balance.js",
+    "validate:balance": "node scripts/validate-balance.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

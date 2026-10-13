@@ -101,7 +101,7 @@ function update(dt) {
     }
     
     // Cập nhật vị trí cho Other Players (Interpolation)
-    for (const [, op] of otherPlayers) {
+    for (const [, op] of S.players) {
       if (op && op.tpx !== undefined && op.tpy !== undefined) {
         const dx = op.tpx - op.px;
         const dy = op.tpy - op.py;
@@ -154,12 +154,8 @@ function loop(ts) {
 // ════════════════════════════════════════════════════════════
 // §16 · CHARACTER CREATE
 // ════════════════════════════════════════════════════════════
-let cRoot = null;
-let cGender = "MALE";
-const cPts = { str: 5, agi: 5, vit: 5, ene: 5, remaining: 20 };
-
 function selectGender(g) {
-  cGender = g;
+  S.creation.gender = g;
   document.getElementById("btn-gender-male").classList.toggle("active", g === "MALE");
   document.getElementById("btn-gender-female").classList.toggle("active", g === "FEMALE");
 }
@@ -167,7 +163,7 @@ function selectGender(g) {
 function selectRoot(rootId) {
   const r = CFG.ROOTS.find((item) => item.id === rootId);
   if (!r) return;
-  cRoot = { ...r };
+  S.creation.root = { ...r };
   const orb = document.getElementById("spirit-orb");
   orb.textContent = r.emoji;
   orb.style.background = r.bg;
@@ -180,12 +176,13 @@ function selectRoot(rootId) {
 }
 
 function adj(s, d) {
-  const nv = cPts[s] + d;
+  const points = S.creation.points;
+  const nv = points[s] + d;
   if (nv < 1) return;
-  const nr = cPts.remaining - d;
+  const nr = points.remaining - d;
   if (nr < 0) return;
-  cPts[s] = nv;
-  cPts.remaining = nr;
+  points[s] = nv;
+  points.remaining = nr;
   document.getElementById("cs-" + s).textContent = nv;
   document.getElementById("pts-left").textContent = nr;
 }
@@ -196,15 +193,15 @@ async function createCharacter() {
     alert("Hãy nhập pháp danh!");
     return;
   }
-  if (!cRoot) {
+  if (!S.creation.root) {
     alert("Vui lòng chọn một linh căn trước khi tạo nhân vật.");
     return;
   }
-  if (cPts.remaining !== 0) {
+  if (S.creation.points.remaining !== 0) {
     alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
     return;
   }
-  const { str, agi, vit, ene } = cPts;
+  const { str, agi, vit, ene } = S.creation.points;
 
   const [defaultRealm, defaultWorldDto] = await Promise.all([
     Net.get("/api/canh-gioi/stt/1"),
@@ -228,18 +225,18 @@ async function createCharacter() {
   const trangBi = {
     vuKhi: null, ao: null, giay: null, mu: null, tay: null, nhan: null, vong: null,
   };
-  const assignedSkills = SkillSystem.assignSkills(cRoot.id);
+  const assignedSkills = SkillSystem.assignSkills(S.creation.root.id);
   const playerData = {
-    userId: currentUser?.id || 0,
+    userId: S.session.user?.id || 0,
     name,
-    linhCan: cRoot.id,
+    linhCan: S.creation.root.id,
     tenCanhGioi: defaultRealm.tenCanhGioi || defaultRealm.name || "",
     tangTuVi: 1,
     maCanhGioi: defaultRealm.code,
     canhGioi: defaultRealm,
     stats: { str, agi, vit, ene },
-    hp: 100 + vit * 10,
-    maxHp: 100 + vit * 10,
+    hp: GAME_BALANCE.base.hp + vit * GAME_BALANCE.stats.vit.maxHp,
+    maxHp: GAME_BALANCE.base.hp + vit * GAME_BALANCE.stats.vit.maxHp,
     mp: 50 + ene * 8,
     maxMp: 50 + ene * 8,
     xu: 50,
@@ -261,8 +258,8 @@ async function createCharacter() {
     skills: assignedSkills.map(mapFESkillToBE),
     crit: "0",
     speed: 1,
-    gender: cGender,
-    img: cGender === "MALE" ? "./assets/char_male.png" : "./assets/char_female.png",
+    gender: S.creation.gender,
+    img: S.creation.gender === "MALE" ? "./assets/char_male.png" : "./assets/char_female.png",
     equip_slot: JSON.stringify(trangBi),
   };
   const saved = await Net.post("/api/player", playerData);
@@ -271,7 +268,7 @@ async function createCharacter() {
   }
   S.player = {
     ...playerData,
-    root: cRoot,
+    root: S.creation.root,
     realm: defaultRealm.stt || 0,
     stage: 1,
     skills: assignedSkills,

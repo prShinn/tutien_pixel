@@ -5,6 +5,7 @@
 
 const Auth = {
   _mode: "login",
+  _demoPending: false,
 
   showTab(mode) {
     Auth._mode = mode;
@@ -55,8 +56,8 @@ const Auth = {
       }
 
       authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("tu_tien_token", authToken);
+      S.session.user = data.user;
+      sessionStorage.setItem("tu_tien_token", authToken);
 
       if (Auth._mode === "register") {
         showScreen("create");
@@ -71,10 +72,27 @@ const Auth = {
     }
   },
 
+  async playDemo() {
+    if (Auth._demoPending) return;
+    Auth._demoPending = true;
+    try {
+      const res = await fetch(API.BASE + "/api/auth/demo", { method: "POST" });
+      const data = await res.json();
+      authToken = data.token;
+      S.session.user = data.user;
+      sessionStorage.setItem("tu_tien_token", authToken);
+      await Auth._afterLogin();
+    } catch {
+      Auth._err("Không thể vào demo. Hãy kiểm tra server.");
+    } finally {
+      Auth._demoPending = false;
+    }
+  },
+
   async _afterLogin() {
     // Try to load existing character
     try {
-      const data = await Net.get("/api/player/by-user/" + currentUser.id);
+      const data = await Net.get("/api/player/by-user/" + S.session.user.id);
       if (data?.id && !data.error) {
         Auth._startGameWithData(data);
         return;
@@ -140,7 +158,7 @@ const Auth = {
     S.player = {
       ...playerData,
       name: playerData.name,
-      root: rootObject || cRoot || null,
+      root: rootObject || S.creation.root || null,
       linhCan: playerData.linhCan,
       realm: playerData.canhGioi?.stt || 0,
       stage: playerData.tangTuVi || 1,
@@ -176,15 +194,15 @@ const Auth = {
 
   playOffline() {
     authToken = null;
-    currentUser = null;
+    S.session.user = null;
     showScreen("create");
   },
 
   logout() {
     Net.saveNow().finally(() => {
-      localStorage.removeItem("tu_tien_token");
+      sessionStorage.removeItem("tu_tien_token");
       authToken = null;
-      currentUser = null;
+      S.session.user = null;
       S.player = null;
       S.inventory = [];
       if (socket) {
@@ -213,12 +231,12 @@ const Auth = {
         headers: { Authorization: "Bearer " + authToken },
       });
       if (!res.ok) {
-        localStorage.removeItem("tu_tien_token");
+        sessionStorage.removeItem("tu_tien_token");
         authToken = null;
         return false;
       }
       const data = await res.json();
-      currentUser = { id: data.user.id, username: data.user.username };
+      S.session.user = { id: data.user.id, username: data.user.username };
       document.getElementById("auth-status").textContent =
         `Chào lại, ${data.user.username}!`;
       await Auth._afterLogin();
