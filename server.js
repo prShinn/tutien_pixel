@@ -236,7 +236,10 @@ app.post("/api/player", authMiddleware, (req, res) => {
     return res.status(400).json({ error: `Phân bổ thuộc tính phải đủ ${BALANCE.creation.bonusPoints} điểm, mỗi chỉ số tối thiểu ${BALANCE.creation.minStat}.` });
   }
   const rootSkills = skills.filter((skill) => skill.linhCan === req.body.linhCan && skill.category !== "PASSIVE");
-  const initialSkills = rootSkills.slice(0, 4);
+  const isAttack = (skill) => Number(skill.satThuong || 0) > 0 && skill.effect !== "heal" && !String(skill.effect || "").startsWith("buff_");
+  const singleAttack = rootSkills.find((skill) => isAttack(skill) && Number(skill.dienRong || 0) <= 0);
+  const areaAttack = rootSkills.find((skill) => isAttack(skill) && Number(skill.dienRong || 0) > 0);
+  const initialSkills = [singleAttack, areaAttack, ...rootSkills.filter((skill) => skill !== singleAttack && skill !== areaAttack)].filter(Boolean).slice(0, 4);
   const player = {
     ...req.body,
     stats,

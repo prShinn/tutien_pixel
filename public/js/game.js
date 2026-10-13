@@ -33,6 +33,8 @@ function update(dt) {
       if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
 
       if (dx || dy) {
+        if (Math.abs(dx) >= Math.abs(dy)) p.direction = dx < 0 ? "left" : "right";
+        else p.direction = dy < 0 ? "up" : "down";
         const mag = Math.hypot(dx, dy);
         const dirX = dx / mag;
         const dirY = dy / mag;
@@ -77,7 +79,7 @@ function update(dt) {
       p.py = p.y * CFG.TS + CFG.TS / 2;
 
       if (Input.keys["Space"] && S.atkCd <= 0) {
-        let best = null, bd = 5 * CFG.TS;
+        let best = null, bd = CFG.BASIC_ATTACK_RANGE * CFG.TS;
         for (const m of S.monsters)
           if (!m.dead) {
             const d = dist(m.px, m.py, p.px, p.py);
@@ -86,7 +88,7 @@ function update(dt) {
         if (best) Combat.attack(best);
       }
       if (S.autoFight && S.atkCd <= 0) {
-        let best = null, bd = 4.5 * CFG.TS;
+        let best = null, bd = CFG.BASIC_ATTACK_RANGE * CFG.TS;
         for (const m of S.monsters)
           if (!m.dead) {
             const d = dist(m.px, m.py, p.px, p.py);
@@ -155,9 +157,33 @@ function loop(ts) {
 // §16 · CHARACTER CREATE
 // ════════════════════════════════════════════════════════════
 function selectGender(g) {
-  S.creation.gender = g;
+  S.creation.gender = g === "FEMALE" ? "FEMALE" : "MALE";
   document.getElementById("btn-gender-male").classList.toggle("active", g === "MALE");
   document.getElementById("btn-gender-female").classList.toggle("active", g === "FEMALE");
+}
+
+window.selectGender = selectGender;
+
+function randomizeDemoCreation() {
+  selectGender(Math.random() < 0.5 ? "MALE" : "FEMALE");
+  const roots = Array.isArray(CFG.ROOTS) ? CFG.ROOTS : [];
+  if (roots.length) selectRoot(roots[Math.floor(Math.random() * roots.length)].id);
+  const points = S.creation.points;
+  points.str = 5; points.agi = 5; points.vit = 5; points.ene = 5; points.remaining = 10;
+  const stats = ["str", "agi", "vit", "ene"];
+  while (points.remaining > 0) {
+    points[stats[Math.floor(Math.random() * stats.length)]] += 1;
+    points.remaining -= 1;
+  }
+  for (const stat of stats) document.getElementById("cs-" + stat).textContent = points[stat];
+  document.getElementById("pts-left").textContent = points.remaining;
+}
+
+function syncCreationPointsUI() {
+  const titles = document.querySelectorAll("#screen-create .sec-title");
+  if (titles.length) titles[titles.length - 1].textContent = "✦ PHÂN BỔ THUỘC TÍNH (10 điểm)";
+  const left = document.getElementById("pts-left");
+  if (left) left.textContent = S.creation.points.remaining;
 }
 
 function selectRoot(rootId) {
@@ -198,7 +224,7 @@ async function createCharacter() {
     return;
   }
   if (S.creation.points.remaining !== 0) {
-    alert("Phân bổ đủ 20 điểm thuộc tính trước khi tiếp tục.");
+    alert("Phân bổ đủ 10 điểm thuộc tính trước khi tiếp tục.");
     return;
   }
   const { str, agi, vit, ene } = S.creation.points;
@@ -354,6 +380,8 @@ function showScreen(name) {
 
   // 2. Cập nhật UI chọn linh căn theo ROOTS từ API
   _buildRootButtons();
+  bindGenderButtons();
+  syncCreationPointsUI();
 
   // 3. Auto-login hoặc hiện màn hình đăng nhập
   const ok = await Auth.tryAutoLogin().catch(() => false);
@@ -368,6 +396,15 @@ function showScreen(name) {
       "⚠ Máy chủ offline";
   }
 })();
+
+function bindGenderButtons() {
+  const male = document.getElementById("btn-gender-male");
+  const female = document.getElementById("btn-gender-female");
+  male?.setAttribute("type", "button");
+  female?.setAttribute("type", "button");
+  male?.addEventListener("click", () => selectGender("MALE"));
+  female?.addEventListener("click", () => selectGender("FEMALE"));
+}
 
 // ── Helper: Render dynamic root buttons từ API data ──
 function _buildRootButtons() {

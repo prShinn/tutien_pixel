@@ -31,6 +31,9 @@ function mapBESkillToFE(sk) {
     icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
+    category: sk.category || "ACTIVE",
+    targetType: sk.targetType || (Number(sk.satThuong || 0) > 0 ? "ENEMY" : "SELF"),
+    scalingStat: sk.scalingStat || (damageType === "MAGIC" ? "ene" : "str"),
     damageType,                         // "PHYS" | "MAGIC"
     satThuong: sk.satThuong ?? 1,       // hệ số nhân (1.5 = 150% atk)
     mpCost: sk.mpTieuHao ?? sk.mpCost ?? 0,
@@ -125,7 +128,9 @@ const SkillSystem = {
       const marked = this._selected.has(skill.code);
       const action = known ? (passive ? "BỊ ĐỘNG" : (marked ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
       const fn = known ? (passive ? "" : `SkillSystem.toggleEquip('${skill.code}')`) : `SkillSystem.learnSkill('${skill.code}')`;
-      return `<div class="skill-book-row"><span>${skill.icon || "✦"} ${skill.name}</span><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
+      const damage = Number(skill.satThuong || 0);
+      const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
+      return `<div class="skill-book-row"><div class="skill-book-info"><strong>${skill.icon || "✦"} ${skill.name}</strong><small>T${skill.tier || 1} · ${details}</small><em>${skill.description || skill.moTa || skill.desc || ""}</em></div><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
     }).join("") + `<button class="sbtn" onclick="SkillSystem.saveLoadout()">Lưu loadout</button>`;
   },
 
@@ -155,7 +160,15 @@ const SkillSystem = {
       }
     });
 
-    return result.filter(Boolean);
+    const allSkills = tiers.flat().filter(Boolean);
+    const attack = allSkills.find((sk) => Number(sk?.satThuong || 0) > 0
+      && sk.effect !== "heal"
+      && !String(sk.effect || "").startsWith("buff_"));
+    const aoe = allSkills.find((sk) => Number(sk?.satThuong || 0) > 0 && Number(sk.aoeR || 0) > 0);
+    for (const guaranteed of [attack, aoe]) {
+      if (guaranteed && !result.some((sk) => sk.id === guaranteed.id)) result.unshift({ ...guaranteed, level: 1, cdLeft: 0 });
+    }
+    return result.filter(Boolean).slice(0, 4);
   },
 
   // Logic Tương Khắc Ngũ Hành
@@ -193,7 +206,7 @@ const SkillSystem = {
     const statVal = stats[scalingStat.toLowerCase()] || 0;
     
     // 2. Hệ số ngũ hành (Tương khắc)
-    const eleMult = this.getElementalMult(p.linhCan, target.linhCan || target.element);
+    const eleMult = this.getElementalMult(p.linhCan, target?.linhCan || target?.element);
     
     // 3. Công thức: ((BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)) * Ngũ Hành
     const satThuong = skill.satThuong ?? 1;
@@ -302,6 +315,8 @@ const SkillSystem = {
   useSkill(slotIdx) {
     const p = S.player;
     if (!p?.skills?.[slotIdx]) return;
+    p.animState = "cast";
+    p.animUntil = Date.now() + 520;
     if (document.getElementById("shop-modal").classList.contains("open")) return;
     if (document.getElementById("dialog-modal").classList.contains("open")) return;
 
@@ -320,8 +335,14 @@ const SkillSystem = {
       return;
     }
 
+    if (!socket?.connected) Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
+
     if (socket?.connected && skill.effect !== "heal" && !skill.effect?.startsWith("buff_")) {
-      const target = S.monsters.find((monster) => !monster.dead);
+      const maxRange = (skill.range || 5) * CFG.TS;
+      const target = S.monsters
+        .filter((monster) => !monster.dead)
+        .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
+        .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
       if (!target) return UI.log("Không có mục tiêu.", "system");
       socket.emit("attack_request", { targetId: target.id, skillCode: skill.id, mapId: S.mapCode });
       return;
@@ -372,7 +393,6 @@ const SkillSystem = {
       if (hits === 0)
         UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
       else {
-        const dmgSample = this.calcDmg(skill);
         UI.log(
           `${skill.icon} ${skill.name} [${skill.damageType}] → ${hits} mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
           "combat",
@@ -477,16 +497,37 @@ const SkillSystem = {
 
     for (let i = 0; i < 4; i++) {
       const sk = p?.skills?.[i];
+      const slotEl = document.getElementById(`skbar-slot-${i}`);
+      if (!slotEl) continue;
+      const ensure = (selector, tag, className) => {
+        let el = slotEl.querySelector(selector);
+        if (!el) { el = document.createElement(tag); el.className = className; slotEl.appendChild(el); }
+        return el;
+      };
+      const keyEl = ensure('.skbar-key', 'span', 'skbar-key');
+      keyEl.textContent = String(i + 1);
+      const iconEl = ensure(`#skbar-icon-${i}`, 'span', 'skbar-icon');
+      iconEl.id = `skbar-icon-${i}`;
+      const nameEl = ensure(`#skbar-name-${i}`, 'span', 'skbar-name');
+      nameEl.id = `skbar-name-${i}`;
+      nameEl.classList.add('skbar-name');
+      const mpEl = ensure(`#skbar-mp-${i}`, 'span', 'skbar-mp');
+      mpEl.id = `skbar-mp-${i}`;
+      const cdWrap = ensure(`#skbar-cd-wrap-${i}`, 'span', 'skbar-cd-wrap');
+      cdWrap.id = `skbar-cd-wrap-${i}`;
+      const cdText = ensure(`#skbar-cd-text-${i}`, 'span', 'skbar-cd-text');
+      cdText.id = `skbar-cd-text-${i}`;
+      let cdRing = cdWrap.querySelector('.cd-ring');
+      if (!cdRing) { cdRing = document.createElement('span'); cdRing.className = 'cd-ring'; cdWrap.appendChild(cdRing); }
 
       // ── Cập nhật nội dung slot ──
-      const iconEl  = document.getElementById(`skbar-icon-${i}`);
-      const nameEl  = document.getElementById(`skbar-name-${i}`);
-      const mpEl    = document.getElementById(`skbar-mp-${i}`);
-      const slotEl  = document.getElementById(`skbar-slot-${i}`);
       if (!iconEl || !nameEl || !mpEl || !slotEl) continue;
 
       if (sk) {
         iconEl.textContent = sk.icon || (sk.damageType === 'MAGIC' ? '✨' : '⚔️');
+        const rawIcon = sk.icon || (sk.damageType === "MAGIC" ? "✨" : "⚔️");
+        if (/^(https?:|\.|\/)/.test(String(rawIcon))) iconEl.innerHTML = `<img src="${rawIcon}" alt="" loading="lazy">`;
+        else iconEl.textContent = rawIcon;
         nameEl.textContent = sk.name;
 
         // MP cost
@@ -519,11 +560,6 @@ const SkillSystem = {
       }
 
       // ── Circular Cooldown SVG ──
-      const cdWrap = document.getElementById(`skbar-cd-wrap-${i}`);
-      const cdRing = document.getElementById(`skbar-cd-ring-${i}`);
-      const cdText = document.getElementById(`skbar-cd-text-${i}`);
-      if (!cdWrap || !cdRing || !cdText) continue;
-
       if (sk?.cdLeft > 0) {
         const ratio = Math.min(1, sk.cdLeft / (sk.cd || 1));
         // dashoffset = CIRC khi đầy (không thấy ring) → 0 khi hết

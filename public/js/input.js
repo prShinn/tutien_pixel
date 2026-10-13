@@ -67,8 +67,8 @@ const Input = {
     if (document.getElementById("dialog-modal").classList.contains("open"))
       return;
     const r = canvas.getBoundingClientRect();
-    const wx = e.clientX - r.left + S.cam.x,
-      wy = e.clientY - r.top + S.cam.y;
+    const wx = (e.clientX - r.left) / CFG.DS + S.cam.x,
+      wy = (e.clientY - r.top) / CFG.DS + S.cam.y;
     for (const m of S.monsters)
       if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
         Combat.attack(m);

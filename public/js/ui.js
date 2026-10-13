@@ -30,13 +30,21 @@ const UI = {
     if (!S.player) return;
     const p = S.player;
     document.getElementById("ui-name").textContent = p.name;
+    const profileName = document.getElementById("ui-profile-name");
+    if (profileName) profileName.textContent = p.name || "Tu sĩ";
+    const profileAvatar = document.getElementById("ui-profile-avatar");
+    if (profileAvatar) profileAvatar.src = p.img || (p.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png");
     const rootEl = document.getElementById("ui-root");
     if (rootEl) {
       rootEl.textContent = p.linhCan || p.root?.name || "Chưa định linh căn";
       rootEl.style.color = Linh_CAN[p.linhCan]?.color || p.root?.color || "#a8a4b8";
     }
+    const profileRoot = document.getElementById("ui-profile-root");
+    if (profileRoot) profileRoot.textContent = p.linhCan || p.root?.name || "Chưa định linh căn";
     const ovrEl = document.getElementById("ui-ovr");
     if (ovrEl) ovrEl.textContent = calcCombatPower(p).toLocaleString();
+    const profileOvr = document.getElementById("ui-profile-ovr");
+    if (profileOvr) profileOvr.textContent = calcCombatPower(p).toLocaleString();
 
     const st = document.getElementById("ui-spirit-tag");
     if (st) {
@@ -68,6 +76,8 @@ const UI = {
       const uiRealm = document.getElementById("ui-realm");
       if (uiRealm) uiRealm.textContent = `${realmName} - Tầng ${p.tangTuVi}`;
     }
+    const profileRealm = document.getElementById("ui-profile-realm");
+    if (profileRealm) profileRealm.textContent = `${realmName} · Tầng ${p.tangTuVi || 1}`;
     document.getElementById("ui-cp").textContent = calcCombatPower(p).toLocaleString();
 
     const hp = Math.floor(p.hp || 0);

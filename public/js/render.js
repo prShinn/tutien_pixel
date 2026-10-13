@@ -90,9 +90,11 @@ const Render = {
     for (const ft of S.floatingTexts) {
       const alpha = Math.max(0, ft.life / ft.maxLife);
       ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
+      if (ft.kind === "skill") ctx.font = "bold 7px monospace";
       ctx.strokeText(ft.text, ft.x - cx, ft.y - cy);
       ctx.fillStyle = ft.color.replace(')', `,${alpha})`).replace('rgb', 'rgba').replace(/#([0-9a-fA-F]{6})/, (m, c) => `rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},${alpha})`);
       ctx.fillText(ft.text, ft.x - cx, ft.y - cy);
+      if (ft.kind === "skill") ctx.font = "bold 8px monospace";
     }
     
     // Portal hint
@@ -176,13 +178,18 @@ const Render = {
   },
 
   player(sx, sy, tint, actor = S.player) {
-    const defaultImg = actor?.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png";
-    const imgToDraw = actor?.img || defaultImg;
+    const defaultImg = actor?.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male_anim-source.png";
+    const imgToDraw = actor?.gender === "MALE" ? "./assets/char_male_anim-source.png" : (actor?.img || defaultImg);
     const moving = !!actor?.isMoving;
-    const phase = S.animT * (moving ? 0.025 : 0.006);
-    const bob = Math.sin(phase) * (moving ? 0.9 : 0.25);
-    const sway = Math.sin(phase * 0.72) * (moving ? 0.035 : 0.012);
-    const attackPulse = actor === S.player ? Math.max(0, 1 - S.atkCd / CFG.ATK_CD) : 0;
+    const now = Date.now();
+    const activeAction = moving ? "walk" : (actor?.animUntil > now ? actor.animState : "idle");
+    const animation = { idle: { row: 0, speed: 210 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 210 };
+    const frameIndex = Math.floor(now / animation.speed) % 4;
+    const phase = now * (moving ? 0.0065 : 0.0012);
+    const stride = Math.sin(phase);
+    const bob = activeAction === "idle" ? Math.sin(phase) * 0.3 : Math.abs(stride) * 0.7;
+    const sway = activeAction === "idle" ? Math.sin(phase * 0.5) * 0.018 : 0;
+    const attackPulse = actor === S.player ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
@@ -196,13 +203,16 @@ const Render = {
       ctx.restore();
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 10, moving ? 5.5 : 5, 1.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 8, moving ? 5.8 + Math.abs(stride) : 5, 1.8, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       ctx.translate(sx, sy + bob);
-      ctx.rotate(sway - attackPulse * 0.08);
+      ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
-      const drawn = this.drawSprite(imgToDraw, 0, 0, 22, 24);
+      ctx.scale(1 + (moving ? Math.abs(stride) * 0.035 : 0), 1 - (moving ? Math.abs(stride) * 0.025 : 0));
+      ctx.scale(actor?.direction === "left" ? -1 : 1, 1);
+      const spriteFrame = actor?.gender === "MALE" ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null;
+      const drawn = this.drawSprite(imgToDraw, 0, 0, CFG.ACTOR_W, CFG.ACTOR_H, spriteFrame);
       ctx.restore();
       if (drawn) {
         return;
@@ -335,8 +345,22 @@ const Render = {
     });
   },
 
+  floatSkill(wx, wy, name, color = "#ffd166") {
+    if (!name) return;
+    if (!S.floatingTexts) S.floatingTexts = [];
+    S.floatingTexts.push({
+      text: `✦ ${name}`,
+      color,
+      x: wx,
+      y: wy - 16,
+      life: 1100,
+      maxLife: 1100,
+      kind: "skill",
+    });
+  },
+
   // Helper để vẽ ảnh/sprite
-  drawSprite(imgSource, x, y, w, h) {
+  drawSprite(imgSource, x, y, w, h, frame = null) {
     if (!imgSource) return false;
     let img = S.imageCache?.[imgSource];
     if (!img) {
@@ -360,7 +384,17 @@ const Render = {
     if (img.isReady || (img.complete && img.naturalWidth > 0)) {
       const wDraw = img.naturalWidth || img.width;
       if (wDraw > 0) {
-        ctx.drawImage(img, x - w / 2, y - h / 2 + 2, w, h);
+        const hDraw = img.naturalHeight || img.height;
+        if (frame) {
+          const cols = frame.cols || 1, rows = frame.rows || 1;
+          const cellW = Math.floor(wDraw / cols), cellH = Math.floor(hDraw / rows);
+          const sourceX = cellW * frame.col, sourceY = cellH * frame.row;
+          const sourceW = frame.col === cols - 1 ? wDraw - sourceX : cellW;
+          const sourceH = frame.row === rows - 1 ? hDraw - sourceY : cellH;
+          ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, x - w / 2, y - h / 2 + 2, w, h);
+        } else {
+          ctx.drawImage(img, x - w / 2, y - h / 2 + 2, w, h);
+        }
         return true;
       }
     }

@@ -840,6 +840,10 @@ body {
 
 /* ─ Skill tooltip ─ */
 .skill-book-row { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid #29263d; }
+.skill-book-info { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.skill-book-info strong { color:#f3d28a; font-size:10px; }
+.skill-book-info small { color:#84cfff; font-size:8px; }
+.skill-book-info em { color:#8f8aa5; font-size:8px; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:270px; }
 .skill-book-row button { border:1px solid #72552a; background:#211a2d; color:#f3d28a; font-size:10px; padding:2px 5px; cursor:pointer; }
 .skill-book-row button:disabled { color:#77dca1; border-color:#356746; cursor:default; }
 #skill-tip {
@@ -1495,3 +1499,54 @@ body {
   #kpah-hud-bottomleft { left: 10px; bottom: 10px; }
   #kpah-hud-bottomright { right: 6px; bottom: 8px; transform: scale(.82); transform-origin: bottom right; }
 }
+
+/* ── Character / skill presentation ─────────────────────────────────── */
+.character-identity {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, rgba(128,216,220,.08), rgba(215,182,90,.08));
+  border: 1px solid rgba(215,182,90,.22);
+  border-radius: 9px;
+}
+.character-identity img { width: 54px; height: 54px; object-fit: contain; image-rendering: auto; border-radius: 7px; background: #080a14; }
+.character-identity-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.character-identity-copy strong { color: #f4e7b4; font: 14px "Noto Serif SC", serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.character-identity-copy span { color: #9290a7; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.character-identity-copy span:first-of-type { color: var(--cyan); }
+.profile-ovr { display: flex; flex-direction: column; align-items: flex-end; color: var(--gold2); }
+.profile-ovr small { color: #89869a; font-size: 8px; }
+.profile-ovr b { font-size: 17px; font-weight: normal; }
+.sk-sub { width: 58px; height: 58px; border-radius: 13px; padding: 5px 4px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 0; }
+.sk-sub > br { display: none; }
+.sk-sub > :not(.skbar-key):not(.skbar-icon):not(.skbar-name):not(.skbar-mp):not(.skbar-cd-wrap):not(.sk-type) { display: none; }
+.skbar-key { position: absolute; top: 4px; left: 6px; color: #f8df8c; font-size: 9px; font-weight: bold; z-index: 2; }
+.skbar-icon { width: 30px; height: 30px; display: grid; place-items: center; font-size: 23px; line-height: 1; z-index: 1; }
+.skbar-icon img { width: 28px; height: 28px; object-fit: contain; image-rendering: auto; }
+.skbar-name { max-width: 52px; color: #eee7ce; font-size: 8px; line-height: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; z-index: 1; }
+.skbar-mp { right: 5px; bottom: 4px; color: #9eb9ff; font-size: 7px; z-index: 1; }
+.skbar-cd-wrap { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; border-radius: 12px; background: rgba(4,5,12,.76); z-index: 3; pointer-events: none; }
+.skbar-cd-wrap .skbar-cd-text, .skbar-cd-text { color: #fff3c0; font-size: 14px; font-weight: bold; }
+.skbar-cd-wrap .cd-ring { position: absolute; inset: 4px; border: 2px solid rgba(215,182,90,.7); border-radius: 10px; }
+.sk-main { width: 70px; height: 70px; font-size: 10px; gap: 2px; }
+.sk-main-icon { font-size: 22px; line-height: 1; color: #ffe1aa; }
+.sk-main small { font-size: 7px; color: rgba(255,255,255,.7); }
+.kpah-modal-box { width: min(840px, calc(100vw - 30px)); }
+.kpah-col-left, .kpah-col-right { padding: 14px; }
+
+/* Fixed combat HUD scale: readable, compact, and consistent across resolutions. */
+.kpah-skill-ring { width: 190px; height: 190px; overflow: visible; }
+.sk-main { width: 78px; height: 78px; border-radius: 50%; right: 0; bottom: 0; }
+.sk-sub { width: 62px; height: 62px; border-radius: 50%; padding: 4px; }
+.sk-sub:nth-child(2) { right: 8px; bottom: 108px; }
+.sk-sub:nth-child(3) { right: 78px; bottom: 78px; }
+.sk-sub:nth-child(4) { right: 112px; bottom: 18px; }
+.sk-sub:nth-child(5) { right: 36px; bottom: -2px; }
+.skbar-icon { width: 30px; height: 30px; font-size: 22px; overflow: hidden; }
+.skbar-icon img { width: 26px; height: 26px; border-radius: 50%; object-fit: contain; }
+.skbar-name { max-width: 54px; font-size: 8px; }
+.skbar-mp { font-size: 7px; }
+.skbar-cd-wrap, .skbar-cd-wrap .cd-ring { border-radius: 50%; }

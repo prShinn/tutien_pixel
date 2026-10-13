@@ -14,9 +14,12 @@ const API = {
 // ── Static game rules (không thay đổi theo data) ──
 const CFG = {
   TS: 8,            // tile size (logical 8x8 pixel)
+  ACTOR_W: 15,
+  ACTOR_H: 19,
   DS: 4,            // display scale (phóng to UI/Map 4 lần cho dễ nhìn)
   INV_MAX: 40,      // max inventory slots
   ATK_CD: 42,       // ticks cooldown đánh thường
+  BASIC_ATTACK_RANGE: 2.0, // phạm vi đánh thường, tính theo ô map
   REGEN_HP: 0.01,   // HP regen per ms
   REGEN_MP: 0.006,  // MP regen per ms
   MON_AGGRO: 15,    // Tăng tầm aggro vì tile nhỏ đi

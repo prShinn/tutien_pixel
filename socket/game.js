@@ -26,13 +26,67 @@ const { URL } = require("url");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../middleware/auth");
 const AUTH_BACKEND = process.env.AUTH_BACKEND || "http://localhost:8090";
-const { skills } = require("../data/mock-data");
+const { skills, monsterDefs } = require("../data/mock-data");
 const { deriveStats, affinityMultiplier, mitigateDamage } = require("../data/balance");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
 const sessions = new Map();
 const roomMonsters = new Map();
+const MONSTER_ROOM_CAP = 6;
+const MONSTER_MIN_ON_JOIN = 3;
+
+function canSpawnAt(world, x, y) {
+  const tiles = world?.jsonMap || world?.tiles;
+  const tile = Array.isArray(tiles) ? tiles[y]?.[x] : 0;
+  return x >= 1 && y >= 1 && x < Number(world?.w || 0) - 1 && y < Number(world?.h || 0) - 1
+    && ![1, 2, 3, 5, 6].includes(Number(tile));
+}
+
+function createRoomMonster(roomId, world, serial) {
+  const template = monsterDefs[serial % monsterDefs.length];
+  let x = Math.floor(Number(world?.w || 40) / 2), y = Math.floor(Number(world?.h || 30) / 2);
+  for (let i = 0; i < 30; i += 1) {
+    const candidateX = 1 + Math.floor(Math.random() * Math.max(1, Number(world?.w || 40) - 2));
+    const candidateY = 1 + Math.floor(Math.random() * Math.max(1, Number(world?.h || 30) - 2));
+    if (canSpawnAt(world, candidateX, candidateY)) { x = candidateX; y = candidateY; break; }
+  }
+  const maxHp = Number(template.maxHp || template.hp || 1);
+  return {
+    ...template,
+    id: `mon_${roomId}_${Date.now().toString(36)}_${serial}`,
+    x, y, spawnX: x, spawnY: y,
+    hp: maxHp, maxHp, dead: false,
+  };
+}
+
+function ensureRoomMonsters(roomId, world) {
+  if (!roomMonsters.has(roomId)) {
+    roomMonsters.set(roomId, JSON.parse(JSON.stringify(world?.monsters || [])));
+  }
+  const monsters = roomMonsters.get(roomId);
+  monsters.forEach((monster, index) => {
+    monster.id = monster.id || `mon_${roomId}_seed_${index}`;
+    monster.x = Number(monster.x ?? monster.spawnX ?? Math.floor(Number(world?.w || 40) / 2));
+    monster.y = Number(monster.y ?? monster.spawnY ?? Math.floor(Number(world?.h || 30) / 2));
+    monster.spawnX = Number(monster.spawnX ?? monster.x);
+    monster.spawnY = Number(monster.spawnY ?? monster.y);
+    monster.maxHp = Number(monster.maxHp || monster.hp || 1);
+    monster.hp = Number(monster.hp ?? monster.maxHp);
+    monster.dead = !!monster.dead;
+  });
+  let serial = monsters.length;
+  while (monsters.length < MONSTER_MIN_ON_JOIN && serial < MONSTER_ROOM_CAP + 2) {
+    monsters.push(createRoomMonster(roomId, world, serial++));
+  }
+  return monsters;
+}
+
+function monsterDistanceTiles(session, monster) {
+  const mx = Number(monster.x ?? monster.spawnX ?? 0);
+  const my = Number(monster.y ?? monster.spawnY ?? 0);
+  return Math.hypot(mx - Number(session.x || 0), my - Number(session.y || 0));
+}
 
 function resolveMonsterAttack(player, monster, skillCode, session) {
   const skill = skillCode ? skills.find((item) => item.code === skillCode) : null;
@@ -86,7 +140,7 @@ function resolveSelfSkill(player, skillCode, session) {
     player.buffs = { ...(player.buffs || {}), [skill.effect]: { value: skill.effectVal || 0, duration: (skill.thoiGianBuff || 4) * 1000 } };
   }
   session.lastSkillAt = now;
-  return { skillCode, hp: player.hp, mp: player.mp, heal, buffs: player.buffs || {}, cooldownMs };
+  return { skillCode, skillName: skill.name, hp: player.hp, mp: player.mp, heal, buffs: player.buffs || {}, cooldownMs };
 }
 
 async function requestJson(urlString, headers = {}) {
@@ -208,9 +262,7 @@ function setupSocket(io, players = new Map()) {
         return;
       }
 
-      if (!roomMonsters.has(roomId)) {
-        roomMonsters.set(roomId, JSON.parse(JSON.stringify(worldData.monsters || [])));
-      }
+      const monsters = ensureRoomMonsters(roomId, worldData);
 
       // Lấy tên nhân vật từ player data
       const playerData = [...players.values()].find((p) => p.userId === socket.userId);
@@ -243,7 +295,7 @@ function setupSocket(io, players = new Map()) {
         map: worldData,
         player: playerData || null,
         players: worldPlayers,
-        monsters: roomMonsters.get(roomId) || []
+        monsters
       });
 
       // Notify others on same map
@@ -255,25 +307,27 @@ function setupSocket(io, players = new Map()) {
       const session = sessions.get(socket.id);
       if (!session) return;
       const roomId = (mapId || mapCode || session.mapId).toLowerCase();
-      const nextX = Math.floor(Number(x));
-      const nextY = Math.floor(Number(y));
+      const rawX = Number(x);
+      const rawY = Number(y);
+      const nextX = Math.floor(rawX);
+      const nextY = Math.floor(rawY);
       const world = mapCache.get(roomId);
       const validBounds = !world || (nextX >= 0 && nextY >= 0 && nextX < Number(world.w || 999) && nextY < Number(world.h || 999));
-      const validStep = Math.abs(nextX - session.x) <= 2 && Math.abs(nextY - session.y) <= 2;
+      const validStep = Math.abs(rawX - Number(session.x)) <= 2.2 && Math.abs(rawY - Number(session.y)) <= 2.2;
       if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !validBounds || !validStep) {
         socket.emit("action_error", { action: "move", error: "Tọa độ di chuyển không hợp lệ" });
         return;
       }
-      session.x = nextX;
-      session.y = nextY;
+      session.x = rawX;
+      session.y = rawY;
       session.mapId = roomId;
       session.mapCode = roomId;
       const playerData = [...players.values()].find((p) => p.userId === socket.userId);
-      if (playerData) { playerData.x = nextX; playerData.y = nextY; playerData.mapCode = roomId; playerData.mapId = roomId; players.set(playerData.id, playerData); }
+      if (playerData) { playerData.x = rawX; playerData.y = rawY; playerData.mapCode = roomId; playerData.mapId = roomId; players.set(playerData.id, playerData); }
       // Broadcast to same map only (không gửi cho chính mình)
       socket
         .to(`map:${roomId}`)
-        .emit("player_move", { id: socket.id, x: nextX, y: nextY, mapCode: roomId });
+        .emit("player_move", { id: socket.id, x: rawX, y: rawY, mapCode: roomId });
     });
 
     // ── map_change ────────────────────────────────────────────────
@@ -322,7 +376,7 @@ function setupSocket(io, players = new Map()) {
         map: worldData,
         player: [...players.values()].find((p) => p.userId === socket.userId) || null,
         players: worldPlayers,
-        monsters: roomMonsters.get(roomId) || []
+        monsters: ensureRoomMonsters(roomId, worldData)
       });
 
       socket.to(`map:${roomId}`).emit("player_join", { ...session });
@@ -362,14 +416,41 @@ function setupSocket(io, players = new Map()) {
     socket.on("attack_request", ({ targetId, skillCode, mapId }) => {
       const session = sessions.get(socket.id);
       const player = [...players.values()].find((item) => item.userId === socket.userId);
-      const roomId = String(mapId || session?.mapId || "").toLowerCase();
-      const monster = (roomMonsters.get(roomId) || []).find((item) => String(item.id) === String(targetId));
-      if (!session || !player || !monster || monster.dead) return socket.emit("action_error", { action: "combat", error: "Mục tiêu không hợp lệ" });
+      if (!session) return socket.emit("action_error", { action: "combat", error: "Phiên chơi chưa sẵn sàng" });
+      if (!player) return socket.emit("action_error", { action: "combat", error: "Không tìm thấy nhân vật" });
+      const roomId = String(session.mapId || mapId || "").toLowerCase();
+      const monsters = roomMonsters.get(roomId) || [];
+      const monster = monsters.find((item) => String(item.id) === String(targetId));
+      if (!monster) return socket.emit("action_error", { action: "combat", error: "Quái không còn trong bản đồ hiện tại" });
+      if (monster.dead) return socket.emit("action_error", { action: "combat", error: "Quái đang hồi sinh" });
+      const skill = skillCode ? skills.find((item) => item.code === skillCode) : null;
+      const attackRange = Number(skill?.range || 2.0);
+      if (monsterDistanceTiles(session, monster) > attackRange) {
+        return socket.emit("action_error", { action: "combat", error: "Mục tiêu ngoài phạm vi kỹ năng" });
+      }
       const result = resolveMonsterAttack(player, monster, skillCode, session);
       if (result.error) return socket.emit("action_error", { action: "combat", error: result.error });
+      const hits = [{ targetId: monster.id, ...result }];
+      let bonusXu = Number(result.loot?.xu || 0);
+      const firstXu = bonusXu;
+      const aoeRange = Number(skill?.dienRong || 0);
+      if (aoeRange > 0) {
+        for (const nearby of monsters) {
+          if (nearby.id === monster.id || nearby.dead) continue;
+          const distance = Math.hypot(Number(nearby.x ?? nearby.spawnX ?? 0) - Number(monster.x ?? monster.spawnX ?? 0), Number(nearby.y ?? nearby.spawnY ?? 0) - Number(monster.y ?? monster.spawnY ?? 0));
+          if (distance > aoeRange) continue;
+          const extraPlayer = { ...player, mp: Number(player.mp || 0) + Number(skill.mpTieuHao || 0) };
+          const extra = resolveMonsterAttack(extraPlayer, nearby, skillCode, { ...session, lastAttackAt: 0 });
+          if (!extra.error) {
+            hits.push({ targetId: nearby.id, ...extra });
+            bonusXu += Number(extra.loot?.xu || 0);
+          }
+        }
+      }
+      if (bonusXu > firstXu) player.xu = Number(player.xu || 0) + bonusXu - firstXu;
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
-      io.to(`map:${roomId}`).emit("combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result });
+      io.to(`map:${roomId}`).emit("combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: bonusXu ? { xu: bonusXu } : null });
     });
 
     socket.on("attack_effect", ({ targetId, damage, mapId }) => {
@@ -385,10 +466,16 @@ function setupSocket(io, players = new Map()) {
 
     // ── monster_sync (Host syncs monster positions to others) ──
     socket.on("monster_sync", ({ mapId, monsters }) => {
-      // Deprecated: client không còn được ghi đè HP/dead/loot của monster.
-      if (!roomMonsters.has(mapId) && Array.isArray(monsters)) {
-        roomMonsters.set(mapId, JSON.parse(JSON.stringify(monsters.map((monster) => ({ ...monster, hp: monster.maxHp || monster.hp, dead: false })))));
+      const authoritative = roomMonsters.get(String(mapId || "").toLowerCase());
+      if (authoritative && Array.isArray(monsters)) {
+        for (const snapshot of monsters) {
+          const monster = authoritative.find((item) => item.id === snapshot.id);
+          if (!monster) continue;
+          if (Number.isFinite(Number(snapshot.x))) monster.x = Number(snapshot.x);
+          if (Number.isFinite(Number(snapshot.y))) monster.y = Number(snapshot.y);
+        }
       }
+      // Deprecated: client không còn được ghi đè HP/dead/loot của monster.
     });
 
     // ── disconnect ────────────────────────────────────────────────
@@ -416,11 +503,20 @@ function setupSocket(io, players = new Map()) {
         if (!monster.dead || !monster.respawnAt || monster.respawnAt > Date.now()) continue;
         monster.dead = false;
         monster.hp = monster.maxHp || monster.hp || 1;
+        monster.x = Number(monster.spawnX ?? monster.x ?? 0);
+        monster.y = Number(monster.spawnY ?? monster.y ?? 0);
         delete monster.respawnAt;
         io.to(`map:${mapId}`).emit("monster_spawn", { monster });
       }
+      const activePlayers = [...sessions.values()].some((session) => session.mapId === mapId);
+      const world = mapCache.get(mapId);
+      if (activePlayers && monsters.length < MONSTER_ROOM_CAP && Math.random() < 0.35) {
+        const monster = createRoomMonster(mapId, world, monsters.length);
+        monsters.push(monster);
+        io.to(`map:${mapId}`).emit("monster_spawn", { monster });
+      }
     }
-  }, 1000);
+  }, 5000);
 
   function broadcast(event, data) {
     io.emit(event, data);

@@ -35,6 +35,6 @@ const S = {
   creation: {
     root: null,
     gender: "MALE",
-    points: { str: 5, agi: 5, vit: 5, ene: 5, remaining: 20 },
+    points: { str: 5, agi: 5, vit: 5, ene: 5, remaining: 10 },
   },
 };

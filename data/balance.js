@@ -1,5 +1,5 @@
 const BALANCE = {
-  creation: { minStat: 5, bonusPoints: 20 },
+  creation: { minStat: 5, bonusPoints: 10 },
   stats: {
     str: { pAtk: 4 },
     agi: { pAtk: 0.5, crit: 0.003, evasion: 0.004, speed: 0.25 },

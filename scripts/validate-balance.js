@@ -1,7 +1,7 @@
 const { BALANCE, affinityMultiplier, deriveStats, mitigateDamage, combatPower } = require("../data/balance");
 
 const errors = [];
-if (BALANCE.creation.bonusPoints !== 20) errors.push("creation budget must remain 20");
+if (BALANCE.creation.bonusPoints !== 10) errors.push("creation budget must remain 10");
 if (affinityMultiplier("KIM", "THUY") <= 1) errors.push("KIM -> THUY affinity is missing");
 if (affinityMultiplier("THUY", "KIM") >= 1) errors.push("THUY -> KIM resistance is missing");
 const derived = deriveStats({ str: 6, agi: 6, vit: 6, ene: 6 });

@@ -100,6 +100,11 @@ const Combat = {
 
   attack(m) {
     if (S.atkCd > 0 || m.dead) return;
+    if (dist(m.px, m.py, S.player.px, S.player.py) > CFG.BASIC_ATTACK_RANGE * CFG.TS) {
+      UI.log("Mục tiêu ngoài tầm đánh thường.", "system");
+      return;
+    }
+    if (S.player) { S.player.animState = "attack"; S.player.animUntil = Date.now() + 360; }
     if (socket?.connected) {
       socket.emit("attack_request", { targetId: m.id, mapId: S.mapCode });
       return;

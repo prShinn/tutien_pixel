@@ -6,6 +6,7 @@
 const Auth = {
   _mode: "login",
   _demoPending: false,
+  _demoMode: false,
 
   showTab(mode) {
     Auth._mode = mode;
@@ -56,6 +57,7 @@ const Auth = {
       }
 
       authToken = data.token;
+      Auth._demoMode = false;
       S.session.user = data.user;
       sessionStorage.setItem("tu_tien_token", authToken);
 
@@ -79,6 +81,7 @@ const Auth = {
       const res = await fetch(API.BASE + "/api/auth/demo", { method: "POST" });
       const data = await res.json();
       authToken = data.token;
+      Auth._demoMode = true;
       S.session.user = data.user;
       sessionStorage.setItem("tu_tien_token", authToken);
       await Auth._afterLogin();
@@ -99,6 +102,7 @@ const Auth = {
       }
     } catch {}
     // No character → create screen
+    if (Auth._demoMode && typeof randomizeDemoCreation === "function") randomizeDemoCreation();
     showScreen("create");
   },
 

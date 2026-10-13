@@ -14,7 +14,7 @@ async function call(path, token, method = "GET", body) {
 async function main() {
   const auth = await call("/api/auth/demo", undefined, "POST");
   const player = await call("/api/player", auth.token, "POST", {
-    userId: auth.user.id, name: "Smoke Tu Si", linhCan: "KIM", stats: { str: 10, agi: 10, vit: 10, ene: 10 },
+    userId: auth.user.id, name: "Smoke Tu Si", linhCan: "KIM", stats: { str: 8, agi: 7, vit: 7, ene: 8 },
     tangTuVi: 1, realm: 1, tuViHienTai: 0, tuViLenCap: 1, hp: 100, maxHp: 220, mp: 50, maxMp: 130, xu: 50, jsonIventory: "[]", skills: [],
   });
   const absorbed = await call("/api/player/cultivation/absorb", auth.token, "POST", { amount: 10 });
