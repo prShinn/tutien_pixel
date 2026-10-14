@@ -1,15 +1,132 @@
-const TILE_W = 80;
-const TILE_H = 60;
+const TILE_W = 600;
+const TILE_H = 400;
 
-function makeTiles(seed) {
-  return Array.from({ length: TILE_H }, (_, y) =>
-    Array.from({ length: TILE_W }, (_, x) => {
-      if (x === 0 || y === 0 || x === TILE_W - 1 || y === TILE_H - 1) return 3;
-      if (seed === "thanh_van_tran" && (x === 24 || x === 55) && y > 8 && y < 52) return 3;
-      if (seed === "binh_nguyen" && (x * 7 + y * 3) % 29 === 0) return 5;
-      return (x + y) % 17 === 0 ? 1 : 0;
-    }),
-  );
+function hashSeed(text) {
+  let value = 2166136261;
+  for (const char of String(text)) value = Math.imul(value ^ char.charCodeAt(0), 16777619);
+  return value >>> 0;
+}
+
+function randomAt(x, y, seed) {
+  let value = Math.imul(x + 374761393, 668265263) ^ Math.imul(y + 1442695041, 2246822519) ^ seed;
+  value = Math.imul(value ^ (value >>> 13), 1274126177);
+  return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
+}
+
+function smooth(value) { return value * value * (3 - 2 * value); }
+function mix(a, b, amount) { return a + (b - a) * amount; }
+
+function valueNoise(x, y, seed) {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const tx = smooth(x - x0), ty = smooth(y - y0);
+  const top = mix(randomAt(x0, y0, seed), randomAt(x0 + 1, y0, seed), tx);
+  const bottom = mix(randomAt(x0, y0 + 1, seed), randomAt(x0 + 1, y0 + 1, seed), tx);
+  return mix(top, bottom, ty);
+}
+
+function fbm(x, y, seed) {
+  let total = 0, amplitude = .55, frequency = 1, weight = 0;
+  for (let octave = 0; octave < 4; octave += 1) {
+    total += valueNoise(x * frequency, y * frequency, seed + octave * 971) * amplitude;
+    weight += amplitude;
+    amplitude *= .5;
+    frequency *= 2;
+  }
+  return total / weight;
+}
+
+function clearCircle(ground, objects, elevation, cx, cy, radius, groundTile = 0) {
+  for (let y = Math.max(0, cy - radius); y <= Math.min(TILE_H - 1, cy + radius); y += 1) {
+    for (let x = Math.max(0, cx - radius); x <= Math.min(TILE_W - 1, cx + radius); x += 1) {
+      if (Math.hypot(x - cx, y - cy) > radius) continue;
+      ground[y][x] = groundTile;
+      objects[y][x] = -1;
+      elevation[y][x] = Math.min(1, elevation[y][x]);
+    }
+  }
+}
+
+function makeTerrain(kind) {
+  const seed = hashSeed(kind);
+  const ground = Array.from({ length: TILE_H }, () => Array(TILE_W).fill(0));
+  const objects = Array.from({ length: TILE_H }, () => Array(TILE_W).fill(-1));
+  const elevation = Array.from({ length: TILE_H }, () => Array(TILE_W).fill(0));
+  const city = kind === "thanh_van_tran";
+
+  for (let y = 0; y < TILE_H; y += 1) {
+    for (let x = 0; x < TILE_W; x += 1) {
+      const high = fbm(x / 118, y / 118, seed);
+      const moisture = fbm(x / 92 + 9, y / 92 - 7, seed ^ 0x9e3779b9);
+      const detail = randomAt(x, y, seed ^ 0x85ebca6b);
+      elevation[y][x] = high > .73 ? 3 : high > .61 ? 2 : high > .48 ? 1 : 0;
+
+      if (city) {
+        if (moisture > .64 && detail > .16) objects[y][x] = 5;
+        if (high > .74) { ground[y][x] = 1; objects[y][x] = 6; }
+      } else if (high > .72) {
+        ground[y][x] = 1;
+        objects[y][x] = 6;
+      } else if (high > .64) {
+        ground[y][x] = 1;
+      } else if (moisture > .59 && detail > .08) {
+        objects[y][x] = 5;
+      }
+    }
+  }
+
+  if (city) {
+    const left = 205, right = 425, top = 125, bottom = 275, wall = 5;
+    for (let y = top; y <= bottom; y += 1) for (let x = left; x <= right; x += 1) {
+      ground[y][x] = (Math.abs(x - 315) < 10 || Math.abs(y - 200) < 10) ? 7 : 4;
+      objects[y][x] = -1;
+      elevation[y][x] = 0;
+      const onWall = x < left + wall || x > right - wall || y < top + wall || y > bottom - wall;
+      const eastGate = x > right - wall && Math.abs(y - 200) < 18;
+      const westGate = x < left + wall && Math.abs(y - 200) < 18;
+      if (onWall && !eastGate && !westGate) objects[y][x] = 3;
+    }
+    for (let x = 12; x < TILE_W - 8; x += 1) for (let y = 192; y <= 208; y += 1) {
+      ground[y][x] = 4; objects[y][x] = -1; elevation[y][x] = 0;
+    }
+    clearCircle(ground, objects, elevation, 300, 200, 24, 7);
+    clearCircle(ground, objects, elevation, 590, 200, 14, 4);
+  } else {
+    const phase = randomAt(1, 1, seed) * Math.PI * 2;
+    for (let y = 0; y < TILE_H; y += 1) {
+      const center = TILE_W * .48 + Math.sin(y * .022 + phase) * 58 + (valueNoise(y * .025, 4.7, seed) - .5) * 86;
+      const width = 13 + Math.round(valueNoise(y * .04, 9.2, seed) * 9);
+      for (let x = Math.floor(center - width); x <= Math.ceil(center + width); x += 1) {
+        if (ground[y]?.[x] === undefined) continue;
+        ground[y][x] = 2; objects[y][x] = -1; elevation[y][x] = 0;
+      }
+    }
+    for (let x = 8; x < TILE_W - 12; x += 1) {
+      const pathY = Math.round(200 + Math.sin(x * .026 + phase) * 11);
+      for (let y = pathY - 4; y <= pathY + 4; y += 1) {
+        if (ground[y]?.[x] === undefined) continue;
+        ground[y][x] = 4; objects[y][x] = -1; elevation[y][x] = 0;
+      }
+    }
+    for (const bridgeY of [90, 200, 315]) {
+      const center = TILE_W * .48 + Math.sin(bridgeY * .022 + phase) * 58 + (valueNoise(bridgeY * .025, 4.7, seed) - .5) * 86;
+      for (let y = bridgeY - 6; y <= bridgeY + 6; y += 1) for (let x = Math.floor(center - 38); x <= Math.ceil(center + 38); x += 1) {
+        if (ground[y]?.[x] === undefined) continue;
+        ground[y][x] = 4; objects[y][x] = -1; elevation[y][x] = 0;
+      }
+    }
+    for (const [x, y, radius] of [[20, 200, 20], [150, 125, 28], [340, 280, 30], [500, 110, 26]]) {
+      clearCircle(ground, objects, elevation, x, y, radius, 0);
+    }
+  }
+
+  for (let x = 0; x < TILE_W; x += 1) for (let edge = 0; edge < 3; edge += 1) {
+    objects[edge][x] = 6; objects[TILE_H - 1 - edge][x] = 6;
+  }
+  for (let y = 0; y < TILE_H; y += 1) for (let edge = 0; edge < 3; edge += 1) {
+    objects[y][edge] = 6; objects[y][TILE_W - 1 - edge] = 6;
+  }
+  const collision = ground.map((row, y) => row.map((tile, x) => objects[y][x] >= 0 ? objects[y][x] : tile));
+  return { ground, objects, elevation, collision };
 }
 
 const realms = [
@@ -121,9 +238,9 @@ const passiveSkills = roots.map((root, index) => ({
 const skillCatalog = [...commonSkills, ...balancedSkills, ...passiveSkills];
 
 const monsterDefs = [
-  { id: "HOANG_SOI", code: "HOANG_SOI", name: "Hoang Sói", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["KIM"], color: "#8855cc", hp: 90, maxHp: 90, atk: 9, def: 2, speed: 0.24, spawnX: 9, spawnY: 12, lootTableId: "SOI_LOOT" },
-  { id: "THO_HEO", code: "THO_HEO", name: "Thổ Heo Rừng", icon: "🐗", img: "./assets/monsters/tho_heo_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 18, height: 16 }, type: "NORMAL", level: 2, nguHanh: ["THO"], color: "#996633", hp: 120, maxHp: 120, atk: 12, def: 4, speed: 0.2, spawnX: 22, spawnY: 17, lootTableId: "HEO_LOOT" },
-  { id: "DOC_THAO", code: "DOC_THAO", name: "Độc Thảo Yêu", icon: "🌱", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 19, height: 18 }, type: "ELITE", level: 3, nguHanh: ["MOC"], color: "#33aa66", hp: 180, maxHp: 180, atk: 16, def: 6, speed: 0.16, spawnX: 31, spawnY: 10, lootTableId: "THAO_LOOT" },
+  { id: "HOANG_SOI", code: "HOANG_SOI", name: "Hoang Sói", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 22, height: 22 }, type: "NORMAL", level: 1, nguHanh: ["KIM"], color: "#8855cc", hp: 90, maxHp: 90, atk: 9, def: 2, speed: 1.25, spawnX: 150, spawnY: 125, lootTableId: "SOI_LOOT" },
+  { id: "THO_HEO", code: "THO_HEO", name: "Thổ Heo Rừng", icon: "🐗", img: "./assets/monsters/tho_heo_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 26, height: 23 }, type: "NORMAL", level: 2, nguHanh: ["THO"], color: "#996633", hp: 120, maxHp: 120, atk: 12, def: 4, speed: 1.05, spawnX: 340, spawnY: 280, lootTableId: "HEO_LOOT" },
+  { id: "DOC_THAO", code: "DOC_THAO", name: "Độc Thảo Yêu", icon: "🌱", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 24, height: 28 }, type: "ELITE", level: 3, nguHanh: ["MOC"], color: "#33aa66", hp: 180, maxHp: 180, atk: 16, def: 6, speed: 0.85, spawnX: 500, spawnY: 110, lootTableId: "THAO_LOOT" },
 ];
 
 const lootTables = {
@@ -142,23 +259,28 @@ const lootTables = {
 };
 
 const monsterSpawns = [
-  { packId: "PACK_HOANG_SOI", templateId: "HOANG_SOI", centerX: 18, centerY: 20, count: 3, radius: 3.0, aggroRange: 3.5, leashDistance: 9, chaseDurationMs: 7000 },
-  { packId: "PACK_THO_HEO", templateId: "THO_HEO", centerX: 42, centerY: 35, count: 3, radius: 3.0, aggroRange: 3.5, leashDistance: 9, chaseDurationMs: 7500 },
-  { packId: "PACK_DOC_THAO", templateId: "DOC_THAO", centerX: 66, centerY: 18, count: 2, radius: 2.5, aggroRange: 4, leashDistance: 10, chaseDurationMs: 8500 },
+  { packId: "PACK_HOANG_SOI", templateId: "HOANG_SOI", centerX: 150, centerY: 125, count: 5, radius: 24, aggroRange: 38, leashDistance: 80, chaseDurationMs: 8000 },
+  { packId: "PACK_THO_HEO", templateId: "THO_HEO", centerX: 340, centerY: 280, count: 5, radius: 28, aggroRange: 40, leashDistance: 84, chaseDurationMs: 8500 },
+  { packId: "PACK_DOC_THAO", templateId: "DOC_THAO", centerX: 500, centerY: 110, count: 4, radius: 22, aggroRange: 42, leashDistance: 88, chaseDurationMs: 9000 },
 ];
+
+const cityTerrain = makeTerrain("thanh_van_tran");
+const plainTerrain = makeTerrain("binh_nguyen");
 
 const worlds = [
   {
-    id: "thanh_van_tran", code: "thanh_van_tran", tenMap: "Thanh Vân Trấn", type: "CITY", w: TILE_W, h: TILE_H, isDefault: true, spawnX: 20, spawnY: 15,
-    jsonMap: makeTiles("thanh_van_tran"),
-    portals: [{ id: "portal_binh_nguyen", x: 77, y: 30, toMap: "binh_nguyen", toX: 2, toY: 30, tenMapDen: "Bình Nguyên Hoang Dã" }],
+    id: "thanh_van_tran", code: "thanh_van_tran", tenMap: "Thanh Vân Trấn", type: "CITY", biome: "CITY", version: 2, w: TILE_W, h: TILE_H, isDefault: true, spawnX: 300, spawnY: 200,
+    jsonMap: cityTerrain.collision,
+    layers: { ground: cityTerrain.ground, objects: cityTerrain.objects, elevation: cityTerrain.elevation },
+    portals: [{ id: "portal_binh_nguyen", x: 590, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 20, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" }],
     monsters: [],
-    npcs: [{ id: "npc_huong_dan", name: "Lão Tu Sĩ", x: 17, y: 14, color: "#e8c878", dialog: "Chào mừng tu sĩ đến Thanh Vân Trấn! Hãy ra ngoài tìm cơ duyên." }, { id: "npc_shop", name: "Chủ Tiệm", x: 23, y: 14, color: "#88aacc", dialog: "Ta có linh thạch và huyết ngọc cho người cần." }],
+    npcs: [{ id: "npc_huong_dan", name: "Lão Tu Sĩ", x: 275, y: 190, color: "#e8c878", dialog: "Chào mừng tu sĩ đến Thanh Vân Trấn! Hãy ra ngoài tìm cơ duyên." }, { id: "npc_shop", name: "Chủ Tiệm", x: 330, y: 190, color: "#88aacc", dialog: "Ta có linh thạch và huyết ngọc cho người cần." }],
   },
   {
-    id: "binh_nguyen", code: "binh_nguyen", tenMap: "Bình Nguyên Hoang Dã", type: "PLAIN", w: TILE_W, h: TILE_H, isDefault: false, spawnX: 3, spawnY: 30,
-    jsonMap: makeTiles("binh_nguyen"),
-    portals: [{ id: "portal_thanh_van", x: 2, y: 15, toMap: "thanh_van_tran", toX: 35, toY: 15, tenMapDen: "Thanh Vân Trấn" }],
+    id: "binh_nguyen", code: "binh_nguyen", tenMap: "Bình Nguyên Hoang Dã", type: "PLAIN", biome: "RIVER_VALLEY", version: 2, w: TILE_W, h: TILE_H, isDefault: false, spawnX: 20, spawnY: 200,
+    jsonMap: plainTerrain.collision,
+    layers: { ground: plainTerrain.ground, objects: plainTerrain.objects, elevation: plainTerrain.elevation },
+    portals: [{ id: "portal_thanh_van", x: 12, y: 200, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 580, toY: 200, tenMapDen: "Thanh Vân Trấn" }],
     monsters: monsterDefs,
     monsterSpawns,
     npcs: [],

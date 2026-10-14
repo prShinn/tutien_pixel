@@ -65,9 +65,16 @@
 |--------|----------|-------|----------|------|
 | GET | `/api/worlds/default` | — | WorldData | ❌ |
 | GET | `/api/worlds/by-code` | `?code=xxx` | WorldData | ❌ |
-| GET | `/api/worlds` | — | WorldData[] | ❌ |
+| GET | `/api/worlds` | — | WorldSummary[] (không chứa lưới địa hình) | ❌ |
 | POST | `/api/worlds` | WorldData | WorldData+id | Admin |
 | PUT | `/api/worlds/:id` | WorldData | WorldData | Admin |
+
+MVP hiện dùng `x-admin-key` cho các endpoint editor:
+
+- `GET /api/admin/worlds`: danh sách map và phiên bản.
+- `POST /api/admin/worlds`: tạo map mới.
+- `PUT /api/admin/worlds/:code`: cập nhật map và tăng version.
+- `DELETE /api/admin/worlds/:code`: xóa map do Admin tạo; không xóa map seed.
 
 ### WorldData Fields
 

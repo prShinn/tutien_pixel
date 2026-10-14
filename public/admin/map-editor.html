@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Thiên Địa Đồ · Map Admin</title>
+    <link rel="stylesheet" href="/admin/map-editor.css?v=3" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <span class="seal">ĐỒ</span>
+        <strong>Thiên Địa Đồ</strong>
+        <small>Biên tập địa hình tu tiên</small>
+      </div>
+      <div class="top-actions">
+        <label>Admin key <input id="admin-key" type="password" value="demo-admin" /></label>
+        <select id="map-list"><option value="">Map mới</option></select>
+        <button id="load-map" class="ghost">Mở map</button>
+        <button id="save-map" class="primary">Lưu lên server</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="inspector">
+        <section>
+          <h2>01 · Hồ sơ thế giới</h2>
+          <label>Tên map <input id="map-name" value="Thanh Sơn Hà Cốc" /></label>
+          <label>Mã map <input id="map-code" value="thanh_son_ha_coc" /></label>
+          <div class="field-pair">
+            <label>Loại
+              <select id="map-type">
+                <option value="PLAIN">Đồng bằng</option><option value="VILLAGE">Thôn làng</option>
+                <option value="PLATEAU">Cao nguyên</option><option value="ICE_MOUNTAIN">Núi tuyết</option>
+                <option value="VOLCANO">Núi lửa</option><option value="DUNGEON">Bí cảnh</option>
+                <option value="CITY">Thành trì</option><option value="WARZONE">Chiến trường</option>
+              </select>
+            </label>
+            <label>Biome
+              <select id="map-biome">
+                <option value="RIVER_VALLEY">Sơn thủy</option><option value="PLAINS">Thảo nguyên</option>
+                <option value="FOREST">Rừng cổ</option><option value="MOUNTAINS">Quần sơn</option>
+                <option value="CITY">Thành trì</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-pair">
+            <label>Rộng <input id="map-width" type="number" min="320" max="1024" value="600" /></label>
+            <label>Cao <input id="map-height" type="number" min="240" max="1024" value="400" /></label>
+          </div>
+          <label>Hạt giống <input id="map-seed" value="van-co-001" /></label>
+          <button id="generate-map" class="wide">Sinh địa hình</button>
+        </section>
+
+        <section>
+          <h2>02 · Độ tự nhiên</h2>
+          <label>Mật độ rừng <output id="tree-out">38%</output><input id="tree-density" type="range" min="0" max="80" value="38" /></label>
+          <label>Độ hiểm trở <output id="mountain-out">42%</output><input id="mountain-density" type="range" min="0" max="80" value="42" /></label>
+          <label>Độ rộng sông <output id="river-out">18 px</output><input id="river-width" type="range" min="6" max="40" value="18" /></label>
+          <p class="hint">1 ô = 1 world-pixel. Generator ghép hàng nghìn ô thành sông, rừng và dãy núi; hình người vàng trên map là tỷ lệ thật 20×25px.</p>
+        </section>
+
+        <section>
+          <h2>03 · Bút địa hình</h2>
+          <div id="layer-tabs" class="tabs">
+            <button data-layer="ground" class="active">Nền</button>
+            <button data-layer="objects">Vật thể</button>
+            <button data-layer="elevation">Cao độ</button>
+            <button data-layer="spawn">Điểm sinh</button>
+            <button data-layer="portal">Portal</button>
+          </div>
+          <div id="tile-palette" class="palette"></div>
+          <label>Cỡ bút <output id="brush-out">8 px</output><input id="brush-size" type="range" min="1" max="32" value="8" /></label>
+          <label class="check"><input id="show-grid" type="checkbox" /> Hiện lưới ô</label>
+        </section>
+
+        <section id="portal-panel">
+          <h2>04 · Liên kết portal</h2>
+          <p class="hint">Chọn bút Portal rồi nhấp lên map để đặt cổng nguồn.</p>
+          <div class="field-pair">
+            <label>X nguồn <input id="portal-source-x" type="number" readonly /></label>
+            <label>Y nguồn <input id="portal-source-y" type="number" readonly /></label>
+          </div>
+          <label>Map đích <select id="portal-target-map"><option value="">Chọn map đích</option></select></label>
+          <div class="field-pair">
+            <label>X đến <input id="portal-target-x" type="number" min="0" value="20" /></label>
+            <label>Y đến <input id="portal-target-y" type="number" min="0" value="20" /></label>
+          </div>
+          <label>Tên hiển thị <input id="portal-label" placeholder="Tên vùng đích" /></label>
+          <label class="check"><input id="portal-two-way" type="checkbox" checked /> Tạo luôn cổng quay về</label>
+          <div class="portal-actions">
+            <button id="new-portal" class="ghost">+ Mới</button>
+            <button id="save-portal" class="wide">Lưu liên kết</button>
+            <button id="delete-portal" class="ghost" disabled>Xóa</button>
+          </div>
+          <div id="portal-list" class="portal-list"><p class="hint">Map chưa có portal.</p></div>
+        </section>
+      </aside>
+
+      <section class="map-stage">
+        <div class="stage-head">
+          <div><strong id="stage-name">Thanh Sơn Hà Cốc</strong><span id="map-info">600 × 400</span></div>
+          <div class="legend"><i class="water"></i>Sông <i class="forest"></i>Rừng <i class="mountain"></i>Núi <i class="spawn"></i>Spawn</div>
+        </div>
+        <div id="canvas-scroll" class="canvas-scroll">
+          <canvas id="map-canvas" aria-label="Bản đồ đang biên tập"></canvas>
+        </div>
+        <footer>
+          <span id="cursor-info">x: — · y: —</span>
+          <span id="editor-status">Sẵn sàng</span>
+          <label>Zoom <input id="zoom" type="range" min="1" max="8" value="2" /></label>
+        </footer>
+      </section>
+    </main>
+    <script src="/admin/map-editor.js?v=4"></script>
+  </body>
+</html>

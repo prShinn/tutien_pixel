@@ -4,6 +4,8 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
+const zlib = require("zlib");
 const bcrypt = require("bcryptjs");
 const { Server } = require("socket.io");
 const { authMiddleware, signToken } = require("./middleware/auth");
@@ -15,19 +17,208 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: true, credentials: true } });
 const users = new Map();
+const usersByUsername = new Map();
 const players = new Map();
+const playersByUserId = new Map();
+const worldResponseCache = new Map();
+let socketRuntime = null;
 let nextUserId = 1;
 let nextPlayerId = 1;
+const ADMIN_MAP_KEY = process.env.ADMIN_MAP_KEY || "demo-admin";
+const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
+const MAP_MIN_W = 320;
+const MAP_MIN_H = 240;
+const MAP_MAX_SIZE = 1024;
+const SEEDED_WORLDS = new Map(worlds.map((world) => [world.code, JSON.parse(JSON.stringify(world))]));
 
 app.use(cors());
+app.use("/api/admin/worlds", express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "512kb" }));
+
+function clampInteger(value, min, max, fallback = min) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+
+function normalizeGrid(value, width, height, allowed, fallback) {
+  return Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => {
+    const tile = Number(value?.[y]?.[x]);
+    return allowed.has(tile) ? tile : fallback;
+  }));
+}
+
+function deriveLayers(payload, width, height) {
+  const source = Array.isArray(payload?.jsonMap) ? payload.jsonMap : [];
+  const rawLayers = payload?.layers && typeof payload.layers === "object" ? payload.layers : {};
+  const groundSource = Array.isArray(rawLayers.ground)
+    ? rawLayers.ground
+    : source.map((row) => row.map((tile) => ([3, 5, 6].includes(Number(tile)) ? 0 : Number(tile))));
+  const objectSource = Array.isArray(rawLayers.objects)
+    ? rawLayers.objects
+    : source.map((row) => row.map((tile) => ([3, 5, 6].includes(Number(tile)) ? Number(tile) : -1)));
+  const ground = normalizeGrid(groundSource, width, height, new Set([0, 1, 2, 4, 7]), 0);
+  const objects = normalizeGrid(objectSource, width, height, new Set([-1, 3, 5, 6]), -1);
+  const elevation = normalizeGrid(rawLayers.elevation, width, height, new Set([0, 1, 2, 3]), 0);
+  const collision = ground.map((row, y) => row.map((tile, x) => objects[y][x] >= 0 ? objects[y][x] : tile));
+  return { ground, objects, elevation, collision };
+}
+
+function normalizePortals(value, width, height) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).map((portal, index) => {
+    const denMap = String(portal?.denMap || portal?.toMap || "").trim().toLowerCase();
+    return {
+      ...portal,
+      id: String(portal?.id || `portal_${index}`).trim().replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 100),
+      x: clampInteger(portal?.x, 0, width - 1, 0),
+      y: clampInteger(portal?.y, 0, height - 1, 0),
+      denMap,
+      toMap: denMap,
+      toX: Math.round(Number(portal?.toX) || 0),
+      toY: Math.round(Number(portal?.toY) || 0),
+      tenMapDen: String(portal?.tenMapDen || denMap).trim().slice(0, 80),
+      bidirectional: Boolean(portal?.bidirectional),
+    };
+  }).filter((portal) => portal.denMap);
+}
+
+function isWalkablePoint(world, x, y) {
+  const tx = Math.round(Number(x));
+  const ty = Math.round(Number(y));
+  if (tx < 4 || ty < 4 || tx >= Number(world?.w || 0) - 4 || ty >= Number(world?.h || 0) - 4) return false;
+  return ![1, 2, 3, 5, 6].includes(Number(world?.jsonMap?.[ty]?.[tx]));
+}
+
+function touchAdminWorld(world) {
+  world.managedBy = "ADMIN";
+  world.version = Number(world.version || 0) + 1;
+  world.updatedAt = new Date().toISOString();
+}
+
+function normalizeWorldPayload(payload, existing = null) {
+  const code = String(payload?.code || existing?.code || "")
+    .trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  if (code.length < 3 || code.length > 40) throw new Error("Mã map phải có 3-40 ký tự a-z, 0-9 hoặc _");
+  const width = clampInteger(payload?.w ?? payload?.width, MAP_MIN_W, MAP_MAX_SIZE, existing?.w || 600);
+  const height = clampInteger(payload?.h ?? payload?.height, MAP_MIN_H, MAP_MAX_SIZE, existing?.h || 400);
+  const layers = deriveLayers(payload, width, height);
+  const spawnX = clampInteger(payload?.spawnX, 8, width - 9, Math.floor(width / 2));
+  const spawnY = clampInteger(payload?.spawnY, 8, height - 9, Math.floor(height / 2));
+  for (let y = spawnY - 8; y <= spawnY + 8; y += 1) {
+    for (let x = spawnX - 8; x <= spawnX + 8; x += 1) {
+      if (Math.hypot(x - spawnX, y - spawnY) > 8) continue;
+      layers.ground[y][x] = 0;
+      layers.objects[y][x] = -1;
+      layers.collision[y][x] = 0;
+      layers.elevation[y][x] = Math.min(1, layers.elevation[y][x]);
+    }
+  }
+  return {
+    ...(existing || {}),
+    id: existing?.id || `world_${code}`,
+    code,
+    tenMap: String(payload?.tenMap || payload?.name || existing?.tenMap || code).trim().slice(0, 80),
+    type: String(payload?.type || existing?.type || "PLAIN").toUpperCase(),
+    biome: String(payload?.biome || existing?.biome || "PLAINS").toUpperCase(),
+    seed: String(payload?.seed || existing?.seed || code).slice(0, 80),
+    w: width,
+    h: height,
+    isDefault: payload?.isDefault === undefined ? Boolean(existing?.isDefault) : Boolean(payload.isDefault),
+    spawnX,
+    spawnY,
+    jsonMap: layers.collision,
+    layers: { ground: layers.ground, objects: layers.objects, elevation: layers.elevation },
+    portals: normalizePortals(payload?.portals ?? existing?.portals, width, height),
+    monsters: Array.isArray(payload?.monsters) ? payload.monsters : (existing?.monsters || []),
+    monsterSpawns: Array.isArray(payload?.monsterSpawns) ? payload.monsterSpawns : (existing?.monsterSpawns || []),
+    npcs: Array.isArray(payload?.npcs) ? payload.npcs : (existing?.npcs || []),
+    rules: payload?.rules && typeof payload.rules === "object" ? payload.rules : (existing?.rules || {}),
+    managedBy: "ADMIN",
+    version: Number(existing?.version || 0) + 1,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function persistAdminWorlds() {
+  const adminWorlds = worlds.filter((world) => world.managedBy === "ADMIN");
+  fs.writeFileSync(ADMIN_MAP_FILE, JSON.stringify(adminWorlds), "utf8");
+}
+
+function loadAdminWorlds() {
+  if (!fs.existsSync(ADMIN_MAP_FILE)) return;
+  try {
+    const saved = JSON.parse(fs.readFileSync(ADMIN_MAP_FILE, "utf8"));
+    for (const world of Array.isArray(saved) ? saved : []) {
+      const index = worlds.findIndex((item) => item.code === world.code);
+      if (index >= 0) worlds[index] = world;
+      else worlds.push(world);
+    }
+  } catch (error) {
+    console.error("Cannot load admin maps:", error.message);
+  }
+}
+
+function adminMapMiddleware(req, res, next) {
+  if (req.get("x-admin-key") !== ADMIN_MAP_KEY) return res.status(401).json({ error: "Admin key không hợp lệ" });
+  next();
+}
+
+loadAdminWorlds();
 
 function publicUser(user) {
   return { id: user.id, username: user.username };
 }
 
 function findUserByUsername(username) {
-  return [...users.values()].find((user) => user.username === username);
+  return usersByUsername.get(String(username || "").toLowerCase());
+}
+
+function storeUser(user) {
+  users.set(user.id, user);
+  usersByUsername.set(String(user.username).toLowerCase(), user);
+  return user;
+}
+
+function worldSummary(world) {
+  return {
+    id: world.id,
+    code: world.code,
+    tenMap: world.tenMap,
+    type: world.type,
+    biome: world.biome || "LEGACY",
+    w: world.w,
+    h: world.h,
+    isDefault: Boolean(world.isDefault),
+    version: Number(world.version || 0),
+  };
+}
+
+function sendCachedWorld(req, res, world) {
+  if (!world) return res.status(404).json({ error: "World not found" });
+  const cacheKey = `${world.code}:${world.version || 0}:${world.updatedAt || "seed"}`;
+  let cached = worldResponseCache.get(cacheKey);
+  if (!cached) {
+    const json = Buffer.from(JSON.stringify(world));
+    cached = {
+      json,
+      gzip: zlib.gzipSync(json, { level: zlib.constants.Z_BEST_SPEED }),
+      etag: `W/\"${Buffer.byteLength(json)}-${world.version || 0}-${world.code}\"`,
+    };
+    worldResponseCache.set(cacheKey, cached);
+  }
+  res.set({
+    "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+    ETag: cached.etag,
+    Vary: "Accept-Encoding",
+    "Content-Type": "application/json; charset=utf-8",
+  });
+  if (req.get("if-none-match") === cached.etag) return res.status(304).end();
+  if (/\bgzip\b/i.test(req.get("accept-encoding") || "")) {
+    res.set("Content-Encoding", "gzip");
+    return res.send(cached.gzip);
+  }
+  return res.send(cached.json);
 }
 
 app.post("/api/auth/register", async (req, res) => {
@@ -36,7 +227,7 @@ app.post("/api/auth/register", async (req, res) => {
   if (username.length < 3 || password.length < 4) return res.status(400).json({ error: "Username tối thiểu 3 ký tự, password tối thiểu 4 ký tự" });
   if (findUserByUsername(username)) return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
   const user = { id: nextUserId++, username, passwordHash: await bcrypt.hash(password, 10) };
-  users.set(user.id, user);
+  storeUser(user);
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
@@ -51,7 +242,7 @@ app.post("/api/auth/login", async (req, res) => {
 app.post("/api/auth/demo", (req, res) => {
   const username = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const user = { id: nextUserId++, username, passwordHash: "demo" };
-  users.set(user.id, user);
+  storeUser(user);
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
@@ -59,12 +250,148 @@ app.get("/api/auth/me", authMiddleware, (req, res) => {
   res.json({ user: { id: req.userId, username: req.username } });
 });
 
-app.get("/api/worlds", (req, res) => res.json(worlds));
-app.get("/api/worlds/default", (req, res) => res.json(worlds.find((world) => world.isDefault)));
+app.get("/api/worlds", (req, res) => res.json(worlds.map(worldSummary)));
+app.get("/api/worlds/default", (req, res) => sendCachedWorld(req, res, worlds.find((world) => world.isDefault)));
 app.get("/api/worlds/by-code", (req, res) => {
   const world = worlds.find((item) => item.code === String(req.query.code || "").toLowerCase());
-  if (!world) return res.status(404).json({ error: "World not found" });
-  res.json(world);
+  return sendCachedWorld(req, res, world);
+});
+app.get("/api/admin/worlds", adminMapMiddleware, (req, res) => {
+  res.json(worlds.map((world) => ({
+    id: world.id,
+    code: world.code,
+    tenMap: world.tenMap,
+    type: world.type,
+    biome: world.biome || "LEGACY",
+    w: world.w,
+    h: world.h,
+    version: world.version || 0,
+    managedBy: world.managedBy || "SEED",
+  })));
+});
+app.post("/api/admin/worlds", adminMapMiddleware, (req, res) => {
+  try {
+    const code = String(req.body?.code || "").trim().toLowerCase();
+    if (worlds.some((world) => world.code === code)) return res.status(409).json({ error: "Mã map đã tồn tại" });
+    const world = normalizeWorldPayload(req.body);
+    if (world.isDefault) worlds.forEach((item) => { item.isDefault = false; });
+    worlds.push(world);
+    worldResponseCache.clear();
+    persistAdminWorlds();
+    res.status(201).json(world);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+app.put("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
+  try {
+    const code = String(req.params.code || "").toLowerCase();
+    const index = worlds.findIndex((world) => world.code === code);
+    if (index < 0) return res.status(404).json({ error: "Map không tồn tại" });
+    const world = normalizeWorldPayload({ ...req.body, code }, worlds[index]);
+    if (world.isDefault) worlds.forEach((item, itemIndex) => { if (itemIndex !== index) item.isDefault = false; });
+    worlds[index] = world;
+    worldResponseCache.clear();
+    persistAdminWorlds();
+    res.json(world);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+app.delete("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
+  const code = String(req.params.code || "").toLowerCase();
+  const index = worlds.findIndex((world) => world.code === code);
+  if (index < 0) return res.status(404).json({ error: "Map không tồn tại" });
+  if (worlds[index].managedBy !== "ADMIN") return res.status(409).json({ error: "Không xóa trực tiếp map seed" });
+  const seed = SEEDED_WORLDS.get(code);
+  const removed = worlds[index];
+  if (seed) worlds[index] = seed;
+  else worlds.splice(index, 1);
+  worldResponseCache.clear();
+  persistAdminWorlds();
+  res.json({ removed: removed.code, restoredSeed: Boolean(seed) });
+});
+app.post("/api/admin/portals/link", adminMapMiddleware, (req, res) => {
+  try {
+    const sourceCode = String(req.body?.sourceCode || "").trim().toLowerCase();
+    const targetCode = String(req.body?.targetCode || "").trim().toLowerCase();
+    const sourceWorld = worlds.find((world) => world.code === sourceCode);
+    const targetWorld = worlds.find((world) => world.code === targetCode);
+    if (!sourceWorld || !targetWorld) return res.status(404).json({ error: "Map nguồn hoặc map đích không tồn tại" });
+    if (sourceCode === targetCode) return res.status(400).json({ error: "Portal liên map phải có map đích khác map nguồn" });
+
+    const sourceX = Math.round(Number(req.body?.sourceX));
+    const sourceY = Math.round(Number(req.body?.sourceY));
+    const targetX = Math.round(Number(req.body?.targetX));
+    const targetY = Math.round(Number(req.body?.targetY));
+    if (!isWalkablePoint(sourceWorld, sourceX, sourceY)) return res.status(400).json({ error: "Điểm đặt portal nguồn bị chặn hoặc ngoài map" });
+    if (!isWalkablePoint(targetWorld, targetX, targetY)) return res.status(400).json({ error: "Điểm đến bị chặn hoặc ngoài map" });
+
+    const requestedId = String(req.body?.id || "").trim().replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 100);
+    const id = requestedId || `portal_${sourceCode}_${targetCode}_${sourceX}_${sourceY}`;
+    const previous = (sourceWorld.portals || []).find((portal) => portal.id === id);
+    if (previous?.reverseId) {
+      const previousTarget = worlds.find((world) => world.code === String(previous.denMap || previous.toMap || "").toLowerCase());
+      if (previousTarget) {
+        previousTarget.portals = (previousTarget.portals || []).filter((portal) => portal.id !== previous.reverseId);
+        touchAdminWorld(previousTarget);
+      }
+    }
+
+    const reverseId = `${id}__return`;
+    const sourcePortal = {
+      id, x: sourceX, y: sourceY,
+      denMap: targetCode, toMap: targetCode, toX: targetX, toY: targetY,
+      tenMapDen: String(req.body?.targetName || targetWorld.tenMap || targetCode).slice(0, 80),
+      bidirectional: Boolean(req.body?.twoWay),
+      reverseId: Boolean(req.body?.twoWay) ? reverseId : null,
+    };
+    sourceWorld.portals = [...(sourceWorld.portals || []).filter((portal) => portal.id !== id), sourcePortal];
+    touchAdminWorld(sourceWorld);
+
+    let reversePortal = null;
+    if (sourcePortal.bidirectional) {
+      reversePortal = {
+        id: reverseId, x: targetX, y: targetY,
+        denMap: sourceCode, toMap: sourceCode, toX: sourceX, toY: sourceY,
+        tenMapDen: String(req.body?.sourceName || sourceWorld.tenMap || sourceCode).slice(0, 80),
+        bidirectional: true,
+        reverseOf: id,
+      };
+      const matchingReverse = (targetWorld.portals || []).find((portal) => portal.id === reverseId
+        || (String(portal.denMap || portal.toMap || "").toLowerCase() === sourceCode
+          && Number(portal.x) === targetX && Number(portal.y) === targetY));
+      if (matchingReverse) reversePortal.id = matchingReverse.id;
+      sourcePortal.reverseId = reversePortal.id;
+      targetWorld.portals = [...(targetWorld.portals || []).filter((portal) => portal.id !== reversePortal.id), reversePortal];
+      touchAdminWorld(targetWorld);
+    }
+
+    worldResponseCache.clear();
+    persistAdminWorlds();
+    res.json({ source: sourcePortal, reverse: reversePortal, sourceVersion: sourceWorld.version, targetVersion: targetWorld.version });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+app.delete("/api/admin/worlds/:code/portals/:portalId", adminMapMiddleware, (req, res) => {
+  const sourceWorld = worlds.find((world) => world.code === String(req.params.code || "").toLowerCase());
+  if (!sourceWorld) return res.status(404).json({ error: "Map nguồn không tồn tại" });
+  const portalId = String(req.params.portalId || "");
+  const portal = (sourceWorld.portals || []).find((item) => item.id === portalId);
+  if (!portal) return res.status(404).json({ error: "Portal không tồn tại" });
+  sourceWorld.portals = sourceWorld.portals.filter((item) => item.id !== portalId);
+  touchAdminWorld(sourceWorld);
+  if (portal.reverseId) {
+    const targetWorld = worlds.find((world) => world.code === String(portal.denMap || portal.toMap || "").toLowerCase());
+    if (targetWorld) {
+      targetWorld.portals = (targetWorld.portals || []).filter((item) => item.id !== portal.reverseId);
+      touchAdminWorld(targetWorld);
+    }
+  }
+  worldResponseCache.clear();
+  persistAdminWorlds();
+  res.json({ removed: portalId, reverseRemoved: portal.reverseId || null });
 });
 app.get("/api/canh-gioi", (req, res) => res.json(realms));
 app.get("/api/canh-gioi/stt/:stt", (req, res) => {
@@ -82,7 +409,7 @@ app.get("/api/items", (req, res) => res.json(items));
 app.get("/api/skills", (req, res) => res.json(skills));
 app.get("/api/balance", (req, res) => res.json(BALANCE));
 app.get("/api/skills/catalog", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   res.json({
     skills,
     learnedSkills: player?.learnedSkills || [],
@@ -90,10 +417,30 @@ app.get("/api/skills/catalog", authMiddleware, (req, res) => {
   });
 });
 app.get("/api/monsters", (req, res) => res.json(monsterDefs));
-app.get("/api/health", (req, res) => res.json({ status: "ok", uptime: Math.floor(process.uptime()) }));
+app.get("/api/health", (req, res) => {
+  const memory = process.memoryUsage();
+  res.json({
+    status: "ok",
+    uptime: Math.floor(process.uptime()),
+    users: users.size,
+    players: players.size,
+    sessions: socketRuntime?.sessions.size || 0,
+    maps: worlds.length,
+    memoryMb: {
+      rss: Math.round(memory.rss / 1024 / 1024),
+      heapUsed: Math.round(memory.heapUsed / 1024 / 1024),
+    },
+  });
+});
 
 function playerFor(userId) {
-  return [...players.values()].find((item) => item.userId === userId);
+  return playersByUserId.get(Number(userId));
+}
+
+function storePlayer(player) {
+  players.set(player.id, player);
+  playersByUserId.set(Number(player.userId), player);
+  return player;
 }
 
 const EQUIPMENT_SLOTS = ["weapon", "hat", "armor", "pants", "boots", "ring", "amulet", "belt", "gem"];
@@ -164,7 +511,7 @@ app.post("/api/player/cultivation/breakthrough", authMiddleware, (req, res) => {
 });
 
 app.get("/api/player/me", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   if (!player) return res.status(404).json({ error: "Player not found" });
   res.json(player);
 });
@@ -176,7 +523,7 @@ app.get("/api/player/state", authMiddleware, (req, res) => {
 
 app.get("/api/player/by-user/:userId", authMiddleware, (req, res) => {
   if (Number(req.params.userId) !== req.userId) return res.status(403).json({ error: "Không được phép" });
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   if (!player) return res.status(404).json({ error: "Player not found" });
   res.json(player);
 });
@@ -254,7 +601,7 @@ app.post("/api/player/shop/sell", authMiddleware, (req, res) => {
 
 app.post("/api/player", authMiddleware, (req, res) => {
   if (Number(req.body?.userId) !== req.userId) return res.status(403).json({ error: "Player không thuộc tài khoản" });
-  const existing = [...players.values()].find((item) => item.userId === req.userId);
+  const existing = playerFor(req.userId);
   if (existing) return res.status(409).json(existing);
   const inputStats = req.body?.stats || {};
   const stats = Object.fromEntries(["str", "agi", "vit", "ene"].map((key) => [key, Math.floor(Number(inputStats[key]) || 0)]));
@@ -279,12 +626,12 @@ app.post("/api/player", authMiddleware, (req, res) => {
     skills: req.body.skills || initialSkills,
   };
   player.combatPower = combatPower(player);
-  players.set(player.id, player);
+  storePlayer(player);
   res.json(player);
 });
 
 app.post("/api/player/stats/allocate", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   const stat = String(req.body?.stat || "");
   const amount = Math.max(1, Math.floor(Number(req.body?.amount) || 1));
   if (!player) return res.status(404).json({ error: "Player not found" });
@@ -307,18 +654,18 @@ app.put("/api/player/:id", authMiddleware, (req, res) => {
   }
   if (req.body?.equipment !== undefined) player.equipment = normalizeEquipment(req.body.equipment);
   player.combatPower = combatPower(player);
-  players.set(id, player);
+  storePlayer(player);
   res.json(player);
 });
 
 app.get("/api/player/power", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   if (!player) return res.status(404).json({ error: "Player not found" });
   res.json({ combatPower: combatPower(player) });
 });
 
 app.post("/api/player/skills/learn", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   const code = String(req.body?.skillCode || "");
   const skill = skills.find((item) => item.code === code);
   if (!player || !skill) return res.status(404).json({ error: "Skill not found" });
@@ -329,7 +676,7 @@ app.post("/api/player/skills/learn", authMiddleware, (req, res) => {
 });
 
 app.put("/api/player/skills/equip", authMiddleware, (req, res) => {
-  const player = [...players.values()].find((item) => item.userId === req.userId);
+  const player = playerFor(req.userId);
   const codes = Array.isArray(req.body?.skillCodes) ? req.body.skillCodes.slice(0, 4) : [];
   if (!player) return res.status(404).json({ error: "Player not found" });
   const learned = new Set(player.learnedSkills || []);
@@ -380,10 +727,16 @@ app.post("/api/player/equipment/unequip", authMiddleware, (req, res) => {
   res.json({ player, result: { type: "equipment_unequipped", slot, itemId: item.id } });
 });
 
+app.get(["/admin", "/admin/"], (req, res) => res.sendFile(path.join(__dirname, "public", "admin", "map-editor.html")));
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
-const { broadcast, sessions } = setupSocket(io, players);
+socketRuntime = setupSocket(io, players, {
+  getPlayerByUserId: playerFor,
+  getWorldByCode: (code) => worlds.find((world) => world.code === String(code || "").toLowerCase()) || null,
+  getDefaultWorld: () => worlds.find((world) => world.isDefault) || worlds[0] || null,
+});
+const { broadcast, sessions } = socketRuntime;
 setInterval(() => {
   if (sessions.size) broadcast("server_msg", { text: `[System] ${sessions.size} tu sĩ đang trực tuyến` });
 }, 300000);

@@ -41,7 +41,7 @@ function update(dt) {
         const dirY = dy / mag;
         const speedBuff = p.buffs?.buff_spd || p.buffs?.speed;
         const speedActive = speedBuff && (!speedBuff.expiresAt || speedBuff.expiresAt > Date.now()) ? Number(speedBuff.value || 0) : 0;
-        const speedBase = 1.5 * (1 + Math.max(0, speedActive) / 100); // Buff tốc độ do server cấp
+        const speedBase = 7.5 * (1 + Math.max(0, speedActive) / 100); // Tăng tốc độ cơ bản lên 5 lần
         const speedBonus = (p.stats?.agi || 0) * 0.005;
         const moveStep =
           ((speedBase + speedBonus) * (dt / 16)) /
@@ -112,7 +112,7 @@ function update(dt) {
         const dy = op.tpy - op.py;
         const d = Math.hypot(dx, dy);
         if (d > 0.1) {
-          const step = 1.4 * (dt / 16); // Tốc độ nội suy giảm tương ứng
+          const step = 7.0 * (dt / 16); // Tốc độ nội suy tăng 5 lần tương ứng
           op.px += (dx / d) * Math.min(d, step);
           op.py += (dy / d) * Math.min(d, step);
         }

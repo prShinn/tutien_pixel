@@ -160,6 +160,8 @@ const Net = {
             mapId: mCode,
             x: p.x,
             y: p.y,
+            mapVersion: S.mapVersion || 0,
+            hasMap: Boolean(S.tiles?.length && S.mapCode === String(mCode).toLowerCase()),
           });
           UI.showLoading();
         }
@@ -184,9 +186,9 @@ const Net = {
       });
 
       // ── World Init (Server Authoritative) ──
-      socket.on("world_init", (data) => {
+      socket.on("world_init", async (data) => {
         try {
-          console.log("[Net] Nhận dữ liệu thế giới từ Server:", data);
+          console.log("[Net] Nhận world_init", { mapCode: data.mapCode || data.map?.code, players: data.players?.length || 0, monsters: data.monsters?.length || 0, mapIncluded: Boolean(data.map) });
           if (data.player && S.player) {
             const authoritative = data.player;
             Object.assign(S.player, {
@@ -215,6 +217,13 @@ const Net = {
             } else {
               UI.log("⚠ Lỗi: Dữ liệu bản đồ không hợp lệ!", "system");
             }
+          } else if (S.tiles?.length && S.mapCode === String(data.mapCode || "").toLowerCase()) {
+            UI.hideLoading();
+          } else if (data.mapCode) {
+            const mapDto = await Net.get(`/api/worlds/by-code?code=${encodeURIComponent(data.mapCode)}`);
+            const map = normalizeWorldDto(mapDto);
+            if (map && S.player) World.loadMap(map, S.player.x, S.player.y);
+            UI.hideLoading();
           } else {
             UI.log("⚠ Lỗi: Server không gửi dữ liệu bản đồ!", "system");
           }
@@ -300,7 +309,7 @@ const Net = {
           // Nếu đứng quá xa (> 4 ô), nhảy tới luôn để tránh đơ
           const dx = op.tpx - op.px;
           const dy = op.tpy - op.py;
-          if (Math.hypot(dx, dy) > CFG.TS * 4) {
+          if (Math.hypot(dx, dy) > CFG.NET_SNAP_DISTANCE) {
             op.px = op.tpx;
             op.py = op.tpy;
           }
@@ -473,6 +482,11 @@ const Net = {
 
       socket.on("action_error", ({ action, error }) => {
         if (action === "combat" || action === "skill") S.combatPending = false;
+        if (action === "map_change" && S.player) {
+          S.player.isTeleporting = false;
+          S.player.portalLocked = false;
+          UI.hideLoading();
+        }
         if (error) UI.log(`⚠ ${error}`, "system");
       });
 
@@ -491,8 +505,20 @@ const Net = {
     }
   },
 
-  emitMove() {
+  emitMove(force = false) {
     if (socket?.connected && S.player) {
+      const now = Date.now();
+      const wait = 50 - (now - Number(Net._lastMoveSentAt || 0));
+      if (!force && wait > 0) {
+        if (!Net._moveTimer) {
+          Net._moveTimer = setTimeout(() => {
+            Net._moveTimer = null;
+            Net.emitMove(true);
+          }, wait);
+        }
+        return;
+      }
+      Net._lastMoveSentAt = now;
       socket.emit("move", {
         x: S.player.x,
         y: S.player.y,

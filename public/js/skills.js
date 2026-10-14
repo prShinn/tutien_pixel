@@ -355,7 +355,7 @@ const SkillSystem = {
     if (!socket?.connected) Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
 
     if (socket?.connected && offensive) {
-      const maxRange = (skill.range || 5) * CFG.TS;
+      const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
       const target = S.monsters
         .filter((monster) => !monster.dead)
         .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
@@ -401,7 +401,7 @@ const SkillSystem = {
       return;
     }
 
-    const maxRange = (skill.range || 5) * CFG.TS;
+    const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
 
     // ── AoE ──
     if (skill.aoe) {
@@ -413,7 +413,7 @@ const SkillSystem = {
         const d = dist(m.px, m.py, p.px, p.py);
         if (d < closestD) { closestD = d; center = m; }
       }
-      const aoeRange = (skill.aoeR || 3) * CFG.TS;
+      const aoeRange = (skill.aoeR || 3) * CFG.SKILL_RANGE_SCALE;
       let hits = 0;
       for (const m of S.monsters) {
         if (m.dead) continue;

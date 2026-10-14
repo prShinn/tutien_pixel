@@ -36,13 +36,18 @@ const roomMonsters = new Map();
 const roomRuntime = new Map();
 const MONSTER_ROOM_CAP = 9;
 const MONSTER_MIN_ON_JOIN = 3;
-const MONSTER_AGGRO_RANGE = 6;
-const MONSTER_LEASH_RANGE = 9;
+const MONSTER_AGGRO_RANGE = 40;
+const MONSTER_LEASH_RANGE = 72;
 const MONSTER_CHASE_DURATION_MS = 7000;
-const MONSTER_ATTACK_RANGE = 1.3;
-const MONSTER_MOVE_SPEED = 0.2;
-const BASIC_ATTACK_RANGE = 2.5;
+const MONSTER_ATTACK_RANGE = 18;
+const MONSTER_MOVE_SPEED = 1.1;
+const BASIC_ATTACK_RANGE = 24;
+const SKILL_RANGE_SCALE = 6;
 const COMBAT_GCD_MS = 350;
+const AOI_CHUNK_SIZE = 96;
+const AOI_RADIUS = 150;
+const MOVE_MIN_INTERVAL_MS = 45;
+const PORTAL_ACTIVATION_RANGE = 28;
 
 function findSkill(skillRef) {
   if (skillRef === undefined || skillRef === null || skillRef === "") return null;
@@ -119,6 +124,23 @@ function canSpawnAt(world, x, y) {
     && ![1, 2, 3, 5, 6].includes(Number(tile));
 }
 
+function nearestWalkablePoint(world, x, y) {
+  const centerX = Math.round(Number(x));
+  const centerY = Math.round(Number(y));
+  if (canSpawnAt(world, centerX, centerY)) return { x: centerX, y: centerY };
+  for (let radius = 1; radius <= 16; radius += 1) {
+    for (let oy = -radius; oy <= radius; oy += 1) {
+      for (let ox = -radius; ox <= radius; ox += 1) {
+        if (Math.max(Math.abs(ox), Math.abs(oy)) !== radius) continue;
+        const candidateX = centerX + ox;
+        const candidateY = centerY + oy;
+        if (canSpawnAt(world, candidateX, candidateY)) return { x: candidateX, y: candidateY };
+      }
+    }
+  }
+  return null;
+}
+
 function randomPackPosition(world, centerX, centerY, radius) {
   let x = Math.round(centerX), y = Math.round(centerY);
   for (let i = 0; i < 30; i += 1) {
@@ -169,10 +191,29 @@ function createPackMonsters(roomId, world) {
 }
 
 function ensureRoomMonsters(roomId, world) {
+  const isCity = String(world?.type || "").toUpperCase() === "CITY" || Boolean(world?.rules?.noMonsters);
   if (!roomMonsters.has(roomId)) {
-    const seeded = Array.isArray(world?.monsterSpawns) && world.monsterSpawns.length
-      ? createPackMonsters(roomId, world)
-      : JSON.parse(JSON.stringify(world?.monsters || []));
+    let seeded = [];
+    if (!isCity) {
+      if (Array.isArray(world?.monsterSpawns) && world.monsterSpawns.length) {
+        seeded = createPackMonsters(roomId, world);
+      } else if (Array.isArray(world?.monsters) && world.monsters.length) {
+        const packs = world.monsters.map((m, idx) => ({
+          packId: `PACK_${m.code || m.id || idx}`,
+          templateId: m.id || m.code,
+          centerX: Number(m.spawnX ?? Math.floor(Number(world?.w || 40) / 2)),
+          centerY: Number(m.spawnY ?? Math.floor(Number(world?.h || 30) / 2)),
+          count: 4,
+          radius: 24,
+          aggroRange: MONSTER_AGGRO_RANGE,
+          leashDistance: MONSTER_LEASH_RANGE,
+          chaseDurationMs: MONSTER_CHASE_DURATION_MS,
+        }));
+        seeded = packs.flatMap((pack, packIndex) => Array.from({ length: pack.count }, (_, index) => (
+          createRoomMonster(roomId, world, packIndex * 100 + index, pack)
+        )));
+      }
+    }
     roomMonsters.set(roomId, seeded);
   }
   const monsters = roomMonsters.get(roomId);
@@ -197,7 +238,7 @@ function ensureRoomMonsters(roomId, world) {
     monster.dead = !!monster.dead;
   });
   let serial = monsters.length;
-  while (!world?.monsterSpawns?.length && monsters.length < MONSTER_MIN_ON_JOIN && serial < MONSTER_ROOM_CAP + 2) {
+  while (!isCity && !world?.monsterSpawns?.length && !world?.monsters?.length && monsters.length < MONSTER_MIN_ON_JOIN && serial < MONSTER_ROOM_CAP + 2) {
     monsters.push(createRoomMonster(roomId, world, serial++));
   }
   return monsters;
@@ -384,7 +425,7 @@ async function requestJson(urlString, headers = {}) {
 
 }
 
-function setupSocket(io, players = new Map()) {
+function setupSocket(io, players = new Map(), options = {}) {
   // ── Auth middleware cho Socket.io ──────────────────────────────
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
@@ -421,6 +462,52 @@ function setupSocket(io, players = new Map()) {
 
   const mapCache = new Map();
   const playerRegenRuntime = new Map();
+  const getPlayerByUserId = options.getPlayerByUserId || ((userId) => [...players.values()].find((player) => player.userId === userId));
+
+  function chunkPosition(x, y) {
+    return {
+      cx: Math.floor(Number(x || 0) / AOI_CHUNK_SIZE),
+      cy: Math.floor(Number(y || 0) / AOI_CHUNK_SIZE),
+    };
+  }
+
+  function chunkRoom(mapId, cx, cy) {
+    return `aoi:${mapId}:${cx}:${cy}`;
+  }
+
+  function nearbyChunkRooms(mapId, x, y) {
+    const { cx, cy } = chunkPosition(x, y);
+    const rooms = [];
+    for (let oy = -1; oy <= 1; oy += 1) {
+      for (let ox = -1; ox <= 1; ox += 1) rooms.push(chunkRoom(mapId, cx + ox, cy + oy));
+    }
+    return rooms;
+  }
+
+  function sessionChunkRoom(session) {
+    const { cx, cy } = chunkPosition(session.x, session.y);
+    return chunkRoom(session.mapId, cx, cy);
+  }
+
+  function nearbySessions(mapId, x, y, excludeId = null) {
+    return [...sessions.values()].filter((session) => session.mapId === mapId
+      && session.id !== excludeId
+      && Math.hypot(Number(session.x) - Number(x), Number(session.y) - Number(y)) <= AOI_RADIUS);
+  }
+
+  function emitNear(mapId, x, y, event, payload, exceptId = null) {
+    let target = io.to(nearbyChunkRooms(mapId, x, y));
+    if (exceptId) target = target.except(exceptId);
+    target.emit(event, payload);
+  }
+
+  function resolveWorld(code) {
+    const normalized = String(code || "").toLowerCase();
+    let world = normalized ? options.getWorldByCode?.(normalized) : options.getDefaultWorld?.();
+    if (!world && normalized) world = mapCache.get(normalized);
+    if (world) mapCache.set(String(world.code || normalized).toLowerCase(), world);
+    return world || null;
+  }
 
   function publicMonsterState(monster, now) {
     return {
@@ -442,13 +529,13 @@ function setupSocket(io, players = new Map()) {
 
   function damagePlayerFromMonster(roomId, monster, targetSession, now) {
     if (monster.nextAttackAt && monster.nextAttackAt > now) return;
-    const player = [...players.values()].find((item) => item.userId === targetSession.userId);
+    const player = getPlayerByUserId(targetSession.userId);
     if (!player) return;
     refreshPlayerVitals(player, now);
     const derived = deriveStats(player.stats, player.equipment);
     monster.nextAttackAt = now + 1200;
     if (Math.random() < Number(derived.evasion || 0)) {
-      io.to(`map:${roomId}`).emit("player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage: 0, miss: true, hp: player.hp, maxHp: player.maxHp });
+      emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage: 0, miss: true, hp: player.hp, maxHp: player.maxHp });
       return;
     }
     const defenseBuff = playerBuffValue(player, ["buff_def", "shield"]);
@@ -457,13 +544,13 @@ function setupSocket(io, players = new Map()) {
     player.hp = Math.max(0, Number(player.hp || player.maxHp || 100) - damage);
     if (player.hp <= 0) player.hp = Math.floor(Number(player.maxHp || 100) * 0.25);
     players.set(player.id, player);
-    io.to(`map:${roomId}`).emit("player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage, miss: false, hp: player.hp, maxHp: player.maxHp });
+    emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage, miss: false, hp: player.hp, maxHp: player.maxHp });
   }
 
   function updatePlayerRegeneration(now) {
     const seen = new Set();
     for (const session of sessions.values()) {
-      const player = [...players.values()].find((item) => item.userId === session.userId);
+      const player = getPlayerByUserId(session.userId);
       if (!player || seen.has(player.id)) continue;
       seen.add(player.id);
       let buffChanged = false;
@@ -508,6 +595,13 @@ function setupSocket(io, players = new Map()) {
   function updateRoomMonsters(roomId, world, monsters, now) {
     const roomPlayers = [...sessions.values()].filter((session) => session.mapId === roomId);
     if (!roomPlayers.length) return;
+    const playerBuckets = new Map();
+    for (const session of roomPlayers) {
+      const { cx, cy } = chunkPosition(session.x, session.y);
+      const key = `${cx}:${cy}`;
+      if (!playerBuckets.has(key)) playerBuckets.set(key, []);
+      playerBuckets.get(key).push(session);
+    }
     let changed = false;
     for (const monster of monsters) {
       if (monster.dead) continue;
@@ -529,7 +623,15 @@ function setupSocket(io, players = new Map()) {
       const aggroRange = Number(monster.aggroRange || MONSTER_AGGRO_RANGE);
       const leashDistance = Number(monster.leashDistance || MONSTER_LEASH_RANGE);
       const chaseDurationMs = Number(monster.chaseDurationMs || MONSTER_CHASE_DURATION_MS);
-      const target = roomPlayers
+      const monsterChunk = chunkPosition(monster.x, monster.y);
+      const chunkReach = Math.max(1, Math.ceil(aggroRange / AOI_CHUNK_SIZE));
+      const candidates = [];
+      for (let oy = -chunkReach; oy <= chunkReach; oy += 1) {
+        for (let ox = -chunkReach; ox <= chunkReach; ox += 1) {
+          candidates.push(...(playerBuckets.get(`${monsterChunk.cx + ox}:${monsterChunk.cy + oy}`) || []));
+        }
+      }
+      const target = candidates
         .map((session) => ({ session, distance: monsterDistanceTiles(session, monster) }))
         .filter((entry) => entry.distance <= aggroRange)
         .sort((a, b) => a.distance - b.distance)[0];
@@ -586,50 +688,30 @@ function setupSocket(io, players = new Map()) {
     const runtime = roomRuntime.get(roomId);
     if (changed || now - Number(runtime?.lastBroadcastAt || 0) >= 500) {
       if (runtime) runtime.lastBroadcastAt = now;
-      io.to(`map:${roomId}`).emit("monster_update", { monsters: monsters.map((monster) => publicMonsterState(monster, now)) });
+      const viewersByChunk = new Map();
+      for (const session of roomPlayers) {
+        const room = session.chunkRoom || sessionChunkRoom(session);
+        if (!viewersByChunk.has(room)) viewersByChunk.set(room, []);
+        viewersByChunk.get(room).push(session);
+      }
+      for (const [room, viewers] of viewersByChunk) {
+        const visible = monsters
+          .filter((monster) => viewers.some((viewer) => monsterDistanceTiles(viewer, monster) <= AOI_RADIUS))
+          .map((monster) => publicMonsterState(monster, now));
+        io.to(room).emit("monster_update", { monsters: visible });
+      }
     }
   }
 
   io.on("connection", (socket) => {
     // ── join_world ────────────────────────────────────────────────
-    socket.on("join_world", async ({ mapCode, x = 26, y = 30 } = {}) => {
+    socket.on("join_world", async ({ mapCode, x = 26, y = 30, mapVersion = 0, hasMap = false } = {}) => {
       if (sessions.has(socket.id)) return;
       let roomId = (mapCode || "").trim().toLowerCase();
       console.log(`[Socket] ${socket.username} gia nhập. MapCode nhận được: "${roomId || "RỖNG"}"`);
 
-      const { ApiService } = require("./api-service");
-      const token = socket.handshake.auth?.token;
-      let worldData = null;
-
-      // 1. Quy trình bắt buộc: Gọi API trực tiếp từ Backend (Bỏ qua cache để kiểm chứng)
-      try {
-        const endpoint = roomId
-          ? `worlds/by-code?code=${roomId}`
-          : `worlds/default`;
-
-        console.log(`[Socket] ĐANG GỌI API BACKEND: ${endpoint}`);
-        const res = await ApiService.get(endpoint, token);
-
-        if (res && res.data && !res.data.error) {
-          worldData = res.data;
-          if (Array.isArray(worldData)) {
-            worldData = { tiles: worldData, w: worldData[0]?.length || 0, h: worldData.length || 0 };
-          }
-
-          const backendCode = worldData.code || worldData.maMap || worldData.id;
-          if (backendCode) roomId = String(backendCode).toLowerCase();
-          
-          // Cập nhật cache sau khi đã nạp thành công
-          mapCache.set(roomId, worldData);
-          console.log(`[Socket] Backend trả về Map: ${roomId} (${worldData.w}x${worldData.h})`);
-        } else {
-          console.error(`[Socket] Backend KHÔNG trả về dữ liệu hợp lệ cho ${endpoint}.`);
-        }
-      } catch (err) {
-        console.error(`[Socket] Lỗi khi kết nối Backend:`, err.message);
-      }
-
-
+      let worldData = resolveWorld(roomId);
+      if (worldData) roomId = String(worldData.code || worldData.maMap || worldData.id || roomId).toLowerCase();
       if (!worldData) {
         console.error(`[Socket] Lỗi: Không có dữ liệu bản đồ cho ${socket.username}.`);
         return;
@@ -638,7 +720,7 @@ function setupSocket(io, players = new Map()) {
       const monsters = ensureRoomMonsters(roomId, worldData);
 
       // Lấy tên nhân vật từ player data
-      const playerData = [...players.values()].find((p) => p.userId === socket.userId);
+      const playerData = getPlayerByUserId(socket.userId);
       const session = {
         id: socket.id,
         userId: socket.userId,
@@ -653,54 +735,74 @@ function setupSocket(io, players = new Map()) {
         x,
         y,
         joinedAt: Date.now(),
+        lastMoveAt: 0,
+        lastChatAt: 0,
       };
       sessions.set(socket.id, session);
 
       // Join map room
       socket.join(`map:${roomId}`);
+      session.chunkRoom = sessionChunkRoom(session);
+      socket.join(session.chunkRoom);
 
       // Gửi toàn bộ thông tin thế giới cho người chơi vừa vào
-      const worldPlayers = [...sessions.values()].filter(
-        (s) => s.mapId === roomId && s.id !== socket.id,
-      );
+      const worldPlayers = nearbySessions(roomId, x, y, socket.id);
 
       socket.emit("world_init", {
-        map: worldData,
+        map: null,
+        mapCode: roomId,
+        mapVersion: Number(worldData.version || 0),
         player: playerData || null,
         players: worldPlayers,
         monsters
       });
 
       // Notify others on same map
-      socket.to(`map:${roomId}`).emit("player_join", session);
+      emitNear(roomId, x, y, "player_join", session, socket.id);
     });
 
     // ── move ──────────────────────────────────────────────────────
     socket.on("move", ({ x, y, mapId, mapCode }) => {
       const session = sessions.get(socket.id);
       if (!session) return;
-      const roomId = (mapId || mapCode || session.mapId).toLowerCase();
+      const now = Date.now();
+      if (now - Number(session.lastMoveAt || 0) < MOVE_MIN_INTERVAL_MS) return;
+      session.lastMoveAt = now;
+      const roomId = session.mapId;
       const rawX = Number(x);
       const rawY = Number(y);
       const nextX = Math.floor(rawX);
       const nextY = Math.floor(rawY);
       const world = mapCache.get(roomId);
       const validBounds = !world || (nextX >= 0 && nextY >= 0 && nextX < Number(world.w || 999) && nextY < Number(world.h || 999));
-      const validStep = Math.abs(rawX - Number(session.x)) <= 2.2 && Math.abs(rawY - Number(session.y)) <= 2.2;
+      const validStep = Math.abs(rawX - Number(session.x)) <= 11.0 && Math.abs(rawY - Number(session.y)) <= 11.0;
       if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !validBounds || !validStep) {
         socket.emit("action_error", { action: "move", error: "Tọa độ di chuyển không hợp lệ" });
         return;
       }
+      const oldX = Number(session.x);
+      const oldY = Number(session.y);
+      const oldChunkRoom = session.chunkRoom || sessionChunkRoom(session);
       session.x = rawX;
       session.y = rawY;
       session.mapId = roomId;
       session.mapCode = roomId;
-      const playerData = [...players.values()].find((p) => p.userId === socket.userId);
+      const nextChunkRoom = sessionChunkRoom(session);
+      if (nextChunkRoom !== oldChunkRoom) {
+        socket.leave(oldChunkRoom);
+        socket.join(nextChunkRoom);
+        session.chunkRoom = nextChunkRoom;
+        const oldRooms = nearbyChunkRooms(roomId, oldX, oldY);
+        const newRooms = nearbyChunkRooms(roomId, rawX, rawY);
+        const oldOnly = oldRooms.filter((room) => !newRooms.includes(room));
+        const newOnly = newRooms.filter((room) => !oldRooms.includes(room));
+        if (oldOnly.length) socket.to(oldOnly).emit("player_leave", { id: socket.id });
+        if (newOnly.length) socket.to(newOnly).emit("player_join", { ...session });
+      }
+      const playerData = getPlayerByUserId(socket.userId);
       if (playerData) { playerData.x = rawX; playerData.y = rawY; playerData.mapCode = roomId; playerData.mapId = roomId; players.set(playerData.id, playerData); }
       // Broadcast to same map only (không gửi cho chính mình)
-      socket
-        .to(`map:${roomId}`)
-        .emit("player_move", { id: socket.id, x: rawX, y: rawY, mapCode: roomId });
+      emitNear(roomId, rawX, rawY, "player_move", { ...session }, socket.id);
     });
 
     // ── map_change ────────────────────────────────────────────────
@@ -708,51 +810,63 @@ function setupSocket(io, players = new Map()) {
       const session = sessions.get(socket.id);
       if (!session) return;
       const roomId = (mapId || mapCode || session.mapId).toLowerCase();
+      const oldMapId = session.mapId;
+      const sourceWorld = resolveWorld(oldMapId);
+      const requestedWorld = resolveWorld(roomId);
+      if (!requestedWorld) return socket.emit("action_error", { action: "map_change", error: "Bản đồ không tồn tại" });
+      const portal = (sourceWorld?.portals || []).find((item) => {
+        const destination = String(item.denMap || item.toMap || "").toLowerCase();
+        return destination === roomId
+          && Math.hypot(Number(session.x) - Number(item.x), Number(session.y) - Number(item.y)) <= PORTAL_ACTIVATION_RANGE;
+      });
+      if (!portal) return socket.emit("action_error", { action: "map_change", error: "Bạn chưa đứng trong phạm vi portal hợp lệ" });
+      const arrival = nearestWalkablePoint(requestedWorld, portal.toX, portal.toY);
+      if (!arrival) return socket.emit("action_error", { action: "map_change", error: "Điểm đến portal không thể đặt nhân vật" });
 
       // Leave old room
       if (session.mapId) {
+        emitNear(session.mapId, session.x, session.y, "player_leave", { id: socket.id }, socket.id);
         socket.leave(`map:${session.mapId}`);
-        socket.to(`map:${session.mapId}`).emit("player_leave", { id: socket.id });
+        if (session.chunkRoom) socket.leave(session.chunkRoom);
       }
 
-      const oldMapId = session.mapId;
       session.mapId = roomId;
       session.mapCode = roomId;
-      session.x = x;
-      session.y = y;
+      session.x = arrival.x;
+      session.y = arrival.y;
       socket.join(`map:${roomId}`);
+      session.chunkRoom = sessionChunkRoom(session);
+      socket.join(session.chunkRoom);
 
-      // CHỈ gửi world_init nếu thực sự đổi sang map KHÁC
-      if (oldMapId === roomId) {
-        return;
+      const playerData = getPlayerByUserId(socket.userId);
+      if (playerData) {
+        playerData.x = arrival.x;
+        playerData.y = arrival.y;
+        playerData.mapCode = roomId;
+        playerData.mapId = roomId;
+        players.set(playerData.id, playerData);
       }
 
-      // 1. Đảm bảo Map đã được nạp vào RAM Server
-      let worldData = mapCache.get(roomId);
-      if (!worldData) {
-        const { ApiService } = require("./api-service");
-        try {
-          const res = await ApiService.get(`worlds/by-code?code=${roomId}`);
-          if (res.data && !res.data.error) {
-            worldData = res.data;
-            mapCache.set(roomId, worldData);
-          }
-        } catch (err) { }
+      if (![...sessions.values()].some((item) => item.mapId === oldMapId)) {
+        roomMonsters.delete(oldMapId);
+        roomRuntime.delete(oldMapId);
       }
 
-      const worldPlayers = [...sessions.values()].filter(
-        (s) => s.mapId === roomId && s.id !== socket.id,
-      );
+      const worldData = requestedWorld;
+
+      const worldPlayers = nearbySessions(roomId, arrival.x, arrival.y, socket.id);
 
       // Gửi dữ liệu map và state cho người chơi
       socket.emit("world_init", {
-        map: worldData,
-        player: [...players.values()].find((p) => p.userId === socket.userId) || null,
+        map: null,
+        mapCode: roomId,
+        mapVersion: Number(worldData.version || 0),
+        player: playerData || null,
         players: worldPlayers,
         monsters: ensureRoomMonsters(roomId, worldData)
       });
 
-      socket.to(`map:${roomId}`).emit("player_join", { ...session });
+      emitNear(roomId, arrival.x, arrival.y, "player_join", { ...session }, socket.id);
     });
 
     // ── chat ──────────────────────────────────────────────────────
@@ -762,12 +876,15 @@ function setupSocket(io, players = new Map()) {
       if (!clean) return;
       const session = sessions.get(socket.id);
       if (!session) return;
+      const now = Date.now();
+      if (now - Number(session.lastChatAt || 0) < 500) return;
+      session.lastChatAt = now;
 
       const payload = {
         id: socket.id,
         username: socket.username,
         message: clean,
-        ts: Date.now(),
+        ts: now,
       };
 
       // Broadcast to same map
@@ -778,7 +895,7 @@ function setupSocket(io, players = new Map()) {
     // ── attack_effect (visual sync only — damage tính server-side sau) ─
     socket.on("skill_request", ({ skillCode }) => {
       const session = sessions.get(socket.id);
-      const player = [...players.values()].find((item) => item.userId === socket.userId);
+      const player = getPlayerByUserId(socket.userId);
       if (!session || !player) return;
       const result = resolveSelfSkill(player, skillCode, session);
       if (result.error) return socket.emit("action_error", { action: "skill", error: result.error });
@@ -788,7 +905,7 @@ function setupSocket(io, players = new Map()) {
 
     socket.on("attack_request", ({ targetId, skillCode, mapId }) => {
       const session = sessions.get(socket.id);
-      const player = [...players.values()].find((item) => item.userId === socket.userId);
+      const player = getPlayerByUserId(socket.userId);
       if (!session) return socket.emit("action_error", { action: "combat", error: "Phiên chơi chưa sẵn sàng" });
       if (!player) return socket.emit("action_error", { action: "combat", error: "Không tìm thấy nhân vật" });
       const roomId = String(session.mapId || mapId || "").toLowerCase();
@@ -797,7 +914,7 @@ function setupSocket(io, players = new Map()) {
       if (!monster) return socket.emit("action_error", { action: "combat", error: "Quái không còn trong bản đồ hiện tại" });
       if (monster.dead) return socket.emit("action_error", { action: "combat", error: "Quái đang hồi sinh" });
       const skill = findSkill(skillCode);
-      const attackRange = Number(skill?.range || BASIC_ATTACK_RANGE);
+      const attackRange = skill ? Number(skill.range || 5) * SKILL_RANGE_SCALE : BASIC_ATTACK_RANGE;
       if (monsterDistanceTiles(session, monster) > attackRange) {
         return socket.emit("action_error", { action: "combat", error: "Mục tiêu ngoài phạm vi kỹ năng" });
       }
@@ -807,7 +924,7 @@ function setupSocket(io, players = new Map()) {
       let bonusXu = Number(result.loot?.xu || 0);
       const droppedItems = [...(result.loot?.items || [])];
       if (result.loot) addLootToPlayer(player, result.loot);
-      const aoeRange = Number(skill?.dienRong || 0);
+      const aoeRange = Number(skill?.dienRong || 0) * SKILL_RANGE_SCALE;
       if (aoeRange > 0) {
         for (const nearby of monsters) {
           if (nearby.id === monster.id || nearby.dead) continue;
@@ -825,7 +942,7 @@ function setupSocket(io, players = new Map()) {
       }
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
-      io.to(`map:${roomId}`).emit("combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: (bonusXu || droppedItems.length) ? { xu: bonusXu, items: droppedItems } : null });
+      emitNear(roomId, session.x, session.y, "combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: (bonusXu || droppedItems.length) ? { xu: bonusXu, items: droppedItems } : null });
     });
 
     socket.on("attack_effect", ({ targetId, damage, mapId }) => {
@@ -848,9 +965,7 @@ function setupSocket(io, players = new Map()) {
     socket.on("disconnect", () => {
       const session = sessions.get(socket.id);
       if (session) {
-        socket
-          .to(`map:${session.mapId}`)
-          .emit("player_leave", { id: socket.id });
+        emitNear(session.mapId, session.x, session.y, "player_leave", { id: socket.id }, socket.id);
         sessions.delete(socket.id);
 
         // Dọn dẹp nếu không còn ai trong map
@@ -886,7 +1001,8 @@ function setupSocket(io, players = new Map()) {
       const world = mapCache.get(mapId);
       const runtime = roomRuntime.get(mapId) || { lastSpawnAt: now, lastBroadcastAt: 0 };
       roomRuntime.set(mapId, runtime);
-      if (activePlayers && !world?.monsterSpawns?.length && monsters.length < MONSTER_ROOM_CAP && now - Number(runtime.lastSpawnAt || 0) >= 5000) {
+      const isCity = String(world?.type || "").toUpperCase() === "CITY" || Boolean(world?.rules?.noMonsters);
+      if (activePlayers && !isCity && !world?.monsterSpawns?.length && !world?.monsters?.length && monsters.length < MONSTER_ROOM_CAP && now - Number(runtime.lastSpawnAt || 0) >= 5000) {
         const monster = createRoomMonster(mapId, world, monsters.length);
         monsters.push(monster);
         runtime.lastSpawnAt = now;

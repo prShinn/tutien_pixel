@@ -13,17 +13,22 @@ const API = {
 
 // ── Static game rules (không thay đổi theo data) ──
 const CFG = {
-  TS: 8,            // tile size (logical 8x8 pixel)
-  ACTOR_W: 13,
-  ACTOR_H: 17,
+  TS: 1,            // micro-grid: 1 ô địa hình = 1 logical pixel
+  ACTOR_W: 20,
+  ACTOR_H: 25,
   DS: 4,            // display scale (phóng to UI/Map 4 lần cho dễ nhìn)
   INV_MAX: 40,      // max inventory slots
   ATK_CD: 42,       // ticks cooldown đánh thường
-  BASIC_ATTACK_RANGE: 2.5, // phạm vi đánh thường, tính theo ô map
+  BASIC_ATTACK_RANGE: 24,  // world-pixel; lớn hơn bề rộng nhân vật
+  SKILL_RANGE_SCALE: 6,    // 1 đơn vị range trong data = 6 world-pixel
+  PLAYER_COLLISION_RADIUS: 4,
+  INTERACTION_RANGE: 24,
+  NET_SNAP_DISTANCE: 48,
   REGEN_HP: 0.01,   // HP regen per ms
   REGEN_MP: 0.006,  // MP regen per ms
-  MON_AGGRO: 6,     // Aggro riêng từng quái khi người chơi ở gần
-  MON_LEASH: 9,     // Quái quay về bãi khi đi quá xa
+  MON_AGGRO: 40,    // Aggro riêng từng quái theo world-pixel
+  MON_LEASH: 72,    // Quái quay về bãi khi đi quá xa
+  MON_ATTACK_RANGE: 18,
   MON_RESPAWN: 420, // respawn ticks
 
   // ── Data được populate bởi GameData.load() ──

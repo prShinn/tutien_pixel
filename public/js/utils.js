@@ -49,7 +49,7 @@ function parseStringOrObj(val, fallback) {
 
 function normalizeWorldDto(dto) {
   if (!dto) return null;
-  console.log("[Utils] Đang chuẩn hóa DTO bản đồ:", dto);
+  console.log("[Utils] Chuẩn hóa map", dto.code || dto.maMap || dto.id, `${dto.w || dto.width || "?"}x${dto.h || dto.height || "?"}`);
   
   // Hỗ trợ cả trường hợp dto chính là mảng gạch (tiles)
   let tiles = [];
@@ -64,12 +64,21 @@ function normalizeWorldDto(dto) {
   let h = dto.h || dto.height || (Array.isArray(tiles) ? tiles.length : 0);
   
   const code = dto.code || dto.maMap || dto.id || "unknown";
+  const layers = parseStringOrObj(dto.layers || {}, {});
   
   return {
     id: dto.id || code,
     code: code,
     name: dto.tenMap || dto.name || code,
     jsonMap: tiles,
+    layers: {
+      ground: parseStringOrObj(layers.ground || [], []),
+      objects: parseStringOrObj(layers.objects || [], []),
+      elevation: parseStringOrObj(layers.elevation || [], []),
+    },
+    biome: dto.biome || "LEGACY",
+    seed: dto.seed || code,
+    version: Number(dto.version || 0),
     w: w,
     h: h,
     portals: parseStringOrObj(dto.portals || dto.danhSachCong || [], []).map(p => ({

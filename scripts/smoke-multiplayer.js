@@ -17,20 +17,20 @@ async function main() {
   const [user1, user2] = await Promise.all([register("smoke1"), register("smoke2")]);
   const first = io(BASE, { auth: { token: user1.token }, reconnection: false });
   const second = io(BASE, { auth: { token: user2.token }, reconnection: false });
-  const result = { joined: false, moved: false, chatted: false };
+  const result = { joined: false, moved: false, chatted: false, mapSkipped: false };
   let secondReady = false;
   let actionSent = false;
   const sendActions = () => {
     if (actionSent || !result.joined || !secondReady) return;
     actionSent = true;
-    first.emit("move", { x: 21, y: 15, mapId: "thanh_van_tran" });
+    first.emit("move", { x: 301, y: 200, mapId: "thanh_van_tran" });
     first.emit("chat", { message: "hello" });
   };
 
   const done = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("multiplayer smoke timeout")), 7000);
     const check = () => {
-      if (result.joined && result.moved && result.chatted) {
+      if (result.joined && result.moved && result.chatted && result.mapSkipped) {
         clearTimeout(timeout);
         resolve();
       }
@@ -46,13 +46,13 @@ async function main() {
       sendActions();
       check();
     });
-    second.on("world_init", () => { secondReady = true; sendActions(); });
+    second.on("world_init", (payload) => { result.mapSkipped = payload.map === null && payload.mapVersion === 2; secondReady = true; sendActions(); check(); });
     second.on("player_move", () => { result.moved = true; check(); });
     second.on("chat_message", () => { result.chatted = true; check(); });
   });
 
-  first.on("connect", () => first.emit("join_world", { mapCode: "thanh_van_tran", x: 20, y: 15 }));
-  second.on("connect", () => second.emit("join_world", { mapCode: "thanh_van_tran", x: 20, y: 15 }));
+  first.on("connect", () => first.emit("join_world", { mapCode: "thanh_van_tran", x: 300, y: 200 }));
+  second.on("connect", () => second.emit("join_world", { mapCode: "thanh_van_tran", x: 300, y: 200, hasMap: true, mapVersion: 2 }));
   await done;
   console.log(JSON.stringify(result));
   first.disconnect();

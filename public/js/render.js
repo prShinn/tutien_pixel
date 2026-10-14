@@ -15,6 +15,51 @@ const TC = {
 };
 
 const Render = {
+  buildTerrainCache() {
+    if (!S.tiles?.length || !S.mapW || !S.mapH) return;
+    const terrain = document.createElement("canvas");
+    terrain.width = S.mapW;
+    terrain.height = S.mapH;
+    const terrainCtx = terrain.getContext("2d");
+    const image = terrainCtx.createImageData(S.mapW, S.mapH);
+    const rgb = {
+      0: [42, 90, 40], 1: [90, 90, 104], 2: [26, 58, 106], 3: [38, 27, 25],
+      4: [74, 64, 40], 5: [28, 72, 31], 6: [75, 76, 88], 7: [102, 84, 52],
+    };
+    for (let y = 0; y < S.mapH; y += 1) {
+      for (let x = 0; x < S.mapW; x += 1) {
+        const composite = Number(S.tiles[y]?.[x] ?? 0);
+        const object = Number(S.objectTiles?.[y]?.[x] ?? -1);
+        const ground = Number(S.groundTiles?.[y]?.[x] ?? ([3, 5, 6].includes(composite) ? 0 : composite));
+        const tile = object >= 0 ? object : composite;
+        const base = rgb[tile] || rgb[ground] || rgb[0];
+        const hash = Math.abs(Math.imul(x + 37, 73856093) ^ Math.imul(y + 11, 19349663)) % 17;
+        const variation = (hash - 8) * (tile === 2 ? .7 : .45);
+        const lift = Number(S.elevationTiles?.[y]?.[x] || 0) * 5;
+        const index = (y * S.mapW + x) * 4;
+        image.data[index] = Math.max(0, Math.min(255, base[0] + variation + lift));
+        image.data[index + 1] = Math.max(0, Math.min(255, base[1] + variation + lift));
+        image.data[index + 2] = Math.max(0, Math.min(255, base[2] + variation + lift));
+        image.data[index + 3] = 255;
+        if (ground !== 2 && object < 0) {
+          const nearWater = S.groundTiles?.[y - 1]?.[x] === 2 || S.groundTiles?.[y + 1]?.[x] === 2
+            || S.groundTiles?.[y]?.[x - 1] === 2 || S.groundTiles?.[y]?.[x + 1] === 2;
+          if (nearWater) {
+            image.data[index] = 150; image.data[index + 1] = 133; image.data[index + 2] = 73;
+          }
+        }
+      }
+    }
+    terrainCtx.putImageData(image, 0, 0);
+    S.terrainCanvas = terrain;
+    const mini = document.createElement("canvas");
+    mini.width = 144; mini.height = 96;
+    const miniCtx = mini.getContext("2d");
+    miniCtx.imageSmoothingEnabled = true;
+    miniCtx.drawImage(terrain, 0, 0, mini.width, mini.height);
+    S.miniTerrainCanvas = mini;
+  },
+
   frame() {
     const p = S.player;
     if (!p) return;
@@ -45,12 +90,16 @@ const Render = {
     const tx1 = Math.min(S.mapW - 1, tx0 + Math.ceil(lcW / ts) + 1),
           ty1 = Math.min(S.mapH - 1, ty0 + Math.ceil(lcH / ts) + 1);
           
-    // Draw tiles
-    for (let ty = ty0; ty <= ty1; ty++) {
-      for (let tx = tx0; tx <= tx1; tx++) {
-        if (S.tiles[ty] && S.tiles[ty][tx] !== undefined) {
-          Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy);
-        }
+    if (!S.terrainCanvas) Render.buildTerrainCache();
+    if (S.terrainCanvas) {
+      const sourceX = Math.max(0, Math.floor(cx));
+      const sourceY = Math.max(0, Math.floor(cy));
+      const sourceW = Math.max(1, Math.min(Math.ceil(lcW) + 2, S.mapW - sourceX));
+      const sourceH = Math.max(1, Math.min(Math.ceil(lcH) + 2, S.mapH - sourceY));
+      ctx.drawImage(S.terrainCanvas, sourceX, sourceY, sourceW, sourceH, sourceX - cx, sourceY - cy, sourceW, sourceH);
+    } else {
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        if (S.tiles[ty] && S.tiles[ty][tx] !== undefined) Render.tile(S.tiles[ty][tx], tx * ts - cx, ty * ts - cy, tx, ty);
       }
     }
     
@@ -69,13 +118,15 @@ const Render = {
     ctx.lineWidth = 1;
 
     // Vẽ tên người chơi
-    ctx.strokeStyle = "#000"; ctx.strokeText(p.name, p.px - cx, p.py - cy - 14);
-    ctx.fillStyle = tint; ctx.fillText(p.name, p.px - cx, p.py - cy - 14);
+    const playerLabelY = p.py - cy - CFG.ACTOR_H / 2 - 7;
+    ctx.strokeStyle = "#000"; ctx.strokeText(p.name, p.px - cx, playerLabelY);
+    ctx.fillStyle = tint; ctx.fillText(p.name, p.px - cx, playerLabelY);
 
     // Vẽ thanh máu mini cho người chơi
-    const pw = 12;
-    ctx.fillStyle = "#111"; ctx.fillRect(p.px - cx - pw/2, p.py - cy - 12, pw, 2);
-    ctx.fillStyle = "#cc2222"; ctx.fillRect(p.px - cx - pw/2, p.py - cy - 12, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
+    const pw = CFG.ACTOR_W;
+    const playerBarY = p.py - cy - CFG.ACTOR_H / 2 - 4;
+    ctx.fillStyle = "#111"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw, 2);
+    ctx.fillStyle = "#cc2222"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
 
     for (const fx of S.atkFx) {
       ctx.strokeStyle = `rgba(255,200,60,${fx.life / 14})`;
@@ -121,11 +172,7 @@ const Render = {
     const w = map.width, h = map.height;
     const sx = w / Math.max(1, S.mapW), sy = h / Math.max(1, S.mapH);
     mini.clearRect(0, 0, w, h);
-    const colors = { 0: "#274c35", 1: "#4d5363", 2: "#183c68", 3: "#251d2b", 4: "#66543c", 5: "#173022", 6: "#5e6072", 7: "#806644" };
-    for (let y = 0; y < S.mapH; y++) for (let x = 0; x < S.mapW; x++) {
-      mini.fillStyle = colors[S.tiles[y]?.[x]] || "#202333";
-      mini.fillRect(Math.floor(x * sx), Math.floor(y * sy), Math.ceil(sx), Math.ceil(sy));
-    }
+    if (S.miniTerrainCanvas) mini.drawImage(S.miniTerrainCanvas, 0, 0, w, h);
     for (const portal of S.portals || []) {
       mini.fillStyle = "#d7b65a";
       mini.fillRect(portal.x * sx, portal.y * sy, Math.max(2, sx), Math.max(2, sy));
@@ -137,43 +184,72 @@ const Render = {
     }
   },
 
-  tile(t, sx, sy) {
-    const c = TC[t] || ["#333", "#444"];
+  tile(t, sx, sy, tx = 0, ty = 0) {
     const ts = CFG.TS;
     const fsx = Math.floor(sx), fsy = Math.floor(sy);
+    const layered = Array.isArray(S.groundTiles?.[ty]);
+    const ground = layered ? S.groundTiles[ty][tx] : ([3, 5, 6].includes(t) ? 0 : t);
+    const object = layered ? Number(S.objectTiles?.[ty]?.[tx] ?? -1) : ([3, 5, 6].includes(t) ? t : -1);
+    const c = TC[ground] || ["#333", "#444"];
+    const hash = Math.abs(Math.imul(tx + 37, 73856093) ^ Math.imul(ty + 11, 19349663)) % 17;
     
     ctx.fillStyle = c[0];
     ctx.fillRect(fsx, fsy, ts, ts);
-    
-    // Vẽ chi tiết pixel cho từng loại tile (8x8 style)
+
+    const elevation = Number(S.elevationTiles?.[ty]?.[tx] || 0);
+    if (elevation) {
+      ctx.fillStyle = `rgba(235,225,190,${elevation * .045})`;
+      ctx.fillRect(fsx, fsy, ts, ts);
+    }
+
     ctx.fillStyle = c[1];
-    ctx.strokeStyle = "rgba(255,255,255,.035)";
-    ctx.strokeRect(fsx + .5, fsy + .5, ts - 1, ts - 1);
-    if (t === 0) { // GRASS
-      ctx.fillRect(fsx + 2, fsy + 2, 1, 1);
-      ctx.fillRect(fsx + 5, fsy + 4, 1, 1);
-    } else if (t === 2) { // WATER
+    if (ground === 0 && hash > 9) {
+      ctx.fillRect(fsx + 2 + hash % 3, fsy + 3, 1, 2);
+    } else if (ground === 2) {
       ctx.globalAlpha = 0.5;
-      ctx.fillRect(fsx, fsy + 2 + Math.floor(Math.sin(S.animT * .002 + fsx) * 1), ts, 1);
-      ctx.fillRect(fsx + 2, fsy + 6, 3, 1);
+      ctx.fillRect(fsx + hash % 3, fsy + 2 + Math.floor(Math.sin(S.animT * .002 + tx) * 1), 5, 1);
+      if (hash > 8) ctx.fillRect(fsx + 3, fsy + 6, 3, 1);
       ctx.globalAlpha = 1.0;
-    } else if (t === 3) { // WALL
+    }
+
+    const groundAt = (x, y) => S.groundTiles?.[y]?.[x] ?? S.tiles?.[y]?.[x];
+    if (ground !== 2 && layered) {
+      ctx.fillStyle = "rgba(190,168,99,.72)";
+      if (groundAt(tx, ty - 1) === 2) ctx.fillRect(fsx, fsy, ts, 1);
+      if (groundAt(tx, ty + 1) === 2) ctx.fillRect(fsx, fsy + ts - 1, ts, 1);
+      if (groundAt(tx - 1, ty) === 2) ctx.fillRect(fsx, fsy, 1, ts);
+      if (groundAt(tx + 1, ty) === 2) ctx.fillRect(fsx + ts - 1, fsy, 1, ts);
+    }
+
+    if (object === 3) {
+      ctx.fillStyle = TC[3][0];
+      ctx.fillRect(fsx, fsy, ts, ts);
       ctx.fillStyle = "rgba(0,0,0,0.2)";
       ctx.fillRect(fsx, fsy, ts, 1);
       ctx.fillRect(fsx, fsy, 1, ts);
-    } else if (t === 5) { // TREE
-      ctx.fillStyle = "#1a1208"; // Thân
+    } else if (object === 5) {
+      ctx.fillStyle = "#1a1208";
       ctx.fillRect(fsx + 3, fsy + 5, 2, 3);
-      ctx.fillStyle = "#1e4a18"; // Lá
-      ctx.fillRect(fsx + 2, fsy + 1, 4, 4);
-    } else if (t === 6) { // MTN
+      ctx.fillStyle = hash % 2 ? "#245222" : "#2d6029";
+      ctx.fillRect(fsx + 1, fsy + 2, 6, 3);
+      ctx.fillRect(fsx + 2, fsy + 1, 4, 5);
+    } else if (object === 6) {
+      ctx.fillStyle = TC[6][0];
       ctx.beginPath();
       ctx.moveTo(fsx, fsy + ts);
       ctx.lineTo(fsx + 4, fsy + 1);
       ctx.lineTo(fsx + ts, fsy + ts);
       ctx.fill();
-    } else if (t === 1) { // STONE
-      ctx.fillRect(fsx + 2, fsy + 3, 4, 3);
+      ctx.fillStyle = TC[6][1];
+      ctx.beginPath();
+      ctx.moveTo(fsx + 3, fsy + 3);
+      ctx.lineTo(fsx + 4, fsy + 1);
+      ctx.lineTo(fsx + 5, fsy + 4);
+      ctx.fill();
+    } else if (ground === 1 && hash > 6) {
+      ctx.globalAlpha = .35;
+      ctx.fillRect(fsx + 2, fsy + 3 + hash % 2, 4, 1);
+      ctx.globalAlpha = 1;
     }
   },
 
@@ -201,12 +277,12 @@ const Render = {
       ctx.globalAlpha = moving ? 0.16 : 0.1;
       ctx.fillStyle = tint;
       ctx.beginPath();
-      ctx.arc(sx, sy - 2 + bob, moving ? 8.5 : 7, 0, Math.PI * 2);
+      ctx.arc(sx, sy - 3 + bob, moving ? 12 : 10.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 7, moving ? 5 + Math.abs(stride) : 4.4, 1.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 10, moving ? 8 + Math.abs(stride) : 7, 2.2, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       ctx.translate(sx, sy + bob);
@@ -256,17 +332,17 @@ const Render = {
 
   otherPlayer(op, cx, cy) {
     const sx = op.px - cx, sy = op.py - cy;
-    if (sx < -20 || sx > (cW/CFG.DS) + 20 || sy < -20 || sy > (cH/CFG.DS) + 20) return;
+    if (sx < -40 || sx > (cW/CFG.DS) + 40 || sy < -40 || sy > (cH/CFG.DS) + 40) return;
     this.player(sx, sy, op.color || "#888", op);
     ctx.fillStyle = "#fff";
     ctx.font = "7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(op.name || "Tu sĩ", sx, sy - 10);
+    ctx.fillText(op.name || "Tu sĩ", sx, sy - CFG.ACTOR_H / 2 - 5);
   },
 
   monster(m, cx, cy) {
     const sx = m.px - cx, sy = m.py - cy;
-    if (sx < -20 || sx > (cW/CFG.DS) + 20 || sy < -20 || sy > (cH/CFG.DS) + 20) return;
+    if (sx < -45 || sx > (cW/CFG.DS) + 45 || sy < -45 || sy > (cH/CFG.DS) + 45) return;
 
     const now = Date.now();
     const moving = ["chase", "return", "patrol"].includes(m.state);
@@ -326,17 +402,17 @@ const Render = {
   npc(npc, cx, cy) {
     const sx = npc.px - cx, sy = npc.py - cy;
     if (sx < -50 || sx > (cW/CFG.DS) + 50 || sy < -50 || sy > (cH/CFG.DS) + 50) return;
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(sx - 4, sy + 4, 8, 2);
-    ctx.fillStyle = npc.color || "#88aacc"; ctx.fillRect(sx - 4, sy - 4, 8, 8);
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(sx - 8, sy + 9, 16, 3);
+    ctx.fillStyle = npc.color || "#88aacc"; ctx.fillRect(sx - 8, sy - 10, 16, 20);
     ctx.fillStyle = "#fff"; ctx.font = "7px monospace"; ctx.textAlign = "center";
-    ctx.fillText(npc.name, sx, sy - 12);
+    ctx.fillText(npc.name, sx, sy - 16);
   },
 
   portal(portal, cx, cy) {
     const sx = portal.x * CFG.TS + CFG.TS / 2 - cx, sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
     const a = S.animT * 0.002;
     ctx.fillStyle = `rgba(100,200,255,${0.3 + 0.1 * Math.sin(a)})`;
-    ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
   },
 

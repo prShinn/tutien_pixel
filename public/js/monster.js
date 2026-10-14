@@ -116,7 +116,7 @@ const Monster = {
     Monster._moveTowardsTarget(m, speed);
 
     // Monster Attack Player
-    if (dp < CFG.TS * 1.3 && m.state === "chase" && !SkillSystem.isFrozenOrStunned(m)) {
+    if (dp < CFG.MON_ATTACK_RANGE && m.state === "chase" && !SkillSystem.isFrozenOrStunned(m)) {
       m.atkCd -= dt / 16;
       if (m.atkCd <= 0) {
         m.atkCd = 65;
@@ -198,7 +198,7 @@ const Monster = {
   },
 
   _patrol(m) {
-    const r = randInt(2, 4) * CFG.TS,
+    const r = randInt(18, 32),
       ang = Math.random() * Math.PI * 2;
     m.tpx = Math.max(
       CFG.TS,

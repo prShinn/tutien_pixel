@@ -28,6 +28,7 @@ const World = {
     if (!def) return;
     S.mapCode = (def.code || "").toLowerCase();
     S.mapName = def.name ?? def.tenMap ?? S.mapCode;
+    S.mapVersion = Number(def.version || 0);
     S.mapW = def.w;
     S.mapH = def.h;
     S.tiles =
@@ -36,6 +37,10 @@ const World = {
         : Array.from({ length: def.h || 1 }, () =>
             Array(def.w || 1).fill(0),
           );
+    S.groundTiles = Array.isArray(def.layers?.ground?.[0]) ? def.layers.ground : null;
+    S.objectTiles = Array.isArray(def.layers?.objects?.[0]) ? def.layers.objects : null;
+    S.elevationTiles = Array.isArray(def.layers?.elevation?.[0]) ? def.layers.elevation : null;
+    if (typeof Render !== "undefined" && Render.buildTerrainCache) Render.buildTerrainCache();
     S.atkFx = [];
     S.groundItems = [];
     if (S.player) {
@@ -48,23 +53,62 @@ const World = {
       S.player.py = safe.ty * CFG.TS + CFG.TS / 2;
       S.player.mapCode = S.mapCode;
       S.player.mapId = S.mapCode;
+      S.player.isTeleporting = false;
     }
     S.portals = def.portals ?? [];
     S.npcs = (def.npcs ?? []).map((n) => ({
       ...n,
+      x: Number(n.x || 0),
+      y: Number(n.y || 0),
+      px: Number(n.x || 0) * CFG.TS + CFG.TS / 2,
+      py: Number(n.y || 0) * CFG.TS + CFG.TS / 2,
       used: false,
       type: n.loaiNpc ? n.loaiNpc.toLowerCase() : n.type,
     }));
     S.monsters = [];
 
-    let monIndex = 0;
-    for (const mon of def.monsters ?? []) {
-      // Sử dụng tọa độ spawn cố định thay vì ngẫu nhiên để đồng bộ giữa các player
-      const tx = mon.spawnX || Math.floor(def.w / 2);
-      const ty = mon.spawnY || Math.floor(def.h / 2);
-      
-      const fixedId = `mon_${S.mapCode}_${monIndex++}`;
-      S.monsters.push(Monster.make(mon, tx, ty, fixedId));
+    const isCity = String(def.type || "").toUpperCase() === "CITY" || Boolean(def.rules?.noMonsters);
+    if (!isCity) {
+      if (Array.isArray(def.monsterSpawns) && def.monsterSpawns.length > 0) {
+        for (const pack of def.monsterSpawns) {
+          const tmpl = (def.monsters || []).find((m) => m.id === pack.templateId || m.code === pack.templateId) || def.monsters?.[0] || pack;
+          const count = Math.max(3, Math.min(5, Number(pack.count || 4)));
+          const radius = Number(pack.radius || 24);
+          for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const dist = radius * (0.35 + 0.55 * (i % 2));
+            const tx = Math.round(Number(pack.centerX || def.w / 2) + Math.cos(angle) * dist);
+            const ty = Math.round(Number(pack.centerY || def.h / 2) + Math.sin(angle) * dist);
+            const fixedId = `${pack.packId || "pack"}_${i}`;
+            const m = Monster.make(tmpl, tx, ty, fixedId);
+            m.packId = pack.packId;
+            m.packCenterX = Number(pack.centerX || tx);
+            m.packCenterY = Number(pack.centerY || ty);
+            S.monsters.push(m);
+          }
+        }
+      } else if (Array.isArray(def.monsters) && def.monsters.length > 0) {
+        let monIndex = 0;
+        for (const mon of def.monsters) {
+          const count = 4;
+          const radius = 24;
+          for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const dist = radius * (0.35 + 0.55 * (i % 2));
+            const cx = mon.spawnX || Math.floor(def.w / 2);
+            const cy = mon.spawnY || Math.floor(def.h / 2);
+            const tx = Math.round(cx + Math.cos(angle) * dist);
+            const ty = Math.round(cy + Math.sin(angle) * dist);
+            const fixedId = `mon_${S.mapCode}_${monIndex}_${i}`;
+            const m = Monster.make(mon, tx, ty, fixedId);
+            m.packId = `PACK_${mon.code || mon.id || monIndex}`;
+            m.packCenterX = cx;
+            m.packCenterY = cy;
+            S.monsters.push(m);
+          }
+          monIndex++;
+        }
+      }
     }
     const ov = document.getElementById("map-name-overlay");
     ov.textContent = def.name ?? def.tenMap;
@@ -115,7 +159,7 @@ const World = {
   },
 
   collides(x, y) {
-    const R = 0.4;
+    const R = CFG.PLAYER_COLLISION_RADIUS;
     const cx = x + 0.5;
     const cy = y + 0.5;
     const minX = Math.floor(cx - R);
@@ -132,34 +176,27 @@ const World = {
 
   async checkPortals() {
     const p = S.player;
-    // Ngăn chặn việc nhảy map liên tục do va chạm nhiều frame
-    if (p.isTeleporting) return;
-
-    for (const portal of S.portals) {
+    const touching = S.portals.find((portal) => {
       const px = portal.x * CFG.TS + CFG.TS / 2;
       const py = portal.y * CFG.TS + CFG.TS / 2;
-      // Tính toán khoảng cách: Portal radius ~ 6, Player radius ~ 10. Chạm nhau ở 16.
-      // Khi 1/3 nhân vật (6.6px) vào vòng tròn -> khoảng cách là ~9.5
-      if (
-        dist(p.px, p.py, px, py) < 9.5 &&
-        portal.denMap &&
-        portal.denMap !== ""
-      ) {
-        p.isTeleporting = true;
-        Net.emitMapChange(portal.denMap, portal.toX, portal.toY);
-        
-        // Mở lại trạng thái sau 2 giây để tránh kẹt vĩnh viễn nếu mạng lỗi
-        setTimeout(() => { p.isTeleporting = false; }, 2000);
-        break;
-      }
+      return dist(p.px, p.py, px, py) < 18 && (portal.denMap || portal.toMap);
+    });
+    if (p.portalLocked) {
+      if (!touching) p.portalLocked = false;
+      return;
     }
+    if (p.isTeleporting || !touching) return;
+    p.isTeleporting = true;
+    p.portalLocked = true;
+    Net.emitMapChange(touching.denMap || touching.toMap, touching.toX, touching.toY);
+    setTimeout(() => { p.isTeleporting = false; }, 2000);
   },
 
   checkNpcInteract() {
     const p = S.player;
     for (const npc of S.npcs) {
       if (npc.used && npc.type === "chest") continue;
-      if (dist(p.px, p.py, npc.px, npc.py) < CFG.TS * 1.4) {
+      if (dist(p.px, p.py, npc.px, npc.py) < CFG.INTERACTION_RANGE) {
         if (npc.type === "shop") Shop.open(npc);
         else if (npc.type === "chest") Chest.open(npc);
         else DialogUI.open(npc);
