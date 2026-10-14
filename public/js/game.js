@@ -16,6 +16,7 @@ function update(dt) {
       S.animT = 0;
     }
     if (S.atkCd > 0) S.atkCd -= dt / 16;
+    if (S.combatGcd > 0) S.combatGcd -= dt / 16;
     SkillSystem.tickCooldowns(dt);
     for (let i = S.atkFx.length - 1; i >= 0; i--) {
       S.atkFx[i].life -= dt / 16;
@@ -38,7 +39,9 @@ function update(dt) {
         const mag = Math.hypot(dx, dy);
         const dirX = dx / mag;
         const dirY = dy / mag;
-        const speedBase = 1.5; // Giảm tốc độ di chuyển theo yêu cầu
+        const speedBuff = p.buffs?.buff_spd || p.buffs?.speed;
+        const speedActive = speedBuff && (!speedBuff.expiresAt || speedBuff.expiresAt > Date.now()) ? Number(speedBuff.value || 0) : 0;
+        const speedBase = 1.5 * (1 + Math.max(0, speedActive) / 100); // Buff tốc độ do server cấp
         const speedBonus = (p.stats?.agi || 0) * 0.005;
         const moveStep =
           ((speedBase + speedBonus) * (dt / 16)) /
@@ -128,17 +131,10 @@ function update(dt) {
       return f.life > 0; 
     });
 
-    // Host gửi dữ liệu đồng bộ quái vật định kỳ
-    if (Net._isOnline && S.isHost) {
-      S.monsterSyncTimer -= dt;
-      if (S.monsterSyncTimer <= 0) {
-        S.monsterSyncTimer = 300; // Gửi 3.3 lần/giây
-        Net.emitMonsterSync();
-      }
+    if (!Net._isOnline) {
+      p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
+      p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
     }
-
-    p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
-    p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
     UI.update();
   } catch (e) {
     console.error("Game loop error:", e);
@@ -157,9 +153,14 @@ function loop(ts) {
 // §16 · CHARACTER CREATE
 // ════════════════════════════════════════════════════════════
 function selectGender(g) {
-  S.creation.gender = g === "FEMALE" ? "FEMALE" : "MALE";
-  document.getElementById("btn-gender-male").classList.toggle("active", g === "MALE");
-  document.getElementById("btn-gender-female").classList.toggle("active", g === "FEMALE");
+  const gender = g === "FEMALE" ? "FEMALE" : "MALE";
+  S.creation.gender = gender;
+  const male = document.getElementById("btn-gender-male");
+  const female = document.getElementById("btn-gender-female");
+  male?.classList.toggle("active", gender === "MALE");
+  female?.classList.toggle("active", gender === "FEMALE");
+  male?.setAttribute("aria-pressed", String(gender === "MALE"));
+  female?.setAttribute("aria-pressed", String(gender === "FEMALE"));
 }
 
 window.selectGender = selectGender;
@@ -285,7 +286,7 @@ async function createCharacter() {
     crit: "0",
     speed: 1,
     gender: S.creation.gender,
-    img: S.creation.gender === "MALE" ? "./assets/char_male.png" : "./assets/char_female.png",
+    img: S.creation.gender === "MALE" ? "./assets/char_male_anim-source.png" : "./assets/char_female_anim-source.png",
     equip_slot: JSON.stringify(trangBi),
   };
   const saved = await Net.post("/api/player", playerData);
@@ -402,8 +403,9 @@ function bindGenderButtons() {
   const female = document.getElementById("btn-gender-female");
   male?.setAttribute("type", "button");
   female?.setAttribute("type", "button");
-  male?.addEventListener("click", () => selectGender("MALE"));
-  female?.addEventListener("click", () => selectGender("FEMALE"));
+  male?.addEventListener("click", (event) => { event.preventDefault(); selectGender("MALE"); });
+  female?.addEventListener("click", (event) => { event.preventDefault(); selectGender("FEMALE"); });
+  selectGender(S.creation.gender);
 }
 
 // ── Helper: Render dynamic root buttons từ API data ──

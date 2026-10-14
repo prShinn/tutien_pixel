@@ -22,6 +22,8 @@ const S = {
   inventory: [],
   autoFight: false,
   atkCd: 0,
+  combatGcd: 0,
+  combatPending: false,
   animT: 0,
   animF: 0,
   atkFx: [],

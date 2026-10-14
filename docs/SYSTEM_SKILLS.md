@@ -6,25 +6,26 @@
 
 | Loại | Mã | Mô tả |
 |------|----|-------|
-| Thường | `NORMAL` | Kỹ năng cơ bản, tất cả linh căn đều có thể học |
+| Thường | `COMMON` | 3 kỹ năng cơ bản, tất cả linh căn đều có thể học |
 | Linh Căn | `<LINH_CAN>` | Kỹ năng đặc thù theo linh căn (KIM, MOC, THUY...) |
 
 ### Gán Kỹ Năng Khi Tạo Nhân Vật
-- **2 kỹ năng cơ bản** (`type = NORMAL`): Random từ pool thường
-- **2 kỹ năng thuộc tính** (`type = <linhCan>`): Random từ pool linh căn tương ứng
+- **3 kỹ năng chung** (`linhCan = COMMON`): Thiền Cảnh hồi MP, Ngũ Hành Kích gây sát thương, Thanh Tâm thanh tẩy
+- **5 kỹ năng thuộc tính** (`linhCan = <LINH_CAN>`): 2 nhập môn, 2 bản sắc, 1 tuyệt kỹ; mỗi hệ có đòn đơn và đòn diện rộng
+- **1 tâm pháp bị động** cho mỗi linh căn; tổng catalog MVP là 57 skill
 
 ---
 
 ## Ngũ Hành Tương Sinh Tương Khắc
 
-### Tương Sinh (Buff nhau)
+### Tương Sinh (điều hòa)
 ```
 Kim → Thủy → Mộc → Hỏa → Thổ → Kim
 Quang → Lôi → Phong → Quang (vòng phụ)
 Ám (độc lập, tự tương sinh)
 ```
 
-### Tương Khắc (Giảm damage nhau)
+### Tương Khắc (lợi thế mềm)
 ```
 Kim khắc Mộc
 Mộc khắc Thổ
@@ -37,10 +38,11 @@ Quang khắc Ám
 Phong khắc Thổ
 ```
 
-### Hệ số tương sinh/khắc
-- Tương sinh: Kỹ năng gây thêm **+15% damage** khi dùng trên target bị debuff bởi hành mình sinh ra
-- Tương khắc offense: **+20% damage** khi dùng hành khắc kẻ địch
-- Tương khắc defense: **-25% damage nhận** khi bị đánh bởi hành mình khắc được
+### Hệ số tương sinh/khắc MVP
+- Cùng hành có cộng hưởng phòng vệ: damage trực tiếp **0.92**.
+- Tương sinh khởi điểm **0.98 / 1.02**.
+- Tương khắc khởi điểm **1.12 / 0.94**, sau đó điều chỉnh theo chênh lệch `linhCanStrength` với biên an toàn **0.82–1.18**.
+- Server xét quan hệ khắc trực tiếp trước, rồi mới xét tương sinh; build, cảnh giới và trang bị vẫn là nền sức mạnh chính.
 
 ---
 

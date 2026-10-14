@@ -9,6 +9,10 @@ Linh căn là bản sắc và hướng chơi, không phải lựa chọn khiến
 - Mỗi linh căn có 5 kỹ năng trong pool: 2 nhập môn, 2 bản sắc, 1 tuyệt kỹ; loadout MVP hiện kích hoạt 4 kỹ năng theo client cũ.
 - Bộ kỹ năng dùng cùng khung chi phí MP, hồi chiêu, tầm đánh và hệ số sát thương.
 - Kỹ năng khống chế hoặc duy trì được giảm sát thương trực tiếp để đổi lấy giá trị hiệu ứng.
+- Mỗi linh căn bắt buộc có ít nhất 1 đòn đơn và 1 đòn diện rộng có sát thương; không có hệ nào bị khóa khả năng train quái, đi bí cảnh hoặc solo.
+- Hồi HP không nằm trong skill chung. MVP chỉ để Mộc và Quang có hồi HP rõ ràng; các hệ công kích đổi giá trị sang damage, chí mạng, xuyên/giảm giáp hoặc khống chế.
+- Skill chung `Thiền Cảnh` hồi MP, không hồi HP, để mọi hệ có công cụ duy trì nhưng không xóa nhược điểm vai trò.
+- Đánh trúng linh căn bị bản thân khắc chế được cộng chí mạng động `2%` ở cùng lực; bonus tăng/giảm theo chênh lệch linh căn và tối đa `4%`.
 - Hiệu ứng mạnh có thời hạn, giới hạn mục tiêu và diminishing return ở server.
 - Linh căn không cộng lượng chỉ số thô quá lớn; chỉ số đến từ cảnh giới, trang bị và tu luyện.
 
@@ -33,6 +37,7 @@ Linh căn là bản sắc và hướng chơi, không phải lựa chọn khiến
 3. Mục tiêu MVP: mỗi linh căn nằm trong khoảng ±10–15% theo từng nhóm; không linh căn nào đứng đầu cả 4 nhóm.
 4. Kiểm thử 1v1, đánh quái 30 giây, hộ tống đồng đội và giao tranh 3v3.
 5. Nếu lệch, chỉnh MP, hồi chiêu hoặc thời lượng trước khi chỉnh sát thương.
+6. Không dùng bảng khắc cứng: hệ số khắc là điểm xuất phát, sau đó điều chỉnh theo sức mạnh linh căn của hai bên; mục tiêu là tạo lợi thế khoảng 5–15%, không khóa lối chơi.
 
 ## Lộ trình
 

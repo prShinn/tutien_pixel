@@ -33,6 +33,16 @@ const Inventory = {
   async use(idx) {
     const item = S.inventory[idx];
     if (!item) return;
+    if (authToken && (item.type || item.loai) === "EQUIPMENT") {
+      const result = await Net.post("/api/player/equipment/equip", { index: idx, itemId: item.id, slot: item.slot || "weapon" });
+      if (!result?.player) return UI.log(result?.error || "KhÃ´ng thá»ƒ trang bá»‹ váº­t pháº©m.", "system");
+      Object.assign(S.player, result.player);
+      try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+      UI.log(`${item.icon || "âš”ï¸"} ÄÃ£ trang bá»‹ ${item.name}`, "loot");
+      UI.buildInv();
+      UI.update();
+      return;
+    }
     if (authToken) {
       const result = await Net.post("/api/player/inventory/use", { index: idx, itemId: item.id });
       if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");

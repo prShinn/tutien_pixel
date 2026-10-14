@@ -38,6 +38,10 @@ const Monster = {
   },
 
   update(m, dt) {
+    if (Net._isOnline) {
+      Monster._networkUpdate(m, dt);
+      return;
+    }
     if (m.dead) {
       m.respawnT -= dt / 16;
       if (m.respawnT <= 0) Monster.respawn(m);
@@ -70,11 +74,13 @@ const Monster = {
     const speedMult = SkillSystem.getSpeedMult(m);
     const tmpl = m;
     const speed = (tmpl.speed || 1) * 0.5 * (dt / 16) * speedMult; // Giảm 1 nửa tốc độ
+    const aggroRange = Number(tmpl.aggroRange || CFG.MON_AGGRO);
+    const leashDistance = Number(tmpl.leashDistance || CFG.MON_LEASH);
     const dp = dist(m.px, m.py, p.px, p.py);
     const dh = dist(m.px, m.py, m.hx, m.hy);
 
     if (m.state === "idle" || m.state === "patrol") {
-      if (dp < CFG.MON_AGGRO * CFG.TS) m.state = "chase";
+      if (dp < aggroRange * CFG.TS) m.state = "chase";
       else {
         m.moveTimer -= dt / 16;
         if (m.moveTimer <= 0) {
@@ -88,7 +94,7 @@ const Monster = {
     }
 
     if (m.state === "chase") {
-      if (dh > CFG.MON_LEASH * CFG.TS) {
+      if (dh > leashDistance * CFG.TS) {
         m.state = "return";
         m.tpx = m.hx;
         m.tpy = m.hy;
@@ -104,7 +110,7 @@ const Monster = {
         m.tpx = m.hx;
         m.tpy = m.hy;
       }
-      if (dp < CFG.MON_AGGRO * CFG.TS * 0.6) m.state = "chase";
+      if (dp < aggroRange * CFG.TS * 0.6) m.state = "chase";
     }
 
     Monster._moveTowardsTarget(m, speed);

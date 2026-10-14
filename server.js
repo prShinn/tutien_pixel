@@ -96,6 +96,33 @@ function playerFor(userId) {
   return [...players.values()].find((item) => item.userId === userId);
 }
 
+const EQUIPMENT_SLOTS = ["weapon", "hat", "armor", "pants", "boots", "ring", "amulet", "belt", "gem"];
+
+function emptyEquipment() {
+  return Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));
+}
+
+function normalizeEquipment(value) {
+  const equipment = emptyEquipment();
+  if (!value || typeof value !== "object") return equipment;
+  for (const slot of EQUIPMENT_SLOTS) if (value[slot]) equipment[slot] = value[slot];
+  return equipment;
+}
+
+function readInventory(player) {
+  try {
+    const value = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : player.inventory;
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeInventory(player, inventory) {
+  player.inventory = inventory;
+  player.jsonIventory = JSON.stringify(inventory);
+}
+
 app.post("/api/player/cultivation/absorb", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
   const amount = Math.floor(Number(req.body?.amount) || 0);
@@ -248,6 +275,7 @@ app.post("/api/player", authMiddleware, (req, res) => {
     learnedSkills: [...skills.filter((skill) => skill.linhCan === "COMMON"), ...rootSkills.slice(0, 2), ...skills.filter((skill) => skill.linhCan === req.body.linhCan && skill.category === "PASSIVE")].map((skill) => skill.code),
     equippedSkills: initialSkills.map((skill) => skill.code),
     unspentStatPoints: 0,
+    equipment: normalizeEquipment(req.body.equipment),
     skills: req.body.skills || initialSkills,
   };
   player.combatPower = combatPower(player);
@@ -277,6 +305,7 @@ app.put("/api/player/:id", authMiddleware, (req, res) => {
   for (const key of ["name", "x", "y", "mapCode", "mapId", "equip_slot", "faction", "guildId", "gender", "img"]) {
     if (req.body?.[key] !== undefined) player[key] = req.body[key];
   }
+  if (req.body?.equipment !== undefined) player.equipment = normalizeEquipment(req.body.equipment);
   player.combatPower = combatPower(player);
   players.set(id, player);
   res.json(player);
@@ -309,6 +338,46 @@ app.put("/api/player/skills/equip", authMiddleware, (req, res) => {
   player.skills = codes.map((code) => skills.find((skill) => skill.code === code)).filter(Boolean);
   players.set(player.id, player);
   res.json({ equippedSkills: player.equippedSkills, skills: player.skills });
+});
+
+app.post("/api/player/equipment/equip", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  const inventory = readInventory(player);
+  const index = Number.isInteger(req.body?.index) ? req.body.index : inventory.findIndex((item) => item.id === req.body?.itemId);
+  const item = inventory[index];
+  if (!item || (item.type || item.loai) !== "EQUIPMENT") return res.status(400).json({ error: "Vật phẩm không thể trang bị" });
+  const slot = String(req.body?.slot || item.slot || "weapon");
+  if (!EQUIPMENT_SLOTS.includes(slot)) return res.status(400).json({ error: "Ô trang bị không hợp lệ" });
+  const equipment = normalizeEquipment(player.equipment);
+  const previous = equipment[slot];
+  equipment[slot] = { ...item, equipped: true };
+  inventory.splice(index, 1);
+  if (previous) inventory.push({ ...previous, equipped: false });
+  player.equipment = equipment;
+  writeInventory(player, inventory);
+  player.combatPower = combatPower(player);
+  players.set(player.id, player);
+  res.json({ player, result: { type: "equipment_equipped", slot, itemId: item.id } });
+});
+
+app.post("/api/player/equipment/unequip", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  const slot = String(req.body?.slot || "");
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  if (!EQUIPMENT_SLOTS.includes(slot)) return res.status(400).json({ error: "Ô trang bị không hợp lệ" });
+  const equipment = normalizeEquipment(player.equipment);
+  const item = equipment[slot];
+  if (!item) return res.status(404).json({ error: "Ô trang bị đang trống" });
+  const inventory = readInventory(player);
+  if (inventory.length >= 40) return res.status(400).json({ error: "Túi đồ đầy" });
+  equipment[slot] = null;
+  inventory.push({ ...item, equipped: false });
+  player.equipment = equipment;
+  writeInventory(player, inventory);
+  player.combatPower = combatPower(player);
+  players.set(player.id, player);
+  res.json({ player, result: { type: "equipment_unequipped", slot, itemId: item.id } });
 });
 
 app.use(express.static(path.join(__dirname, "public")));

@@ -179,17 +179,20 @@ const Render = {
 
   player(sx, sy, tint, actor = S.player) {
     const defaultImg = actor?.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male_anim-source.png";
-    const imgToDraw = actor?.gender === "MALE" ? "./assets/char_male_anim-source.png" : (actor?.img || defaultImg);
+    const imgToDraw = actor?.img || defaultImg;
     const moving = !!actor?.isMoving;
     const now = Date.now();
-    const activeAction = moving ? "walk" : (actor?.animUntil > now ? actor.animState : "idle");
+    const activeAction = actor?.animUntil > now
+      ? actor.animState
+      : (moving ? "walk" : "idle");
     const animation = { idle: { row: 0, speed: 210 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 210 };
     const frameIndex = Math.floor(now / animation.speed) % 4;
     const phase = now * (moving ? 0.0065 : 0.0012);
     const stride = Math.sin(phase);
-    const bob = activeAction === "idle" ? Math.sin(phase) * 0.3 : Math.abs(stride) * 0.7;
-    const sway = activeAction === "idle" ? Math.sin(phase * 0.5) * 0.018 : 0;
-    const attackPulse = actor === S.player ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
+    const idle = activeAction === "idle";
+    const bob = idle ? Math.sin(phase) * 0.08 : Math.abs(stride) * 0.7;
+    const sway = idle ? 0 : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
+    const attackPulse = actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
@@ -198,12 +201,12 @@ const Render = {
       ctx.globalAlpha = moving ? 0.16 : 0.1;
       ctx.fillStyle = tint;
       ctx.beginPath();
-      ctx.arc(sx, sy - 2 + bob, moving ? 10 : 8, 0, Math.PI * 2);
+      ctx.arc(sx, sy - 2 + bob, moving ? 8.5 : 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 8, moving ? 5.8 + Math.abs(stride) : 5, 1.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 7, moving ? 5 + Math.abs(stride) : 4.4, 1.5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       ctx.translate(sx, sy + bob);
@@ -211,8 +214,12 @@ const Render = {
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (moving ? Math.abs(stride) * 0.035 : 0), 1 - (moving ? Math.abs(stride) * 0.025 : 0));
       ctx.scale(actor?.direction === "left" ? -1 : 1, 1);
-      const spriteFrame = actor?.gender === "MALE" ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null;
-      const drawn = this.drawSprite(imgToDraw, 0, 0, CFG.ACTOR_W, CFG.ACTOR_H, spriteFrame);
+      const defaultCharacterSheet = (!actor?.img && actor?.gender !== "FEMALE")
+        || /char_(?:male|female)(?:_anim-source)?\.png$/i.test(actor?.img || "");
+      const spriteFrame = actor?.animation?.kind === "grid"
+        ? { col: frameIndex % Number(actor.animation.cols || 4), row: animation.row, cols: actor.animation.cols || 4, rows: actor.animation.rows || 4 }
+        : (defaultCharacterSheet ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null);
+      const drawn = this.drawSprite(imgToDraw, 0, 0, actor?.animation?.width || CFG.ACTOR_W, actor?.animation?.height || CFG.ACTOR_H, spriteFrame);
       ctx.restore();
       if (drawn) {
         return;
@@ -261,14 +268,24 @@ const Render = {
     const sx = m.px - cx, sy = m.py - cy;
     if (sx < -20 || sx > (cW/CFG.DS) + 20 || sy < -20 || sy > (cH/CFG.DS) + 20) return;
 
+    const now = Date.now();
+    const moving = ["chase", "return", "patrol"].includes(m.state);
+    const action = m.hitUntil > now ? "hit" : (m.state === "attack" ? "attack" : (moving ? "walk" : "idle"));
+    const animation = m.animation || { kind: "procedural", width: m.size || 18, height: m.size || 18 };
+    const spriteW = Number(animation.width || m.size || 18);
+    const spriteH = Number(animation.height || m.size || 18);
     let useSprite = false;
-    if (m.img) {
-      // Giảm size quái
-      useSprite = this.drawSprite(m.img, sx, sy, m.size || 16, m.size || 16);
+    if (m.img && animation.kind === "grid") {
+      const speed = { idle: 220, walk: 120, attack: 86, hit: 120 }[action] || 160;
+      const frame = Math.floor(now / speed) % Number(animation.cols || 4);
+      const row = { idle: 0, walk: 1, attack: 2, hit: 3 }[action] || 0;
+      useSprite = this.drawSprite(m.img, sx, sy, spriteW, spriteH, { col: frame, row, cols: animation.cols || 4, rows: animation.rows || 4 });
+    } else if (m.img) {
+      useSprite = this.drawAnimatedImage(m.img, sx, sy, spriteW, spriteH, action, m);
     }
     
     if (!useSprite) {
-      const x = sx - 5, y = sy - 5;
+      const x = sx - spriteW / 2, y = sy - spriteH / 2;
       const wave = Math.sin(S.animT * 0.005) * 1;
       
       // Bóng
@@ -284,23 +301,25 @@ const Render = {
       
       // Vẽ hình khối hơi tròn cho quái
       ctx.beginPath();
-      ctx.roundRect(x, y + wave, 10, 8, 2);
+      ctx.roundRect(x, y + wave, spriteW, spriteH * 0.72, 2);
       ctx.fill();
       
       // Mắt quái (Sáng lên)
       ctx.fillStyle = "#fff";
-      ctx.fillRect(x + 2, y + 2 + wave, 2, 2);
-      ctx.fillRect(x + 6, y + 2 + wave, 2, 2);
+      ctx.fillRect(x + spriteW * 0.2, y + spriteH * 0.2 + wave, 2, 2);
+      ctx.fillRect(x + spriteW * 0.65, y + spriteH * 0.2 + wave, 2, 2);
       ctx.fillStyle = "#f00";
-      ctx.fillRect(x + 2.5, y + 2.5 + wave, 1, 1);
-      ctx.fillRect(x + 6.5, y + 2.5 + wave, 1, 1);
+      ctx.fillRect(x + spriteW * 0.22, y + spriteH * 0.24 + wave, 1, 1);
+      ctx.fillRect(x + spriteW * 0.67, y + spriteH * 0.24 + wave, 1, 1);
     }
     
     if (m.hp < m.maxHp && m.hp > 0) {
       const maxHp = Math.max(1, m.maxHp || 100);
       const hp = Math.max(0, m.hp || 0);
-      ctx.fillStyle = "#111"; ctx.fillRect(sx - 10, sy - 14, 20, 3);
-      ctx.fillStyle = "#cc2222"; ctx.fillRect(sx - 10, sy - 14, (20 * hp) / maxHp, 3);
+      const barW = Math.max(20, spriteW + 4);
+      const barY = sy - spriteH / 2 - 6;
+      ctx.fillStyle = "#111"; ctx.fillRect(sx - barW / 2, barY, barW, 3);
+      ctx.fillStyle = "#cc2222"; ctx.fillRect(sx - barW / 2, barY, (barW * hp) / maxHp, 3);
     }
   },
 
@@ -399,6 +418,24 @@ const Render = {
       }
     }
     return true; // Đang tải
+  },
+
+  drawAnimatedImage(imgSource, x, y, w, h, action = "idle", actor = {}) {
+    const now = Date.now();
+    const moving = action === "walk";
+    const speed = { idle: 260, walk: 120, attack: 90, hit: 110 }[action] || 180;
+    const phase = now / speed;
+    const swing = Math.sin(phase * Math.PI * 2);
+    const bob = moving ? Math.abs(swing) * 0.7 : Math.sin(phase * 0.7) * 0.08;
+    const tilt = action === "attack" ? swing * 0.08 : (moving ? swing * 0.025 : 0);
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.rotate(tilt);
+    ctx.scale(1 + (action === "attack" ? 0.04 : 0), 1 - (action === "attack" ? 0.025 : 0));
+    ctx.scale(actor.direction === "left" ? -1 : 1, 1);
+    const drawn = this.drawSprite(imgSource, 0, 0, w, h);
+    ctx.restore();
+    return drawn;
   },
 
   // Thuật toán Flood Fill để xóa nền giả (checkerboard) của ảnh AI

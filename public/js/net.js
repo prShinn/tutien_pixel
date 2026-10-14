@@ -104,6 +104,7 @@ const Net = {
         mapId: p.mapId || S.mapCode || p.mapCode,
         jsonIventory: JSON.stringify(S.inventory || []),
         skills: JSON.stringify((p.skills || []).map(sk => mapFESkillToBE(sk))),
+        equipment: p.equipment || {},
         equip_slot: JSON.stringify(trangBi),
         faction: p.faction || "CHINH",
         guildId: p.guildId || null,
@@ -166,6 +167,7 @@ const Net = {
       });
 
       socket.on("disconnect", () => {
+        S.combatPending = false;
         Net.saveNow();
         Net._isOnline = false;
         Net._setBadge(false);
@@ -194,6 +196,7 @@ const Net = {
               tuViLinhCan: authoritative.tuViLinhCan, tangTuVi: authoritative.tangTuVi,
               stats: authoritative.stats, combatPower: authoritative.combatPower,
               learnedSkills: authoritative.learnedSkills, equippedSkills: authoritative.equippedSkills,
+              equipment: authoritative.equipment || S.player.equipment,
             });
             try { S.inventory = typeof authoritative.jsonIventory === "string" ? JSON.parse(authoritative.jsonIventory || "[]") : (authoritative.inventory || S.inventory); } catch { }
           }
@@ -337,17 +340,29 @@ const Net = {
         }
       });
 
-      socket.on("monster_update", (data) => {
-        const m = S.monsters.find((mon) => mon.id === data.id);
-        if (m) {
-          m.tpx = data.x * CFG.TS + CFG.TS / 2;
-          m.tpy = data.y * CFG.TS + CFG.TS / 2;
-          m.hp = data.hp;
+      socket.on("monster_update", ({ monsters }) => {
+        if (!Array.isArray(monsters)) return;
+        for (const data of monsters) {
+          const m = S.monsters.find((mon) => mon.id === data.id);
+          if (!m) continue;
+          m.tpx = Number(data.x) * CFG.TS + CFG.TS / 2;
+          m.tpy = Number(data.y) * CFG.TS + CFG.TS / 2;
+          m.hp = Number(data.hp ?? m.hp);
+          m.maxHp = Number(data.maxHp || m.maxHp);
           m.state = data.state || m.state;
-          m.targetId = data.targetId;
-          if (data.hp <= 0) m.dead = true;
-          else m.dead = false;
+          m.targetId = data.targetId || null;
+          m.statusEffects = Array.isArray(data.statusEffects) ? data.statusEffects : [];
+          m.dead = !!data.dead;
+          if (!m.dead) m.respawnT = m.spawnCD || 10;
         }
+      });
+
+      socket.on("player_combat_result", ({ targetId, damage, miss, hp, maxHp }) => {
+        if (targetId !== socket.id || !S.player) return;
+        S.player.hp = Number(hp ?? S.player.hp);
+        if (maxHp) S.player.maxHp = Number(maxHp);
+        Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ffaa44");
+        if (S.player.hp <= 0) S.player.hp = Math.floor(S.player.maxHp * 0.25);
       });
 
       socket.on("monster_death", ({ id }) => {
@@ -367,7 +382,8 @@ const Net = {
       });
 
       socket.on("combat_result", (payload) => {
-        const { attackerId, skillCode, skillName, mp, cooldownMs, loot } = payload;
+        S.combatPending = false;
+        const { attackerId, skillCode, skillName, mp, cooldownMs, gcdMs, loot } = payload;
         const hits = Array.isArray(payload.hits) && payload.hits.length
           ? payload.hits
           : [payload];
@@ -377,36 +393,71 @@ const Net = {
           m.hp = hit.hp;
           m.maxHp = hit.maxHp || m.maxHp;
           m.dead = !!hit.dead;
-          Render.floatDmg(m.px, m.py, -30, "-" + hit.damage, "#ffaa44");
+          m.hitUntil = Date.now() + 180;
+          Render.floatDmg(m.px, m.py, -30, (hit.critical ? "CRIT! " : "") + "-" + hit.damage, hit.critical ? "#fff06a" : "#ffaa44");
           S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
         }
         if (skillCode && skillName) {
           const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
-          if (actor) Render.floatSkill(actor.px, actor.py, skillName);
+          if (actor) {
+            actor.animState = "cast";
+            actor.animUntil = Date.now() + 520;
+            Render.floatSkill(actor.px, actor.py, skillName);
+          }
         }
         if (attackerId === socket.id && S.player) {
           if (typeof mp === "number") S.player.mp = mp;
-          S.atkCd = Math.max(S.atkCd, Math.floor((cooldownMs || 700) / 16));
+          S.combatGcd = Math.floor((gcdMs || 350) / 16);
+          if (!skillCode) S.atkCd = Math.floor((cooldownMs || 1000) / 16);
           if (skillCode) {
-            const skill = S.player.skills?.find(item => item.id === skillCode);
+            const skill = S.player.skills?.find(item => item.id === skillCode || item.code === skillCode);
             if (skill) skill.cdLeft = Math.floor((cooldownMs || 700) / 16);
+          }
+          if (Array.isArray(loot?.items)) {
+            for (const item of loot.items) {
+              const existing = S.inventory.find((entry) => entry.id === item.id);
+              if (existing) existing.count = Math.min(99, Number(existing.count || 0) + Number(item.count || 1));
+              else if (S.inventory.length < CFG.INV_MAX) S.inventory.push({ ...item });
+              UI.log(`Nhặt được ${item.icon || "✦"} ${item.name} x${item.count || 1}`, "loot");
+            }
+            UI.buildInv();
           }
           if (loot?.xu) {
             S.player.xu = Number(S.player.xu || 0) + loot.xu;
             UI.log(`Nhặt được ${loot.xu} xu`, "loot");
           }
+          const relation = hits[0]?.affinityRelation;
+          if (relation === "khac") UI.log("Ngũ hành tương khắc: lợi thế theo cường độ linh căn", "combat");
+          if (relation === "bi_khac") UI.log("Linh căn bị khắc: sát thương giảm theo chênh lệch sức mạnh", "combat");
         }
       });
 
-      socket.on("skill_result", ({ skillCode, skillName, hp, mp, heal, buffs, cooldownMs }) => {
+      socket.on("skill_result", ({ skillCode, skillName, hp, maxHp, mp, maxMp, heal, mpRestore, buffs, cooldownMs, gcdMs }) => {
+        S.combatPending = false;
+        S.combatGcd = Math.floor((gcdMs || 350) / 16);
         if (!S.player) return;
+        S.player.animState = "cast";
+        S.player.animUntil = Date.now() + 520;
         S.player.hp = hp;
+        if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
+        if (typeof maxMp === "number") S.player.maxMp = maxMp;
         S.player.buffs = buffs || {};
-        const skill = S.player.skills?.find(item => item.id === skillCode);
+        const skill = S.player.skills?.find(item => item.id === skillCode || item.code === skillCode);
         if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
         if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName);
         if (heal) UI.log(`${skill?.icon || "✦"} Hồi ${heal} HP`, "level");
+        if (mpRestore) UI.log(`${skill?.icon || "✦"} Hồi ${mpRestore} MP`, "level");
+        UI.update();
+      });
+
+      socket.on("player_state_update", ({ hp, maxHp, mp, maxMp, buffs }) => {
+        if (!S.player) return;
+        if (typeof hp === "number") S.player.hp = hp;
+        if (typeof maxHp === "number") S.player.maxHp = maxHp;
+        if (typeof mp === "number") S.player.mp = mp;
+        if (typeof maxMp === "number") S.player.maxMp = maxMp;
+        if (buffs) S.player.buffs = buffs;
         UI.update();
       });
 
@@ -416,17 +467,12 @@ const Net = {
           if (m && !m.dead) {
             Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
             S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
-            // Trừ máu đồng bộ từ người chơi khác
-            m.hp -= damage;
-            if (m.hp <= 0) {
-              m.dead = true;
-              m.respawnT = m.spawnCD || 10;
-            }
           }
         }
       });
 
-      socket.on("action_error", ({ error }) => {
+      socket.on("action_error", ({ action, error }) => {
+        if (action === "combat" || action === "skill") S.combatPending = false;
         if (error) UI.log(`⚠ ${error}`, "system");
       });
 
@@ -456,17 +502,7 @@ const Net = {
   },
 
   emitMonsterSync() {
-    if (socket?.connected && S.isHost) {
-      const monsters = S.monsters.map(m => ({
-        id: m.id,
-        x: m.px / CFG.TS,
-        y: m.py / CFG.TS,
-        hp: m.hp,
-        state: m.state,
-        dead: m.dead
-      }));
-      socket.emit("monster_sync", { mapId: S.mapCode, monsters });
-    }
+    // Deprecated: vị trí, HP và AI monster do server authoritative quản lý.
   },
 
   _updateHost() {

@@ -1,0 +1,12 @@
+{
+  "sourcePath": "D:\\Setup\\mine\\tutien_pixel\\public\\assets\\monsters\\hoang_soi_sheet.png",
+  "assetPath": "/assets/generated/hoang_soi_auto.png",
+  "animation": {
+    "kind": "grid",
+    "cols": 4,
+    "rows": 4,
+    "width": 20,
+    "height": 20
+  },
+  "generatedAt": "2026-10-14T04:02:43.440Z"
+}

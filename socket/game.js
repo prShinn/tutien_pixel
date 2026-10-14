@@ -26,15 +26,91 @@ const { URL } = require("url");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../middleware/auth");
 const AUTH_BACKEND = process.env.AUTH_BACKEND || "http://localhost:8090";
-const { skills, monsterDefs } = require("../data/mock-data");
-const { deriveStats, affinityMultiplier, mitigateDamage } = require("../data/balance");
+const { skills, monsterDefs, items, lootTables } = require("../data/mock-data");
+const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage } = require("../data/balance");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
 const sessions = new Map();
 const roomMonsters = new Map();
-const MONSTER_ROOM_CAP = 6;
+const roomRuntime = new Map();
+const MONSTER_ROOM_CAP = 9;
 const MONSTER_MIN_ON_JOIN = 3;
+const MONSTER_AGGRO_RANGE = 6;
+const MONSTER_LEASH_RANGE = 9;
+const MONSTER_CHASE_DURATION_MS = 7000;
+const MONSTER_ATTACK_RANGE = 1.3;
+const MONSTER_MOVE_SPEED = 0.2;
+const BASIC_ATTACK_RANGE = 2.5;
+const COMBAT_GCD_MS = 350;
+
+function findSkill(skillRef) {
+  if (skillRef === undefined || skillRef === null || skillRef === "") return null;
+  const ref = String(skillRef);
+  return skills.find((item) => String(item.code) === ref || String(item.id) === ref) || null;
+}
+
+function playerHasSkill(player, skill) {
+  if (!skill) return false;
+  const learned = Array.isArray(player.learnedSkills) ? player.learnedSkills : [];
+  const equipped = Array.isArray(player.skills) ? player.skills : [];
+  const refs = [...learned, ...equipped.flatMap((item) => [item.code, item.id])]
+    .filter((value) => value !== undefined && value !== null)
+    .map(String);
+  return refs.includes(String(skill.code)) || refs.includes(String(skill.id));
+}
+
+function isOffensiveSkill(skill) {
+  if (!skill) return false;
+  return Number(skill.satThuong || 0) > 0 && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
+}
+
+function activePlayerBuff(player, keys, now = Date.now()) {
+  const list = Array.isArray(keys) ? keys : [keys];
+  for (const key of list) {
+    const buff = player?.buffs?.[key];
+    if (!buff) continue;
+    if (!buff.expiresAt || Number(buff.expiresAt) > now) return buff;
+  }
+  return null;
+}
+
+function playerBuffValue(player, keys, now = Date.now()) {
+  return Number(activePlayerBuff(player, keys, now)?.value || 0);
+}
+
+function skillCooldownMs(player, skill, now = Date.now()) {
+  const base = Math.max(1, Number(skill?.hoiChieu || 1)) * 1000;
+  const castSpeed = Math.min(60, Math.max(0, playerBuffValue(player, "buff_cast", now)));
+  return Math.max(250, Math.round(base * (1 - castSpeed / 100)));
+}
+
+function applyPlayerBuff(player, skill, now) {
+  if (!skill?.effect) return;
+  const duration = Math.max(1000, Number(skill.thoiGianBuff || 4) * 1000);
+  player.buffs = {
+    ...(player.buffs || {}),
+    [skill.effect]: { value: Number(skill.effectVal || 0), duration, expiresAt: now + duration },
+  };
+}
+
+function refreshPlayerVitals(player, now = Date.now()) {
+  const baseHp = Number(player.baseMaxHp || player.maxHp || 100);
+  const baseMp = Number(player.baseMaxMp || player.maxMp || 50);
+  player.baseMaxHp = baseHp;
+  player.baseMaxMp = baseMp;
+  const vitalRate = Math.max(0, playerBuffValue(player, "buff_vitals", now));
+  const nextMaxHp = Math.floor(baseHp * (1 + vitalRate / 100));
+  const nextMaxMp = Math.floor(baseMp * (1 + vitalRate / 100));
+  const oldMaxHp = Number(player.maxHp || baseHp);
+  const oldMaxMp = Number(player.maxMp || baseMp);
+  player.maxHp = nextMaxHp;
+  player.maxMp = nextMaxMp;
+  if (nextMaxHp > oldMaxHp) player.hp = Number(player.hp || 0) + nextMaxHp - oldMaxHp;
+  if (nextMaxMp > oldMaxMp) player.mp = Number(player.mp || 0) + nextMaxMp - oldMaxMp;
+  player.hp = Math.min(nextMaxHp, Number(player.hp || 0));
+  player.mp = Math.min(nextMaxMp, Number(player.mp || 0));
+}
 
 function canSpawnAt(world, x, y) {
   const tiles = world?.jsonMap || world?.tiles;
@@ -43,40 +119,85 @@ function canSpawnAt(world, x, y) {
     && ![1, 2, 3, 5, 6].includes(Number(tile));
 }
 
-function createRoomMonster(roomId, world, serial) {
-  const template = monsterDefs[serial % monsterDefs.length];
-  let x = Math.floor(Number(world?.w || 40) / 2), y = Math.floor(Number(world?.h || 30) / 2);
+function randomPackPosition(world, centerX, centerY, radius) {
+  let x = Math.round(centerX), y = Math.round(centerY);
   for (let i = 0; i < 30; i += 1) {
-    const candidateX = 1 + Math.floor(Math.random() * Math.max(1, Number(world?.w || 40) - 2));
-    const candidateY = 1 + Math.floor(Math.random() * Math.max(1, Number(world?.h || 30) - 2));
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.sqrt(Math.random()) * Math.max(0, Number(radius || 0));
+    const candidateX = Math.round(Number(centerX) + Math.cos(angle) * distance);
+    const candidateY = Math.round(Number(centerY) + Math.sin(angle) * distance);
     if (canSpawnAt(world, candidateX, candidateY)) { x = candidateX; y = candidateY; break; }
   }
+  return { x, y };
+}
+
+function createRoomMonster(roomId, world, serial, pack = null) {
+  const template = pack
+    ? monsterDefs.find((item) => item.id === pack.templateId || item.code === pack.templateId) || monsterDefs[serial % monsterDefs.length]
+    : monsterDefs[serial % monsterDefs.length];
+  const centerX = Number(pack?.centerX ?? template.spawnX ?? Number(world?.w || 40) / 2);
+  const centerY = Number(pack?.centerY ?? template.spawnY ?? Number(world?.h || 30) / 2);
+  const position = randomPackPosition(world, centerX, centerY, pack?.radius ?? 0);
+  const packId = pack?.packId || template.packId || `PACK_${template.code || template.id || serial}`;
   const maxHp = Number(template.maxHp || template.hp || 1);
   return {
     ...template,
     id: `mon_${roomId}_${Date.now().toString(36)}_${serial}`,
-    x, y, spawnX: x, spawnY: y,
+    x: position.x,
+    y: position.y,
+    spawnX: position.x,
+    spawnY: position.y,
+    packId,
+    packCenterX: centerX,
+    packCenterY: centerY,
+    packRadius: Number(pack?.radius ?? 0),
+    aggroRange: Number(pack?.aggroRange ?? MONSTER_AGGRO_RANGE),
+    leashDistance: Number(pack?.leashDistance ?? MONSTER_LEASH_RANGE),
+    chaseDurationMs: Number(pack?.chaseDurationMs ?? MONSTER_CHASE_DURATION_MS),
+    chaseTargetId: null,
+    chaseStartedAt: 0,
+    reaggroAt: 0,
     hp: maxHp, maxHp, dead: false,
   };
 }
 
+function createPackMonsters(roomId, world) {
+  const packs = Array.isArray(world?.monsterSpawns) ? world.monsterSpawns : [];
+  return packs.flatMap((pack, packIndex) => Array.from({ length: Math.max(0, Number(pack.count || 0)) }, (_, index) => (
+    createRoomMonster(roomId, world, packIndex * 100 + index, pack)
+  )));
+}
+
 function ensureRoomMonsters(roomId, world) {
   if (!roomMonsters.has(roomId)) {
-    roomMonsters.set(roomId, JSON.parse(JSON.stringify(world?.monsters || [])));
+    const seeded = Array.isArray(world?.monsterSpawns) && world.monsterSpawns.length
+      ? createPackMonsters(roomId, world)
+      : JSON.parse(JSON.stringify(world?.monsters || []));
+    roomMonsters.set(roomId, seeded);
   }
   const monsters = roomMonsters.get(roomId);
+  if (!roomRuntime.has(roomId)) roomRuntime.set(roomId, { lastSpawnAt: Date.now(), lastBroadcastAt: 0 });
   monsters.forEach((monster, index) => {
     monster.id = monster.id || `mon_${roomId}_seed_${index}`;
     monster.x = Number(monster.x ?? monster.spawnX ?? Math.floor(Number(world?.w || 40) / 2));
     monster.y = Number(monster.y ?? monster.spawnY ?? Math.floor(Number(world?.h || 30) / 2));
     monster.spawnX = Number(monster.spawnX ?? monster.x);
     monster.spawnY = Number(monster.spawnY ?? monster.y);
+    monster.packId = monster.packId || `PACK_${monster.id}`;
+    monster.packCenterX = Number(monster.packCenterX ?? monster.spawnX);
+    monster.packCenterY = Number(monster.packCenterY ?? monster.spawnY);
+    monster.aggroRange = Number(monster.aggroRange ?? MONSTER_AGGRO_RANGE);
+    monster.leashDistance = Number(monster.leashDistance ?? MONSTER_LEASH_RANGE);
+    monster.chaseDurationMs = Number(monster.chaseDurationMs ?? MONSTER_CHASE_DURATION_MS);
+    monster.chaseTargetId = monster.chaseTargetId || null;
+    monster.chaseStartedAt = Number(monster.chaseStartedAt || 0);
+    monster.reaggroAt = Number(monster.reaggroAt || 0);
     monster.maxHp = Number(monster.maxHp || monster.hp || 1);
     monster.hp = Number(monster.hp ?? monster.maxHp);
     monster.dead = !!monster.dead;
   });
   let serial = monsters.length;
-  while (monsters.length < MONSTER_MIN_ON_JOIN && serial < MONSTER_ROOM_CAP + 2) {
+  while (!world?.monsterSpawns?.length && monsters.length < MONSTER_MIN_ON_JOIN && serial < MONSTER_ROOM_CAP + 2) {
     monsters.push(createRoomMonster(roomId, world, serial++));
   }
   return monsters;
@@ -88,59 +209,142 @@ function monsterDistanceTiles(session, monster) {
   return Math.hypot(mx - Number(session.x || 0), my - Number(session.y || 0));
 }
 
+function readInventory(player) {
+  try {
+    const value = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : player.inventory;
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeInventory(player, inventory) {
+  player.inventory = inventory;
+  player.jsonIventory = JSON.stringify(inventory);
+}
+
+function rollMonsterLoot(monster) {
+  const table = lootTables[monster.lootTableId] || [];
+  const itemsDropped = [];
+  for (const entry of table) {
+    if (Math.random() > Number(entry.chance || 0)) continue;
+    const item = items.find((candidate) => candidate.id === entry.itemId);
+    if (!item) continue;
+    const count = Math.max(1, Math.floor(Number(entry.min || 1) + Math.random() * (Number(entry.max || entry.min || 1) - Number(entry.min || 1) + 1)));
+    itemsDropped.push({ ...item, count });
+  }
+  const level = Math.max(1, Number(monster.level || 1));
+  return { xu: level * 5 + Math.floor(Math.random() * (level * 5 + 1)), items: itemsDropped };
+}
+
+function addLootToPlayer(player, loot) {
+  if (!loot) return;
+  player.xu = Number(player.xu || 0) + Number(loot.xu || 0);
+  const inventory = readInventory(player);
+  for (const drop of loot.items || []) {
+    const existing = inventory.find((item) => item.id === drop.id);
+    if (existing) existing.count = Math.min(99, Number(existing.count || 0) + Number(drop.count || 1));
+    else if (inventory.length < 40) inventory.push({ ...drop });
+  }
+  writeInventory(player, inventory);
+}
+
+function applySkillEffect(monster, skill, now) {
+  if (!skill?.effect || skill.effect === "heal" || String(skill.effect).startsWith("buff_")) return;
+  const effect = skill.effect;
+  const duration = Math.max(1000, Number(skill.thoiGianBuff || 4) * 1000);
+  const statuses = Array.isArray(monster.statusEffects) ? monster.statusEffects.filter((entry) => entry.type !== effect) : [];
+  statuses.push({ type: effect, value: Number(skill.effectVal || 0), expiresAt: now + duration, nextTickAt: now + 1000 });
+  monster.statusEffects = statuses;
+}
+
+function activeStatus(monster, type, now = Date.now()) {
+  return (monster.statusEffects || []).find((entry) => entry.type === type && Number(entry.expiresAt) > now);
+}
+
 function resolveMonsterAttack(player, monster, skillCode, session) {
-  const skill = skillCode ? skills.find((item) => item.code === skillCode) : null;
+  const skill = findSkill(skillCode);
   if (skillCode && (!skill || skill.category === "PASSIVE")) return { error: "Skill không hợp lệ" };
-  if (skillCode && !((player.learnedSkills || []).includes(skillCode) || (player.skills || []).some((item) => item.code === skillCode || item.id === skillCode))) return { error: "Skill chưa học" };
+  if (skillCode && !playerHasSkill(player, skill)) return { error: "Skill chưa học" };
+  if (skillCode && !isOffensiveSkill(skill)) return { error: "Skill hỗ trợ không phải kỹ năng gây sát thương" };
   const now = Date.now();
-  const cooldownMs = (skill?.hoiChieu || 1) * 1000;
-  if (now - Number(session.lastAttackAt || 0) < cooldownMs) return { error: "Đang hồi chiêu" };
+  const cooldownMs = skillCooldownMs(player, skill);
+  const skillKey = skill?.code || "__basic_attack";
+  const bypassCooldown = session.bypassCooldown === true;
+  const skillCooldowns = session.skillCooldowns || (session.skillCooldowns = {});
+  if (!bypassCooldown && Number(session.combatGcdUntil || 0) > now) return { error: "Đang thao tác" };
+  if (!bypassCooldown && Number(skillCooldowns[skillKey] || 0) > now) return { error: skill ? "Kỹ năng đang hồi chiêu" : "Đánh thường đang hồi chiêu" };
   const cost = Number(skill?.mpTieuHao || 0);
   if (Number(player.mp || 0) < cost) return { error: "Không đủ linh lực" };
   const derived = deriveStats(player.stats, player.equipment);
   const magic = skill?.type === "MAGIC";
   const attack = magic ? derived.mAtk : derived.pAtk;
-  const scale = Number(skill?.satThuong || 1);
-  const stat = Number(player.stats?.[magic ? "ene" : "str"] || 0);
-  const affinity = affinityMultiplier(player.linhCan, monster.linhCan || monster.element || monster.nguHanh?.[0]);
-  const defense = magic ? Number(monster.mDef ?? monster.def ?? 0) : Number(monster.pDef ?? monster.def ?? 0);
-  const damage = Math.max(1, Math.floor(mitigateDamage((attack * scale + stat * 1.5) * affinity, defense)));
+  // Đánh thường là sustained damage; skill mới dùng hệ số burst trong data.
+  const scale = skill
+    ? Number(skill.satThuong || 1) * BALANCE.damage.skillMultiplier
+    : BALANCE.damage.basicMultiplier;
+  const primaryStat = Number(player.stats?.[magic ? "ene" : "str"] || 0);
+  const statScale = skill ? BALANCE.damage.skillStatScale : BALANCE.damage.basicStatScale;
+  const defenderElement = monster.linhCan || monster.element || monster.nguHanh?.[0];
+  const affinityProfileResult = affinityProfile(player.linhCan, defenderElement, elementalStrength(player), elementalStrength(monster));
+  const affinity = affinityProfileResult.multiplier;
+  const defenseBase = magic ? Number(monster.mDef ?? monster.def ?? 0) : Number(monster.pDef ?? monster.def ?? 0);
+  const defense = activeStatus(monster, "armor_break") ? defenseBase * 0.75 : defenseBase;
+  const handDamage = skill ? 1 : 1 + Math.max(0, playerBuffValue(player, "buff_atk")) / 100;
+  const counterCritBonus = affinityCritBonus(affinityProfileResult);
+  const critChance = Math.min(0.75, Number(derived.crit || 0) + Math.max(0, playerBuffValue(player, "buff_crit")) / 100 + counterCritBonus);
+  const critical = Math.random() < critChance;
+  const critMultiplier = critical ? BALANCE.damage.critMultiplier : 1;
+  const areaMultiplier = session.areaSecondary ? BALANCE.damage.areaSecondaryMultiplier : 1;
+  const damage = Math.max(1, Math.floor(mitigateDamage((attack * scale + primaryStat * statScale) * affinity * handDamage * critMultiplier * areaMultiplier, defense)));
   player.mp = Math.max(0, Number(player.mp || 0) - cost);
-  session.lastAttackAt = now;
+  if (!bypassCooldown) {
+    session.combatGcdUntil = now + COMBAT_GCD_MS;
+    skillCooldowns[skillKey] = now + cooldownMs;
+  }
   monster.hp = Math.max(0, Number(monster.hp || monster.maxHp || 1) - damage);
+  applySkillEffect(monster, skill, now);
   monster.dead = monster.hp <= 0;
   let loot = null;
   if (monster.dead) {
-    const xu = Math.max(1, Math.floor(Number(monster.level || 1) * 5));
-    player.xu = Number(player.xu || 0) + xu;
-    player.jsonIventory = JSON.stringify(player.inventory || []);
     monster.respawnAt = now + 10000;
-    loot = { xu };
+    loot = rollMonsterLoot(monster);
   }
-  return { damage, hp: monster.hp, maxHp: monster.maxHp, dead: monster.dead, skillCode: skillCode || null, mp: player.mp, cooldownMs, loot };
+  return { damage, critical, hp: monster.hp, maxHp: monster.maxHp, dead: monster.dead, skillCode: skill?.code || null, mp: player.mp, cooldownMs, gcdMs: COMBAT_GCD_MS, loot, statusEffects: monster.statusEffects || [], affinityRelation: affinityProfileResult.relation, affinityMultiplier: affinity, affinityStrengthGap: affinityProfileResult.strengthGap, affinityCritBonus: counterCritBonus };
 }
 
 function resolveSelfSkill(player, skillCode, session) {
-  const skill = skills.find((item) => item.code === skillCode);
+  const skill = findSkill(skillCode);
   if (!skill || skill.category === "PASSIVE") return { error: "Skill không hợp lệ" };
-  if (!((player.learnedSkills || []).includes(skillCode) || (player.skills || []).some((item) => item.code === skillCode || item.id === skillCode))) return { error: "Skill chưa học" };
+  if (!playerHasSkill(player, skill)) return { error: "Skill chưa học" };
+  if (isOffensiveSkill(skill)) return { error: "Skill tấn công cần chỉ định mục tiêu" };
   const now = Date.now();
-  const cooldownMs = (skill.hoiChieu || 1) * 1000;
-  if (now - Number(session.lastSkillAt || 0) < cooldownMs) return { error: "Đang hồi chiêu" };
+  const cooldownMs = skillCooldownMs(player, skill);
+  const skillCooldowns = session.skillCooldowns || (session.skillCooldowns = {});
+  if (Number(session.combatGcdUntil || 0) > now) return { error: "Đang thao tác" };
+  if (Number(skillCooldowns[skill.code] || 0) > now) return { error: "Kỹ năng đang hồi chiêu" };
   const cost = Number(skill.mpTieuHao || 0);
   if (Number(player.mp || 0) < cost) return { error: "Không đủ linh lực" };
   const derived = deriveStats(player.stats, player.equipment);
   player.mp = Math.max(0, Number(player.mp || 0) - cost);
   let heal = 0;
+  let mpRestore = 0;
   if (skill.effect === "heal") {
     heal = Math.floor(derived.mAtk * 0.5 + Number(player.tuViLinhCan || 0) * 0.3 + Number(skill.effectVal || 0));
     player.hp = Math.min(Number(player.maxHp || 100), Number(player.hp || 0) + heal);
   }
-  if (skill.effect?.startsWith("buff_")) {
-    player.buffs = { ...(player.buffs || {}), [skill.effect]: { value: skill.effectVal || 0, duration: (skill.thoiGianBuff || 4) * 1000 } };
+  if (skill.effect === "restore_mp") {
+    mpRestore = Math.max(0, Number(skill.effectVal || 0));
+    player.mp = Math.min(Number(player.maxMp || derived.maxMp || 50), player.mp + mpRestore);
   }
-  session.lastSkillAt = now;
-  return { skillCode, skillName: skill.name, hp: player.hp, mp: player.mp, heal, buffs: player.buffs || {}, cooldownMs };
+  if (skill.effect?.startsWith("buff_") || ["shield", "speed"].includes(String(skill.effect || ""))) {
+    applyPlayerBuff(player, skill, now);
+    refreshPlayerVitals(player, now);
+  }
+  if (skill.effect === "cleanse") player.debuffs = {};
+  session.combatGcdUntil = now + COMBAT_GCD_MS;
+  skillCooldowns[skill.code] = now + cooldownMs;
+  return { skillCode: skill.code, skillName: skill.name, hp: player.hp, maxHp: player.maxHp, mp: player.mp, maxMp: player.maxMp, heal, mpRestore, buffs: player.buffs || {}, cooldownMs, gcdMs: COMBAT_GCD_MS };
 }
 
 async function requestJson(urlString, headers = {}) {
@@ -216,6 +420,175 @@ function setupSocket(io, players = new Map()) {
   });
 
   const mapCache = new Map();
+  const playerRegenRuntime = new Map();
+
+  function publicMonsterState(monster, now) {
+    return {
+      id: monster.id,
+      x: Number(monster.x || 0),
+      y: Number(monster.y || 0),
+      hp: Number(monster.hp || 0),
+      maxHp: Number(monster.maxHp || monster.hp || 1),
+      state: monster.state || "idle",
+      targetId: monster.targetId || null,
+      speed: Number(monster.speed || MONSTER_MOVE_SPEED),
+      packId: monster.packId || null,
+      dead: !!monster.dead,
+      statusEffects: (monster.statusEffects || [])
+        .filter((effect) => Number(effect.expiresAt || 0) > now)
+        .map((effect) => ({ type: effect.type, value: effect.value || 0, remainingMs: Math.max(0, effect.expiresAt - now) })),
+    };
+  }
+
+  function damagePlayerFromMonster(roomId, monster, targetSession, now) {
+    if (monster.nextAttackAt && monster.nextAttackAt > now) return;
+    const player = [...players.values()].find((item) => item.userId === targetSession.userId);
+    if (!player) return;
+    refreshPlayerVitals(player, now);
+    const derived = deriveStats(player.stats, player.equipment);
+    monster.nextAttackAt = now + 1200;
+    if (Math.random() < Number(derived.evasion || 0)) {
+      io.to(`map:${roomId}`).emit("player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage: 0, miss: true, hp: player.hp, maxHp: player.maxHp });
+      return;
+    }
+    const defenseBuff = playerBuffValue(player, ["buff_def", "shield"]);
+    const effectiveDefense = Number(derived.pDef || 0) * (1 + Math.max(0, defenseBuff) / 100);
+    const damage = Math.max(1, Math.floor(Number(monster.atk || 1) - effectiveDefense + Math.random() * 3));
+    player.hp = Math.max(0, Number(player.hp || player.maxHp || 100) - damage);
+    if (player.hp <= 0) player.hp = Math.floor(Number(player.maxHp || 100) * 0.25);
+    players.set(player.id, player);
+    io.to(`map:${roomId}`).emit("player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage, miss: false, hp: player.hp, maxHp: player.maxHp });
+  }
+
+  function updatePlayerRegeneration(now) {
+    const seen = new Set();
+    for (const session of sessions.values()) {
+      const player = [...players.values()].find((item) => item.userId === session.userId);
+      if (!player || seen.has(player.id)) continue;
+      seen.add(player.id);
+      let buffChanged = false;
+      for (const [key, buff] of Object.entries(player.buffs || {})) {
+        if (buff?.expiresAt && Number(buff.expiresAt) <= now) {
+          delete player.buffs[key];
+          buffChanged = true;
+        }
+      }
+      const oldMaxHp = Number(player.maxHp || 0), oldMaxMp = Number(player.maxMp || 0);
+      refreshPlayerVitals(player, now);
+      if (player.maxHp !== oldMaxHp || player.maxMp !== oldMaxMp) buffChanged = true;
+      const hpRate = Math.max(0, playerBuffValue(player, "buff_hp_regen", now));
+      const mpRate = Math.max(0, playerBuffValue(player, "buff_mp_regen", now));
+      if (!hpRate && !mpRate) {
+        playerRegenRuntime.delete(player.id);
+        if (buffChanged) players.set(player.id, player);
+        continue;
+      }
+      const runtime = playerRegenRuntime.get(player.id) || { at: now, hp: 0, mp: 0 };
+      const elapsed = Math.max(0, Math.min(1000, now - runtime.at));
+      runtime.at = now;
+      runtime.hp += hpRate * elapsed / 1000;
+      runtime.mp += mpRate * elapsed / 1000;
+      const hpGain = Math.floor(runtime.hp);
+      const mpGain = Math.floor(runtime.mp);
+      runtime.hp -= hpGain;
+      runtime.mp -= mpGain;
+      const oldHp = Number(player.hp || 0), oldMp = Number(player.mp || 0);
+      player.hp = Math.min(Number(player.maxHp || 100), oldHp + hpGain);
+      player.mp = Math.min(Number(player.maxMp || 50), oldMp + mpGain);
+      playerRegenRuntime.set(player.id, runtime);
+      const changed = buffChanged || player.hp !== oldHp || player.mp !== oldMp;
+      if (!changed) continue;
+      players.set(player.id, player);
+      for (const target of sessions.values()) {
+        if (target.userId === session.userId) io.to(target.id).emit("player_state_update", { hp: player.hp, maxHp: player.maxHp, mp: player.mp, maxMp: player.maxMp, buffs: player.buffs || {} });
+      }
+    }
+  }
+
+  function updateRoomMonsters(roomId, world, monsters, now) {
+    const roomPlayers = [...sessions.values()].filter((session) => session.mapId === roomId);
+    if (!roomPlayers.length) return;
+    let changed = false;
+    for (const monster of monsters) {
+      if (monster.dead) continue;
+      const effects = (monster.statusEffects || []).filter((effect) => Number(effect.expiresAt || 0) > now);
+      if (effects.length !== (monster.statusEffects || []).length) { monster.statusEffects = effects; changed = true; }
+      for (const effect of effects) {
+        if (effect.type !== "burn" || Number(effect.nextTickAt || 0) > now) continue;
+        monster.hp = Math.max(0, Number(monster.hp || 0) - Math.max(1, Number(effect.value || 5)));
+        effect.nextTickAt = now + 1000;
+        changed = true;
+        if (monster.hp <= 0) {
+          monster.dead = true;
+          monster.respawnAt = now + 10000;
+          break;
+        }
+      }
+      if (monster.dead) continue;
+
+      const aggroRange = Number(monster.aggroRange || MONSTER_AGGRO_RANGE);
+      const leashDistance = Number(monster.leashDistance || MONSTER_LEASH_RANGE);
+      const chaseDurationMs = Number(monster.chaseDurationMs || MONSTER_CHASE_DURATION_MS);
+      const target = roomPlayers
+        .map((session) => ({ session, distance: monsterDistanceTiles(session, monster) }))
+        .filter((entry) => entry.distance <= aggroRange)
+        .sort((a, b) => a.distance - b.distance)[0];
+      let targetSession = null;
+      if (monster.chaseTargetId) {
+        targetSession = roomPlayers.find((session) => session.id === monster.chaseTargetId) || null;
+        const chaseDistance = Math.hypot(Number(monster.x || 0) - Number(monster.spawnX || 0), Number(monster.y || 0) - Number(monster.spawnY || 0));
+        const chaseExpired = now - Number(monster.chaseStartedAt || 0) >= chaseDurationMs;
+        if (!targetSession || chaseExpired || chaseDistance > leashDistance) {
+          monster.chaseTargetId = null;
+          monster.chaseStartedAt = 0;
+          monster.reaggroAt = now + 2500;
+          targetSession = null;
+          changed = true;
+        }
+      }
+      if (!targetSession && target && now >= Number(monster.reaggroAt || 0)) {
+        targetSession = target.session;
+        monster.chaseTargetId = target.session.id;
+        monster.chaseStartedAt = now;
+        changed = true;
+      }
+      const destination = targetSession ? { x: Number(targetSession.x), y: Number(targetSession.y) } : { x: Number(monster.spawnX || 0), y: Number(monster.spawnY || 0) };
+      const dx = destination.x - Number(monster.x || 0);
+      const dy = destination.y - Number(monster.y || 0);
+      const distance = Math.hypot(dx, dy);
+      const frozen = activeStatus(monster, "root", now) || activeStatus(monster, "stun", now);
+      if (targetSession && distance <= MONSTER_ATTACK_RANGE) {
+        monster.state = "attack";
+        monster.targetId = targetSession.id;
+        if (!frozen) damagePlayerFromMonster(roomId, monster, targetSession, now);
+      } else if (!frozen && distance > 0.15) {
+        const slow = activeStatus(monster, "slow", now) ? 0.55 : 1;
+        const step = Math.min(distance, Number(monster.speed || MONSTER_MOVE_SPEED) * slow);
+        const nextX = Number(monster.x || 0) + (dx / distance) * step;
+        const nextY = Number(monster.y || 0) + (dy / distance) * step;
+        const tileX = Math.floor(nextX), tileY = Math.floor(nextY);
+        if (canSpawnAt(world, tileX, tileY)) {
+          monster.x = nextX;
+          monster.y = nextY;
+          changed = true;
+        }
+        monster.state = targetSession ? "chase" : "return";
+        monster.targetId = targetSession?.id || null;
+      } else {
+        monster.state = targetSession ? "attack" : "idle";
+        monster.targetId = targetSession?.id || null;
+        if (!targetSession) {
+          monster.chaseTargetId = null;
+          monster.chaseStartedAt = 0;
+        }
+      }
+    }
+    const runtime = roomRuntime.get(roomId);
+    if (changed || now - Number(runtime?.lastBroadcastAt || 0) >= 500) {
+      if (runtime) runtime.lastBroadcastAt = now;
+      io.to(`map:${roomId}`).emit("monster_update", { monsters: monsters.map((monster) => publicMonsterState(monster, now)) });
+    }
+  }
 
   io.on("connection", (socket) => {
     // ── join_world ────────────────────────────────────────────────
@@ -423,8 +796,8 @@ function setupSocket(io, players = new Map()) {
       const monster = monsters.find((item) => String(item.id) === String(targetId));
       if (!monster) return socket.emit("action_error", { action: "combat", error: "Quái không còn trong bản đồ hiện tại" });
       if (monster.dead) return socket.emit("action_error", { action: "combat", error: "Quái đang hồi sinh" });
-      const skill = skillCode ? skills.find((item) => item.code === skillCode) : null;
-      const attackRange = Number(skill?.range || 2.0);
+      const skill = findSkill(skillCode);
+      const attackRange = Number(skill?.range || BASIC_ATTACK_RANGE);
       if (monsterDistanceTiles(session, monster) > attackRange) {
         return socket.emit("action_error", { action: "combat", error: "Mục tiêu ngoài phạm vi kỹ năng" });
       }
@@ -432,7 +805,8 @@ function setupSocket(io, players = new Map()) {
       if (result.error) return socket.emit("action_error", { action: "combat", error: result.error });
       const hits = [{ targetId: monster.id, ...result }];
       let bonusXu = Number(result.loot?.xu || 0);
-      const firstXu = bonusXu;
+      const droppedItems = [...(result.loot?.items || [])];
+      if (result.loot) addLootToPlayer(player, result.loot);
       const aoeRange = Number(skill?.dienRong || 0);
       if (aoeRange > 0) {
         for (const nearby of monsters) {
@@ -440,17 +814,18 @@ function setupSocket(io, players = new Map()) {
           const distance = Math.hypot(Number(nearby.x ?? nearby.spawnX ?? 0) - Number(monster.x ?? monster.spawnX ?? 0), Number(nearby.y ?? nearby.spawnY ?? 0) - Number(monster.y ?? monster.spawnY ?? 0));
           if (distance > aoeRange) continue;
           const extraPlayer = { ...player, mp: Number(player.mp || 0) + Number(skill.mpTieuHao || 0) };
-          const extra = resolveMonsterAttack(extraPlayer, nearby, skillCode, { ...session, lastAttackAt: 0 });
+          const extra = resolveMonsterAttack(extraPlayer, nearby, skillCode, { ...session, bypassCooldown: true, areaSecondary: true });
           if (!extra.error) {
             hits.push({ targetId: nearby.id, ...extra });
             bonusXu += Number(extra.loot?.xu || 0);
+            droppedItems.push(...(extra.loot?.items || []));
+            if (extra.loot) addLootToPlayer(player, extra.loot);
           }
         }
       }
-      if (bonusXu > firstXu) player.xu = Number(player.xu || 0) + bonusXu - firstXu;
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
-      io.to(`map:${roomId}`).emit("combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: bonusXu ? { xu: bonusXu } : null });
+      io.to(`map:${roomId}`).emit("combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: (bonusXu || droppedItems.length) ? { xu: bonusXu, items: droppedItems } : null });
     });
 
     socket.on("attack_effect", ({ targetId, damage, mapId }) => {
@@ -465,17 +840,8 @@ function setupSocket(io, players = new Map()) {
     });
 
     // ── monster_sync (Host syncs monster positions to others) ──
-    socket.on("monster_sync", ({ mapId, monsters }) => {
-      const authoritative = roomMonsters.get(String(mapId || "").toLowerCase());
-      if (authoritative && Array.isArray(monsters)) {
-        for (const snapshot of monsters) {
-          const monster = authoritative.find((item) => item.id === snapshot.id);
-          if (!monster) continue;
-          if (Number.isFinite(Number(snapshot.x))) monster.x = Number(snapshot.x);
-          if (Number.isFinite(Number(snapshot.y))) monster.y = Number(snapshot.y);
-        }
-      }
-      // Deprecated: client không còn được ghi đè HP/dead/loot của monster.
+    socket.on("monster_sync", () => {
+      // Deprecated: server tự điều khiển vị trí và trạng thái monster.
     });
 
     // ── disconnect ────────────────────────────────────────────────
@@ -491,6 +857,7 @@ function setupSocket(io, players = new Map()) {
         const leftInRoom = [...sessions.values()].filter(s => s.mapId === session.mapId).length;
         if (leftInRoom === 0) {
           roomMonsters.delete(session.mapId);
+          roomRuntime.delete(session.mapId);
         }
       }
     });
@@ -498,25 +865,36 @@ function setupSocket(io, players = new Map()) {
 
   // ── Server broadcast (có thể gọi từ nơi khác) ─────────────────
   const respawnTimer = setInterval(() => {
+    const now = Date.now();
+    updatePlayerRegeneration(now);
     for (const [mapId, monsters] of roomMonsters.entries()) {
       for (const monster of monsters) {
-        if (!monster.dead || !monster.respawnAt || monster.respawnAt > Date.now()) continue;
+        if (!monster.dead || !monster.respawnAt || monster.respawnAt > now) continue;
         monster.dead = false;
         monster.hp = monster.maxHp || monster.hp || 1;
         monster.x = Number(monster.spawnX ?? monster.x ?? 0);
         monster.y = Number(monster.spawnY ?? monster.y ?? 0);
+        monster.statusEffects = [];
+        monster.nextAttackAt = 0;
+        monster.chaseTargetId = null;
+        monster.chaseStartedAt = 0;
+        monster.reaggroAt = 0;
         delete monster.respawnAt;
         io.to(`map:${mapId}`).emit("monster_spawn", { monster });
       }
       const activePlayers = [...sessions.values()].some((session) => session.mapId === mapId);
       const world = mapCache.get(mapId);
-      if (activePlayers && monsters.length < MONSTER_ROOM_CAP && Math.random() < 0.35) {
+      const runtime = roomRuntime.get(mapId) || { lastSpawnAt: now, lastBroadcastAt: 0 };
+      roomRuntime.set(mapId, runtime);
+      if (activePlayers && !world?.monsterSpawns?.length && monsters.length < MONSTER_ROOM_CAP && now - Number(runtime.lastSpawnAt || 0) >= 5000) {
         const monster = createRoomMonster(mapId, world, monsters.length);
         monsters.push(monster);
+        runtime.lastSpawnAt = now;
         io.to(`map:${mapId}`).emit("monster_spawn", { monster });
       }
+      if (activePlayers) updateRoomMonsters(mapId, world, monsters, now);
     }
-  }, 5000);
+  }, 250);
 
   function broadcast(event, data) {
     io.emit(event, data);

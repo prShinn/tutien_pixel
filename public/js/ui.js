@@ -33,7 +33,10 @@ const UI = {
     const profileName = document.getElementById("ui-profile-name");
     if (profileName) profileName.textContent = p.name || "Tu sĩ";
     const profileAvatar = document.getElementById("ui-profile-avatar");
-    if (profileAvatar) profileAvatar.src = p.img || (p.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png");
+    if (profileAvatar) {
+      const avatarFallback = p.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png";
+      profileAvatar.src = /_anim-source\.png$/i.test(p.img || "") ? avatarFallback : (p.img || avatarFallback);
+    }
     const rootEl = document.getElementById("ui-root");
     if (rootEl) {
       rootEl.textContent = p.linhCan || p.root?.name || "Chưa định linh căn";

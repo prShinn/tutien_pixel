@@ -50,7 +50,7 @@ const Combat = {
     return Math.floor(def);
   },
 
-  critChance() {
+  critChance(target = null) {
     const s = S.player.stats;
     const role = Combat.getRole();
     let chance = 0.05 + (s?.agi || 0) * 0.003;
@@ -61,7 +61,13 @@ const Combat = {
     if (S.player.equipment?.weapon) {
       chance += Number(S.player.equipment.weapon.critChance || 0);
     }
-    return Math.min(0.5, chance);
+    const critBuff = S.player.buffs?.buff_crit || S.player.buffs?.crit;
+    if (critBuff && (!critBuff.expiresAt || critBuff.expiresAt > Date.now())) chance += Number(critBuff.value || 0) / 100;
+    if (target) {
+      const targetElement = target.linhCan || target.element || target.nguHanh?.[0];
+      chance += affinityCritBonus(affinityProfile(S.player.linhCan, targetElement, elementalStrength(S.player), elementalStrength(target)));
+    }
+    return Math.min(0.75, chance);
   },
 
   evasion() {
@@ -99,20 +105,28 @@ const Combat = {
   },
 
   attack(m) {
-    if (S.atkCd > 0 || m.dead) return;
-    if (dist(m.px, m.py, S.player.px, S.player.py) > CFG.BASIC_ATTACK_RANGE * CFG.TS) {
+    if (S.atkCd > 0 || S.combatGcd > 0 || S.combatPending || m.dead) return;
+    const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= CFG.BASIC_ATTACK_RANGE * CFG.TS;
+    // Online: không dùng vị trí nội suy client để chặn request. Server kiểm tra
+    // khoảng cách authoritative; nếu không hợp lệ sẽ trả action_error.
+    if (!socket?.connected && !inRange) {
       UI.log("Mục tiêu ngoài tầm đánh thường.", "system");
       return;
     }
     if (S.player) { S.player.animState = "attack"; S.player.animUntil = Date.now() + 360; }
     if (socket?.connected) {
+      S.combatPending = true;
       socket.emit("attack_request", { targetId: m.id, mapId: S.mapCode });
       return;
     }
     const baseAtk = Combat.pAtk();
     const armorDef = (Number(m.def) || 0) + (Number(m.vit) || 0) * 0.2;
-    let dmg = Math.max(1, Math.floor(baseAtk * 100 / (100 + Math.max(0, armorDef)) + randInt(0, 3)));
-    const isCrit = Math.random() < Combat.critChance();
+    const basicStat = Number(S.player.stats?.str || 0) * GAME_BALANCE.damage.basicStatScale;
+    const attackBuff = S.player.buffs?.buff_atk || S.player.buffs?.atk;
+    const attackBuffActive = attackBuff && (!attackBuff.expiresAt || attackBuff.expiresAt > Date.now()) ? Number(attackBuff.value || 0) : 0;
+    const handMultiplier = 1 + Math.max(0, attackBuffActive) / 100;
+    let dmg = Math.max(1, Math.floor(((baseAtk * GAME_BALANCE.damage.basicMultiplier + basicStat) * handMultiplier) * 100 / (100 + Math.max(0, armorDef)) + randInt(0, 2)));
+    const isCrit = Math.random() < Combat.critChance(m);
     if (isCrit) {
       const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));
       dmg += critAdd;

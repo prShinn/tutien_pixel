@@ -35,7 +35,7 @@ function mapBESkillToFE(sk) {
     targetType: sk.targetType || (Number(sk.satThuong || 0) > 0 ? "ENEMY" : "SELF"),
     scalingStat: sk.scalingStat || (damageType === "MAGIC" ? "ene" : "str"),
     damageType,                         // "PHYS" | "MAGIC"
-    satThuong: sk.satThuong ?? 1,       // hệ số nhân (1.5 = 150% atk)
+    satThuong: sk.satThuong ?? 1,       // hệ số catalog; server nhân thêm skillMultiplier để tạo burst
     mpCost: sk.mpTieuHao ?? sk.mpCost ?? 0,
     cd: cdTicks,                        // ticks
     range: sk.range ?? sk.tamDanh ?? 5,
@@ -78,6 +78,12 @@ function mapFESkillToBE(sk) {
 const SkillSystem = {
   _book: null,
   _selected: new Set(),
+
+  isOffensive(skill) {
+    if (!skill) return false;
+    return Number(skill.satThuong || 0) > 0
+      && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
+  },
 
   async loadBook() {
     if (!S.player?.id) return;
@@ -196,7 +202,7 @@ const SkillSystem = {
   },
 
   // Tính sát thương kỹ năng dựa trên thuộc tính, vai trò và ngũ hành
-  calcDmg(skill, target) {
+  calcDmg(skill, target, areaSecondary = false) {
     const p = S.player;
     const stats = p.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
     
@@ -206,11 +212,12 @@ const SkillSystem = {
     const statVal = stats[scalingStat.toLowerCase()] || 0;
     
     // 2. Hệ số ngũ hành (Tương khắc)
-    const eleMult = this.getElementalMult(p.linhCan, target?.linhCan || target?.element);
+    const eleMult = affinityProfile(p.linhCan, target?.linhCan || target?.element, elementalStrength(p), elementalStrength(target)).multiplier;
     
     // 3. Công thức: ((BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)) * Ngũ Hành
     const satThuong = skill.satThuong ?? 1;
-    let dmg = Math.floor((baseDmg * satThuong + statVal * 1.5) * eleMult);
+    const skillScale = satThuong * GAME_BALANCE.damage.skillMultiplier;
+    let dmg = Math.floor((baseDmg * skillScale + statVal * GAME_BALANCE.damage.skillStatScale) * eleMult * (areaSecondary ? GAME_BALANCE.damage.areaSecondaryMultiplier : 1));
 
     // 4. Hệ số cộng thêm từ tu vi linh căn
     const tvlcMult = 1 + (p.tuViLinhCan || 0) / 10000;
@@ -224,7 +231,7 @@ const SkillSystem = {
     }
 
     // 5. Chí mạng (Crit)
-    if (Math.random() < Combat.critChance()) {
+    if (Math.random() < Combat.critChance(target)) {
       dmg = Math.floor(dmg * (1.5 + Combat.critMultiplier()));
     }
 
@@ -301,11 +308,14 @@ const SkillSystem = {
   applyBuff(p, skill) {
     if (!p.buffs) p.buffs = {};
     const buffType = skill.effect.replace("buff_", "");
-    p.buffs[buffType] = {
+    const buffKey = skill.effect.startsWith("buff_") ? skill.effect : buffType;
+    const duration = skill.effectDur || 240;
+    p.buffs[buffKey] = {
       value: skill.effectVal,
-      duration: skill.effectDur,
+      duration,
+      expiresAt: Date.now() + duration * 16,
     };
-    const names = { atk: "tấn công", def: "phòng thủ", spd: "tốc độ" };
+    const names = { atk: "damage tay", def: "phòng thủ", spd: "tốc độ", cast: "tốc độ ra chiêu", crit: "chí mạng", hp_regen: "HP/giây", mp_regen: "MP/giây", vitals: "HP/MP tối đa" };
     UI.log(
       `${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`,
       "level",
@@ -315,12 +325,17 @@ const SkillSystem = {
   useSkill(slotIdx) {
     const p = S.player;
     if (!p?.skills?.[slotIdx]) return;
-    p.animState = "cast";
-    p.animUntil = Date.now() + 520;
+    if (S.combatGcd > 0 || S.combatPending) return;
     if (document.getElementById("shop-modal").classList.contains("open")) return;
     if (document.getElementById("dialog-modal").classList.contains("open")) return;
 
+    const startCastAnimation = () => {
+      p.animState = "cast";
+      p.animUntil = Date.now() + 520;
+    };
+
     const skill = p.skills[slotIdx];
+    const offensive = this.isOffensive(skill);
     if (skill.cdLeft > 0) {
       UI.log(`${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`, "system");
       return;
@@ -330,26 +345,37 @@ const SkillSystem = {
       return;
     }
 
-    if (socket?.connected && (skill.effect === "heal" || skill.effect?.startsWith("buff_"))) {
-      socket.emit("skill_request", { skillCode: skill.id });
+    if (socket?.connected && !offensive) {
+      startCastAnimation();
+      S.combatPending = true;
+      socket.emit("skill_request", { skillCode: skill.code || skill.id });
       return;
     }
 
     if (!socket?.connected) Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
 
-    if (socket?.connected && skill.effect !== "heal" && !skill.effect?.startsWith("buff_")) {
+    if (socket?.connected && offensive) {
       const maxRange = (skill.range || 5) * CFG.TS;
       const target = S.monsters
         .filter((monster) => !monster.dead)
         .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
         .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
       if (!target) return UI.log("Không có mục tiêu.", "system");
-      socket.emit("attack_request", { targetId: target.id, skillCode: skill.id, mapId: S.mapCode });
+      startCastAnimation();
+      S.combatPending = true;
+      socket.emit("attack_request", { targetId: target.id, skillCode: skill.code || skill.id, mapId: S.mapCode });
       return;
     }
 
+    startCastAnimation();
     p.mp -= skill.mpCost;
     skill.cdLeft = skill.cd;
+
+    if (!offensive && !["heal", "restore_mp"].includes(skill.effect) && !skill.effect?.startsWith("buff_")) {
+      if (["shield", "speed"].includes(String(skill.effect || ""))) this.applyBuff(p, skill);
+      if (skill.effect === "cleanse") p.debuffs = {};
+      return;
+    }
 
     // ── Heal (hồi máu) ──
     if (skill.effect === "heal") {
@@ -358,6 +384,14 @@ const SkillSystem = {
       p.hp = Math.min(p.maxHp, p.hp + healAmt);
       Render.floatDmg(p.px, p.py, -40, "+" + healAmt, "#44ff88");
       UI.log(`${skill.icon} ${skill.name} → Hồi ${healAmt} HP`, "level");
+      return;
+    }
+
+    if (skill.effect === "restore_mp") {
+      const restore = Number(skill.effectVal || 0);
+      p.mp = Math.min(p.maxMp, p.mp + restore);
+      Render.floatDmg(p.px, p.py, -40, "+" + restore, "#66ccff");
+      UI.log(`${skill.icon} ${skill.name} → Hồi ${restore} MP`, "level");
       return;
     }
 
@@ -384,7 +418,7 @@ const SkillSystem = {
       for (const m of S.monsters) {
         if (m.dead) continue;
         if (dist(m.px, m.py, center.px, center.py) < aoeRange) {
-          const dmg = this.calcDmg(skill, m);
+          const dmg = this.calcDmg(skill, m, hits > 0);
           this.hitMonster(m, dmg, skill);
           hits++;
         }
@@ -431,6 +465,10 @@ const SkillSystem = {
     }
     if (p.buffs) {
       for (const k of Object.keys(p.buffs)) {
+        if (p.buffs[k].expiresAt) {
+          if (p.buffs[k].expiresAt <= Date.now()) delete p.buffs[k];
+          continue;
+        }
         p.buffs[k].duration -= ticks;
         if (p.buffs[k].duration <= 0) delete p.buffs[k];
       }
@@ -590,8 +628,10 @@ const SkillSystem = {
     typeEl.className   = sk.damageType === 'MAGIC' ? 'sv stip-type-magic' : 'sv stip-type-phys';
 
     const baseAtk = sk.damageType === 'MAGIC' ? Combat.mAtk() : Combat.pAtk();
-    const estDmg  = Math.floor(baseAtk * (sk.satThuong ?? 1));
-    document.getElementById('stip-dmg').textContent   = `×${sk.satThuong ?? 1} (~${estDmg})`;
+    const scalingStat = sk.scalingStat || (sk.damageType === 'MAGIC' ? 'ene' : 'str');
+    const statVal = Number(S.player?.stats?.[scalingStat.toLowerCase()] || 0);
+    const estDmg = Math.floor(baseAtk * (sk.satThuong ?? 1) * GAME_BALANCE.damage.skillMultiplier + statVal * GAME_BALANCE.damage.skillStatScale);
+    document.getElementById('stip-dmg').textContent = `Burst ×${sk.satThuong ?? 1} (~${estDmg})`;
     document.getElementById('stip-mp').textContent    = sk.mpCost + ' MP';
     document.getElementById('stip-cd').textContent    = Math.round((sk.cd || 0) / 60) + 's';
     document.getElementById('stip-range').textContent = (sk.aoe ? `AoE r${sk.aoeR}` : `${sk.range} tile`);

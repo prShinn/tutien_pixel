@@ -88,6 +88,7 @@ function normalizeWorldDto(dto) {
       spawnX: Number(m.spawnX ?? Math.floor(w / 2)),
       spawnY: Number(m.spawnY ?? Math.floor(h / 2))
     })),
+    monsterSpawns: parseStringOrObj(dto.monsterSpawns || dto.baiQuai || [], []),
     npcs: parseStringOrObj(dto.npcs || dto.danhSachNpc || [], []).map(n => ({
       ...n,
       x: Number(n.x || 0),

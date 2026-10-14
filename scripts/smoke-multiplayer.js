@@ -35,6 +35,12 @@ async function main() {
         resolve();
       }
     };
+    first.on("world_init", (payload) => {
+      // Hai socket join song song; người vào sau thấy người vào trước trong snapshot.
+      if (Array.isArray(payload?.players) && payload.players.length > 0) result.joined = true;
+      sendActions();
+      check();
+    });
     first.on("player_join", () => {
       result.joined = true;
       sendActions();
