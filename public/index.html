@@ -232,6 +232,25 @@
         <div class="map-widget-foot"><span class="map-dot player"></span> Vị trí hiện tại <span id="map-coords">—</span></div>
       </div>
 
+      <!-- TARGET HUD: TOP CENTER -->
+      <div id="target-hud" class="target-hud" style="display: none;">
+        <div class="target-hud-box">
+          <div class="target-avatar" id="target-avatar">👾</div>
+          <div class="target-info">
+            <div class="target-name-row">
+              <span id="target-name" class="target-name">Yêu Thú</span>
+              <span id="target-level" class="target-badge">Lv.1</span>
+              <span id="target-elem" class="target-badge elem">Hỏa</span>
+            </div>
+            <div class="target-hp-wrap">
+              <div class="target-hp-fill" id="target-hp-bar" style="width: 100%;"></div>
+              <div class="target-hp-text" id="target-hp-text">100 / 100</div>
+            </div>
+          </div>
+          <button class="target-close-btn" onclick="S.target = null;" title="Bỏ chọn">✕</button>
+        </div>
+      </div>
+
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
         <div class="hud-avatar">

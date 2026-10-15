@@ -1,3 +1,19 @@
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: server.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Máy chủ chính (Express Backend Server & REST API Gateway): Cung cấp các endpoint xác thực
+//      (/api/auth/register, login, me), quản lý nhân vật (/api/character/create), túi đồ & trang bị,
+//      tu luyện & hấp thụ tu vi (/api/cultivation/absorb), danh mục thần thông (/api/skills/catalog),
+//      cửa hàng NPC, và lưu trữ bản đồ thế giới từ Map Editor (/api/admin/worlds).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - PORT (mặc định 3000), JWT_SECRET, CORS.
+//    - Phụ thuộc: middleware/auth, middleware/rate-limit, socket/game, data/mock-data, data/balance.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Bảo mật DTO: Whitelist nghiêm ngặt thuộc tính nhân vật, chặn cheat tọa độ/thuộc tính qua REST.
+//    - Chống spam/DDoS: Tích hợp rate limiter cho các API trọng yếu.
+//    - Ghi file async atomic tránh block Node event loop khi admin lưu bản đồ lớn.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
 require("dotenv").config();
 
 const express = require("express");
@@ -9,6 +25,7 @@ const zlib = require("zlib");
 const bcrypt = require("bcryptjs");
 const { Server } = require("socket.io");
 const { authMiddleware, signToken } = require("./middleware/auth");
+const { createRateLimiter } = require("./middleware/rate-limit");
 const { setupSocket } = require("./socket/game");
 const { realms, roots, items, skills, monsterDefs, worlds } = require("./data/mock-data");
 const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughGain } = require("./data/balance");
@@ -25,11 +42,18 @@ let socketRuntime = null;
 let nextUserId = 1;
 let nextPlayerId = 1;
 const ADMIN_MAP_KEY = process.env.ADMIN_MAP_KEY || "demo-admin";
+if (process.env.NODE_ENV === "production" && ADMIN_MAP_KEY === "demo-admin") {
+  console.warn("CẢNH BÁO: ADMIN_MAP_KEY đang sử dụng giá trị mặc định trong môi trường production!");
+}
 const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
 const MAP_MIN_W = 320;
 const MAP_MIN_H = 240;
 const MAP_MAX_SIZE = 1024;
+const PORTAL_EDGE_MARGIN = 12;
+const PORTAL_EXIT_OFFSET = 24;
 const SEEDED_WORLDS = new Map(worlds.map((world) => [world.code, JSON.parse(JSON.stringify(world))]));
+
+const authLimiter = createRateLimiter({ windowMs: 60000, max: 120, message: "Quá nhiều yêu cầu xác thực, vui lòng thử lại sau." });
 
 app.use(cors());
 app.use("/api/admin/worlds", express.json({ limit: "12mb" }));
@@ -86,7 +110,42 @@ function isWalkablePoint(world, x, y) {
   const tx = Math.round(Number(x));
   const ty = Math.round(Number(y));
   if (tx < 4 || ty < 4 || tx >= Number(world?.w || 0) - 4 || ty >= Number(world?.h || 0) - 4) return false;
-  return ![1, 2, 3, 5, 6].includes(Number(world?.jsonMap?.[ty]?.[tx]));
+  return Number(world?.jsonMap?.[ty]?.[tx]) !== 2;
+}
+
+function portalSide(world, x, y) {
+  const width = Number(world?.w || 1);
+  const height = Number(world?.h || 1);
+  const distances = [
+    ["left", Number(x)], ["right", width - 1 - Number(x)],
+    ["top", Number(y)], ["bottom", height - 1 - Number(y)],
+  ];
+  return distances.reduce((nearest, candidate) => candidate[1] < nearest[1] ? candidate : nearest)[0];
+}
+
+function oppositePortalSide(side) {
+  return ({ left: "right", right: "left", top: "bottom", bottom: "top" })[side] || "left";
+}
+
+function portalPointOnSide(world, side, anchorX, anchorY) {
+  const width = Number(world?.w || MAP_MIN_W);
+  const height = Number(world?.h || MAP_MIN_H);
+  const clampX = (value) => clampInteger(value, PORTAL_EDGE_MARGIN, width - PORTAL_EDGE_MARGIN - 1, Math.floor(width / 2));
+  const clampY = (value) => clampInteger(value, PORTAL_EDGE_MARGIN, height - PORTAL_EDGE_MARGIN - 1, Math.floor(height / 2));
+  if (side === "right") return { x: width - PORTAL_EDGE_MARGIN - 1, y: clampY(anchorY) };
+  if (side === "top") return { x: clampX(anchorX), y: PORTAL_EDGE_MARGIN };
+  if (side === "bottom") return { x: clampX(anchorX), y: height - PORTAL_EDGE_MARGIN - 1 };
+  return { x: PORTAL_EDGE_MARGIN, y: clampY(anchorY) };
+}
+
+function portalExitPoint(world, entrance, side) {
+  const offset = { left: [PORTAL_EXIT_OFFSET, 0], right: [-PORTAL_EXIT_OFFSET, 0], top: [0, PORTAL_EXIT_OFFSET], bottom: [0, -PORTAL_EXIT_OFFSET] }[side] || [PORTAL_EXIT_OFFSET, 0];
+  const width = Number(world?.w || MAP_MIN_W);
+  const height = Number(world?.h || MAP_MIN_H);
+  return {
+    x: clampInteger(entrance.x + offset[0], 4, width - 5, Math.floor(width / 2)),
+    y: clampInteger(entrance.y + offset[1], 4, height - 5, Math.floor(height / 2)),
+  };
 }
 
 function touchAdminWorld(world) {
@@ -140,9 +199,30 @@ function normalizeWorldPayload(payload, existing = null) {
   };
 }
 
-function persistAdminWorlds() {
-  const adminWorlds = worlds.filter((world) => world.managedBy === "ADMIN");
-  fs.writeFileSync(ADMIN_MAP_FILE, JSON.stringify(adminWorlds), "utf8");
+let isSavingAdminWorlds = false;
+let pendingAdminWorldsSave = false;
+
+async function persistAdminWorlds() {
+  if (isSavingAdminWorlds) {
+    pendingAdminWorldsSave = true;
+    return;
+  }
+  isSavingAdminWorlds = true;
+  try {
+    const adminWorlds = worlds.filter((world) => world.managedBy === "ADMIN");
+    const json = JSON.stringify(adminWorlds);
+    const tmpFile = `${ADMIN_MAP_FILE}.tmp`;
+    await fs.promises.writeFile(tmpFile, json, "utf8");
+    await fs.promises.rename(tmpFile, ADMIN_MAP_FILE);
+  } catch (error) {
+    console.error("Failed to persist admin maps:", error.message);
+  } finally {
+    isSavingAdminWorlds = false;
+    if (pendingAdminWorldsSave) {
+      pendingAdminWorldsSave = false;
+      persistAdminWorlds();
+    }
+  }
 }
 
 function loadAdminWorlds() {
@@ -221,7 +301,7 @@ function sendCachedWorld(req, res, world) {
   return res.send(cached.json);
 }
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
   if (username.length < 3 || password.length < 4) return res.status(400).json({ error: "Username tối thiểu 3 ký tự, password tối thiểu 4 ký tự" });
@@ -231,7 +311,7 @@ app.post("/api/auth/register", async (req, res) => {
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
   const user = findUserByUsername(username);
@@ -239,7 +319,7 @@ app.post("/api/auth/login", async (req, res) => {
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
-app.post("/api/auth/demo", (req, res) => {
+app.post("/api/auth/demo", authLimiter, (req, res) => {
   const username = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const user = { id: nextUserId++, username, passwordHash: "demo" };
   storeUser(user);
@@ -265,6 +345,8 @@ app.get("/api/admin/worlds", adminMapMiddleware, (req, res) => {
     biome: world.biome || "LEGACY",
     w: world.w,
     h: world.h,
+    spawnX: world.spawnX,
+    spawnY: world.spawnY,
     version: world.version || 0,
     managedBy: world.managedBy || "SEED",
   })));
@@ -325,7 +407,18 @@ app.post("/api/admin/portals/link", adminMapMiddleware, (req, res) => {
     const targetX = Math.round(Number(req.body?.targetX));
     const targetY = Math.round(Number(req.body?.targetY));
     if (!isWalkablePoint(sourceWorld, sourceX, sourceY)) return res.status(400).json({ error: "Điểm đặt portal nguồn bị chặn hoặc ngoài map" });
-    if (!isWalkablePoint(targetWorld, targetX, targetY)) return res.status(400).json({ error: "Điểm đến bị chặn hoặc ngoài map" });
+    if (![targetX, targetY].every(Number.isFinite)) return res.status(400).json({ error: "Tọa độ neo portal đích không hợp lệ" });
+
+    // Portal is a border crossing: leaving from one side always enters through
+    // the opposite side of the destination, then exits safely into that map.
+    const sourceSide = portalSide(sourceWorld, sourceX, sourceY);
+    const targetSide = oppositePortalSide(sourceSide);
+    const targetEntrance = portalPointOnSide(targetWorld, targetSide, targetX, targetY);
+    const targetArrival = portalExitPoint(targetWorld, targetEntrance, targetSide);
+    const sourceArrival = portalExitPoint(sourceWorld, { x: sourceX, y: sourceY }, sourceSide);
+    if (!isWalkablePoint(targetWorld, targetEntrance.x, targetEntrance.y) || !isWalkablePoint(targetWorld, targetArrival.x, targetArrival.y)) {
+      return res.status(400).json({ error: "Cạnh map đích tại vị trí portal bị chặn; hãy đổi trục neo hoặc dọn địa hình" });
+    }
 
     const requestedId = String(req.body?.id || "").trim().replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 100);
     const id = requestedId || `portal_${sourceCode}_${targetCode}_${sourceX}_${sourceY}`;
@@ -341,7 +434,8 @@ app.post("/api/admin/portals/link", adminMapMiddleware, (req, res) => {
     const reverseId = `${id}__return`;
     const sourcePortal = {
       id, x: sourceX, y: sourceY,
-      denMap: targetCode, toMap: targetCode, toX: targetX, toY: targetY,
+      denMap: targetCode, toMap: targetCode, toX: targetArrival.x, toY: targetArrival.y,
+      side: sourceSide, targetSide,
       tenMapDen: String(req.body?.targetName || targetWorld.tenMap || targetCode).slice(0, 80),
       bidirectional: Boolean(req.body?.twoWay),
       reverseId: Boolean(req.body?.twoWay) ? reverseId : null,
@@ -352,15 +446,16 @@ app.post("/api/admin/portals/link", adminMapMiddleware, (req, res) => {
     let reversePortal = null;
     if (sourcePortal.bidirectional) {
       reversePortal = {
-        id: reverseId, x: targetX, y: targetY,
-        denMap: sourceCode, toMap: sourceCode, toX: sourceX, toY: sourceY,
+        id: reverseId, x: targetEntrance.x, y: targetEntrance.y,
+        denMap: sourceCode, toMap: sourceCode, toX: sourceArrival.x, toY: sourceArrival.y,
+        side: targetSide, targetSide: sourceSide,
         tenMapDen: String(req.body?.sourceName || sourceWorld.tenMap || sourceCode).slice(0, 80),
         bidirectional: true,
         reverseOf: id,
       };
       const matchingReverse = (targetWorld.portals || []).find((portal) => portal.id === reverseId
         || (String(portal.denMap || portal.toMap || "").toLowerCase() === sourceCode
-          && Number(portal.x) === targetX && Number(portal.y) === targetY));
+          && Number(portal.x) === targetEntrance.x && Number(portal.y) === targetEntrance.y));
       if (matchingReverse) reversePortal.id = matchingReverse.id;
       sourcePortal.reverseId = reversePortal.id;
       targetWorld.portals = [...(targetWorld.portals || []).filter((portal) => portal.id !== reversePortal.id), reversePortal];
@@ -472,9 +567,23 @@ function writeInventory(player, inventory) {
 
 app.post("/api/player/cultivation/absorb", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
-  const amount = Math.floor(Number(req.body?.amount) || 0);
   if (!player) return res.status(404).json({ error: "Player not found" });
-  if (amount <= 0 || amount > 5000) return res.status(400).json({ error: "Lượng tu vi không hợp lệ" });
+
+  let amount = 0;
+  if (req.body?.itemId) {
+    const inventory = readInventory(player);
+    const index = inventory.findIndex((item) => item.id === req.body.itemId);
+    if (index < 0) return res.status(404).json({ error: "Không tìm thấy linh thạch trong túi đồ" });
+    const item = inventory[index];
+    amount = Math.max(1, Number(item.giaTriTuVi || item.value || 0));
+    item.count = Number(item.count || 1) - 1;
+    if (item.count <= 0) inventory.splice(index, 1);
+    writeInventory(player, inventory);
+  } else {
+    amount = Math.floor(Number(req.body?.amount) || 0);
+    if (amount <= 0 || amount > 5000) return res.status(400).json({ error: "Lượng tu vi không hợp lệ" });
+  }
+
   player.tuViHienTai = Math.max(0, Number(player.tuViHienTai || 0) + amount);
   player.combatPower = combatPower(player);
   players.set(player.id, player);
@@ -567,16 +676,15 @@ app.post("/api/player/shop/buy", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
   const item = items.find((entry) => entry.id === req.body?.itemId);
   if (!player || !item) return res.status(404).json({ error: "Item not found" });
-  if (Number(player.xu || 0) < Number(item.giaMua || 0)) return res.status(400).json({ error: "Không đủ xu" });
-  let inventory = [];
-  try { inventory = JSON.parse(player.jsonIventory || "[]"); } catch { inventory = []; }
+  const price = Math.max(0, Math.floor(Number(item.giaMua) || 0));
+  if (Number(player.xu || 0) < price) return res.status(400).json({ error: "Không đủ xu" });
+  const inventory = readInventory(player);
   const existing = inventory.find((entry) => entry.id === item.id);
   if (existing) existing.count = Math.min(99, Number(existing.count || 0) + 1);
   else if (inventory.length < 40) inventory.push({ ...item, count: 1 });
   else return res.status(400).json({ error: "Túi đồ đầy" });
-  player.xu -= Number(item.giaMua || 0);
-  player.inventory = inventory;
-  player.jsonIventory = JSON.stringify(inventory);
+  player.xu -= price;
+  writeInventory(player, inventory);
   players.set(player.id, player);
   res.json({ player, result: { type: "bought", itemId: item.id } });
 });
@@ -584,17 +692,19 @@ app.post("/api/player/shop/buy", authMiddleware, (req, res) => {
 app.post("/api/player/shop/sell", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
   if (!player) return res.status(404).json({ error: "Player not found" });
-  let inventory = [];
-  try { inventory = JSON.parse(player.jsonIventory || "[]"); } catch { inventory = []; }
+  const inventory = readInventory(player);
   const index = Number(req.body?.index);
+  if (!Number.isInteger(index) || index < 0 || index >= inventory.length) {
+    return res.status(400).json({ error: "Vị trí vật phẩm không hợp lệ" });
+  }
   const item = inventory[index];
   if (!item) return res.status(404).json({ error: "Item not found" });
-  const price = Number(item.giaBan || 0);
+  const price = Math.max(0, Math.floor(Number(item.giaBan) || 0));
+  if (price <= 0) return res.status(400).json({ error: "Vật phẩm này không thể bán" });
   player.xu = Number(player.xu || 0) + price;
   item.count = Number(item.count || 1) - 1;
   if (item.count <= 0) inventory.splice(index, 1);
-  player.inventory = inventory;
-  player.jsonIventory = JSON.stringify(inventory);
+  writeInventory(player, inventory);
   players.set(player.id, player);
   res.json({ player, result: { type: "sold", itemId: item.id, price } });
 });
@@ -609,21 +719,60 @@ app.post("/api/player", authMiddleware, (req, res) => {
   if (Object.values(stats).some((value) => value < BALANCE.creation.minStat) || statTotal !== (BALANCE.creation.minStat * 4 + BALANCE.creation.bonusPoints)) {
     return res.status(400).json({ error: `Phân bổ thuộc tính phải đủ ${BALANCE.creation.bonusPoints} điểm, mỗi chỉ số tối thiểu ${BALANCE.creation.minStat}.` });
   }
-  const rootSkills = skills.filter((skill) => skill.linhCan === req.body.linhCan && skill.category !== "PASSIVE");
+
+  const name = String(req.body?.name || "").trim().slice(0, 24) || `TuSĩ_${req.userId}`;
+  const gender = ["FEMALE", "female", "nu"].includes(req.body?.gender) ? "FEMALE" : "MALE";
+  const validRoot = roots.find((r) => r.id === req.body?.linhCan || r.code === req.body?.linhCan);
+  const linhCan = validRoot ? validRoot.id : "KIM";
+  const defaultRealm = realms.find((r) => r.stt === 1) || realms[0];
+  const requestedMap = String(req.body?.mapCode || req.body?.mapId || "").trim().toLowerCase();
+  const selectedWorld = (requestedMap && worlds.find((w) => w.code === requestedMap)) || worlds.find((w) => w.isDefault) || worlds[0];
+  const rawX = Number(req.body?.x);
+  const rawY = Number(req.body?.y);
+  const spawnX = Number.isFinite(rawX) && isWalkablePoint(selectedWorld, Math.round(rawX), Math.round(rawY))
+    ? Math.round(rawX)
+    : Number(selectedWorld?.spawnX ?? 300);
+  const spawnY = Number.isFinite(rawY) && isWalkablePoint(selectedWorld, Math.round(rawX), Math.round(rawY))
+    ? Math.round(rawY)
+    : Number(selectedWorld?.spawnY ?? 200);
+  const derived = deriveStats(stats, {});
+
+  const rootSkills = skills.filter((skill) => skill.linhCan === linhCan && skill.category !== "PASSIVE");
   const isAttack = (skill) => Number(skill.satThuong || 0) > 0 && skill.effect !== "heal" && !String(skill.effect || "").startsWith("buff_");
   const singleAttack = rootSkills.find((skill) => isAttack(skill) && Number(skill.dienRong || 0) <= 0);
   const areaAttack = rootSkills.find((skill) => isAttack(skill) && Number(skill.dienRong || 0) > 0);
   const initialSkills = [singleAttack, areaAttack, ...rootSkills.filter((skill) => skill !== singleAttack && skill !== areaAttack)].filter(Boolean).slice(0, 4);
+
   const player = {
-    ...req.body,
-    stats,
     id: nextPlayerId++,
     userId: req.userId,
-    learnedSkills: [...skills.filter((skill) => skill.linhCan === "COMMON"), ...rootSkills.slice(0, 2), ...skills.filter((skill) => skill.linhCan === req.body.linhCan && skill.category === "PASSIVE")].map((skill) => skill.code),
+    name,
+    gender,
+    img: req.body?.img ? String(req.body.img) : null,
+    linhCan,
+    stats,
+    derivedStats: derived,
+    hp: derived.maxHp,
+    maxHp: derived.maxHp,
+    mp: derived.maxMp,
+    maxMp: derived.maxMp,
+    xu: 50,
+    tuViHienTai: 0,
+    tuViLenCap: calcTuViNeeded(defaultRealm, 1),
+    tuViLinhCan: 0,
+    tangTuVi: 1,
+    maCanhGioi: defaultRealm.code,
+    tenCanhGioi: defaultRealm.tenCanhGioi || defaultRealm.name || "Luyện Khí",
+    canhGioi: defaultRealm,
+    mapCode: selectedWorld.code,
+    mapId: selectedWorld.code,
+    x: spawnX,
+    y: spawnY,
+    learnedSkills: [...skills.filter((skill) => skill.linhCan === "COMMON"), ...rootSkills.slice(0, 2), ...skills.filter((skill) => skill.linhCan === linhCan && skill.category === "PASSIVE")].map((skill) => skill.code),
     equippedSkills: initialSkills.map((skill) => skill.code),
+    skills: initialSkills,
+    equipment: normalizeEquipment(req.body?.equipment),
     unspentStatPoints: 0,
-    equipment: normalizeEquipment(req.body.equipment),
-    skills: req.body.skills || initialSkills,
   };
   player.combatPower = combatPower(player);
   storePlayer(player);
@@ -643,13 +792,14 @@ app.post("/api/player/stats/allocate", authMiddleware, (req, res) => {
   players.set(player.id, player);
   res.json({ stats: player.stats, unspentStatPoints: player.unspentStatPoints, derivedStats: player.derivedStats });
 });
+
 app.put("/api/player/:id", authMiddleware, (req, res) => {
   const id = Number(req.params.id);
   const current = players.get(id);
   if (!current) return res.status(404).json({ error: "Player not found" });
   if (current.userId !== req.userId) return res.status(403).json({ error: "Không được phép" });
   const player = { ...current, id, userId: req.userId };
-  for (const key of ["name", "x", "y", "mapCode", "mapId", "equip_slot", "faction", "guildId", "gender", "img"]) {
+  for (const key of ["name", "gender", "img"]) {
     if (req.body?.[key] !== undefined) player[key] = req.body[key];
   }
   if (req.body?.equipment !== undefined) player.equipment = normalizeEquipment(req.body.equipment);
@@ -670,9 +820,14 @@ app.post("/api/player/skills/learn", authMiddleware, (req, res) => {
   const skill = skills.find((item) => item.code === code);
   if (!player || !skill) return res.status(404).json({ error: "Skill not found" });
   if (skill.linhCan !== "COMMON" && skill.linhCan !== player.linhCan) return res.status(403).json({ error: "Skill không thuộc linh căn" });
+  const playerRealm = Number(player.canhGioi?.stt || player.realm || 1);
+  if (Number(skill.tier || 1) > playerRealm) {
+    return res.status(400).json({ error: `Yêu cầu cảnh giới tầng ${skill.tier} trở lên để lĩnh hội thần thông này` });
+  }
   player.learnedSkills = Array.from(new Set([...(player.learnedSkills || []), code]));
+  player.combatPower = combatPower(player);
   players.set(player.id, player);
-  res.json({ learnedSkills: player.learnedSkills, skill });
+  res.json({ learnedSkills: player.learnedSkills, skill, combatPower: player.combatPower });
 });
 
 app.put("/api/player/skills/equip", authMiddleware, (req, res) => {

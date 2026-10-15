@@ -9,7 +9,7 @@ async function main() {
   let snapshot = null;
   let checked = false;
 
-  socket.on("connect", () => socket.emit("join_world", { mapCode: "binh_nguyen", x: 150, y: 125 }));
+  socket.on("connect", () => socket.emit("join_world", { mapCode: "binh_nguyen", x: 80, y: 200 }));
   socket.on("connect_error", (error) => { throw error; });
   socket.on("world_init", (payload) => {
     const monsters = payload.monsters || [];

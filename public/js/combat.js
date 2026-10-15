@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// combat.js — §8 Combat Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/combat.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Hệ thống chiến đấu cơ bản (Combat Core): Xác định vai trò (Role: Chiến Binh, Thích Khách,
+//      Pháp Sư, Hộ Vệ), tính toán công/thủ vật lý & phép, tỉ lệ né đòn, bạo kích (Crit),
+//      xử lý đòn đánh thường (Basic Attack), tạo hiệu ứng trúng đòn và gửi lệnh đánh lên server.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.BASIC_ATTACK_RANGE, CFG.BASE_ATK_CD, CFG.COMBAT_GCD.
+//    - Phụ thuộc: State (S), Net, Render, UI.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Tích hợp kiểm tra cự ly đánh, âm thanh/hình ảnh chém kiếm, số nhảy sát thương,
+//      đảm bảo đồng bộ kết quả chiến đấu với server-authoritative khi online.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Combat = {
   // ── Hệ thống Vai Trò (Role) dựa trên thuộc tính ──
@@ -131,10 +140,11 @@ const Combat = {
       const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));
       dmg += critAdd;
     }
-    Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#ffff00" : "#ff6666");
+    m.hitUntil = Date.now() + 180;
+    Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#fff06a" : "#ff5555", isCrit);
     
     S.atkCd = CFG.ATK_CD;
-    S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 14 });
+    S.atkFx.push({ px: m.px, py: m.py, r: isCrit ? 18 : 14, life: 14, color: isCrit ? "rgba(255,240,100,1)" : "rgba(255,220,80,1)" });
 
     m.hp -= dmg;
     if (m.hp <= 0) {

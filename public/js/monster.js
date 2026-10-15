@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// monster.js — §7 Monster AI
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/monster.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý thực thể quái vật (Monster AI & Client State): Khởi tạo đối tượng quái vật từ template,
+//      chạy AI di chuyển/truy đuổi/hồi sinh khi ở chế độ Offline (demo), và nội suy vị trí mượt mà
+//      (linear interpolation) từ tọa độ gói tin server gửi về khi ở chế độ Online.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.TS, monsterDefs.
+//    - Phụ thuộc: State (S), Net, SkillSystem, World.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Hỗ trợ trải nghiệm chơi mượt cả 2 chế độ: Offline độc lập (chạy AI local) và Online (chỉ Host/Server
+//      tính toán AI, Client nội suy chống giật lag).
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Monster = {
   // Tạo quái vật từ template hoặc data server
@@ -38,17 +47,20 @@ const Monster = {
   },
 
   update(m, dt) {
-    if (Net._isOnline) {
-      Monster._networkUpdate(m, dt);
-      return;
-    }
     if (m.dead) {
-      m.respawnT -= dt / 16;
-      if (m.respawnT <= 0) Monster.respawn(m);
+      if (!Net._isOnline) {
+        m.respawnT -= dt / 16;
+        if (m.respawnT <= 0) Monster.respawn(m);
+      }
       return;
     }
 
     SkillSystem.updateMonsterStatus(m, dt);
+
+    if (Net._isOnline) {
+      Monster._networkUpdate(m, dt);
+      return;
+    }
     if (m.dead) return;
 
     // ── MONSTER SYNC (CHỈ HOST MỚI CHẠY AI) ──
@@ -130,8 +142,8 @@ const Monster = {
     const dx = m.tpx - m.px;
     const dy = m.tpy - m.py;
     const d = Math.hypot(dx, dy);
-    if (d > 2) {
-      const step = (m.speed || 1) * (dt / 16) * 1.5;
+    if (d > 0.05) {
+      const step = Math.max(16, (m.speed || 1) * 36) * (dt / 1000);
       m.px += (dx / d) * Math.min(d, step);
       m.py += (dy / d) * Math.min(d, step);
     }

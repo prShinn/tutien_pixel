@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// auth.js — §2 Auth Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/auth.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý đăng nhập & xác thực phía Client (Client Auth & Session Controller): Điều khiển
+//      tab Đăng nhập / Đăng ký, lưu trữ và xóa JWT token trong sessionStorage, chế độ chơi thử
+//      (Demo / Offline Mode), kiểm tra session phiên làm việc hiện tại (/api/auth/me).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - sessionStorage("tu_tien_token").
+//    - Phụ thuộc: Net, State (S), UI, Game.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Cho phép người chơi trải nghiệm ngay không cần tài khoản (chế độ Demo tạo tài khoản test),
+//      tự động chuyển màn hình (Auth Screen -> Create Char Screen -> Game Screen) dựa trên trạng thái nhân vật.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Auth = {
   _mode: "login",
@@ -180,10 +189,10 @@ const Auth = {
           playerData.tangTuVi || 1,
         ),
       tuViLinhCan: playerData.tuViLinhCan || 0,
-      x: playerData.x ?? 26,
-      y: playerData.y ?? 30,
-      px: (playerData.x ?? 26) * CFG.TS + CFG.TS / 2,
-      py: (playerData.y ?? 30) * CFG.TS + CFG.TS / 2,
+      x: Number.isFinite(Number(playerData.x)) ? Number(playerData.x) : 300,
+      y: Number.isFinite(Number(playerData.y)) ? Number(playerData.y) : 200,
+      px: (Number.isFinite(Number(playerData.x)) ? Number(playerData.x) : 300) * CFG.TS + CFG.TS / 2,
+      py: (Number.isFinite(Number(playerData.y)) ? Number(playerData.y) : 200) * CFG.TS + CFG.TS / 2,
       trangBi: parsedTrangBi,
       equipment,
       skills: savedSkills || SkillSystem.assignSkills(playerData.linhCan),
@@ -193,7 +202,7 @@ const Auth = {
       S.inventory = JSON.parse(playerData.jsonIventory) || [];
     } catch (e) {}
     // World state will be initialized by Socket (Server Authoritative)
-    enterGame(null, playerData.x ?? 26, playerData.y ?? 30);
+    enterGame(null, S.player.x, S.player.y);
   },
 
   playOffline() {

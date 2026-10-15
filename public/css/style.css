@@ -1225,10 +1225,16 @@ body {
   inset: 0;
   display: none;
   background: #000;
+  grid-template-columns: none;
+  grid-template-rows: none;
 }
 #canvas-area {
   position: absolute;
   inset: 0;
+  grid-column: auto;
+  grid-row: auto;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 #game-canvas {
@@ -1469,9 +1475,9 @@ body {
 .hud-bar-wrap { height: 11px; border-radius: 5px; overflow: hidden; }
 .hud-bar-bg { border: 1px solid rgba(255,255,255,.08); border-radius: 5px; }
 .hud-bar-fill { border-radius: 4px; }
-#kpah-hud-topright { top: 18px; right: 18px; padding: 7px; border-radius: 10px; }
+#kpah-hud-topright { top: 18px; right: 204px; padding: 6px 8px; border-radius: 10px; display: flex; align-items: center; gap: 7px; }
 .online-badge { margin: 0; padding: 3px 8px; border: 1px solid rgba(128,216,220,.24); border-radius: 99px; background: rgba(128,216,220,.08); }
-.hud-xu { border: 0; margin: 6px 0 0; background: transparent; text-align: right; padding: 0 3px; }
+.hud-xu { border: 0; margin: 0; background: transparent; text-align: right; padding: 0 3px; white-space: nowrap; }
 #map-widget {
   position: absolute; z-index: 10; top: 18px; right: 18px; width: 174px; padding: 9px; border: 1px solid var(--line); border-radius: 10px;
   transform: translateY(66px);
@@ -1483,7 +1489,7 @@ body {
 .map-widget-foot { color: #8e8ca0; font-size: 8px; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 .map-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 7px #f0a85a; }
 #kpah-hud-bottomleft { left: 18px; bottom: 18px; gap: 7px; }
-#kpah-chat-log { width: 290px; height: 128px; border-radius: 10px; }
+#kpah-chat-log { width: 272px; height: 88px; border-radius: 10px; background: rgba(8, 11, 20, .72); }
 .bottom-btns { gap: 6px; }
 .kpah-btn { border-radius: 7px; padding: 7px 12px; color: #d8c77e; transition: transform .15s, background .15s; }
 .kpah-btn:hover { transform: translateY(-1px); background: rgba(215,182,90,.16); }
@@ -1544,15 +1550,131 @@ body {
 .kpah-col-left, .kpah-col-right { padding: 14px; }
 
 /* Fixed combat HUD scale: readable, compact, and consistent across resolutions. */
-.kpah-skill-ring { width: 190px; height: 190px; overflow: visible; }
-.sk-main { width: 78px; height: 78px; border-radius: 50%; right: 0; bottom: 0; }
-.sk-sub { width: 62px; height: 62px; border-radius: 50%; padding: 4px; }
-.sk-sub:nth-child(2) { right: 8px; bottom: 108px; }
-.sk-sub:nth-child(3) { right: 78px; bottom: 78px; }
-.sk-sub:nth-child(4) { right: 112px; bottom: 18px; }
-.sk-sub:nth-child(5) { right: 36px; bottom: -2px; }
+.kpah-skill-ring { width: auto; height: auto; display: flex; align-items: flex-end; gap: 6px; overflow: visible; }
+.sk-main, .sk-sub { position: relative; right: auto; bottom: auto; flex: 0 0 auto; border-radius: 10px; }
+.sk-main { order: 5; width: 68px; height: 68px; }
+.sk-sub { width: 54px; height: 54px; padding: 4px; }
+.sk-sub:nth-child(2), .sk-sub:nth-child(3), .sk-sub:nth-child(4), .sk-sub:nth-child(5) { right: auto; bottom: auto; display: flex; }
 .skbar-icon { width: 30px; height: 30px; font-size: 22px; overflow: hidden; }
 .skbar-icon img { width: 26px; height: 26px; border-radius: 50%; object-fit: contain; }
 .skbar-name { max-width: 54px; font-size: 8px; }
 .skbar-mp { font-size: 7px; }
-.skbar-cd-wrap, .skbar-cd-wrap .cd-ring { border-radius: 50%; }
+.skbar-cd-wrap, .skbar-cd-wrap .cd-ring { border-radius: 8px; }
+
+/* ── TARGET HUD (TOP CENTER) ──────────────────────────── */
+.target-hud {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: auto;
+}
+.target-hud-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--glass, rgba(12, 14, 28, 0.85));
+  border: 1px solid var(--line, rgba(215, 182, 90, 0.35));
+  box-shadow: 0 8px 28px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.06);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  padding: 6px 12px;
+  min-width: 230px;
+}
+.target-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border: 1px solid rgba(220, 60, 60, 0.45);
+  border-radius: 7px;
+  background: rgba(40, 10, 15, 0.7);
+  box-shadow: 0 0 10px rgba(220, 50, 50, 0.2);
+}
+.target-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.target-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.target-name {
+  font-family: "Noto Serif SC", serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffdede;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.target-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ddd;
+}
+.target-badge.elem {
+  background: rgba(215, 182, 90, 0.2);
+  color: var(--gold2, #f5c76c);
+  border: 1px solid rgba(215, 182, 90, 0.3);
+}
+.target-badge.elem-kim { color: #f5c76c; border-color: #f5c76c55; }
+.target-badge.elem-moc { color: #2ecc71; border-color: #2ecc7155; }
+.target-badge.elem-thuy { color: #3498db; border-color: #3498db55; }
+.target-badge.elem-hoa { color: #e74c3c; border-color: #e74c3c55; }
+.target-badge.elem-tho { color: #e67e22; border-color: #e67e2255; }
+.target-hp-wrap {
+  position: relative;
+  width: 130px;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.target-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d63031, #ff7675);
+  border-radius: 4px;
+  transition: width 0.15s ease-out;
+}
+.target-hp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 3px #000;
+  pointer-events: none;
+}
+.target-close-btn {
+  background: transparent;
+  border: none;
+  color: #8e8ca0;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.target-close-btn:hover {
+  color: #ff7675;
+}
+@media (max-width: 700px) {
+  .target-hud { top: 56px; }
+  #kpah-hud-topright { right: 10px; top: 10px; transform: scale(.86); transform-origin: top right; }
+  .kpah-skill-ring { gap: 4px; }
+  .sk-main { width: 58px; height: 58px; }
+  .sk-sub { width: 45px; height: 45px; }
+}

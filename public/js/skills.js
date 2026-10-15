@@ -1,7 +1,17 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// skills.js — §8b Skill System + BE↔FE Mappers
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/skills.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Hệ thống kỹ năng & thần thông (Skill Engine): Mapper dữ liệu BE <-> FE, quản lý sổ thần thông
+//      (Skill Book), học kỹ năng mới, trang bị loadout (tối đa 4 kỹ năng), tính toán cooldown,
+//      thi triển kỹ năng định hướng/AOE, tương sinh tương khắc Ngũ Hành, vẽ thanh kỹ năng.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.SKILLS (bảng kỹ năng theo linh căn), Linh_CAN.
+//    - Phụ thuộc: State (S), Net, UI, Render, Combat.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Thống nhất schema kỹ năng giữa REST API server và client engine.
+//    - Tự động tìm mục tiêu thông minh (Smart Targeting) trong phạm vi chiêu khi bấm phím 1-4.
+//    - Quản lý hiệu ứng buff, debuff (choáng, thiêu đốt, giảm thủ, tăng tốc) trên quái và người chơi.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 // ── Helpers chuyển đổi kỹ năng Backend → Frontend ──
 // BE format: { id, code, name, icon, linhCan, tier, type(PHYS|MAGIC),
@@ -356,11 +366,14 @@ const SkillSystem = {
 
     if (socket?.connected && offensive) {
       const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
-      const target = S.monsters
-        .filter((monster) => !monster.dead)
-        .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
-        .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
-      if (!target) return UI.log("Không có mục tiêu.", "system");
+      const target = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= maxRange)
+        ? S.target
+        : S.monsters
+            .filter((monster) => !monster.dead)
+            .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
+            .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
+      if (!target) return UI.log("Không có mục tiêu trong tầm.", "system");
+      S.target = target;
       startCastAnimation();
       S.combatPending = true;
       socket.emit("attack_request", { targetId: target.id, skillCode: skill.code || skill.id, mapId: S.mapCode });

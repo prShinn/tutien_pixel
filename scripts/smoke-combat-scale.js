@@ -17,15 +17,15 @@ async function main() {
   const auth = await api("/api/auth/demo", null, "POST");
   await api("/api/player", auth.token, "POST", {
     userId: auth.user.id, name: "Scale Combat", linhCan: "KIM", stats: { str: 8, agi: 7, vit: 7, ene: 8 },
-    tangTuVi: 1, realm: 1, hp: 220, maxHp: 220, mp: 130, maxMp: 130, x: 150, y: 125,
+    tangTuVi: 1, realm: 1, hp: 220, maxHp: 220, mp: 130, maxMp: 130, x: 80, y: 200,
     mapCode: "binh_nguyen", mapId: "binh_nguyen", jsonIventory: "[]",
   });
   const socket = io(BASE, { auth: { token: auth.token }, reconnection: false });
   const result = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("combat scale timeout")), 8000);
-    socket.on("connect", () => socket.emit("join_world", { mapCode: "binh_nguyen", x: 150, y: 125 }));
+    socket.on("connect", () => socket.emit("join_world", { mapCode: "binh_nguyen", x: 80, y: 200 }));
     socket.on("world_init", ({ monsters }) => {
-      const target = [...(monsters || [])].sort((a, b) => Math.hypot(a.x - 150, a.y - 125) - Math.hypot(b.x - 150, b.y - 125))[0];
+      const target = [...(monsters || [])].sort((a, b) => Math.hypot(a.x - 80, a.y - 200) - Math.hypot(b.x - 80, b.y - 200))[0];
       if (!target) return reject(new Error("no monster near scale test"));
       socket.emit("attack_request", { targetId: target.id, skillCode: "KIM_KICH", mapId: "binh_nguyen" });
     });

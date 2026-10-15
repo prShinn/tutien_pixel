@@ -1,3 +1,18 @@
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: data/balance.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Hệ thống công thức & cân bằng game (Game Balance Formulas): Quy định điểm số khởi tạo,
+//      hệ số chuyển đổi thuộc tính gốc (str/agi/vit/ene) sang chỉ số chiến đấu (pAtk, mAtk, pDef,
+//      mDef, maxHp, maxMp, crit, evasion), công thức giảm trừ sát thương theo phòng thủ,
+//      tương khắc ngũ hành (advantage 1.12 / disadvantage 0.94), tính điểm lực chiến (Combat Power),
+//      và lượng tu vi cần thiết để đột phá từng cảnh giới.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - BALANCE, AFFINITY_PAIRS.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Giữ cân bằng toán học giữa các hệ linh căn và cảnh giới, ngăn chặn tình trạng số liệu
+//      lạm phát hoặc quái vật quá mạnh/quá yếu, tạo quy chuẩn chung cho cả client và server.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
 const BALANCE = {
   creation: { minStat: 5, bonusPoints: 10 },
   stats: {

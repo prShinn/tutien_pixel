@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// cultivation.js — §9 Cultivation Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/cultivation.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Hệ thống tu luyện & cảnh giới (Cultivation & Progression): Quản lý tích lũy tu vi,
+//      hấp thụ đá tu vi (Linh Thạch / Huyết Ngọc), tiến cấp tầng tu vi (1-9), đột phá đại cảnh giới
+//      (Luyện Khí -> Trúc Cơ -> Kim Đan...), tăng điểm tiềm năng thuộc tính.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.REALMS, CANH_GIOI.
+//    - Phụ thuộc: State (S), Net, UI, Render.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Chuẩn hóa thuộc tính (str, agi, vit, ene), tính toán tỉ lệ đột phá thành công / thất bại,
+//      đồng bộ trạng thái thăng cấp với REST API /api/cultivation/absorb và breakthrough.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Cultivation = {
   normalizePlayerStats(player) {

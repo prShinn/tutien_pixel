@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// game.js — §15 Game Loop + §16 Char Create + §17 Screens + §18 Boot
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/game.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Trục điều phối chính (Game Engine Core): Vòng lặp game loop (requestAnimationFrame),
+//      cập nhật logic thời gian thực (update/dt), điều khiển nhân vật, màn hình tạo nhân vật,
+//      chuyển đổi màn hình (Auth -> Create -> Game) và khởi tạo Bootloader.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.PLAYER_MOVE_SPEED, CFG.REMOTE_MOVE_SPEED, CFG.BASIC_ATTACK_RANGE, CFG.REGEN_HP/MP.
+//    - Phụ thuộc: State (S), World, Render, Input, Combat, SkillSystem, UI, Net.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Đảm bảo vòng lặp 60 FPS ổn định, nội suy di chuyển người chơi khác (Interpolation),
+//      kiểm tra mở modal tránh di chuyển ngoài ý muốn, tích hợp auto-fight và auto-target quái.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════
 // §15 · GAME LOOP
@@ -23,15 +32,32 @@ function update(dt) {
       S.atkFx[i].r += 0.8;
       if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
     }
+    const active = document.activeElement;
+    const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.id === "chat-inp" && active.offsetParent !== null;
     const modalOpen =
-      document.getElementById("shop-modal").classList.contains("open") ||
-      document.getElementById("dialog-modal").classList.contains("open");
-    if (!modalOpen) {
+      Boolean(document.getElementById("shop-modal")?.classList.contains("open")) ||
+      Boolean(document.getElementById("dialog-modal")?.classList.contains("open")) ||
+      (document.getElementById("kpah-menu-modal")?.style.display === "flex");
+    if (!modalOpen && !isTyping) {
       let dx = 0, dy = 0;
-      if (Input.keys["KeyA"] || Input.keys["ArrowLeft"]) dx = -1;
-      if (Input.keys["KeyD"] || Input.keys["ArrowRight"]) dx = 1;
-      if (Input.keys["KeyW"] || Input.keys["ArrowUp"]) dy = -1;
-      if (Input.keys["KeyS"] || Input.keys["ArrowDown"]) dy = 1;
+      if (Input.keys["KeyA"] || Input.keys["ArrowLeft"] || Input.keys["a"]) dx = -1;
+      if (Input.keys["KeyD"] || Input.keys["ArrowRight"] || Input.keys["d"]) dx = 1;
+      if (Input.keys["KeyW"] || Input.keys["ArrowUp"] || Input.keys["w"]) dy = -1;
+      if (Input.keys["KeyS"] || Input.keys["ArrowDown"] || Input.keys["s"]) dy = 1;
+
+      if (dx || dy) {
+        p.targetMovePos = null;
+      } else if (p.targetMovePos) {
+        const toX = p.targetMovePos.x;
+        const toY = p.targetMovePos.y;
+        const distToTarget = Math.hypot(toX - p.x, toY - p.y);
+        if (distToTarget < 0.6) {
+          p.targetMovePos = null;
+        } else {
+          dx = (toX - p.x) / distToTarget;
+          dy = (toY - p.y) / distToTarget;
+        }
+      }
 
       if (dx || dy) {
         if (Math.abs(dx) >= Math.abs(dy)) p.direction = dx < 0 ? "left" : "right";
@@ -41,17 +67,12 @@ function update(dt) {
         const dirY = dy / mag;
         const speedBuff = p.buffs?.buff_spd || p.buffs?.speed;
         const speedActive = speedBuff && (!speedBuff.expiresAt || speedBuff.expiresAt > Date.now()) ? Number(speedBuff.value || 0) : 0;
-        const speedBase = 7.5 * (1 + Math.max(0, speedActive) / 100); // Tăng tốc độ cơ bản lên 5 lần
-        const speedBonus = (p.stats?.agi || 0) * 0.005;
-        const moveStep =
-          ((speedBase + speedBonus) * (dt / 16)) /
-          (15 - Math.max(0, Math.min(14, S.player.speed ?? 1)));
+        const speedBonus = Number(p.stats?.agi || 0) * 0.08;
+        const moveSpeed = (CFG.PLAYER_MOVE_SPEED + speedBonus) * (1 + Math.max(0, speedActive) / 100);
+        const moveStep = moveSpeed * dt / 1000;
         const oldX = p.x;
         const oldY = p.y;
-        const nextX = p.x + dirX * moveStep;
-        if (!World.collides(nextX, p.y)) p.x = nextX;
-        const nextY = p.y + dirY * moveStep;
-        if (!World.collides(p.x, nextY)) p.y = nextY;
+        World.moveWithCollision(p, dirX * moveStep, dirY * moveStep);
       
         // Cập nhật tọa độ di chuyển
         const moved = Math.abs(p.x - oldX) > 0.0001 || Math.abs(p.y - oldY) > 0.0001;
@@ -69,9 +90,12 @@ function update(dt) {
             p.lastEmitY = p.y;
             Net.emitMove();
           }
-        } else if (p.isMoving) {
-          p.isMoving = false;
-          Net.emitMove(); // Gửi tọa độ cuối cùng khi dừng lại
+        } else {
+          if (p.targetMovePos) p.targetMovePos = null;
+          if (p.isMoving) {
+            p.isMoving = false;
+            Net.emitMove(); // Gửi tọa độ cuối cùng khi dừng lại
+          }
         }
       } else if (p.isMoving) {
         p.isMoving = false;
@@ -82,22 +106,38 @@ function update(dt) {
       p.py = p.y * CFG.TS + CFG.TS / 2;
 
       if (Input.keys["Space"] && S.atkCd <= 0) {
-        let best = null, bd = CFG.BASIC_ATTACK_RANGE * CFG.TS;
-        for (const m of S.monsters)
-          if (!m.dead) {
-            const d = dist(m.px, m.py, p.px, p.py);
-            if (d < bd) { bd = d; best = m; }
+        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS;
+        let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
+        if (!best) {
+          let bd = attackRange;
+          for (const m of S.monsters) {
+            if (!m.dead) {
+              const d = dist(m.px, m.py, p.px, p.py);
+              if (d < bd) { bd = d; best = m; }
+            }
           }
-        if (best) Combat.attack(best);
+        }
+        if (best) {
+          S.target = best;
+          Combat.attack(best);
+        }
       }
       if (S.autoFight && S.atkCd <= 0) {
-        let best = null, bd = CFG.BASIC_ATTACK_RANGE * CFG.TS;
-        for (const m of S.monsters)
-          if (!m.dead) {
-            const d = dist(m.px, m.py, p.px, p.py);
-            if (d < bd) { bd = d; best = m; }
+        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS;
+        let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
+        if (!best) {
+          let bd = attackRange;
+          for (const m of S.monsters) {
+            if (!m.dead) {
+              const d = dist(m.px, m.py, p.px, p.py);
+              if (d < bd) { bd = d; best = m; }
+            }
           }
-        if (best) Combat.attack(best);
+        }
+        if (best) {
+          S.target = best;
+          Combat.attack(best);
+        }
       }
       if (
         dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4
@@ -112,7 +152,7 @@ function update(dt) {
         const dy = op.tpy - op.py;
         const d = Math.hypot(dx, dy);
         if (d > 0.1) {
-          const step = 7.0 * (dt / 16); // Tốc độ nội suy tăng 5 lần tương ứng
+          const step = CFG.REMOTE_MOVE_SPEED * dt / 1000;
           op.px += (dx / d) * Math.min(d, step);
           op.py += (dy / d) * Math.min(d, step);
         }
@@ -124,7 +164,6 @@ function update(dt) {
     }
 
     // Cập nhật hiệu ứng FX và Floating Texts
-    S.atkFx = S.atkFx.filter((f) => { f.life -= dt * 0.05; return f.life > 0; });
     S.floatingTexts = S.floatingTexts.filter((f) => { 
       f.life -= dt; 
       f.y -= dt * 0.02; // bay lên từ từ
@@ -230,9 +269,12 @@ async function createCharacter() {
   }
   const { str, agi, vit, ene } = S.creation.points;
 
+  const demoWorldPath = Auth._demoMode
+    ? "/api/worlds/by-code?code=binh_nguyen"
+    : "/api/worlds/default";
   const [defaultRealm, defaultWorldDto] = await Promise.all([
     Net.get("/api/canh-gioi/stt/1"),
-    Net.get("/api/worlds/default"),
+    Net.get(demoWorldPath),
   ]);
   if (!defaultRealm?.code || !defaultWorldDto?.code) {
     alert("Không thể tải dữ liệu khởi tạo nhân vật. Vui lòng thử lại sau.");
@@ -292,6 +334,10 @@ async function createCharacter() {
   const saved = await Net.post("/api/player", playerData);
   if (saved?.id) {
     playerData.id = saved.id;
+    if (saved.mapCode) playerData.mapCode = saved.mapCode;
+    if (saved.mapId) playerData.mapId = saved.mapId;
+    if (Number.isFinite(Number(saved.x))) playerData.x = Number(saved.x);
+    if (Number.isFinite(Number(saved.y))) playerData.y = Number(saved.y);
   }
   S.player = {
     ...playerData,
@@ -306,13 +352,16 @@ async function createCharacter() {
     },
   };
   S.inventory = [];
-  enterGame(defaultMap, spawnX, spawnY);
+  enterGame(defaultMap, playerData.x, playerData.y);
 }
 
 // ════════════════════════════════════════════════════════════
 // §16b · Enter Game
 // ════════════════════════════════════════════════════════════
 function enterGame(map, x, y) {
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
   showScreen("game");
   canvas = document.getElementById("game-canvas");
   const area = document.getElementById("canvas-area");
@@ -324,8 +373,12 @@ function enterGame(map, x, y) {
   ctx.imageSmoothingEnabled = false;
 
   Input.init();
-  if (map) World.loadMap(map, x, y);
-  else UI.log("Đang chờ dữ liệu thế giới từ máy chủ...", "system");
+  if (map) {
+    World.loadMap(map, x, y);
+    UI.hideLoading();
+  } else {
+    UI.log("Đang chờ dữ liệu thế giới từ máy chủ...", "system");
+  }
   
   UI.buildInv();
   UI.update();
@@ -361,6 +414,9 @@ function toggleAuto() {
 // §17 · SCREEN MANAGEMENT
 // ════════════════════════════════════════════════════════════
 function showScreen(name) {
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
   document.getElementById("screen-auth").classList.add("hidden");
   document.getElementById("screen-create").classList.add("hidden");
   document.getElementById("screen-game").style.display = "none";
@@ -369,7 +425,8 @@ function showScreen(name) {
   else if (name === "create")
     document.getElementById("screen-create").classList.remove("hidden");
   else if (name === "game")
-    document.getElementById("screen-game").style.display = "grid";
+    // Gameplay HUD is an absolute overlay, not the legacy three-column grid.
+    document.getElementById("screen-game").style.display = "block";
 }
 
 // ════════════════════════════════════════════════════════════

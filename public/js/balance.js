@@ -1,3 +1,16 @@
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/balance.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Cân bằng chiến đấu phía Client (Client Combat Formulas): Bản sao đồng bộ của data/balance.js
+//      phục vụ tính toán sát thương tức thời trên màn hình (Client Prediction), tính toán OVR lực chiến,
+//      vòng tròn Tương Sinh (Kim -> Thủy -> Mộc -> Hỏa -> Thổ) và Tương Khắc (Kim -> Mộc -> Thổ -> Thủy -> Hỏa).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - GAME_BALANCE (stats, damage, affinity, polarity, special, progression).
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Đảm bảo hiển thị đúng số liệu sát thương dự tính và OVR lực chiến trên HUD người chơi
+//      mà không cần liên tục gửi request hỏi server.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
 "use strict";
 const GAME_BALANCE = {
   stats: { str: { pAtk: 4 }, agi: { pAtk: 0.5, crit: 0.003, evasion: 0.004, speed: 0.25 }, vit: { pDef: 2, maxHp: 12 }, ene: { mAtk: 4, mDef: 1.5, maxMp: 8 } },

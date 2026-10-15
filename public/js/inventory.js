@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// inventory.js — §10 Inventory Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/inventory.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý túi đồ & trang bị (Inventory & Equipment): Thêm vật phẩm vào túi (stack tối đa 99),
+//      sử dụng vật phẩm (đan dược hồi phục, đá tu vi), trang bị vũ khí/giáp/pháp bảo vào ô trang bị,
+//      tháo trang bị, và đồng bộ với REST API /api/player/inventory.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.INV_MAX, CFG.SLOTS (weapon, hat, armor, pants, boots, ring, amulet, belt, gem).
+//    - Phụ thuộc: State (S), UI, Net.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Tự động cộng dồn (stackable) vật phẩm trùng ID, tính toán lại thuộc tính nhân vật khi mặc/tháo đồ,
+//      hỗ trợ cả cập nhật local và gọi server API.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Inventory = {
   add(item) {

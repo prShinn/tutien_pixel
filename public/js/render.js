@@ -1,7 +1,17 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// render.js — §12 Render Module + Tile Color Table
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/render.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Hệ thống đồ họa Canvas 2D (Graphics & Rendering Engine): Vẽ địa hình đa tầng (ground,
+//      objects, elevation), người chơi, quái vật, NPC, cổng portal, hoạt ảnh di chuyển/tấn công,
+//      hiệu ứng kỹ năng, sát thương số bay (Floating Damage/Crit), Minimap và la bàn dẫn đường.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.TS (Tile Size), CFG.DS (Display Scale), CFG.ACTOR_W/H, TC (Bảng màu Tile).
+//    - Phụ thuộc: State (S), Canvas context (ctx).
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Viewport camera culling (chỉ vẽ đối tượng trong màn hình để tối đa FPS).
+//    - Xóa nền ảnh tự động (_removeBg), cache địa hình (buildTerrainCache).
+//    - Hit flash chớp trắng, Target lock indicator và vòng sáng mục tiêu.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const TC = {
   [0]: ["#2a5a28", "#3a7a38"],   // GRASS
@@ -104,6 +114,20 @@ const Render = {
     }
     
     // Draw entities
+    if (p.targetMovePos) {
+      const destX = p.targetMovePos.x * ts + ts / 2 - cx;
+      const destY = p.targetMovePos.y * ts + ts / 2 - cy;
+      const pulse = 0.5 + 0.5 * Math.sin(S.animT * 0.008);
+      ctx.save();
+      ctx.strokeStyle = `rgba(0, 210, 211, ${0.4 + pulse * 0.4})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(destX, destY, 4 + pulse * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(0, 210, 211, ${0.2 + pulse * 0.2})`;
+      ctx.fill();
+      ctx.restore();
+    }
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
     for (const npc of S.npcs) Render.npc(npc, cx, cy);
     for (const [, op] of S.players) Render.otherPlayer(op, cx, cy);
@@ -118,50 +142,77 @@ const Render = {
     ctx.lineWidth = 1;
 
     // Vẽ tên người chơi
-    const playerLabelY = p.py - cy - CFG.ACTOR_H / 2 - 7;
+    const playerLabelY = p.py - cy - CFG.ACTOR_H - 7;
     ctx.strokeStyle = "#000"; ctx.strokeText(p.name, p.px - cx, playerLabelY);
     ctx.fillStyle = tint; ctx.fillText(p.name, p.px - cx, playerLabelY);
 
     // Vẽ thanh máu mini cho người chơi
     const pw = CFG.ACTOR_W;
-    const playerBarY = p.py - cy - CFG.ACTOR_H / 2 - 4;
+    const playerBarY = p.py - cy - CFG.ACTOR_H - 4;
     ctx.fillStyle = "#111"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw, 2);
     ctx.fillStyle = "#cc2222"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
 
     for (const fx of S.atkFx) {
-      ctx.strokeStyle = `rgba(255,200,60,${fx.life / 14})`;
+      const alpha = Math.max(0, fx.life / 14);
+      const r = (fx.r || 14) * (0.65 + (1 - alpha) * 0.5);
+      ctx.save();
+      ctx.strokeStyle = fx.color || `rgba(255,225,80,${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const angle = fx.angle !== undefined ? fx.angle : 0.6;
+      ctx.arc(fx.px - cx, fx.py - cy, r, angle - 1.1, angle + 1.1);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.9})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(fx.px - cx, fx.py - cy, fx.r / 2, 0, Math.PI * 2);
+      ctx.moveTo(fx.px - cx - 3, fx.py - cy); ctx.lineTo(fx.px - cx + 3, fx.py - cy);
+      ctx.moveTo(fx.px - cx, fx.py - cy - 3); ctx.lineTo(fx.px - cx, fx.py - cy + 3);
       ctx.stroke();
+      ctx.restore();
     }
     
     // Vẽ KPAH Floating Damage Text
-    ctx.font = "bold 8px monospace";
     for (const ft of S.floatingTexts) {
       const alpha = Math.max(0, ft.life / ft.maxLife);
+      ctx.save();
       ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-      if (ft.kind === "skill") ctx.font = "bold 7px monospace";
+      if (ft.isCrit) {
+        ctx.font = "bold 9px monospace";
+      } else if (ft.kind === "skill") {
+        ctx.font = "bold 7px monospace";
+      } else {
+        ctx.font = "bold 8px monospace";
+      }
       ctx.strokeText(ft.text, ft.x - cx, ft.y - cy);
       ctx.fillStyle = ft.color.replace(')', `,${alpha})`).replace('rgb', 'rgba').replace(/#([0-9a-fA-F]{6})/, (m, c) => `rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},${alpha})`);
       ctx.fillText(ft.text, ft.x - cx, ft.y - cy);
-      if (ft.kind === "skill") ctx.font = "bold 8px monospace";
+      ctx.restore();
     }
     
-    // Portal hint
+    ctx.restore();
+
+    // Portal hint (vẽ trên màn hình canvas thực tế sau restore để không bị scale 3x)
     if (Array.isArray(S.portals) && S.portals.length) {
       let nearest = null, bestDist = Infinity;
-      const centerX = lcW / 2, centerY = lcH / 2;
+      const screenCenterX = cW / 2, screenCenterY = cH / 2;
       for (const portal of S.portals) {
-        if (!portal.tenMapDen) continue;
-        const px = portal.x * ts + ts / 2 - cx, py = portal.y * ts + ts / 2 - cy;
-        if (px >= -20 && px <= lcW + 20 && py >= -20 && py <= lcH + 20) continue;
-        const d = Math.pow(px - centerX, 2) + Math.pow(py - centerY, 2);
-        if (d < bestDist) { bestDist = d; nearest = { portal, px, py, dx: px - centerX, dy: py - centerY }; }
+        if (!portal.tenMapDen && !portal.denMap && !portal.toMap) continue;
+        const screenPx = (portal.x * ts + ts / 2 - cx) * ds;
+        const screenPy = (portal.y * ts + ts / 2 - cy) * ds;
+        // Nếu cổng đã hiển thị trong màn hình, không cần vẽ la bàn chỉ hướng
+        if (screenPx >= 35 && screenPx <= cW - 35 && screenPy >= 35 && screenPy <= cH - 35) continue;
+        const dx = screenPx - screenCenterX;
+        const dy = screenPy - screenCenterY;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          nearest = { portal, dx, dy, screenPx, screenPy };
+        }
       }
-      if (nearest) Render.portalHint(nearest, centerX, centerY, lcW, lcH);
+      if (nearest) Render.portalHint(nearest, screenCenterX, screenCenterY, cW, cH);
     }
-    ctx.restore();
+
     Render.miniMap();
   },
 
@@ -173,14 +224,86 @@ const Render = {
     const sx = w / Math.max(1, S.mapW), sy = h / Math.max(1, S.mapH);
     mini.clearRect(0, 0, w, h);
     if (S.miniTerrainCanvas) mini.drawImage(S.miniTerrainCanvas, 0, 0, w, h);
+
+    // 1. Cổng không gian (hình thoi phát sáng dạ quang)
+    const portalPulse = Math.sin(S.animT * 0.005) * 1;
     for (const portal of S.portals || []) {
-      mini.fillStyle = "#d7b65a";
-      mini.fillRect(portal.x * sx, portal.y * sy, Math.max(2, sx), Math.max(2, sy));
+      const px = (portal.x + 0.5) * sx;
+      const py = (portal.y + 0.5) * sy;
+      const sz = Math.max(3, 4 + portalPulse);
+      mini.save();
+      mini.fillStyle = "#48dbfb";
+      mini.shadowColor = "#00d2d3";
+      mini.shadowBlur = 6;
+      mini.beginPath();
+      mini.moveTo(px, py - sz);
+      mini.lineTo(px + sz, py);
+      mini.lineTo(px, py + sz);
+      mini.lineTo(px - sz, py);
+      mini.closePath();
+      mini.fill();
+      mini.strokeStyle = "#ffffff";
+      mini.lineWidth = 1;
+      mini.stroke();
+      mini.restore();
     }
+
+    // 2. Quái vật (chuẩn hóa tọa độ theo tile, vẽ vòng đỏ khi là mục tiêu được nhắm)
+    for (const monster of S.monsters || []) {
+      if (monster.dead) continue;
+      const mx = (monster.px !== undefined ? monster.px / CFG.TS : monster.x) * sx;
+      const my = (monster.py !== undefined ? monster.py / CFG.TS : monster.y) * sy;
+      const isTarget = Boolean(S.target && (S.target === monster || S.target.id === monster.id));
+
+      if (isTarget) {
+        mini.save();
+        mini.strokeStyle = "#ff3838";
+        mini.lineWidth = 1.5;
+        mini.beginPath();
+        mini.arc(mx, my, 4 + Math.sin(S.animT * 0.01) * 1.5, 0, Math.PI * 2);
+        mini.stroke();
+        mini.restore();
+      }
+
+      mini.fillStyle = isTarget ? "#ff3838" : (monster.type === "ELITE" ? "#ff9f43" : "#ee5253");
+      const dotSz = monster.type === "ELITE" || isTarget ? 3 : 2;
+      mini.fillRect(mx - dotSz / 2, my - dotSz / 2, dotSz, dotSz);
+    }
+
+    // 3. Người chơi khác (chấm xanh lam phát sáng)
+    if (S.players && S.players.size > 0) {
+      for (const [, op] of S.players) {
+        const opx = (op.px !== undefined ? op.px / CFG.TS : op.x) * sx;
+        const opy = (op.py !== undefined ? op.py / CFG.TS : op.y) * sy;
+        mini.save();
+        mini.fillStyle = "#54a0ff";
+        mini.shadowColor = "#2e86de";
+        mini.shadowBlur = 4;
+        mini.beginPath();
+        mini.arc(opx, opy, 2.5, 0, Math.PI * 2);
+        mini.fill();
+        mini.strokeStyle = "#ffffff";
+        mini.lineWidth = 0.8;
+        mini.stroke();
+        mini.restore();
+      }
+    }
+
+    // 4. Bản thân người chơi (chấm vàng kim có hào quang)
     if (S.player) {
+      const plx = (S.player.x + 0.5) * sx;
+      const ply = (S.player.y + 0.5) * sy;
+      mini.save();
       mini.fillStyle = "#fff3c4";
-      mini.beginPath(); mini.arc((S.player.x + .5) * sx, (S.player.y + .5) * sy, 3, 0, Math.PI * 2); mini.fill();
-      mini.strokeStyle = "#f0a85a"; mini.stroke();
+      mini.shadowColor = "#f0a85a";
+      mini.shadowBlur = 6;
+      mini.beginPath();
+      mini.arc(plx, ply, 3.5, 0, Math.PI * 2);
+      mini.fill();
+      mini.strokeStyle = "#f39c12";
+      mini.lineWidth = 1.2;
+      mini.stroke();
+      mini.restore();
     }
   },
 
@@ -269,6 +392,8 @@ const Render = {
     const bob = idle ? Math.sin(phase) * 0.08 : Math.abs(stride) * 0.7;
     const sway = idle ? 0 : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
     const attackPulse = actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
+    const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
+    const actorH = Number(actor?.animation?.height || CFG.ACTOR_H);
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
@@ -277,15 +402,17 @@ const Render = {
       ctx.globalAlpha = moving ? 0.16 : 0.1;
       ctx.fillStyle = tint;
       ctx.beginPath();
-      ctx.arc(sx, sy - 3 + bob, moving ? 12 : 10.5, 0, Math.PI * 2);
+      ctx.arc(sx, sy - actorH * 0.46 + bob, moving ? 12 : 10.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 10, moving ? 8 + Math.abs(stride) : 7, 2.2, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 1, moving ? 8 + Math.abs(stride) : 7, 2.2, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
-      ctx.translate(sx, sy + bob);
+      // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
+      // chạm đúng chân, trong khi collision vẫn dùng cùng tọa độ world.
+      ctx.translate(sx, sy - bob);
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (moving ? Math.abs(stride) * 0.035 : 0), 1 - (moving ? Math.abs(stride) * 0.025 : 0));
@@ -295,14 +422,20 @@ const Render = {
       const spriteFrame = actor?.animation?.kind === "grid"
         ? { col: frameIndex % Number(actor.animation.cols || 4), row: animation.row, cols: actor.animation.cols || 4, rows: actor.animation.rows || 4 }
         : (defaultCharacterSheet ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null);
-      const drawn = this.drawSprite(imgToDraw, 0, 0, actor?.animation?.width || CFG.ACTOR_W, actor?.animation?.height || CFG.ACTOR_H, spriteFrame);
+      const drawn = this.drawSprite(imgToDraw, 0, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
+        if (actor?.hitUntil > Date.now()) {
+          ctx.save();
+          ctx.fillStyle = "rgba(255, 50, 50, 0.45)";
+          ctx.fillRect(sx - actorW / 2, sy - actorH, actorW, actorH);
+          ctx.restore();
+        }
         return;
       }
     }
 
-    const x = sx - 4, y = sy - 8;
+    const x = sx - 4, y = sy - 9;
     // Bóng đổ
     ctx.fillStyle = "rgba(0,0,0,.2)";
     ctx.beginPath(); ctx.ellipse(sx, sy + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
@@ -337,7 +470,7 @@ const Render = {
     ctx.fillStyle = "#fff";
     ctx.font = "7px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(op.name || "Tu sĩ", sx, sy - CFG.ACTOR_H / 2 - 5);
+    ctx.fillText(op.name || "Tu sĩ", sx, sy - CFG.ACTOR_H - 5);
   },
 
   monster(m, cx, cy) {
@@ -350,6 +483,27 @@ const Render = {
     const animation = m.animation || { kind: "procedural", width: m.size || 18, height: m.size || 18 };
     const spriteW = Number(animation.width || m.size || 18);
     const spriteH = Number(animation.height || m.size || 18);
+
+    const isTarget = Boolean(S.target && (S.target === m || S.target.id === m.id));
+    if (isTarget) {
+      const t = S.animT * 0.006;
+      ctx.save();
+      ctx.strokeStyle = "#ff3b30";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy + spriteH * 0.32, spriteW * 0.65 + Math.sin(t) * 1.2, spriteH * 0.28 + Math.sin(t) * 0.6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ff3b30";
+      ctx.beginPath();
+      const arrowY = sy - spriteH * 0.62 + Math.sin(t * 1.6) * 2;
+      ctx.moveTo(sx, arrowY + 3.5);
+      ctx.lineTo(sx - 3, arrowY);
+      ctx.lineTo(sx + 3, arrowY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
     let useSprite = false;
     if (m.img && animation.kind === "grid") {
       const speed = { idle: 220, walk: 120, attack: 86, hit: 120 }[action] || 160;
@@ -388,6 +542,13 @@ const Render = {
       ctx.fillRect(x + spriteW * 0.22, y + spriteH * 0.24 + wave, 1, 1);
       ctx.fillRect(x + spriteW * 0.67, y + spriteH * 0.24 + wave, 1, 1);
     }
+
+    if (m.hitUntil > now) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+      ctx.fillRect(sx - spriteW / 2, sy - spriteH / 2, spriteW, spriteH);
+      ctx.restore();
+    }
     
     if (m.hp < m.maxHp && m.hp > 0) {
       const maxHp = Math.max(1, m.maxHp || 100);
@@ -418,25 +579,75 @@ const Render = {
 
   portalHint(nearest, centerX, centerY, cW, cH) {
     const { dx, dy, portal } = nearest;
-    const margin = 20;
-    const edgeX = Math.min(cW - margin, Math.max(margin, centerX + dx));
-    const edgeY = Math.min(cH - margin, Math.max(margin, centerY + dy));
-    ctx.fillStyle = "rgba(100,200,255,0.8)";
-    ctx.beginPath(); ctx.arc(edgeX, edgeY, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.font = "8px monospace"; ctx.textAlign = "center";
-    ctx.fillStyle = "#fff";
-    ctx.fillText(portal.tenMapDen || "Cổng", edgeX, edgeY - 10);
+    const ts = CFG.TS || 1;
+    const ds = CFG.DS || 3;
+    const distPx = Math.hypot(dx / ds, dy / ds);
+    const distMeters = Math.max(1, Math.round(distPx / ts));
+    if (distMeters < 12) return; // Nếu đã gần cổng, không hiện chỉ dẫn để thoáng màn hình
+
+    const angle = Math.atan2(dy, dx);
+    const padX = 24;
+    const padY = 22;
+    const edgeX = Math.min(cW - padX, Math.max(padX, centerX + Math.cos(angle) * (cW / 2 - padX)));
+    const edgeY = Math.min(cH - padY, Math.max(padY, centerY + Math.sin(angle) * (cH / 2 - padY)));
+
+    ctx.save();
+    // 1. Mũi tên nhỏ xoay hướng tới cổng
+    ctx.translate(edgeX, edgeY);
+    ctx.rotate(angle);
+    ctx.fillStyle = "#7ce8eb";
+    ctx.shadowColor = "#00d2d3";
+    ctx.shadowBlur = 3;
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(-5, -5);
+    ctx.lineTo(-2, 0);
+    ctx.lineTo(-5, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Nhãn hiển thị nhỏ gọn thanh lịch (font 10px, cao 16px)
+    ctx.save();
+    const label = `${portal.tenMapDen || "Cổng"} (${distMeters}m)`;
+    ctx.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    const compactLabel = `${distMeters}m`;
+    ctx.font = "600 9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    const textW = ctx.measureText(compactLabel).width;
+    const boxW = Math.round(textW + 10);
+    const boxH = 14;
+    const labelOffsetY = edgeY > cH - 30 ? -12 : 12;
+    const boxX = Math.min(cW - boxW / 2 - 6, Math.max(boxW / 2 + 6, edgeX));
+    const boxY = Math.min(cH - boxH / 2 - 4, Math.max(boxH / 2 + 4, edgeY + labelOffsetY));
+
+    ctx.fillStyle = "rgba(7, 15, 24, 0.74)";
+    ctx.strokeStyle = "rgba(124, 232, 235, 0.32)";
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.roundRect(boxX - boxW / 2, boxY - boxH / 2, boxW, boxH, 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#e0f7fa";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(compactLabel, boxX, boxY);
+    ctx.restore();
   },
 
-  floatDmg(wx, wy, offY, text, color) {
+  floatDmg(wx, wy, offY, text, color, isCrit = false) {
     if (!S.floatingTexts) S.floatingTexts = [];
     S.floatingTexts.push({
       text: text,
       color: color,
       x: wx + Math.random() * 8 - 4,
       y: wy + offY,
-      life: 800, // ms
-      maxLife: 800
+      life: isCrit ? 1000 : 800,
+      maxLife: isCrit ? 1000 : 800,
+      isCrit: Boolean(isCrit),
     });
   },
 

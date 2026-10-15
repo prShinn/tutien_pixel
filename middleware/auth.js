@@ -1,10 +1,20 @@
-/**
- * middleware/auth.js
- * JWT verification middleware — dùng cho mọi route cần login
- */
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: middleware/auth.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Middleware xác thực người dùng (JWT Authentication): Ký token đăng nhập (signToken)
+//      và xác minh tính hợp lệ của JWT token từ header Authorization (Bearer <token>).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - JWT_SECRET (từ .env hoặc fallback dev secret).
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Bảo vệ các REST API nhạy cảm của người chơi (thông tin tài khoản, tạo nhân vật,
+//      tu luyện, thay đổi trang bị), giải mã userId và username gán vào request.
+// ════════════════════════════════════════════════════════════════════════════════════════
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-tien-dev-secret-change-in-production';
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'tu-tien-dev-secret-change-in-production') {
+  console.warn('CẢNH BÁO: JWT_SECRET đang sử dụng giá trị dev mặc định trong môi trường production!');
+}
 
 function authMiddleware(req, res, next) {
   const header = req.headers['authorization'];

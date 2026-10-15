@@ -1,13 +1,27 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// ui.js — §13 UI Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/ui.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý giao diện người dùng (HUD/UI Controller): Cập nhật thông số nhân vật (HP, MP,
+//      tu vi, cảnh giới, linh căn, OVR), hiển thị Target HUD mục tiêu, quản lý các modal menu
+//      hành trang (KPAH Modal), tooltip vật phẩm, thanh chat và màn hình loading.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.INV_MAX, CFG.REALMS, Linh_CAN, TC.
+//    - Phụ thuộc: State (S), Combat, SkillSystem, Net.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Đồng bộ mượt mà trạng thái từ S.player và S.target lên DOM.
+//    - Tối ưu DOM repaint: Cache hash trang bị, chỉ vẽ lại trang bị khi mở modal hoặc có thay đổi.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const UI = {
+  _lastEqHash: "",
+  _lastLog: { msg: "", at: 0, node: null, count: 0 },
   toggleKpahMenu() {
     const el = document.getElementById("kpah-menu-modal");
     if (el) el.style.display = (el.style.display === "none") ? "flex" : "none";
-    if (el?.style.display === "flex") SkillSystem.loadBook();
+    if (el?.style.display === "flex") {
+      SkillSystem.loadBook();
+      UI.renderEquipment(true);
+    }
   },
   toggleChat() {
     const el = document.getElementById("chat-bar");
@@ -21,8 +35,13 @@ const UI = {
   showLoading() {
     const el = document.getElementById("loading-screen");
     if (el) el.style.display = "flex";
+    clearTimeout(this._loadingTimer);
+    this._loadingTimer = setTimeout(() => {
+      this.hideLoading();
+    }, 2500);
   },
   hideLoading() {
+    clearTimeout(this._loadingTimer);
     const el = document.getElementById("loading-screen");
     if (el) el.style.display = "none";
   },
@@ -105,8 +124,6 @@ const UI = {
     const uiXu = document.getElementById("ui-xu");
     if (uiXu) uiXu.textContent = p.xu.toLocaleString();
 
-    document.getElementById("ui-xu").textContent = p.xu.toLocaleString();
-
     const mapName = document.getElementById("mini-map-name");
     if (mapName) mapName.textContent = S.mapName || S.mapCode || "Bản đồ";
     const coords = document.getElementById("map-coords");
@@ -128,12 +145,49 @@ const UI = {
     setTxt("r-tvlc", p.tuViLinhCan || 0);
     setTxt("inv-head", `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`);
 
+    // ── Target HUD ──
+    const targetEl = document.getElementById("target-hud");
+    if (targetEl) {
+      const t = S.target;
+      if (t && !t.dead && (t.hp === undefined || t.hp > 0)) {
+        targetEl.style.display = "block";
+        const nameEl = document.getElementById("target-name");
+        if (nameEl) nameEl.textContent = t.name || "Mục tiêu";
+        const lvlEl = document.getElementById("target-level");
+        if (lvlEl) lvlEl.textContent = `Lv.${t.level || 1}`;
+        const elemEl = document.getElementById("target-elem");
+        if (elemEl) {
+          const elem = Array.isArray(t.nguHanh) ? (t.nguHanh[0] || "VÔ") : (t.nguHanh || "VÔ");
+          elemEl.textContent = elem;
+          elemEl.className = `target-badge elem elem-${String(elem).toLowerCase()}`;
+        }
+        const avEl = document.getElementById("target-avatar");
+        if (avEl) avEl.textContent = t.icon || "👾";
+
+        const curHp = Math.max(0, Math.floor(t.hp ?? t.maxHp ?? 100));
+        const maxHp = Math.max(1, Math.floor(t.maxHp ?? 100));
+        const pct = Math.min(100, Math.max(0, Math.round((curHp / maxHp) * 100)));
+        const barEl = document.getElementById("target-hp-bar");
+        if (barEl) barEl.style.width = `${pct}%`;
+        const txtEl = document.getElementById("target-hp-text");
+        if (txtEl) txtEl.textContent = `${curHp} / ${maxHp}`;
+      } else {
+        targetEl.style.display = "none";
+        if (t && (t.dead || t.hp <= 0)) S.target = null;
+      }
+    }
+
     this.renderEquipment();
     SkillSystem.renderSkillBar();
   },
 
-  renderEquipment() {
+  renderEquipment(force = false) {
+    const modal = document.getElementById("kpah-menu-modal");
+    if (!force && (!modal || modal.style.display === "none")) return;
     const eq = S.player?.equipment || {};
+    const eqHash = JSON.stringify(eq);
+    if (!force && this._lastEqHash === eqHash) return;
+    this._lastEqHash = eqHash;
     const slots = [
       { id: "slot-weapon", label: "Vũ Khí", item: eq.weapon },
       { id: "slot-helmet", label: "Mũ", item: eq.hat },
@@ -212,6 +266,14 @@ const UI = {
 
   log(msg, cls = "") {
     const area = document.getElementById("log-area");
+    if (!area) return;
+    const now = Date.now();
+    if (this._lastLog.msg === msg && now - this._lastLog.at < 1400 && this._lastLog.node?.isConnected) {
+      this._lastLog.at = now;
+      this._lastLog.count += 1;
+      this._lastLog.node.textContent = `${this._lastLog.node.dataset.base} ×${this._lastLog.count}`;
+      return;
+    }
     const p = document.createElement("p");
     p.className = "lc lc-" + cls;
     const t = new Date().toLocaleTimeString("vi-VN", {
@@ -219,8 +281,11 @@ const UI = {
       minute: "2-digit",
       second: "2-digit",
     });
-    p.textContent = `[${t}] ${msg}`;
+    const base = `[${t}] ${msg}`;
+    p.dataset.base = base;
+    p.textContent = base;
     area.appendChild(p);
+    this._lastLog = { msg, at: now, node: p, count: 1 };
     area.scrollTop = area.scrollHeight;
     while (area.children.length > 150) area.removeChild(area.firstChild);
   },

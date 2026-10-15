@@ -1,9 +1,15 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// config.js — §0 API Config + §1 Static Game Constants
-// Data tổ chức (ITEMS, SKILLS, ROOTS, REALMS) được load từ API
-// qua gamedata.js tại thời điểm boot.
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/config.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Cấu hình hằng số toàn cục phía Client (Client Game Configuration): Khai báo endpoint API/Socket,
+//      chu kỳ auto-save, kích thước micro-grid (TS=1), tỉ lệ phóng đại màn hình (DS=3), kích thước nhân vật,
+//      tốc độ di chuyển, tầm đánh cơ bản, cooldown, giới hạn ô túi đồ.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - API, CFG.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Tập trung toàn bộ thông số gameplay vào một nơi duy nhất để dễ dàng căn chỉnh tỷ lệ
+//      màn hình, độ mượt di chuyển và camera mà không bị rải rác mã nguồn.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const API = {
   BASE: window.location.origin,
@@ -14,14 +20,16 @@ const API = {
 // ── Static game rules (không thay đổi theo data) ──
 const CFG = {
   TS: 1,            // micro-grid: 1 ô địa hình = 1 logical pixel
-  ACTOR_W: 20,
-  ACTOR_H: 25,
-  DS: 4,            // display scale (phóng to UI/Map 4 lần cho dễ nhìn)
+  ACTOR_W: 14,
+  ACTOR_H: 18,
+  DS: 3,            // thấy rộng hơn nhưng vẫn giữ pixel-art rõ nét
   INV_MAX: 40,      // max inventory slots
   ATK_CD: 42,       // ticks cooldown đánh thường
   BASIC_ATTACK_RANGE: 24,  // world-pixel; lớn hơn bề rộng nhân vật
   SKILL_RANGE_SCALE: 6,    // 1 đơn vị range trong data = 6 world-pixel
-  PLAYER_COLLISION_RADIUS: 4,
+  PLAYER_COLLISION_RADIUS: 0.45,
+  PLAYER_MOVE_SPEED: 44,   // world-pixel/giây; server cho sai số mạng riêng
+  REMOTE_MOVE_SPEED: 56,
   INTERACTION_RANGE: 24,
   NET_SNAP_DISTANCE: 48,
   REGEN_HP: 0.01,   // HP regen per ms

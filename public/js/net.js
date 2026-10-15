@@ -1,7 +1,17 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// net.js — §2 Network Module (HTTP + Socket.io)
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/net.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Cầu nối mạng (Networking & Synchronization Client): Giao tiếp HTTP REST API (get, post,
+//      put) và Socket.io thời gian thực. Đồng bộ hóa di chuyển, trạng thái phòng chơi (world_state),
+//      quái vật (monster_update), sát thương (combat_hit/combat_error), chuyển map, chat.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - sessionStorage("tu_tien_token"), socket.io client.
+//    - Phụ thuộc: State (S), World, Render, UI, Combat.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Chống lag/spam: Throttle gửi gói tin di chuyển, debounced auto-save định kỳ.
+//    - Server-authoritative: Nhận movement_corrected khi phát hiện sai lệch vị trí hoặc va chạm.
+//    - Client-side prediction & reconciliation: Hòa giải trạng thái mượt mà khi đổi map/mất mạng.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 let socket = null;
 let authToken = sessionStorage.getItem("tu_tien_token");
@@ -193,40 +203,37 @@ const Net = {
             const authoritative = data.player;
             Object.assign(S.player, {
               hp: authoritative.hp, maxHp: authoritative.maxHp, mp: authoritative.mp, maxMp: authoritative.maxMp,
-              xu: authoritative.xu, x: authoritative.x, y: authoritative.y, mapCode: authoritative.mapCode,
+              xu: authoritative.xu,
+              x: Number.isFinite(Number(authoritative.x)) ? Number(authoritative.x) : S.player.x,
+              y: Number.isFinite(Number(authoritative.y)) ? Number(authoritative.y) : S.player.y,
+              mapCode: authoritative.mapCode || S.player.mapCode,
               tuViHienTai: authoritative.tuViHienTai, tuViLenCap: authoritative.tuViLenCap,
               tuViLinhCan: authoritative.tuViLinhCan, tangTuVi: authoritative.tangTuVi,
               stats: authoritative.stats, combatPower: authoritative.combatPower,
               learnedSkills: authoritative.learnedSkills, equippedSkills: authoritative.equippedSkills,
               equipment: authoritative.equipment || S.player.equipment,
             });
+            S.player.px = S.player.x * CFG.TS + CFG.TS / 2;
+            S.player.py = S.player.y * CFG.TS + CFG.TS / 2;
+            S.player.lastEmitX = S.player.x;
+            S.player.lastEmitY = S.player.y;
             try { S.inventory = typeof authoritative.jsonIventory === "string" ? JSON.parse(authoritative.jsonIventory || "[]") : (authoritative.inventory || S.inventory); } catch { }
           }
+          const targetMapCode = String(data.mapCode || S.player?.mapCode || "").toLowerCase();
           if (data.map) {
-            // Chuẩn hóa DTO trước khi nạp
             const map = normalizeWorldDto(data.map);
-            if (map) {
-              if (!S.player) {
-                console.warn("[Net] world_init: S.player chưa sẵn sàng, đang đợi...");
-                setTimeout(() => socket.emit("join_world", { mapCode: map.code, x: 0, y: 0 }), 500);
-                return;
-              }
+            if (map && S.player) {
               World.loadMap(map, S.player.x, S.player.y);
               console.log("[Net] Bản đồ đã được nạp và chuẩn hóa.");
-              UI.hideLoading();
-            } else {
-              UI.log("⚠ Lỗi: Dữ liệu bản đồ không hợp lệ!", "system");
             }
-          } else if (S.tiles?.length && S.mapCode === String(data.mapCode || "").toLowerCase()) {
-            UI.hideLoading();
-          } else if (data.mapCode) {
-            const mapDto = await Net.get(`/api/worlds/by-code?code=${encodeURIComponent(data.mapCode)}`);
+          } else if (S.tiles?.length && S.mapCode === targetMapCode) {
+            // Bản đồ hiện tại đã khớp
+          } else if (targetMapCode) {
+            const mapDto = await Net.get(`/api/worlds/by-code?code=${encodeURIComponent(targetMapCode)}`);
             const map = normalizeWorldDto(mapDto);
             if (map && S.player) World.loadMap(map, S.player.x, S.player.y);
-            UI.hideLoading();
-          } else {
-            UI.log("⚠ Lỗi: Server không gửi dữ liệu bản đồ!", "system");
           }
+          UI.hideLoading();
 
           // Nạp người chơi khác
           const players = data.players || [];
@@ -316,6 +323,18 @@ const Net = {
         } catch (e) { console.error("player_move error:", e); }
       });
 
+      socket.on("movement_corrected", ({ x, y, reason }) => {
+        if (!S.player || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return;
+        S.player.x = Number(x);
+        S.player.y = Number(y);
+        S.player.px = S.player.x * CFG.TS + CFG.TS / 2;
+        S.player.py = S.player.y * CFG.TS + CFG.TS / 2;
+        S.player.lastEmitX = S.player.x;
+        S.player.lastEmitY = S.player.y;
+        S.player.targetMovePos = null;
+        if (reason) UI.log(`⚠ ${reason}`, "system");
+      });
+
       socket.on("player_map", (data) => {
         const pid = data.id || data.socketId || data.userId;
         const newMapCode = data.mapCode || data.mapId;
@@ -370,7 +389,12 @@ const Net = {
         if (targetId !== socket.id || !S.player) return;
         S.player.hp = Number(hp ?? S.player.hp);
         if (maxHp) S.player.maxHp = Number(maxHp);
-        Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ffaa44");
+        if (!miss && Number(damage) > 0) {
+          S.player.hitUntil = Date.now() + 220;
+          S.player.animState = "hurt";
+          S.player.animUntil = Date.now() + 260;
+        }
+        Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
         if (S.player.hp <= 0) S.player.hp = Math.floor(S.player.maxHp * 0.25);
       });
 
@@ -379,6 +403,7 @@ const Net = {
         if (m) {
           m.dead = true;
           m.hp = 0;
+          if (S.target?.id === id) S.target = null;
         }
       });
 
@@ -402,9 +427,10 @@ const Net = {
           m.hp = hit.hp;
           m.maxHp = hit.maxHp || m.maxHp;
           m.dead = !!hit.dead;
+          if (m.dead && S.target?.id === m.id) S.target = null;
           m.hitUntil = Date.now() + 180;
-          Render.floatDmg(m.px, m.py, -30, (hit.critical ? "CRIT! " : "") + "-" + hit.damage, hit.critical ? "#fff06a" : "#ffaa44");
-          S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
+          Render.floatDmg(m.px, m.py, -30, (hit.critical ? "CRIT! " : "") + "-" + hit.damage, hit.critical ? "#fff06a" : "#ff5555", Boolean(hit.critical));
+          S.atkFx.push({ px: m.px, py: m.py, r: hit.critical ? 18 : 13, life: 14, color: hit.critical ? "rgba(255,240,100,1)" : "rgba(255,210,70,1)" });
         }
         if (skillCode && skillName) {
           const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
@@ -554,16 +580,13 @@ const Net = {
   emitMapChange(mapCode, x, y) {
     const px = Math.floor(x);
     const py = Math.floor(y);
-    if (S.player) {
-      S.player.x = px;
-      S.player.y = py;
-      S.player.px = px * CFG.TS + CFG.TS / 2;
-      S.player.py = py * CFG.TS + CFG.TS / 2;
-    }
     if (socket?.connected) {
       UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
       Net._clearOthers();
-      socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py });
+      // Flush vị trí hiện tại trước: server phải xác nhận nhân vật đang chạm portal.
+      // Không nhảy client tới điểm đến khi server chưa trả world_init.
+      socket.emit("move", { x: S.player?.x, y: S.player?.y, mapId: S.mapCode });
+      setTimeout(() => socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py }), 65);
     }
   },
 

@@ -1,7 +1,15 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// shop.js — §11 Shop, DialogUI, Chest
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/shop.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý cửa hàng NPC & hội thoại (Shop, Dialog & Chest UI): Hiển thị modal mua/bán
+//      vật phẩm bằng Xu, hội thoại NPC hướng dẫn tân thủ, và mở rương kho báu trên bản đồ.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - CFG.SHOP_ITEMS, CFG.INV_MAX.
+//    - Phụ thuộc: State (S), UI, Net, Inventory.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Kiểm tra số lượng Xu trước khi mua đồ, trừ Xu và tự động thêm vật phẩm vào túi đồ
+//      (gọi API /api/shop/buy khi online hoặc xử lý local khi offline).
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const Shop = {
   open(npc) {

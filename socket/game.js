@@ -1,24 +1,18 @@
-/**
- * socket/game.js
- * Real-time layer — Socket.io
- *
- * Events client → server:
- *   join_world   { token, mapId, x, y }
- *   move         { x, y, mapId }
- *   chat         { message }
- *   attack_effect { targetId, damage, mapId }
- *   map_change   { mapId, x, y }
- *
- * Events server → client:
- *   world_state  { players: [...] }  — on join
- *   player_join  { id, username, ... }
- *   player_leave { id }
- *   player_move  { id, x, y }
- *   player_map   { id, mapId, x, y }
- *   chat_message { id, username, message, ts }
- *   attack_fx    { attackerId, targetId, damage }
- *   server_msg   { text }
- */
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: socket/game.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Máy chủ thời gian thực (Server-Authoritative Game Server): Quản lý các phòng chơi (Rooms/Maps),
+//      xác thực di chuyển của người chơi (chống wall-hack và speed-hack), quản lý vòng lặp AI quái vật
+//      (Monster Spawns, Aggro, Chase, Leash, Return), tính toán và phân phối sát thương/chiến đấu,
+//      rơi đồ (Loot Tables), broadcast định kỳ snapshot thế giới cho toàn bộ client.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - MAX_SPEED, MONSTER_AGGRO_RANGE, MONSTER_LEASH_RANGE, MONSTER_CHASE_DURATION_MS, TICK_RATE (20Hz).
+//    - Phụ thuộc: data/mock-data (monsterDefs, lootTables, worlds), data/balance.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Chống cheat client: Kiểm tra va chạm bản đồ server-side (canSpawnAt/canMoveTo), gửi movement_corrected
+//      khi phát hiện hack tọa độ hoặc đi xuyên vật cản.
+//    - Quản lý quái theo bầy đàn (Pack AI), tự động quay về hang khi người chơi chạy quá xa.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const http = require("http");
 const https = require("https");
@@ -47,7 +41,43 @@ const COMBAT_GCD_MS = 350;
 const AOI_CHUNK_SIZE = 96;
 const AOI_RADIUS = 150;
 const MOVE_MIN_INTERVAL_MS = 45;
-const PORTAL_ACTIVATION_RANGE = 28;
+const PLAYER_MAX_MOVE_SPEED = 58;
+const MOVE_BURST_TOLERANCE = 2.5;
+const PLAYER_COLLISION_RADIUS = 0.45;
+const PORTAL_ACTIVATION_RANGE = 18;
+
+function isSolidTile(world, tx, ty) {
+  if (!world || tx < 0 || ty < 0 || tx >= Number(world.w || 0) || ty >= Number(world.h || 0)) return true;
+  const tiles = world.jsonMap || world.tiles;
+  // Tạm thời chỉ chặn sông nước ao hồ (tile = 2)
+  return Number(tiles?.[ty]?.[tx]) === 2;
+}
+
+function positionCollides(world, x, y) {
+  if (!world) return false;
+  const cx = Number(x) + 0.5;
+  const cy = Number(y) + 0.5;
+  const minX = Math.floor(cx - PLAYER_COLLISION_RADIUS);
+  const maxX = Math.floor(cx + PLAYER_COLLISION_RADIUS - 1e-9);
+  const minY = Math.floor(cy - PLAYER_COLLISION_RADIUS);
+  const maxY = Math.floor(cy + PLAYER_COLLISION_RADIUS - 1e-9);
+  for (let ty = minY; ty <= maxY; ty += 1) {
+    for (let tx = minX; tx <= maxX; tx += 1) {
+      if (isSolidTile(world, tx, ty)) return true;
+    }
+  }
+  return false;
+}
+
+function movementPathCollides(world, fromX, fromY, toX, toY) {
+  const distance = Math.hypot(toX - fromX, toY - fromY);
+  const steps = Math.max(1, Math.ceil(distance / 0.5));
+  for (let index = 1; index <= steps; index += 1) {
+    const progress = index / steps;
+    if (positionCollides(world, fromX + (toX - fromX) * progress, fromY + (toY - fromY) * progress)) return true;
+  }
+  return false;
+}
 
 function findSkill(skillRef) {
   if (skillRef === undefined || skillRef === null || skillRef === "") return null;
@@ -121,7 +151,7 @@ function canSpawnAt(world, x, y) {
   const tiles = world?.jsonMap || world?.tiles;
   const tile = Array.isArray(tiles) ? tiles[y]?.[x] : 0;
   return x >= 1 && y >= 1 && x < Number(world?.w || 0) - 1 && y < Number(world?.h || 0) - 1
-    && ![1, 2, 3, 5, 6].includes(Number(tile));
+    && Number(tile) !== 2;
 }
 
 function nearestWalkablePoint(world, x, y) {
@@ -652,9 +682,27 @@ function setupSocket(io, players = new Map(), options = {}) {
         targetSession = target.session;
         monster.chaseTargetId = target.session.id;
         monster.chaseStartedAt = now;
+        monster.patrolTarget = null;
         changed = true;
       }
-      const destination = targetSession ? { x: Number(targetSession.x), y: Number(targetSession.y) } : { x: Number(monster.spawnX || 0), y: Number(monster.spawnY || 0) };
+
+      if (!targetSession) {
+        if (!monster.nextPatrolAt) monster.nextPatrolAt = now + 1500 + Math.random() * 3000;
+        if (now >= Number(monster.nextPatrolAt || 0)) {
+          monster.nextPatrolAt = now + 3500 + Math.random() * 4500;
+          const pAngle = Math.random() * Math.PI * 2;
+          const pRadius = 6 + Math.random() * 12;
+          const candX = Math.round(Number(monster.spawnX || 0) + Math.cos(pAngle) * pRadius);
+          const candY = Math.round(Number(monster.spawnY || 0) + Math.sin(pAngle) * pRadius);
+          if (canSpawnAt(world, candX, candY)) {
+            monster.patrolTarget = { x: candX, y: candY };
+          }
+        }
+      }
+
+      const destination = targetSession
+        ? { x: Number(targetSession.x), y: Number(targetSession.y) }
+        : (monster.patrolTarget || { x: Number(monster.spawnX || 0), y: Number(monster.spawnY || 0) });
       const dx = destination.x - Number(monster.x || 0);
       const dy = destination.y - Number(monster.y || 0);
       const distance = Math.hypot(dx, dy);
@@ -665,7 +713,8 @@ function setupSocket(io, players = new Map(), options = {}) {
         if (!frozen) damagePlayerFromMonster(roomId, monster, targetSession, now);
       } else if (!frozen && distance > 0.15) {
         const slow = activeStatus(monster, "slow", now) ? 0.55 : 1;
-        const step = Math.min(distance, Number(monster.speed || MONSTER_MOVE_SPEED) * slow);
+        const baseSpeed = targetSession ? Number(monster.speed || MONSTER_MOVE_SPEED) : Number(monster.speed || MONSTER_MOVE_SPEED) * 0.45;
+        const step = Math.min(distance, baseSpeed * slow);
         const nextX = Number(monster.x || 0) + (dx / distance) * step;
         const nextY = Number(monster.y || 0) + (dy / distance) * step;
         const tileX = Math.floor(nextX), tileY = Math.floor(nextY);
@@ -674,9 +723,13 @@ function setupSocket(io, players = new Map(), options = {}) {
           monster.y = nextY;
           changed = true;
         }
-        monster.state = targetSession ? "chase" : "return";
+        monster.state = targetSession ? "chase" : (monster.patrolTarget ? "patrol" : "return");
         monster.targetId = targetSession?.id || null;
       } else {
+        if (!targetSession && monster.patrolTarget) {
+          monster.patrolTarget = null;
+          monster.nextPatrolAt = now + 2000 + Math.random() * 3000;
+        }
         monster.state = targetSession ? "attack" : "idle";
         monster.targetId = targetSession?.id || null;
         if (!targetSession) {
@@ -736,6 +789,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         y,
         joinedAt: Date.now(),
         lastMoveAt: 0,
+        lastAcceptedMoveAt: Date.now(),
         lastChatAt: 0,
       };
       sessions.set(socket.id, session);
@@ -774,17 +828,23 @@ function setupSocket(io, players = new Map(), options = {}) {
       const nextX = Math.floor(rawX);
       const nextY = Math.floor(rawY);
       const world = mapCache.get(roomId);
-      const validBounds = !world || (nextX >= 0 && nextY >= 0 && nextX < Number(world.w || 999) && nextY < Number(world.h || 999));
-      const validStep = Math.abs(rawX - Number(session.x)) <= 11.0 && Math.abs(rawY - Number(session.y)) <= 11.0;
-      if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !validBounds || !validStep) {
-        socket.emit("action_error", { action: "move", error: "Tọa độ di chuyển không hợp lệ" });
-        return;
-      }
       const oldX = Number(session.x);
       const oldY = Number(session.y);
+      const elapsedMs = Math.max(MOVE_MIN_INTERVAL_MS, Math.min(250, now - Number(session.lastAcceptedMoveAt || now)));
+      const maxDistance = MOVE_BURST_TOLERANCE + PLAYER_MAX_MOVE_SPEED * elapsedMs / 1000;
+      const moveDistance = Math.hypot(rawX - oldX, rawY - oldY);
+      const validBounds = !world || (nextX >= 0 && nextY >= 0 && nextX < Number(world.w || 999) && nextY < Number(world.h || 999));
+      const validSpeed = moveDistance <= maxDistance;
+      const blocked = world ? movementPathCollides(world, oldX, oldY, rawX, rawY) : false;
+      if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !validBounds || !validSpeed || blocked) {
+        const reason = blocked ? "Vị trí bị địa hình chặn" : (!validSpeed ? "Tốc độ di chuyển không hợp lệ" : "Tọa độ di chuyển không hợp lệ");
+        socket.emit("movement_corrected", { x: oldX, y: oldY, reason });
+        return;
+      }
       const oldChunkRoom = session.chunkRoom || sessionChunkRoom(session);
       session.x = rawX;
       session.y = rawY;
+      session.lastAcceptedMoveAt = now;
       session.mapId = roomId;
       session.mapCode = roomId;
       const nextChunkRoom = sessionChunkRoom(session);

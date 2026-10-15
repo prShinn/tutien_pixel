@@ -1,7 +1,15 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// state.js — §4 Global Game State
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/state.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý trạng thái toàn cục Client (Single Source of Truth - S): Lưu trữ đối tượng nhân vật
+//      (player), bản đồ (tiles, layers, canvas cache), quái vật (monsters), người chơi khác (players Map),
+//      mục tiêu đang nhắm (target), túi đồ (inventory), camera (cam), và các hiệu ứng chiến đấu tức thời.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - S (Global State Object), canvas, ctx, cW, cH.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Ngăn chặn biến toàn cục rải rác, giúp tất cả các module (Render, Input, Net, Combat, UI)
+//      chia sẻ và đồng bộ dữ liệu dễ dàng, nhất quán.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 let canvas, ctx, cW, cH;
 

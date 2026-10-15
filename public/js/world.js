@@ -1,7 +1,16 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// world.js — §3 Tile Constants + §6 World Module
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/world.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Quản lý thế giới & va chạm (World & Collision Module): Khai báo các loại tile (cỏ, đá, nước,
+//      tường, cây, núi), kiểm tra va chạm vật lý (isSolid), di chuyển có trượt tường (moveWithCollision),
+//      nạp bản đồ từ server DTO (loadMap), xử lý bước vào cổng dịch chuyển (checkPortals).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - T (Tile Constants), CFG.TS, CFG.PORTAL_RADIUS.
+//    - Phụ thuộc: State (S), Render, Net, UI.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Ngăn chặn đi xuyên tường, hỗ trợ trượt góc mượt mà khi va chạm chéo (sliding collision),
+//      chuẩn hóa cấu trúc map (layers: ground, objects, elevation) đồng bộ với Admin Map Editor.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 // ── Tile type constants ──
 const T = {
@@ -14,11 +23,13 @@ const T = {
   MTN: 6,
   PLAZA: 7,
 };
-const SOLID = new Set([T.WALL, T.WATER, T.TREE, T.MTN]);
+// Tạm thời chỉ chặn di chuyển với sông nước ao hồ (T.WATER = 2)
+const SOLID = new Set([T.WATER]);
 
 function isSolid(tx, ty) {
+  if (!S.tiles || !S.mapW || !S.mapH) return false;
   if (tx < 0 || ty < 0 || tx >= S.mapW || ty >= S.mapH) return true;
-  return SOLID.has(S.tiles[ty]?.[tx]);
+  return SOLID.has(S.tiles?.[ty]?.[tx]);
 }
 // ════════════════════════════════════════════════════════════
 // World Module
@@ -29,14 +40,15 @@ const World = {
     S.mapCode = (def.code || "").toLowerCase();
     S.mapName = def.name ?? def.tenMap ?? S.mapCode;
     S.mapVersion = Number(def.version || 0);
-    S.mapW = def.w;
-    S.mapH = def.h;
-    S.tiles =
+    const tiles =
       Array.isArray(def.jsonMap) && Array.isArray(def.jsonMap[0])
         ? def.jsonMap
-        : Array.from({ length: def.h || 1 }, () =>
-            Array(def.w || 1).fill(0),
+        : Array.from({ length: Number(def.h || def.height || 1) }, () =>
+            Array(Number(def.w || def.width || 1)).fill(0),
           );
+    S.tiles = tiles;
+    S.mapW = Number(def.w || def.width || (tiles[0]?.length || 600));
+    S.mapH = Number(def.h || def.height || (tiles.length || 400));
     S.groundTiles = Array.isArray(def.layers?.ground?.[0]) ? def.layers.ground : null;
     S.objectTiles = Array.isArray(def.layers?.objects?.[0]) ? def.layers.objects : null;
     S.elevationTiles = Array.isArray(def.layers?.elevation?.[0]) ? def.layers.elevation : null;
@@ -44,16 +56,19 @@ const World = {
     S.atkFx = [];
     S.groundItems = [];
     if (S.player) {
-      const clampX = Math.max(0, Math.min(def.w - 1, Math.round(toX)));
-      const clampY = Math.max(0, Math.min(def.h - 1, Math.round(toY)));
+      const clampX = Math.max(0, Math.min(S.mapW - 1, Math.round(Number(toX ?? S.player.x ?? 0))));
+      const clampY = Math.max(0, Math.min(S.mapH - 1, Math.round(Number(toY ?? S.player.y ?? 0))));
       const safe = World.nearestWalkable(clampX, clampY);
       S.player.x = safe.tx;
       S.player.y = safe.ty;
       S.player.px = safe.tx * CFG.TS + CFG.TS / 2;
       S.player.py = safe.ty * CFG.TS + CFG.TS / 2;
+      S.player.lastEmitX = safe.tx;
+      S.player.lastEmitY = safe.ty;
       S.player.mapCode = S.mapCode;
       S.player.mapId = S.mapCode;
       S.player.isTeleporting = false;
+      S.player.targetMovePos = null;
     }
     S.portals = def.portals ?? [];
     S.npcs = (def.npcs ?? []).map((n) => ({
@@ -174,22 +189,41 @@ const World = {
     return false;
   },
 
+  moveWithCollision(entity, dx, dy) {
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 0.35));
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    for (let index = 0; index < steps; index += 1) {
+      const nextX = entity.x + stepX;
+      if (!World.collides(nextX, entity.y)) entity.x = nextX;
+      const nextY = entity.y + stepY;
+      if (!World.collides(entity.x, nextY)) entity.y = nextY;
+    }
+  },
+
   async checkPortals() {
     const p = S.player;
+    if (!p) return;
     const touching = S.portals.find((portal) => {
       const px = portal.x * CFG.TS + CFG.TS / 2;
       const py = portal.y * CFG.TS + CFG.TS / 2;
-      return dist(p.px, p.py, px, py) < 18 && (portal.denMap || portal.toMap);
+      return dist(p.px, p.py, px, py) < 14 && (portal.denMap || portal.toMap);
     });
     if (p.portalLocked) {
-      if (!touching) p.portalLocked = false;
+      // Chỉ mở khóa khi đã bước ra xa cổng ít nhất 22 pixel
+      const nearAnyPortal = S.portals.some((portal) => {
+        const px = portal.x * CFG.TS + CFG.TS / 2;
+        const py = portal.y * CFG.TS + CFG.TS / 2;
+        return dist(p.px, p.py, px, py) < 22;
+      });
+      if (!nearAnyPortal) p.portalLocked = false;
       return;
     }
     if (p.isTeleporting || !touching) return;
     p.isTeleporting = true;
     p.portalLocked = true;
     Net.emitMapChange(touching.denMap || touching.toMap, touching.toX, touching.toY);
-    setTimeout(() => { p.isTeleporting = false; }, 2000);
+    setTimeout(() => { p.isTeleporting = false; }, 2500);
   },
 
   checkNpcInteract() {

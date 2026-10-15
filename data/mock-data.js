@@ -1,3 +1,17 @@
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: data/mock-data.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Kho dữ liệu mẫu in-memory (In-Memory Game Database): Chứa toàn bộ định nghĩa gốc về
+//      Cảnh giới (realms), Linh căn (roots), Vật phẩm & trang bị (items), Thần thông (skills),
+//      Quái vật (monsterDefs), Bảng rơi đồ (lootTables), Bãi quái (monsterSpawns), và 2 bản đồ
+//      chuẩn micro-grid 600x400 tiles (Thanh Vân Trấn & Bình Nguyên Hoang Dã) cùng thuật toán tạo địa hình procedural.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - TILE_W (600), TILE_H (400).
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Giúp dự án chạy độc lập và cực nhanh mà chưa cần cài đặt Database quan hệ phức tạp.
+//    - Đảm bảo data nhỏ, logic chặt chẽ, tạo khuôn schema chuẩn để sau này Backend dựng DB theo khuôn này ngay.
+// ════════════════════════════════════════════════════════════════════════════════════════
+
 const TILE_W = 600;
 const TILE_H = 400;
 
@@ -114,7 +128,7 @@ function makeTerrain(kind) {
         ground[y][x] = 4; objects[y][x] = -1; elevation[y][x] = 0;
       }
     }
-    for (const [x, y, radius] of [[20, 200, 20], [150, 125, 28], [340, 280, 30], [500, 110, 26]]) {
+    for (const [x, y, radius] of [[20, 200, 20], [80, 200, 24], [340, 280, 30], [500, 110, 26]]) {
       clearCircle(ground, objects, elevation, x, y, radius, 0);
     }
   }
@@ -238,12 +252,16 @@ const passiveSkills = roots.map((root, index) => ({
 const skillCatalog = [...commonSkills, ...balancedSkills, ...passiveSkills];
 
 const monsterDefs = [
-  { id: "HOANG_SOI", code: "HOANG_SOI", name: "Hoang Sói", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 22, height: 22 }, type: "NORMAL", level: 1, nguHanh: ["KIM"], color: "#8855cc", hp: 90, maxHp: 90, atk: 9, def: 2, speed: 1.25, spawnX: 150, spawnY: 125, lootTableId: "SOI_LOOT" },
-  { id: "THO_HEO", code: "THO_HEO", name: "Thổ Heo Rừng", icon: "🐗", img: "./assets/monsters/tho_heo_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 26, height: 23 }, type: "NORMAL", level: 2, nguHanh: ["THO"], color: "#996633", hp: 120, maxHp: 120, atk: 12, def: 4, speed: 1.05, spawnX: 340, spawnY: 280, lootTableId: "HEO_LOOT" },
-  { id: "DOC_THAO", code: "DOC_THAO", name: "Độc Thảo Yêu", icon: "🌱", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 24, height: 28 }, type: "ELITE", level: 3, nguHanh: ["MOC"], color: "#33aa66", hp: 180, maxHp: 180, atk: 16, def: 6, speed: 0.85, spawnX: 500, spawnY: 110, lootTableId: "THAO_LOOT" },
+  { id: "MOC_NHAN", code: "MOC_NHAN", name: "Mộc Nhân Thung", icon: "🪵", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["MOC"], color: "#b3895d", hp: 60, maxHp: 60, atk: 2, def: 1, speed: 0.6, spawnX: 315, spawnY: 215, lootTableId: "MOC_NHAN_LOOT" },
+  { id: "HOANG_SOI", code: "HOANG_SOI", name: "Hoang Sói", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["KIM"], color: "#8855cc", hp: 90, maxHp: 90, atk: 9, def: 2, speed: 1.25, spawnX: 80, spawnY: 200, lootTableId: "SOI_LOOT" },
+  { id: "THO_HEO", code: "THO_HEO", name: "Thổ Heo Rừng", icon: "🐗", img: "./assets/monsters/tho_heo_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 19, height: 17 }, type: "NORMAL", level: 2, nguHanh: ["THO"], color: "#996633", hp: 120, maxHp: 120, atk: 12, def: 4, speed: 1.05, spawnX: 340, spawnY: 280, lootTableId: "HEO_LOOT" },
+  { id: "DOC_THAO", code: "DOC_THAO", name: "Độc Thảo Yêu", icon: "🌱", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 18, height: 21 }, type: "ELITE", level: 3, nguHanh: ["MOC"], color: "#33aa66", hp: 180, maxHp: 180, atk: 16, def: 6, speed: 0.85, spawnX: 500, spawnY: 110, lootTableId: "THAO_LOOT" },
 ];
 
 const lootTables = {
+  MOC_NHAN_LOOT: [
+    { itemId: "STONE_LINH_NHO", chance: 0.8, min: 1, max: 2 },
+  ],
   SOI_LOOT: [
     { itemId: "MAT_LANG_NANH", chance: 0.6, min: 1, max: 2 },
     { itemId: "STONE_LINH_NHO", chance: 0.25, min: 1, max: 1 },
@@ -259,7 +277,8 @@ const lootTables = {
 };
 
 const monsterSpawns = [
-  { packId: "PACK_HOANG_SOI", templateId: "HOANG_SOI", centerX: 150, centerY: 125, count: 5, radius: 24, aggroRange: 38, leashDistance: 80, chaseDurationMs: 8000 },
+  { packId: "PACK_MOC_NHAN", templateId: "MOC_NHAN", centerX: 315, centerY: 215, count: 2, radius: 10, aggroRange: 24, leashDistance: 35, chaseDurationMs: 4000 },
+  { packId: "PACK_HOANG_SOI", templateId: "HOANG_SOI", centerX: 80, centerY: 200, count: 5, radius: 18, aggroRange: 38, leashDistance: 80, chaseDurationMs: 8000 },
   { packId: "PACK_THO_HEO", templateId: "THO_HEO", centerX: 340, centerY: 280, count: 5, radius: 28, aggroRange: 40, leashDistance: 84, chaseDurationMs: 8500 },
   { packId: "PACK_DOC_THAO", templateId: "DOC_THAO", centerX: 500, centerY: 110, count: 4, radius: 22, aggroRange: 42, leashDistance: 88, chaseDurationMs: 9000 },
 ];
@@ -272,17 +291,22 @@ const worlds = [
     id: "thanh_van_tran", code: "thanh_van_tran", tenMap: "Thanh Vân Trấn", type: "CITY", biome: "CITY", version: 2, w: TILE_W, h: TILE_H, isDefault: true, spawnX: 300, spawnY: 200,
     jsonMap: cityTerrain.collision,
     layers: { ground: cityTerrain.ground, objects: cityTerrain.objects, elevation: cityTerrain.elevation },
-    portals: [{ id: "portal_binh_nguyen", x: 590, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 20, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" }],
-    monsters: [],
+    portals: [{ id: "portal_binh_nguyen", x: 590, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 36, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" }],
+    monsters: [
+      { id: "MOC_NHAN", code: "MOC_NHAN", name: "Mộc Nhân Thung", icon: "🪵", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["MOC"], color: "#b3895d", hp: 60, maxHp: 60, atk: 2, def: 1, speed: 0.6, spawnX: 315, spawnY: 215, lootTableId: "MOC_NHAN_LOOT" }
+    ],
+    monsterSpawns: [
+      { packId: "PACK_MOC_NHAN", templateId: "MOC_NHAN", centerX: 315, centerY: 215, count: 2, radius: 10, aggroRange: 24, leashDistance: 35, chaseDurationMs: 4000 }
+    ],
     npcs: [{ id: "npc_huong_dan", name: "Lão Tu Sĩ", x: 275, y: 190, color: "#e8c878", dialog: "Chào mừng tu sĩ đến Thanh Vân Trấn! Hãy ra ngoài tìm cơ duyên." }, { id: "npc_shop", name: "Chủ Tiệm", x: 330, y: 190, color: "#88aacc", dialog: "Ta có linh thạch và huyết ngọc cho người cần." }],
   },
   {
     id: "binh_nguyen", code: "binh_nguyen", tenMap: "Bình Nguyên Hoang Dã", type: "PLAIN", biome: "RIVER_VALLEY", version: 2, w: TILE_W, h: TILE_H, isDefault: false, spawnX: 20, spawnY: 200,
     jsonMap: plainTerrain.collision,
     layers: { ground: plainTerrain.ground, objects: plainTerrain.objects, elevation: plainTerrain.elevation },
-    portals: [{ id: "portal_thanh_van", x: 12, y: 200, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 580, toY: 200, tenMapDen: "Thanh Vân Trấn" }],
-    monsters: monsterDefs,
-    monsterSpawns,
+    portals: [{ id: "portal_thanh_van", x: 12, y: 200, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 565, toY: 200, tenMapDen: "Thanh Vân Trấn" }],
+    monsters: monsterDefs.filter((m) => m.code !== "MOC_NHAN"),
+    monsterSpawns: monsterSpawns.filter((s) => s.packId !== "PACK_MOC_NHAN"),
     npcs: [],
   },
 ];

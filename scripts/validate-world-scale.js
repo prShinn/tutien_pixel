@@ -21,12 +21,12 @@ for (const world of worlds) {
 for (const monster of monsterDefs) {
   const width = Number(monster.animation?.width || 0);
   const height = Number(monster.animation?.height || 0);
-  if (width < 20 || height < 20 || width > 32 || height > 32) errors.push(`${monster.code}: tỷ lệ sprite ${width}x${height} ngoài chuẩn`);
+  if (width < 16 || height < 16 || width > 24 || height > 24) errors.push(`${monster.code}: tỷ lệ sprite ${width}x${height} ngoài chuẩn`);
 }
 
 if (errors.length) {
   console.error(errors.join("\n"));
   process.exitCode = 1;
 } else {
-  console.log(`World scale valid: ${worlds.length} maps micro-grid, actors 20-28px, spawn footprint clear.`);
+  console.log(`World scale valid: ${worlds.length} maps micro-grid, actors 14-21px, spawn footprint clear.`);
 }

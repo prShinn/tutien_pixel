@@ -1,8 +1,15 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// gamedata.js — Fetch ITEMS, SKILLS, ROOTS, REALMS từ Backend API
-// Gọi GameData.load() trước khi khởi động game.
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/gamedata.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Nạp danh mục dữ liệu tĩnh khi khởi động (Data Bootloader): Tải dữ liệu Cảnh giới (/api/canh-gioi),
+//      Linh căn (/api/linh-can), Thần thông (/api/skills), Vật phẩm (/api/items) từ server về client.
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - API.BASE, AbortSignal.timeout(8000).
+//    - Phụ thuộc: CFG.
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Đồng bộ danh mục metadata mới nhất từ máy chủ lúc khởi động, có cơ chế fallback an toàn
+//      nếu server phản hồi chậm hoặc đang chạy offline.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 const GameData = {
 	// ── Fetch helper (không cần auth token) ──

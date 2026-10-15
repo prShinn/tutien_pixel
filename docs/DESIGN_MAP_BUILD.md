@@ -63,7 +63,8 @@ Truy cập `/admin`, dùng `ADMIN_MAP_KEY` từ môi trường (demo mặc đị
 
 - `1 ô map = 1 logical pixel`, không còn xem một ô là cả cây hay cả ngọn núi.
 - Map chuẩn `600×400`; Admin cho phép `320×240` đến `1024×1024`.
-- Nhân vật `20×25px`; quái phổ thông `20–28px`; footprint collision bán kính `4px`.
+- Nhân vật `14×18px`; quái phổ thông `16–21px`; footprint collision bán kính `2.5px`.
+- Canvas hiển thị ở scale `3×` để tăng tầm nhìn; tốc độ cơ bản `44 world-pixel/giây`.
 - Sông rộng `12–40px`, rừng và núi là các mảng noise liên tục gồm nhiều trăm pixel.
 - Tầm đánh thường `24px`; range skill trong data nhân hệ số `6`; aggro quái khoảng `40px`.
 

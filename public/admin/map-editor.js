@@ -506,7 +506,7 @@ async function savePortalLink() {
   editor.selectedPortalId = data.source.id;
   await loadMap();
   selectPortal(data.source.id);
-  setStatus(`Đã nối ${sourceCode} ↔ ${targetCode}`, "ok");
+  setStatus(`Đã nối ${sourceCode} ↔ ${targetCode} (${data.source.side} → ${data.source.targetSide})`, "ok");
 }
 
 async function deletePortal() {
@@ -552,6 +552,7 @@ async function loadMap() {
   editor.width = Number(world.w); editor.height = Number(world.h);
   editor.spawnX = Number(world.spawnX || 1); editor.spawnY = Number(world.spawnY || 1);
   editor.portals = world.portals || []; editor.monsters = world.monsters || [];
+  editor.selectedPortalId = null;
   editor.monsterSpawns = world.monsterSpawns || []; editor.npcs = world.npcs || []; editor.rules = world.rules || {};
   editor.currentCode = world.code;
   $("map-name").value = world.tenMap || world.name || world.code;
@@ -562,6 +563,8 @@ async function loadMap() {
   $("map-seed").value = world.seed || world.code;
   normalizeLoadedLayers(world);
   resizeCanvas();
+  refreshPortalTargets();
+  renderPortalList();
   setStatus(`Đã mở ${world.tenMap || world.code}`, "ok");
 }
 
@@ -587,6 +590,16 @@ $("map-name").addEventListener("input", () => { $("stage-name").textContent = $(
 $("generate-map").addEventListener("click", generateMap);
 $("load-map").addEventListener("click", () => loadMap().catch((error) => setStatus(error.message, "error")));
 $("save-map").addEventListener("click", () => saveMap().catch((error) => setStatus(error.message, "error")));
+$("new-portal").addEventListener("click", resetPortalForm);
+$("save-portal").addEventListener("click", () => savePortalLink().catch((error) => setStatus(error.message, "error")));
+$("delete-portal").addEventListener("click", () => deletePortal().catch((error) => setStatus(error.message, "error")));
+$("portal-target-map").addEventListener("change", () => {
+  const target = editor.mapCatalog.get($("portal-target-map").value);
+  if (!target) return;
+  $("portal-target-x").value = Number(target.spawnX ?? Math.floor(target.w / 2));
+  $("portal-target-y").value = Number(target.spawnY ?? Math.floor(target.h / 2));
+  if (!$("portal-label").value) $("portal-label").value = target.tenMap || target.code;
+});
 $("layer-tabs").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-layer]");
   if (!button) return;

@@ -1,7 +1,15 @@
-"use strict";
-// ════════════════════════════════════════════════════════════
-// utils.js — §5 Utility Functions & Data Normalizers
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════════════
+// FILE: public/js/utils.js
+// 1. DÙNG ĐỂ LÀM GÌ:
+//    - Tiện ích toán học & chuẩn hóa dữ liệu (Math Helpers & Data Normalizers): Tính khoảng cách
+//      Euclidean (dist), số ngẫu nhiên (randInt), nội suy tuyến tính (lerp), phân giải JSON an toàn
+//      (parseEquipSlot, normalizeWorldDto), chuyển đổi format người chơi giữa BE và FE (mapBEPlayerToFE).
+// 2. CẤU HÌNH LIÊN QUAN:
+//    - Không phụ thuộc bên ngoài (Pure functions).
+// 3. XỬ LÝ VẤN ĐỀ NÀO:
+//    - Đảm bảo tính toán khoảng cách và giải mã dữ liệu an toàn, không bao giờ ném lỗi (crash)
+//      khi server trả về dữ liệu rỗng hoặc sai cấu trúc.
+// ════════════════════════════════════════════════════════════════════════════════════════
 
 function randInt(a, b) {
   return a + Math.floor(Math.random() * (b - a + 1));

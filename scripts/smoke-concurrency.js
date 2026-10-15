@@ -23,8 +23,8 @@ function connectClient(token, index, counters) {
     });
     socket.on("connect", () => {
       const nearGroup = index < CLIENTS / 2;
-      const baseX = nearGroup ? 145 : 495;
-      const baseY = nearGroup ? 120 : 105;
+      const baseX = nearGroup ? 75 : 495;
+      const baseY = nearGroup ? 195 : 105;
       socket.emit("join_world", {
         mapCode: "binh_nguyen",
         x: baseX + (index % 5),
@@ -46,8 +46,8 @@ async function main() {
     const nearGroup = index < CLIENTS / 2;
     socket.emit("move", {
       mapId: "binh_nguyen",
-      x: (nearGroup ? 145 : 495) + (index % 5) + 0.5,
-      y: (nearGroup ? 120 : 105) + (index % 4),
+      x: (nearGroup ? 75 : 495) + (index % 5) + 0.5,
+      y: (nearGroup ? 195 : 105) + (index % 4),
     });
   });
   await new Promise((resolve) => setTimeout(resolve, 700));
