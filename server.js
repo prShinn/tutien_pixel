@@ -14,8 +14,6 @@
 //    - Ghi file async atomic tránh block Node event loop khi admin lưu bản đồ lớn.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
-require("dotenv").config();
-
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -27,6 +25,7 @@ const { Server } = require("socket.io");
 const { authMiddleware, signToken } = require("./middleware/auth");
 const { createRateLimiter } = require("./middleware/rate-limit");
 const { setupSocket } = require("./socket/game");
+const ENV = require("./config/env");
 const { realms, roots, items, skills, monsterDefs, worlds } = require("./data/mock-data");
 const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughGain } = require("./data/balance");
 
@@ -41,8 +40,8 @@ const worldResponseCache = new Map();
 let socketRuntime = null;
 let nextUserId = 1;
 let nextPlayerId = 1;
-const ADMIN_MAP_KEY = process.env.ADMIN_MAP_KEY || "demo-admin";
-if (process.env.NODE_ENV === "production" && ADMIN_MAP_KEY === "demo-admin") {
+const ADMIN_MAP_KEY = ENV.adminMapKey;
+if (ENV.isProduction && ADMIN_MAP_KEY === "demo-admin") {
   console.warn("CẢNH BÁO: ADMIN_MAP_KEY đang sử dụng giá trị mặc định trong môi trường production!");
 }
 const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
@@ -832,12 +831,16 @@ app.post("/api/player/skills/learn", authMiddleware, (req, res) => {
 
 app.put("/api/player/skills/equip", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
-  const codes = Array.isArray(req.body?.skillCodes) ? req.body.skillCodes.slice(0, 4) : [];
+  const codes = Array.from(new Set(Array.isArray(req.body?.skillCodes) ? req.body.skillCodes : [])).slice(0, 4);
   if (!player) return res.status(404).json({ error: "Player not found" });
   const learned = new Set(player.learnedSkills || []);
   if (codes.some((code) => !learned.has(code))) return res.status(400).json({ error: "Chỉ được trang bị skill đã học" });
+  const selectedSkills = codes.map((code) => skills.find((skill) => skill.code === code)).filter(Boolean);
+  if (selectedSkills.some((skill) => String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE")) {
+    return res.status(400).json({ error: "Skill bị động tự động hoạt động, không cần đưa vào ô kỹ năng" });
+  }
   player.equippedSkills = codes;
-  player.skills = codes.map((code) => skills.find((skill) => skill.code === code)).filter(Boolean);
+  player.skills = selectedSkills;
   players.set(player.id, player);
   res.json({ equippedSkills: player.equippedSkills, skills: player.skills });
 });
@@ -896,5 +899,5 @@ setInterval(() => {
   if (sessions.size) broadcast("server_msg", { text: `[System] ${sessions.size} tu sĩ đang trực tuyến` });
 }, 300000);
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = ENV.port;
 server.listen(PORT, () => console.log(`Tu Tien demo running at http://localhost:${PORT}`));

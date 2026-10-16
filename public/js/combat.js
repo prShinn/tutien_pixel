@@ -115,7 +115,7 @@ const Combat = {
 
   attack(m) {
     if (S.atkCd > 0 || S.combatGcd > 0 || S.combatPending || m.dead) return;
-    const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= CFG.BASIC_ATTACK_RANGE * CFG.TS;
+    const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
     // Online: không dùng vị trí nội suy client để chặn request. Server kiểm tra
     // khoảng cách authoritative; nếu không hợp lệ sẽ trả action_error.
     if (!socket?.connected && !inRange) {
@@ -144,7 +144,6 @@ const Combat = {
     Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#fff06a" : "#ff5555", isCrit);
     
     S.atkCd = CFG.ATK_CD;
-    S.atkFx.push({ px: m.px, py: m.py, r: isCrit ? 18 : 14, life: 14, color: isCrit ? "rgba(255,240,100,1)" : "rgba(255,220,80,1)" });
 
     m.hp -= dmg;
     if (m.hp <= 0) {
@@ -174,4 +173,3 @@ const Combat = {
     }
   },
 };
-

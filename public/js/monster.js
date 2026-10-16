@@ -185,6 +185,9 @@ const Monster = {
         Math.floor((m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult),
       );
       p.hp = Math.max(0, p.hp - dmg);
+      p.hitUntil = Date.now() + 220;
+      p.animState = "hurt";
+      p.animUntil = Date.now() + 260;
       Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
       if (p.hp <= 0) {
         p.hp = Math.floor(p.maxHp * 0.25);

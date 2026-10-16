@@ -27,11 +27,6 @@ function update(dt) {
     if (S.atkCd > 0) S.atkCd -= dt / 16;
     if (S.combatGcd > 0) S.combatGcd -= dt / 16;
     SkillSystem.tickCooldowns(dt);
-    for (let i = S.atkFx.length - 1; i >= 0; i--) {
-      S.atkFx[i].life -= dt / 16;
-      S.atkFx[i].r += 0.8;
-      if (S.atkFx[i].life <= 0) S.atkFx.splice(i, 1);
-    }
     const active = document.activeElement;
     const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.id === "chat-inp" && active.offsetParent !== null;
     const modalOpen =
@@ -45,17 +40,47 @@ function update(dt) {
       if (Input.keys["KeyW"] || Input.keys["ArrowUp"] || Input.keys["w"]) dy = -1;
       if (Input.keys["KeyS"] || Input.keys["ArrowDown"] || Input.keys["s"]) dy = 1;
 
-      if (dx || dy) {
+      const manualInput = Boolean(dx || dy);
+      if (manualInput) {
         p.targetMovePos = null;
-      } else if (p.targetMovePos) {
-        const toX = p.targetMovePos.x;
-        const toY = p.targetMovePos.y;
-        const distToTarget = Math.hypot(toX - p.x, toY - p.y);
-        if (distToTarget < 0.6) {
-          p.targetMovePos = null;
-        } else {
-          dx = (toX - p.x) / distToTarget;
-          dy = (toY - p.y) / distToTarget;
+        p.combatMove = false;
+      } else {
+        // Client chỉ điều hướng; server vẫn quyết định phạm vi, hit và sát thương.
+        if (p.combatMove && (!S.target || S.target.dead)) p.combatMove = false;
+        if (S.autoFight && (!S.target || S.target.dead)) {
+          let nearest = null;
+          let nearestDistance = Infinity;
+          for (const m of S.monsters) {
+            if (!m || m.dead) continue;
+            const d = dist(m.px, m.py, p.px, p.py);
+            if (d < nearestDistance && d <= 160) {
+              nearest = m;
+              nearestDistance = d;
+            }
+          }
+          S.target = nearest;
+        }
+
+        const combatTarget = S.target && !S.target.dead && (S.autoFight || p.combatMove) ? S.target : null;
+        const stopRange = CFG.BASIC_ATTACK_RANGE * CFG.TS * 0.86;
+        if (combatTarget) {
+          const targetDx = combatTarget.px - p.px;
+          const targetDy = combatTarget.py - p.py;
+          const targetDistance = Math.hypot(targetDx, targetDy);
+          if (targetDistance > stopRange) {
+            dx = targetDx / targetDistance;
+            dy = targetDy / targetDistance;
+          }
+        } else if (p.targetMovePos) {
+          const toX = p.targetMovePos.x;
+          const toY = p.targetMovePos.y;
+          const distToTarget = Math.hypot(toX - p.x, toY - p.y);
+          if (distToTarget < 0.6) {
+            p.targetMovePos = null;
+          } else {
+            dx = (toX - p.x) / distToTarget;
+            dy = (toY - p.y) / distToTarget;
+          }
         }
       }
 
@@ -105,8 +130,8 @@ function update(dt) {
       p.px = p.x * CFG.TS + CFG.TS / 2;
       p.py = p.y * CFG.TS + CFG.TS / 2;
 
-      if (Input.keys["Space"] && S.atkCd <= 0) {
-        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS;
+      if ((Input.keys["Space"] || p.combatMove) && S.atkCd <= 0) {
+        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
         let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
         if (!best) {
           let bd = attackRange;
@@ -123,7 +148,7 @@ function update(dt) {
         }
       }
       if (S.autoFight && S.atkCd <= 0) {
-        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS;
+        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
         let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
         if (!best) {
           let bd = attackRange;
@@ -270,10 +295,10 @@ async function createCharacter() {
   const { str, agi, vit, ene } = S.creation.points;
 
   const demoWorldPath = Auth._demoMode
-    ? "/api/worlds/by-code?code=binh_nguyen"
-    : "/api/worlds/default";
+    ? API.PATHS.worlds.byCode("binh_nguyen")
+    : API.PATHS.worlds.default;
   const [defaultRealm, defaultWorldDto] = await Promise.all([
-    Net.get("/api/canh-gioi/stt/1"),
+    Net.get(`${API.PATHS.data.realms}/stt/1`),
     Net.get(demoWorldPath),
   ]);
   if (!defaultRealm?.code || !defaultWorldDto?.code) {
@@ -331,7 +356,7 @@ async function createCharacter() {
     img: S.creation.gender === "MALE" ? "./assets/char_male_anim-source.png" : "./assets/char_female_anim-source.png",
     equip_slot: JSON.stringify(trangBi),
   };
-  const saved = await Net.post("/api/player", playerData);
+  const saved = await Net.post(API.PATHS.player.create, playerData);
   if (saved?.id) {
     playerData.id = saved.id;
     if (saved.mapCode) playerData.mapCode = saved.mapCode;

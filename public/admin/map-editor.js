@@ -485,7 +485,7 @@ async function savePortalLink() {
 
   await saveMap();
   const target = editor.mapCatalog.get(targetCode);
-  const response = await fetch("/api/admin/portals/link", {
+  const response = await fetch(API.BASE + API.PATHS.admin.linkPortal, {
     method: "POST",
     headers: adminHeaders(true),
     body: JSON.stringify({
@@ -511,7 +511,7 @@ async function savePortalLink() {
 
 async function deletePortal() {
   if (!editor.currentCode || !editor.selectedPortalId) return;
-  const response = await fetch(`/api/admin/worlds/${encodeURIComponent(editor.currentCode)}/portals/${encodeURIComponent(editor.selectedPortalId)}`, {
+  const response = await fetch(API.BASE + API.PATHS.admin.portal(editor.currentCode, editor.selectedPortalId), {
     method: "DELETE",
     headers: adminHeaders(),
   });
@@ -523,7 +523,7 @@ async function deletePortal() {
 }
 
 async function refreshMapList(selected = "") {
-  const response = await fetch("/api/admin/worlds", { headers: adminHeaders() });
+  const response = await fetch(API.BASE + API.PATHS.admin.worlds, { headers: adminHeaders() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không tải được danh sách map");
   editor.knownMaps = new Set(data.map((map) => map.code));
@@ -546,7 +546,7 @@ async function loadMap() {
   const code = $("map-list").value;
   if (!code) { generateMap(); return; }
   setStatus("Đang tải map…");
-  const response = await fetch(`/api/worlds/by-code?code=${encodeURIComponent(code)}`);
+  const response = await fetch(API.BASE + API.PATHS.worlds.byCode(code));
   const world = await response.json();
   if (!response.ok) throw new Error(world.error || "Không tải được map");
   editor.width = Number(world.w); editor.height = Number(world.h);
@@ -571,7 +571,7 @@ async function loadMap() {
 async function saveMap() {
   const payload = mapPayload();
   const exists = editor.knownMaps.has(payload.code);
-  const url = exists ? `/api/admin/worlds/${encodeURIComponent(payload.code)}` : "/api/admin/worlds";
+  const url = exists ? API.BASE + API.PATHS.admin.world(payload.code) : API.BASE + API.PATHS.admin.worlds;
   setStatus("Đang lưu lên server…");
   const response = await fetch(url, { method: exists ? "PUT" : "POST", headers: adminHeaders(true), body: JSON.stringify(payload) });
   const data = await response.json();

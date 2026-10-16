@@ -152,26 +152,6 @@ const Render = {
     ctx.fillStyle = "#111"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw, 2);
     ctx.fillStyle = "#cc2222"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
 
-    for (const fx of S.atkFx) {
-      const alpha = Math.max(0, fx.life / 14);
-      const r = (fx.r || 14) * (0.65 + (1 - alpha) * 0.5);
-      ctx.save();
-      ctx.strokeStyle = fx.color || `rgba(255,225,80,${alpha})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      const angle = fx.angle !== undefined ? fx.angle : 0.6;
-      ctx.arc(fx.px - cx, fx.py - cy, r, angle - 1.1, angle + 1.1);
-      ctx.stroke();
-
-      ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.9})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(fx.px - cx - 3, fx.py - cy); ctx.lineTo(fx.px - cx + 3, fx.py - cy);
-      ctx.moveTo(fx.px - cx, fx.py - cy - 3); ctx.lineTo(fx.px - cx, fx.py - cy + 3);
-      ctx.stroke();
-      ctx.restore();
-    }
-    
     // Vẽ KPAH Floating Damage Text
     for (const ft of S.floatingTexts) {
       const alpha = Math.max(0, ft.life / ft.maxLife);
@@ -384,35 +364,34 @@ const Render = {
     const activeAction = actor?.animUntil > now
       ? actor.animState
       : (moving ? "walk" : "idle");
-    const animation = { idle: { row: 0, speed: 210 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 210 };
-    const frameIndex = Math.floor(now / animation.speed) % 4;
+    const animation = { idle: { row: 0, speed: 240 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 240 };
+    const rawFrame = Math.floor(now / animation.speed) % 4;
+    // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
+    const frameIndex = activeAction === "idle" ? [0, 1, 2, 1][rawFrame] : rawFrame;
     const phase = now * (moving ? 0.0065 : 0.0012);
     const stride = Math.sin(phase);
     const idle = activeAction === "idle";
-    const bob = idle ? Math.sin(phase) * 0.08 : Math.abs(stride) * 0.7;
-    const sway = idle ? 0 : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
+    // Nhịp thở chỉ dịch thân rất ít; điểm neo vẫn là chân nên nhân vật không bị cảm giác bay.
+    const idlePhase = now * 0.0032;
+    const bob = idle ? Math.sin(idlePhase) * 0.16 : Math.abs(stride) * 0.18;
+    const sway = idle
+      ? Math.sin(idlePhase * 0.7) * 0.008
+      : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
     const attackPulse = actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
     const actorH = Number(actor?.animation?.height || CFG.ACTOR_H);
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
-      // Aura linh căn nhẹ giúp sprite có chiều sâu mà không che pixel art.
-      ctx.save();
-      ctx.globalAlpha = moving ? 0.16 : 0.1;
-      ctx.fillStyle = tint;
+      // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
+      ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
-      ctx.arc(sx, sy - actorH * 0.46 + bob, moving ? 12 : 10.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = "rgba(0,0,0,.28)";
-      ctx.beginPath();
-      ctx.ellipse(sx, sy + 1, moving ? 8 + Math.abs(stride) : 7, 2.2, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 1, moving ? 6.5 + Math.abs(stride) * 0.5 : 6.5, 1.6, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
       // chạm đúng chân, trong khi collision vẫn dùng cùng tọa độ world.
-      ctx.translate(sx, sy - bob);
+      ctx.translate(sx, sy - bob + (CFG.ACTOR_FOOT_OFFSET || 0));
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (moving ? Math.abs(stride) * 0.035 : 0), 1 - (moving ? Math.abs(stride) * 0.025 : 0));
@@ -425,10 +404,17 @@ const Render = {
       const drawn = this.drawSprite(imgToDraw, 0, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
+        this.drawBuffEffects(sx, sy, actor, actorW, actorH);
         if (actor?.hitUntil > Date.now()) {
           ctx.save();
-          ctx.fillStyle = "rgba(255, 50, 50, 0.45)";
-          ctx.fillRect(sx - actorW / 2, sy - actorH, actorW, actorH);
+          const pulse = 0.58 + Math.sin(Date.now() * 0.045) * 0.18;
+          ctx.strokeStyle = `rgba(255, 45, 45, ${pulse})`;
+          ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
+          ctx.shadowBlur = 4;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.ellipse(sx, sy - actorH * 0.48, actorW * 0.62, actorH * 0.54, 0, 0, Math.PI * 2);
+          ctx.stroke();
           ctx.restore();
         }
         return;
@@ -461,6 +447,18 @@ const Render = {
     // Chi tiết áo
     ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.fillRect(x + 3, y + 4, 2, 4);
+
+    if (actor?.hitUntil > Date.now()) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 45, 45, 0.75)";
+      ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
+      ctx.shadowBlur = 3;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy - 4, 5.5, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   },
 
   otherPlayer(op, cx, cy) {
@@ -545,8 +543,14 @@ const Render = {
 
     if (m.hitUntil > now) {
       ctx.save();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-      ctx.fillRect(sx - spriteW / 2, sy - spriteH / 2, spriteW, spriteH);
+      const pulse = 0.58 + Math.sin(now * 0.045) * 0.18;
+      ctx.strokeStyle = `rgba(255, 45, 45, ${pulse})`;
+      ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
+      ctx.shadowBlur = 4;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy - spriteH * 0.08, spriteW * 0.62, spriteH * 0.54, 0, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
     
@@ -572,9 +576,26 @@ const Render = {
   portal(portal, cx, cy) {
     const sx = portal.x * CFG.TS + CFG.TS / 2 - cx, sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
     const a = S.animT * 0.002;
-    ctx.fillStyle = `rgba(100,200,255,${0.3 + 0.1 * Math.sin(a)})`;
-    ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
+    const pulse = 7 + Math.sin(a) * 1.5;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(Math.PI / 4);
+    ctx.strokeStyle = `rgba(124,232,235,${0.65 + Math.sin(a) * 0.15})`;
+    ctx.shadowColor = "#00d2d3";
+    ctx.shadowBlur = 5;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-pulse, -pulse, pulse * 2, pulse * 2);
+    ctx.restore();
+  },
+
+  portalRiftImage() {
+    if (this._portalRift) return this._portalRift;
+    const image = new Image();
+    image.onload = () => { image.isReady = true; };
+    image.onerror = () => { image.failed = true; };
+    image.src = "./assets/portals/spatial-rift-source.png";
+    this._portalRift = image;
+    return image;
   },
 
   portalHint(nearest, centerX, centerY, cW, cH) {
@@ -590,6 +611,23 @@ const Render = {
     const padY = 22;
     const edgeX = Math.min(cW - padX, Math.max(padX, centerX + Math.cos(angle) * (cW / 2 - padX)));
     const edgeY = Math.min(cH - padY, Math.max(padY, centerY + Math.sin(angle) * (cH / 2 - padY)));
+
+    const rift = this.portalRiftImage();
+    if (rift.isReady && !rift.failed) {
+      const horizontal = Math.abs(dx) > Math.abs(dy);
+      const side = horizontal ? (dx < 0 ? "left" : "right") : (dy < 0 ? "top" : "bottom");
+      const riftW = horizontal ? 54 : 148;
+      const riftH = horizontal ? 148 : 54;
+      ctx.save();
+      ctx.translate(edgeX, edgeY);
+      if (side === "right" || side === "bottom") ctx.scale(-1, 1);
+      if (!horizontal) ctx.rotate(side === "top" ? -Math.PI / 2 : Math.PI / 2);
+      ctx.globalAlpha = 0.92;
+      ctx.globalCompositeOperation = "screen";
+      ctx.drawImage(rift, -riftW / 2, -riftH / 2, riftW, riftH);
+      ctx.restore();
+      return;
+    }
 
     ctx.save();
     // 1. Mũi tên nhỏ xoay hướng tới cổng
@@ -649,6 +687,48 @@ const Render = {
       maxLife: isCrit ? 1000 : 800,
       isCrit: Boolean(isCrit),
     });
+  },
+
+  drawBuffEffects(sx, sy, actor, actorW, actorH) {
+    const buffs = actor?.buffs || {};
+    const now = Date.now();
+    const active = (key) => buffs[key] && (!buffs[key].expiresAt || Number(buffs[key].expiresAt) > now);
+    const shield = active("shield") || active("buff_def") || active("buff_vitals");
+    const attack = active("buff_atk") || active("buff_crit");
+    const speed = active("buff_spd") || active("buff_cast");
+    if (!shield && !attack && !speed) return;
+    const pulse = 0.58 + Math.sin(now * 0.006) * 0.18;
+    ctx.save();
+    ctx.lineWidth = 1.1;
+    ctx.globalAlpha = pulse;
+    if (shield) {
+      ctx.strokeStyle = active("shield") ? "#72d7ff" : "#8fa8ff";
+      ctx.beginPath();
+      ctx.ellipse(sx, sy - actorH * 0.48, actorW * 0.68, actorH * 0.58, 0, Math.PI * 0.08, Math.PI * 0.92);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx, sy - actorH * 0.46, actorW * 0.72, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+    }
+    if (attack) {
+      ctx.strokeStyle = active("buff_crit") ? "#ffd166" : "#ff8b55";
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(sx + side * actorW * 0.58, sy - actorH * 0.62);
+        ctx.lineTo(sx + side * actorW * 0.9, sy - actorH * 0.78);
+        ctx.stroke();
+      }
+    }
+    if (speed) {
+      ctx.strokeStyle = active("buff_cast") ? "#c79bff" : "#8ff0ff";
+      ctx.beginPath();
+      ctx.moveTo(sx - actorW * 0.75, sy - actorH * 0.22);
+      ctx.lineTo(sx - actorW * 1.12, sy - actorH * 0.22);
+      ctx.moveTo(sx + actorW * 0.75, sy - actorH * 0.1);
+      ctx.lineTo(sx + actorW * 1.08, sy - actorH * 0.1);
+      ctx.stroke();
+    }
+    ctx.restore();
   },
 
   floatSkill(wx, wy, name, color = "#ffd166") {

@@ -16,6 +16,14 @@
 let socket = null;
 let authToken = sessionStorage.getItem("tu_tien_token");
 
+function effectColor(effect) {
+  return ({
+    shield: "#72d7ff", buff_def: "#72d7ff", buff_vitals: "#72d7ff",
+    buff_atk: "#ff8b55", buff_crit: "#ffd166", buff_spd: "#8ff0ff", buff_cast: "#c79bff",
+    buff_hp_regen: "#7ee787", buff_mp_regen: "#75a7ff",
+  })[effect] || "#ffd166";
+}
+
 const Net = {
   _saveTimer: null,
   _isOnline: false,
@@ -124,7 +132,7 @@ const Net = {
       };
 
       try {
-        const res = await this.put("/api/player/" + playerData.id, playerData);
+        const res = await this.put(API.PATHS.player.update(playerData.id), playerData);
         if (res?.id || res?.ok) {
           if (event) console.log("💾 Đã lưu dữ liệu (Map/Event):", event);
         }
@@ -229,7 +237,7 @@ const Net = {
           } else if (S.tiles?.length && S.mapCode === targetMapCode) {
             // Bản đồ hiện tại đã khớp
           } else if (targetMapCode) {
-            const mapDto = await Net.get(`/api/worlds/by-code?code=${encodeURIComponent(targetMapCode)}`);
+            const mapDto = await Net.get(API.PATHS.worlds.byCode(targetMapCode));
             const map = normalizeWorldDto(mapDto);
             if (map && S.player) World.loadMap(map, S.player.x, S.player.y);
           }
@@ -251,7 +259,6 @@ const Net = {
             return Monster.make(mData, x, y, mData.id);
           });
 
-          Net._updateHost();
           UI.update();
         } catch (e) { console.error("world_init error:", e); }
       });
@@ -263,7 +270,6 @@ const Net = {
           for (const p of players) {
             if (p && p.id !== socket.id) Net._upsertOther(p);
           }
-          Net._updateHost();
         } catch (e) { console.error("world_state error:", e); }
       });
 
@@ -273,7 +279,6 @@ const Net = {
             Net._upsertOther(p);
             UI.update();
             UI.log(`👤 ${p.username || "Người chơi ẩn danh"} gia nhập bản đồ`, "system");
-            Net._updateHost();
           }
         } catch (e) { console.error("player_join error:", e); }
       });
@@ -281,7 +286,6 @@ const Net = {
       socket.on("player_leave", (data) => {
         const pid = data.id || data.socketId || data.userId;
           S.players.delete(pid);
-        Net._updateHost();
       });
 
       socket.on("player_move", (data) => {
@@ -348,7 +352,6 @@ const Net = {
             op.mapCode = newMapCode;
           }
         }
-        Net._updateHost();
       });
 
       // ── Monster Synchronization ──
@@ -403,7 +406,10 @@ const Net = {
         if (m) {
           m.dead = true;
           m.hp = 0;
-          if (S.target?.id === id) S.target = null;
+          if (S.target?.id === id) {
+            S.target = null;
+            if (S.player) S.player.combatMove = false;
+          }
         }
       });
 
@@ -427,10 +433,12 @@ const Net = {
           m.hp = hit.hp;
           m.maxHp = hit.maxHp || m.maxHp;
           m.dead = !!hit.dead;
-          if (m.dead && S.target?.id === m.id) S.target = null;
+          if (m.dead && S.target?.id === m.id) {
+            S.target = null;
+            if (S.player) S.player.combatMove = false;
+          }
           m.hitUntil = Date.now() + 180;
           Render.floatDmg(m.px, m.py, -30, (hit.critical ? "CRIT! " : "") + "-" + hit.damage, hit.critical ? "#fff06a" : "#ff5555", Boolean(hit.critical));
-          S.atkFx.push({ px: m.px, py: m.py, r: hit.critical ? 18 : 13, life: 14, color: hit.critical ? "rgba(255,240,100,1)" : "rgba(255,210,70,1)" });
         }
         if (skillCode && skillName) {
           const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
@@ -467,7 +475,7 @@ const Net = {
         }
       });
 
-      socket.on("skill_result", ({ skillCode, skillName, hp, maxHp, mp, maxMp, heal, mpRestore, buffs, cooldownMs, gcdMs }) => {
+      socket.on("skill_result", ({ skillCode, skillName, effect, effectVal, effectDurationMs, hp, maxHp, mp, maxMp, heal, mpRestore, buffs, cooldownMs, gcdMs }) => {
         S.combatPending = false;
         S.combatGcd = Math.floor((gcdMs || 350) / 16);
         if (!S.player) return;
@@ -478,11 +486,18 @@ const Net = {
         S.player.mp = mp;
         if (typeof maxMp === "number") S.player.maxMp = maxMp;
         S.player.buffs = buffs || {};
-        const skill = S.player.skills?.find(item => item.id === skillCode || item.code === skillCode);
+        const skill = S.player.skills?.find(item => String(item.id) === String(skillCode) || String(item.code) === String(skillCode));
         if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
-        if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName);
+        if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName, effectColor(effect));
         if (heal) UI.log(`${skill?.icon || "✦"} Hồi ${heal} HP`, "level");
         if (mpRestore) UI.log(`${skill?.icon || "✦"} Hồi ${mpRestore} MP`, "level");
+        if (effect && !["heal", "restore_mp", "cleanse"].includes(effect)) {
+          const labels = { shield: "khiên hộ thể", buff_atk: "sát thương", buff_def: "giáp", buff_crit: "chí mạng", buff_spd: "tốc độ", buff_cast: "tốc độ ra chiêu", buff_hp_regen: "hồi HP", buff_mp_regen: "hồi MP", buff_vitals: "sinh lực tối đa" };
+          const label = labels[effect] || effect.replace(/^buff_/, "");
+          const seconds = Math.max(1, Math.round(Number(effectDurationMs || 0) / 1000));
+          UI.log(`${skill?.icon || "✦"} ${skillName || "Kỹ năng"} đã kích hoạt · +${effectVal || 0} ${label} (${seconds}s)`, "level");
+          Render.floatSkill(S.player.px, S.player.py - 8, `+${effectVal || 0} ${label}`, effectColor(effect));
+        }
         UI.update();
       });
 
@@ -501,7 +516,6 @@ const Net = {
           const m = S.monsters.find(mon => mon.id === targetId);
           if (m && !m.dead) {
             Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
-            S.atkFx.push({ px: m.px, py: m.py, r: 10, life: 10 });
           }
         }
       });
@@ -553,10 +567,6 @@ const Net = {
     }
   },
 
-  emitMonsterSync() {
-    // Deprecated: vị trí, HP và AI monster do server authoritative quản lý.
-  },
-
   _updateHost() {
     if (!socket?.connected) {
       S.isHost = true;
@@ -587,12 +597,6 @@ const Net = {
       // Không nhảy client tới điểm đến khi server chưa trả world_init.
       socket.emit("move", { x: S.player?.x, y: S.player?.y, mapId: S.mapCode });
       setTimeout(() => socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py }), 65);
-    }
-  },
-
-  emitAttackMonster(monsterId, damage, skillCode = null) {
-    if (socket?.connected) {
-      socket.emit("attack_monster", { monsterId, damage, skillCode });
     }
   },
 

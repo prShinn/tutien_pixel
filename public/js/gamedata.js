@@ -26,7 +26,7 @@ const GameData = {
 	// ════ REALMS ════
 	// GET /api/canh-gioi → [{ stt, code, tenCanhGioi, tuViTienCap, ... }]
 	async loadRealms() {
-		const data = await this._get("/api/canh-gioi");
+		const data = await this._get(API.PATHS.data.realms);
 		if (!Array.isArray(data) || data.length === 0) {
 			console.warn("[GameData] Không load được REALMS từ API.");
 			return;
@@ -40,7 +40,7 @@ const GameData = {
 	// ════ ROOTS (Linh Căn) ════
 	// GET /api/linh-can → [{ maLinhCan, tenLinhCan, emoji, mauSac, background }]
 	async loadRoots() {
-		const data = await this._get("/api/linh-can");
+		const data = await this._get(API.PATHS.data.roots);
 		if (Array.isArray(data) && data.length > 0) {
 			CFG.ROOTS = data.map((r) => ({
 				...r,
@@ -91,7 +91,7 @@ const GameData = {
 	// ════ ITEMS ════
 	// GET /api/items → [{ maDo/id, tenDo/name, icon, loai/type, ... }]
 	async loadItems() {
-		const data = await this._get("/api/items");
+		const data = await this._get(API.PATHS.data.items);
 		if (!Array.isArray(data) || data.length === 0) {
 			console.warn("[GameData] Không load được ITEMS từ API.");
 			return;
@@ -150,7 +150,7 @@ const GameData = {
 	//   effectDur  : number            — ticks (frames) hiệu ứng tồn tại
 	//   effectVal  : number            — giá trị hiệu ứng (DoT, slow%...)
 	async loadSkills() {
-		const data = await this._get("/api/skills");
+		const data = await this._get(API.PATHS.data.skills);
 		if (!Array.isArray(data) || data.length === 0) {
 			console.warn("[GameData] Không load được SKILLS từ API.");
 			return;

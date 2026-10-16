@@ -53,7 +53,7 @@ const Auth = {
 
     try {
       const path =
-        Auth._mode === "login" ? "/api/auth/login" : "/api/auth/register";
+        Auth._mode === "login" ? API.PATHS.auth.login : API.PATHS.auth.register;
       const res = await fetch(API.BASE + path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,7 +87,7 @@ const Auth = {
     if (Auth._demoPending) return;
     Auth._demoPending = true;
     try {
-      const res = await fetch(API.BASE + "/api/auth/demo", { method: "POST" });
+      const res = await fetch(API.BASE + API.PATHS.auth.demo, { method: "POST" });
       const data = await res.json();
       authToken = data.token;
       Auth._demoMode = true;
@@ -104,7 +104,7 @@ const Auth = {
   async _afterLogin() {
     // Try to load existing character
     try {
-      const data = await Net.get("/api/player/by-user/" + S.session.user.id);
+      const data = await Net.get(API.PATHS.player.byUser(S.session.user.id));
       if (data?.id && !data.error) {
         Auth._startGameWithData(data);
         return;
@@ -168,6 +168,15 @@ const Auth = {
             return { ...sk, cdLeft: sk.cdLeft ?? 0 };
           })
         : null;
+    const learnedSkillCodes = new Set((Array.isArray(playerData.learnedSkills) ? playerData.learnedSkills : []).map(String));
+    const equippedSkillCodes = new Set((Array.isArray(playerData.equippedSkills) ? playerData.equippedSkills : []).map(String));
+    const visibleSkills = (savedSkills || []).filter((skill) => {
+      const code = String(skill.code || skill.id || "");
+      const learned = !learnedSkillCodes.size || learnedSkillCodes.has(code);
+      const equipped = !equippedSkillCodes.size || equippedSkillCodes.has(code);
+      const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
+      return learned && equipped && !passive;
+    });
     S.player = {
       ...playerData,
       name: playerData.name,
@@ -195,7 +204,8 @@ const Auth = {
       py: (Number.isFinite(Number(playerData.y)) ? Number(playerData.y) : 200) * CFG.TS + CFG.TS / 2,
       trangBi: parsedTrangBi,
       equipment,
-      skills: savedSkills || SkillSystem.assignSkills(playerData.linhCan),
+      // Chỉ load những skill đã học và đang nằm trong loadout; ô còn lại để trống.
+      skills: visibleSkills,
       buffs: {},
     };
     try {
@@ -240,7 +250,7 @@ const Auth = {
   async tryAutoLogin() {
     if (!authToken) return false;
     try {
-      const res = await fetch(API.BASE + "/api/auth/me", {
+      const res = await fetch(API.BASE + API.PATHS.auth.me, {
         headers: { Authorization: "Bearer " + authToken },
       });
       if (!res.ok) {

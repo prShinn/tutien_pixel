@@ -18,8 +18,9 @@ const http = require("http");
 const https = require("https");
 const { URL } = require("url");
 const jwt = require("jsonwebtoken");
+const ENV = require("../config/env");
 const { JWT_SECRET } = require("../middleware/auth");
-const AUTH_BACKEND = process.env.AUTH_BACKEND || "http://localhost:8090";
+const AUTH_BACKEND = ENV.authBackend;
 const { skills, monsterDefs, items, lootTables } = require("../data/mock-data");
 const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage } = require("../data/balance");
 
@@ -83,6 +84,10 @@ function findSkill(skillRef) {
   if (skillRef === undefined || skillRef === null || skillRef === "") return null;
   const ref = String(skillRef);
   return skills.find((item) => String(item.code) === ref || String(item.id) === ref) || null;
+}
+
+function isPassiveSkill(skill) {
+  return String(skill?.category || "ACTIVE").toUpperCase() === "PASSIVE";
 }
 
 function playerHasSkill(player, skill) {
@@ -335,7 +340,7 @@ function activeStatus(monster, type, now = Date.now()) {
 
 function resolveMonsterAttack(player, monster, skillCode, session) {
   const skill = findSkill(skillCode);
-  if (skillCode && (!skill || skill.category === "PASSIVE")) return { error: "Skill không hợp lệ" };
+  if (skillCode && (!skill || isPassiveSkill(skill))) return { error: "Skill không hợp lệ hoặc là kỹ năng bị động" };
   if (skillCode && !playerHasSkill(player, skill)) return { error: "Skill chưa học" };
   if (skillCode && !isOffensiveSkill(skill)) return { error: "Skill hỗ trợ không phải kỹ năng gây sát thương" };
   const now = Date.now();
@@ -386,7 +391,7 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
 
 function resolveSelfSkill(player, skillCode, session) {
   const skill = findSkill(skillCode);
-  if (!skill || skill.category === "PASSIVE") return { error: "Skill không hợp lệ" };
+  if (!skill || isPassiveSkill(skill)) return { error: "Skill không hợp lệ hoặc là kỹ năng bị động" };
   if (!playerHasSkill(player, skill)) return { error: "Skill chưa học" };
   if (isOffensiveSkill(skill)) return { error: "Skill tấn công cần chỉ định mục tiêu" };
   const now = Date.now();
@@ -415,7 +420,7 @@ function resolveSelfSkill(player, skillCode, session) {
   if (skill.effect === "cleanse") player.debuffs = {};
   session.combatGcdUntil = now + COMBAT_GCD_MS;
   skillCooldowns[skill.code] = now + cooldownMs;
-  return { skillCode: skill.code, skillName: skill.name, hp: player.hp, maxHp: player.maxHp, mp: player.mp, maxMp: player.maxMp, heal, mpRestore, buffs: player.buffs || {}, cooldownMs, gcdMs: COMBAT_GCD_MS };
+  return { skillCode: skill.code, skillName: skill.name, effect: skill.effect || null, effectVal: Number(skill.effectVal || 0), effectDurationMs: Number(skill.thoiGianBuff || 4) * 1000, hp: player.hp, maxHp: player.maxHp, mp: player.mp, maxMp: player.maxMp, heal, mpRestore, buffs: player.buffs || {}, cooldownMs, gcdMs: COMBAT_GCD_MS };
 }
 
 async function requestJson(urlString, headers = {}) {
@@ -974,7 +979,10 @@ function setupSocket(io, players = new Map(), options = {}) {
       if (!monster) return socket.emit("action_error", { action: "combat", error: "Quái không còn trong bản đồ hiện tại" });
       if (monster.dead) return socket.emit("action_error", { action: "combat", error: "Quái đang hồi sinh" });
       const skill = findSkill(skillCode);
-      const attackRange = skill ? Number(skill.range || 5) * SKILL_RANGE_SCALE : BASIC_ATTACK_RANGE;
+      // Bù sai số tâm actor giữa client render và tọa độ tile authoritative.
+      const attackRange = skill
+        ? Number(skill.range || 5) * SKILL_RANGE_SCALE
+        : BASIC_ATTACK_RANGE + 2;
       if (monsterDistanceTiles(session, monster) > attackRange) {
         return socket.emit("action_error", { action: "combat", error: "Mục tiêu ngoài phạm vi kỹ năng" });
       }

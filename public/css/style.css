@@ -797,6 +797,10 @@ body {
 }
 .sk-type.phys { background: rgba(200,100,50,0.25); color: #e08055; border: 1px solid #804028; }
 .sk-type.magic { background: rgba(120,60,200,0.25); color: #aa77ff; border: 1px solid #602090; }
+.sk-category { position:absolute; left:3px; bottom:3px; font-size:6px; line-height:1; padding:2px 3px; border-radius:3px; font-weight:bold; letter-spacing:.2px; }
+.sk-category.active { color:#b9e7ff; background:rgba(30,105,145,.42); border:1px solid #347e9f; }
+.sk-category.passive { color:#b7efc5; background:rgba(35,120,72,.42); border:1px solid #3d9258; }
+.skbar-slot.passive-skill { border-color:#3d9258 !important; }
 
 /* ─ Circular Cooldown SVG overlay ─ */
 .skbar-cd-wrap {
@@ -842,6 +846,9 @@ body {
 .skill-book-row { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid #29263d; }
 .skill-book-info { min-width:0; display:flex; flex-direction:column; gap:2px; }
 .skill-book-info strong { color:#f3d28a; font-size:10px; }
+.skill-category { display:inline-block; margin-left:4px; padding:1px 3px; border-radius:3px; font-size:7px; font-style:normal; vertical-align:middle; }
+.skill-category.active { color:#b9e7ff; border:1px solid #347e9f; background:rgba(30,105,145,.3); }
+.skill-category.passive { color:#b7efc5; border:1px solid #3d9258; background:rgba(35,120,72,.3); }
 .skill-book-info small { color:#84cfff; font-size:8px; }
 .skill-book-info em { color:#8f8aa5; font-size:8px; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:270px; }
 .skill-book-row button { border:1px solid #72552a; background:#211a2d; color:#f3d28a; font-size:10px; padding:2px 5px; cursor:pointer; }
@@ -1534,7 +1541,7 @@ body {
 .profile-ovr b { font-size: 17px; font-weight: normal; }
 .sk-sub { width: 58px; height: 58px; border-radius: 13px; padding: 5px 4px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 0; }
 .sk-sub > br { display: none; }
-.sk-sub > :not(.skbar-key):not(.skbar-icon):not(.skbar-name):not(.skbar-mp):not(.skbar-cd-wrap):not(.sk-type) { display: none; }
+.sk-sub > :not(.skbar-key):not(.skbar-icon):not(.skbar-name):not(.skbar-mp):not(.skbar-cd-wrap):not(.sk-type):not(.sk-category) { display: none; }
 .skbar-key { position: absolute; top: 4px; left: 6px; color: #f8df8c; font-size: 9px; font-weight: bold; z-index: 2; }
 .skbar-icon { width: 30px; height: 30px; display: grid; place-items: center; font-size: 23px; line-height: 1; z-index: 1; }
 .skbar-icon img { width: 28px; height: 28px; object-fit: contain; image-rendering: auto; }

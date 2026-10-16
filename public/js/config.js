@@ -11,29 +11,34 @@
 //      màn hình, độ mượt di chuyển và camera mà không bị rải rác mã nguồn.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
-const API = {
+/* API contract lives in api.js. */
+/*
+const LEGACY_API = {
   BASE: window.location.origin,
   SOCKET_URL: window.location.origin,
   AUTO_SAVE_MS: 30000,                   // auto-save mỗi 30 giây
 };
+*/
 
 // ── Static game rules (không thay đổi theo data) ──
 const CFG = {
   TS: 1,            // micro-grid: 1 ô địa hình = 1 logical pixel
   ACTOR_W: 14,
   ACTOR_H: 18,
+  ACTOR_FOOT_OFFSET: 3,
   DS: 3,            // thấy rộng hơn nhưng vẫn giữ pixel-art rõ nét
   INV_MAX: 40,      // max inventory slots
   ATK_CD: 42,       // ticks cooldown đánh thường
   BASIC_ATTACK_RANGE: 24,  // world-pixel; lớn hơn bề rộng nhân vật
+  ATTACK_RANGE_PADDING: 2, // bù sai số tâm actor giữa render và tọa độ server
   SKILL_RANGE_SCALE: 6,    // 1 đơn vị range trong data = 6 world-pixel
   PLAYER_COLLISION_RADIUS: 0.45,
   PLAYER_MOVE_SPEED: 44,   // world-pixel/giây; server cho sai số mạng riêng
   REMOTE_MOVE_SPEED: 56,
   INTERACTION_RANGE: 24,
   NET_SNAP_DISTANCE: 48,
-  REGEN_HP: 0.01,   // HP regen per ms
-  REGEN_MP: 0.006,  // MP regen per ms
+  REGEN_HP: 0,      // Không hồi nền; chỉ hồi qua skill/buff/item
+  REGEN_MP: 0,      // Không hồi nền; chỉ hồi qua skill/buff/item
   MON_AGGRO: 40,    // Aggro riêng từng quái theo world-pixel
   MON_LEASH: 72,    // Quái quay về bãi khi đi quá xa
   MON_ATTACK_RANGE: 18,

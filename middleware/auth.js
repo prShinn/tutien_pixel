@@ -10,9 +10,10 @@
 //      tu luyện, thay đổi trang bị), giải mã userId và username gán vào request.
 // ════════════════════════════════════════════════════════════════════════════════════════
 const jwt = require('jsonwebtoken');
+const ENV = require('../config/env');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tu-tien-dev-secret-change-in-production';
-if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'tu-tien-dev-secret-change-in-production') {
+const JWT_SECRET = ENV.jwtSecret;
+if (ENV.isProduction && JWT_SECRET === 'tu-tien-dev-secret-change-in-production') {
   console.warn('CẢNH BÁO: JWT_SECRET đang sử dụng giá trị dev mặc định trong môi trường production!');
 }
 

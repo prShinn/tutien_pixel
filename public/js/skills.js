@@ -37,11 +37,12 @@ function mapBESkillToFE(sk) {
 
   return {
     id: sk.code || String(sk.id),
+    code: sk.code || String(sk.id),
     name: sk.name || sk.tenNangLuc || "Kỹ năng",
     icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
-    category: sk.category || "ACTIVE",
+    category: String(sk.category || sk.loai || "ACTIVE").toUpperCase() === "PASSIVE" ? "PASSIVE" : "ACTIVE",
     targetType: sk.targetType || (Number(sk.satThuong || 0) > 0 ? "ENEMY" : "SELF"),
     scalingStat: sk.scalingStat || (damageType === "MAGIC" ? "ene" : "str"),
     damageType,                         // "PHYS" | "MAGIC"
@@ -79,6 +80,7 @@ function mapFESkillToBE(sk) {
     sfx_code: sk.effect || "",
     effectVal: sk.effectVal || 0,
     description: sk.desc || "",
+    category: sk.category || "ACTIVE",
   };
 }
 
@@ -98,8 +100,9 @@ const SkillSystem = {
   async loadBook() {
     if (!S.player?.id) return;
     try {
-      this._book = await Net.get("/api/skills/catalog");
-      this._selected = new Set(this._book.equippedSkills || (S.player.skills || []).map((skill) => skill.id));
+      this._book = await Net.get(API.PATHS.data.skillCatalog);
+      this._selected = new Set((this._book.equippedSkills || (S.player.skills || []).map((skill) => skill.id))
+        .filter((code) => String((this._book.skills || []).find((skill) => skill.code === code)?.category || "ACTIVE").toUpperCase() !== "PASSIVE"));
       this.renderSkillBook();
     } catch (error) {
       console.warn("[Skill] Không tải được sổ thần thông", error);
@@ -107,7 +110,7 @@ const SkillSystem = {
   },
 
   async learnSkill(code) {
-    const result = await Net.post("/api/player/skills/learn", { skillCode: code, source: "book" });
+    const result = await Net.post(API.PATHS.player.learnSkill, { skillCode: code, source: "book" });
     if (result?.learnedSkills) {
       if (!this._book) await this.loadBook();
       this._book.learnedSkills = result.learnedSkills;
@@ -124,7 +127,7 @@ const SkillSystem = {
   },
 
   async saveLoadout() {
-    const result = await Net.put("/api/player/skills/equip", { skillCodes: [...this._selected] });
+    const result = await Net.put(API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
     if (result?.skills) {
       S.player.skills = result.skills.map(mapBESkillToFE);
       S.player.equippedSkills = result.equippedSkills;
@@ -140,13 +143,14 @@ const SkillSystem = {
     const visible = (this._book.skills || []).filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player?.linhCan);
     host.innerHTML = visible.map((skill) => {
       const known = learned.has(skill.code);
-      const passive = skill.category === "PASSIVE";
+      const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
       const marked = this._selected.has(skill.code);
-      const action = known ? (passive ? "BỊ ĐỘNG" : (marked ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
+      const action = known ? (passive ? "TỰ ĐỘNG" : (marked ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
       const fn = known ? (passive ? "" : `SkillSystem.toggleEquip('${skill.code}')`) : `SkillSystem.learnSkill('${skill.code}')`;
       const damage = Number(skill.satThuong || 0);
       const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
-      return `<div class="skill-book-row"><div class="skill-book-info"><strong>${skill.icon || "✦"} ${skill.name}</strong><small>T${skill.tier || 1} · ${details}</small><em>${skill.description || skill.moTa || skill.desc || ""}</em></div><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
+      const categoryLabel = passive ? "BỊ ĐỘNG" : "CHỦ ĐỘNG";
+      return `<div class="skill-book-row"><div class="skill-book-info"><strong>${skill.icon || "✦"} ${skill.name} <span class="skill-category ${passive ? "passive" : "active"}">${categoryLabel}</span></strong><small>T${skill.tier || 1} · ${details}</small><em>${skill.description || skill.moTa || skill.desc || ""}</em></div><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
     }).join("") + `<button class="sbtn" onclick="SkillSystem.saveLoadout()">Lưu loadout</button>`;
   },
 
@@ -280,7 +284,7 @@ const SkillSystem = {
   },
 
   hitMonster(m, dmg, skill) {
-    S.atkFx.push({ px: m.px, py: m.py, r: 14, life: 16 });
+    m.hitUntil = Date.now() + 180;
     const dmgColor = skill?.damageType === "MAGIC" ? "#ee88ff" : "#ff9966";
     Render.floatDmg(m.px, m.py, -26, "-" + dmg, dmgColor);
 
@@ -345,6 +349,10 @@ const SkillSystem = {
     };
 
     const skill = p.skills[slotIdx];
+    if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
+      UI.log(`${skill.icon || "✦"} ${skill.name} là kỹ năng bị động và luôn có hiệu lực.`, "system");
+      return;
+    }
     const offensive = this.isOffensive(skill);
     if (skill.cdLeft > 0) {
       UI.log(`${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`, "system");
@@ -358,7 +366,7 @@ const SkillSystem = {
     if (socket?.connected && !offensive) {
       startCastAnimation();
       S.combatPending = true;
-      socket.emit("skill_request", { skillCode: skill.code || skill.id });
+      socket.emit("skill_request", { skillCode: skill.code || skill.id || skill._beId });
       return;
     }
 
@@ -376,7 +384,7 @@ const SkillSystem = {
       S.target = target;
       startCastAnimation();
       S.combatPending = true;
-      socket.emit("attack_request", { targetId: target.id, skillCode: skill.code || skill.id, mapId: S.mapCode });
+      socket.emit("attack_request", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapId: S.mapCode });
       return;
     }
 
@@ -436,7 +444,6 @@ const SkillSystem = {
           hits++;
         }
       }
-      S.atkFx.push({ px: center.px, py: center.py, r: aoeRange * 0.4, life: 22 });
       if (hits === 0)
         UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
       else {
@@ -547,7 +554,16 @@ const SkillSystem = {
     const CIRC = 113; // 2 * π * r = 2 * π * 18 ≈ 113
 
     for (let i = 0; i < 4; i++) {
-      const sk = p?.skills?.[i];
+      const candidate = p?.skills?.[i];
+      const learned = new Set((p?.learnedSkills || []).map(String));
+      const equipped = new Set((p?.equippedSkills || []).map(String));
+      const candidateCode = candidate ? String(candidate.code || candidate.id || "") : "";
+      const sk = candidate
+        && String(candidate.category || "ACTIVE").toUpperCase() !== "PASSIVE"
+        && (!learned.size || learned.has(candidateCode))
+        && (!equipped.size || equipped.has(candidateCode))
+        ? candidate
+        : null;
       const slotEl = document.getElementById(`skbar-slot-${i}`);
       if (!slotEl) continue;
       const ensure = (selector, tag, className) => {
@@ -575,6 +591,13 @@ const SkillSystem = {
       if (!iconEl || !nameEl || !mpEl || !slotEl) continue;
 
       if (sk) {
+        const passive = String(sk.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
+        let categoryEl = slotEl.querySelector('.sk-category');
+        if (!categoryEl) { categoryEl = document.createElement('span'); categoryEl.className = 'sk-category'; slotEl.appendChild(categoryEl); }
+        categoryEl.textContent = passive ? 'BỊ ĐỘNG' : 'CHỦ ĐỘNG';
+        categoryEl.className = `sk-category ${passive ? 'passive' : 'active'}`;
+        slotEl.classList.toggle('passive-skill', passive);
+        slotEl.title = passive ? `${sk.name} · Bị động (tự động)` : `${sk.name} · Chủ động · phím ${i + 1}`;
         iconEl.textContent = sk.icon || (sk.damageType === 'MAGIC' ? '✨' : '⚔️');
         const rawIcon = sk.icon || (sk.damageType === "MAGIC" ? "✨" : "⚔️");
         if (/^(https?:|\.|\/)/.test(String(rawIcon))) iconEl.innerHTML = `<img src="${rawIcon}" alt="" loading="lazy">`;
@@ -608,6 +631,10 @@ const SkillSystem = {
         slotEl.style.borderColor = '';
         const typeEl = slotEl.querySelector('.sk-type');
         if (typeEl) typeEl.remove();
+        const categoryEl = slotEl.querySelector('.sk-category');
+        if (categoryEl) categoryEl.remove();
+        slotEl.classList.remove('passive-skill');
+        slotEl.title = '';
       }
 
       // ── Circular Cooldown SVG ──
@@ -635,10 +662,11 @@ const SkillSystem = {
 
     document.getElementById('stip-name').textContent  = `${sk.icon || ''} ${sk.name}`;
 
-    const typeLabel = sk.damageType === 'MAGIC' ? 'Pháp thuật ✨' : 'Vật lý ⚔';
+    const passive = String(sk.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
+    const typeLabel = passive ? 'BỊ ĐỘNG · Tự động' : `CHỦ ĐỘNG · ${sk.damageType === 'MAGIC' ? 'Pháp thuật ✨' : 'Vật lý ⚔'}`;
     const typeEl = document.getElementById('stip-type');
     typeEl.textContent = typeLabel;
-    typeEl.className   = sk.damageType === 'MAGIC' ? 'sv stip-type-magic' : 'sv stip-type-phys';
+    typeEl.className   = passive ? 'sv stip-type-passive' : (sk.damageType === 'MAGIC' ? 'sv stip-type-magic' : 'sv stip-type-phys');
 
     const baseAtk = sk.damageType === 'MAGIC' ? Combat.mAtk() : Combat.pAtk();
     const scalingStat = sk.scalingStat || (sk.damageType === 'MAGIC' ? 'ene' : 'str');

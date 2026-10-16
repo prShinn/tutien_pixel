@@ -68,7 +68,7 @@ const Shop = {
     const item = CFG.ITEMS[id];
     if (!item) return;
     if (authToken) {
-      const result = await Net.post("/api/player/shop/buy", { itemId: id });
+      const result = await Net.post(API.PATHS.player.buy, { itemId: id });
       if (!result?.player) return UI.log(result?.error || "Không thể mua vật phẩm.", "system");
       Object.assign(S.player, result.player);
       try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }
@@ -90,7 +90,7 @@ const Shop = {
     const item = S.inventory[idx];
     if (!item) return;
     if (authToken) {
-      const result = await Net.post("/api/player/shop/sell", { index: idx });
+      const result = await Net.post(API.PATHS.player.sell, { index: idx });
       if (!result?.player) return UI.log(result?.error || "Không thể bán vật phẩm.", "system");
       Object.assign(S.player, result.player);
       try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }

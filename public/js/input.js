@@ -44,7 +44,10 @@ const Input = {
       if (e.code === "KeyF" || e.key === "f" || e.key === "F") World.checkNpcInteract();
       if (e.code === "Escape") {
         S.target = null;
-        if (S.player) S.player.targetMovePos = null;
+        if (S.player) {
+          S.player.targetMovePos = null;
+          S.player.combatMove = false;
+        }
         Shop.close();
         DialogUI.close();
       }
@@ -91,8 +94,13 @@ const Input = {
     for (const m of S.monsters) {
       if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
         S.target = m;
-        if (S.player) S.player.targetMovePos = null;
-        Combat.attack(m);
+        if (S.player) {
+          S.player.targetMovePos = null;
+          const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+          const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= attackRange;
+          S.player.combatMove = !inRange;
+          if (inRange) Combat.attack(m);
+        }
         return;
       }
     }
@@ -111,6 +119,7 @@ const Input = {
       const clickTy = Math.floor(wy);
       if (clickTx >= 0 && clickTy >= 0 && clickTx < S.mapW && clickTy < S.mapH) {
         S.player.targetMovePos = { x: wx, y: wy };
+        S.player.combatMove = false;
         S.target = null;
       }
     }

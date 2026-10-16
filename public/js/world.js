@@ -53,8 +53,6 @@ const World = {
     S.objectTiles = Array.isArray(def.layers?.objects?.[0]) ? def.layers.objects : null;
     S.elevationTiles = Array.isArray(def.layers?.elevation?.[0]) ? def.layers.elevation : null;
     if (typeof Render !== "undefined" && Render.buildTerrainCache) Render.buildTerrainCache();
-    S.atkFx = [];
-    S.groundItems = [];
     if (S.player) {
       const clampX = Math.max(0, Math.min(S.mapW - 1, Math.round(Number(toX ?? S.player.x ?? 0))));
       const clampY = Math.max(0, Math.min(S.mapH - 1, Math.round(Number(toY ?? S.player.y ?? 0))));

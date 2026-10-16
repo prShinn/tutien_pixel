@@ -32,7 +32,6 @@ const S = {
   players: new Map(),
   npcs: [],
   portals: [],
-  groundItems: [],
   inventory: [],
   autoFight: false,
   atkCd: 0,
@@ -40,14 +39,11 @@ const S = {
   combatPending: false,
   animT: 0,
   animF: 0,
-  atkFx: [],
   floatingTexts: [],
   cam: { x: 0, y: 0 },
-  moveTimer: 0,
   lastTs: 0,
+  // Giữ tương thích với nhánh offline cũ; online hiện do server điều khiển.
   isHost: true,
-  monsterSyncTimer: 0,
-  lastMoveEmit: 0,
   creation: {
     root: null,
     gender: "MALE",
