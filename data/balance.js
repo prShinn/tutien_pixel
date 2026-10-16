@@ -52,7 +52,12 @@ const BALANCE = {
   controlCycle: ["KIM", "MOC", "THO", "THUY", "HOA"],
   polarity: { KIM: "YANG", MOC: "YIN", THUY: "YIN", HOA: "YANG", THO: "BALANCED", QUANG: "YANG", AM: "YIN", PHONG: "YANG", LOI: "YANG" },
   special: { QUANG: { AM: 1.1 }, AM: { QUANG: 0.9 }, LOI: { PHONG: 1.08 }, PHONG: { LOI: 0.92 } },
-  progression: { realmWeight: 1000, stageWeight: 90, masteryWeight: 70, statWeight: 1, equipmentWeight: 1, skillWeight: 18 },
+  progression: {
+    realmWeight: 1000, stageWeight: 90, masteryWeight: 70, statWeight: 1, equipmentWeight: 1, skillWeight: 18,
+    linhCan: { itemCap: 1000, itemScale: 0.00008, maxItemBonus: 0.08, realmBonus: 0.012, stageBonus: 0.002, ovrItemWeight: 0.04 },
+    // Linh lực dư có giá trị, nhưng không được lấn át chênh lệch đại cảnh giới.
+    cultivation: { overcapOvrWeight: 180, maxOvercapOvr: 360, elementalPerCap: 0.04, maxElementalBonus: 0.08 },
+  },
 };
 
 function affinityMultiplier(attacker, defender, attackerStrength = 1, defenderStrength = 1) {
@@ -65,11 +70,14 @@ function affinityCritBonus(profile = {}) {
 }
 
 function elementalStrength(entity = {}) {
-  const cultivation = Math.max(0, Number(entity.tuViLinhCan || 0)) / 1000;
-  const realm = Math.max(0, Number(entity.canhGioi?.stt || entity.realm || 1) - 1) * 0.08;
-  const stage = Math.max(0, Number(entity.tangTuVi || entity.stage || 1) - 1) * 0.01;
+  const linhCan = BALANCE.progression.linhCan;
+  const cultivation = Math.min(linhCan.maxItemBonus, Math.min(linhCan.itemCap, Math.max(0, Number(entity.tuViLinhCan || 0))) * linhCan.itemScale);
+  const cap = Math.max(1, Number(entity.tuViLenCap || 1));
+  const bodyLinhLuc = Math.min(BALANCE.progression.cultivation.maxElementalBonus, Math.max(0, Number(entity.tuViHienTai || 0)) / cap * BALANCE.progression.cultivation.elementalPerCap);
+  const realm = Math.max(0, Number(entity.canhGioi?.stt || entity.realm || 1) - 1) * linhCan.realmBonus;
+  const stage = Math.max(0, Number(entity.tangTuVi || entity.stage || 1) - 1) * linhCan.stageBonus;
   const level = Math.max(0, Number(entity.level || 1) - 1) * 0.06;
-  return Math.max(1, 1 + cultivation + realm + stage + level);
+  return Math.max(1, 1 + cultivation + bodyLinhLuc + realm + stage + level);
 }
 
 function affinityProfile(attacker, defender, attackerStrength = 1, defenderStrength = 1) {
@@ -131,16 +139,35 @@ function combatPower(player = {}) {
   const stage = Number(player.tangTuVi || player.stage || 1);
   const cap = Math.max(1, Number(player.tuViLenCap || 1));
   const mastery = Math.max(0, Math.min(1, Number(player.tuViHienTai || 0) / cap));
+  const overflowRatio = Math.max(0, Number(player.tuViHienTai || 0) / cap - 1);
+  const overflowPower = Math.min(BALANCE.progression.cultivation.maxOvercapOvr, overflowRatio * BALANCE.progression.cultivation.overcapOvrWeight);
   const statPower = derived.pAtk + derived.mAtk + (derived.pDef + derived.mDef) * 1.5 + derived.maxHp * 0.1 + derived.maxMp * 0.1;
   const equipmentPower = Object.values(player.equipment || {}).reduce((sum, item) => sum + Object.values(item?.stats || {}).reduce((n, value) => n + Number(value || 0), 0), 0);
   const skillPower = Array.isArray(player.learnedSkills || player.skills) ? (player.learnedSkills || player.skills).length * BALANCE.progression.skillWeight : 0;
-  return Math.floor(realm * BALANCE.progression.realmWeight + stage * BALANCE.progression.stageWeight + mastery * BALANCE.progression.masteryWeight + statPower * BALANCE.progression.statWeight + equipmentPower * BALANCE.progression.equipmentWeight + skillPower);
+  const linhCanPower = Math.min(BALANCE.progression.linhCan.itemCap * BALANCE.progression.linhCan.ovrItemWeight, Math.max(0, Number(player.tuViLinhCan || 0)) * BALANCE.progression.linhCan.ovrItemWeight);
+  return Math.floor(realm * BALANCE.progression.realmWeight + stage * BALANCE.progression.stageWeight + mastery * BALANCE.progression.masteryWeight + overflowPower + statPower * BALANCE.progression.statWeight + equipmentPower * BALANCE.progression.equipmentWeight + skillPower + linhCanPower);
 }
 
 function calcTuViNeeded(realm = {}, stage = 1) {
-  const safeRealm = Math.max(0, Number(realm.stt) || 0);
-  const safeStage = Math.max(1, Math.min(9, Number(stage) || 1));
-  return Math.floor(20 * safeStage * Math.pow(1.2, safeStage - 1) * (1 + safeRealm * 0.5 * safeStage) + Number(realm.tuViTienCap || 1));
+  const safeRealm = Math.max(1, Number(realm.stt) || 1);
+  const safeStage = Math.max(1, Math.min(Number(realm.soTang || 9), Number(stage) || 1));
+  // Dành thêm một nấc tăng trưởng cho mỗi lần vượt đại cảnh giới.
+  // Vì vậy tầng 1 cảnh giới mới luôn cao hơn ngưỡng phá tầng cuối cảnh giới cũ.
+  const globalStep = (safeRealm - 1) * 10 + (safeStage - 1);
+  return Math.floor(1000 * Math.pow(1.24, globalStep));
+}
+
+function breakthroughThreshold(realm = {}, stage = 1) {
+  const safeStage = Math.max(1, Number(stage) || 1);
+  const normal = calcTuViNeeded(realm, safeStage);
+  return Math.floor(normal * (safeStage >= Number(realm.soTang || 9) ? 1.5 : 1));
+}
+
+function minimumBreakthroughOvr(realm = {}, stage = 1, major = false) {
+  const realmIndex = Math.max(1, Number(realm.stt) || 1) - 1;
+  const rank = realmIndex * 10 + Math.max(1, Number(stage) || 1);
+  // Bonus đại cảnh giới được cộng dồn, tránh OVR tầng 1 cảnh giới mới tụt xuống.
+  return Math.floor(1000 + rank * 180 + realmIndex * 500 + (major ? 500 : 0));
 }
 
 function breakthroughGain(realm = {}, stage = 1, major = false) {
@@ -149,4 +176,4 @@ function breakthroughGain(realm = {}, stage = 1, major = false) {
   return { str: base + (remainder > 0 ? 1 : 0), agi: base + (remainder > 1 ? 1 : 0), vit: base + (remainder > 2 ? 1 : 0), ene: base };
 }
 
-module.exports = { BALANCE, affinityMultiplier, affinityCritBonus, affinityProfile, elementalStrength, deriveStats, mitigateDamage, combatPower, calcTuViNeeded, breakthroughGain };
+module.exports = { BALANCE, affinityMultiplier, affinityCritBonus, affinityProfile, elementalStrength, deriveStats, mitigateDamage, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain };

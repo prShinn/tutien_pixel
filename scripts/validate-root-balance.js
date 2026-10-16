@@ -5,7 +5,7 @@ for (const root of roots) {
   const list = skills.filter((skill) => skill.linhCan === root.id && skill.category !== "PASSIVE");
   const passives = skills.filter((skill) => skill.linhCan === root.id && skill.category === "PASSIVE");
   const tiers = new Set(list.map((skill) => skill.tier));
-  if (list.length !== 5) errors.push(`${root.id}: expected 5 skills, got ${list.length}`);
+  if (list.length !== 6) errors.push(`${root.id}: expected 6 skills, got ${list.length}`);
   if (passives.length !== 1) errors.push(`${root.id}: expected 1 passive, got ${passives.length}`);
   if (![1, 2, 3].every((tier) => tiers.has(tier))) errors.push(`${root.id}: missing tier`);
   const attacks = list.filter((skill) => Number(skill.satThuong || 0) > 0 && skill.effect !== "heal" && !String(skill.effect || "").startsWith("buff_"));

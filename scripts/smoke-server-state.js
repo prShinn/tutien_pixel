@@ -15,10 +15,10 @@ async function main() {
   const auth = await call("/api/auth/demo", undefined, "POST");
   const player = await call("/api/player", auth.token, "POST", {
     userId: auth.user.id, name: "Smoke Tu Si", linhCan: "KIM", stats: { str: 8, agi: 7, vit: 7, ene: 8 },
-    tangTuVi: 1, realm: 1, tuViHienTai: 0, tuViLenCap: 1, hp: 100, maxHp: 220, mp: 50, maxMp: 130, xu: 50, jsonIventory: "[]", skills: [],
+    tangTuVi: 1, realm: 1, tuViHienTai: 0, tuViLenCap: 1, hp: 100, maxHp: 220, mp: 50, maxMp: 130, xu: 50, jsonIventory: JSON.stringify([{ id: "STONE_LINH_NHO", count: 1, giaTriTuVi: 1000 }]), skills: [],
   });
   const amountToAbsorb = Number(player.tuViLenCap || 31);
-  const absorbed = await call("/api/player/cultivation/absorb", auth.token, "POST", { amount: amountToAbsorb });
+  const absorbed = await call("/api/player/cultivation/absorb", auth.token, "POST", { itemId: "STONE_LINH_NHO" });
   const breakthrough = await call("/api/player/cultivation/breakthrough", auth.token, "POST");
   const bought = await call("/api/player/shop/buy", auth.token, "POST", { itemId: "HUYET_NGOC_NHO" });
   const used = await call("/api/player/inventory/use", auth.token, "POST", { index: 0 });

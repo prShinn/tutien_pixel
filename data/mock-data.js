@@ -14,6 +14,7 @@
 
 const TILE_W = 600;
 const TILE_H = 400;
+const { calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr } = require("./balance");
 
 function hashSeed(text) {
   let value = 2166136261;
@@ -143,10 +144,38 @@ function makeTerrain(kind) {
   return { ground, objects, elevation, collision };
 }
 
-const realms = [
-  { id: 1, stt: 1, code: "LUYEN_THE", tenCanhGioi: "Luyện Thể", soTang: 9, tuViTienCap: 0, heSoTang: 1.2, moTa: "Rèn luyện thân thể, đặt nền móng tu tiên.", danPhaCanh: null },
+const realmDefinitions = [
+  { id: 1, stt: 1, code: "LUYEN_THE", tenCanhGioi: "Luyện Thể", soTang: 9, tuViTienCap: 0, heSoTang: 1.2, moTa: "Rèn luyện thân thể, đặt nền móng tu tiên.", danPhaCanh: "DAN_KHI_DONG" },
   { id: 2, stt: 2, code: "KHI_DONG", tenCanhGioi: "Khí Động", soTang: 9, tuViTienCap: 1200, heSoTang: 1.25, moTa: "Cảm nhận và vận chuyển linh khí.", danPhaCanh: "DAN_KHI_DONG" },
 ];
+
+// Schema tầng tu vi dùng chung cho mock API và database thật sau này.
+const realms = realmDefinitions.map((realm) => ({
+  ...realm,
+  tuViTienCap: calcTuViNeeded(realm, 1),
+  tangTuVi: Array.from({ length: Number(realm.soTang || 9) }, (_, index) => {
+    const tang = index + 1;
+    const daiCanhGioi = tang === Number(realm.soTang || 9);
+    const tangDich = daiCanhGioi ? 1 : tang + 1;
+    const canhGioiDich = daiCanhGioi ? realm.stt + 1 : realm.stt;
+    const realmDich = daiCanhGioi ? { ...realm, stt: canhGioiDich } : realm;
+    return {
+      id: `${realm.code}_T${tang}`,
+      stt: tang,
+      tenTang: `Tầng ${tang}`,
+      code: `${realm.code}_T${tang}`,
+      tuViCan: calcTuViNeeded(realm, tang),
+      nguongDotPha: breakthroughThreshold(realm, tang),
+      // Mục tiêu tiếp theo được ghi rõ để client không hiểu nhầm nguongDotPha là tầng đích.
+      mucTieu: daiCanhGioi ? `Cảnh giới ${canhGioiDich} - Tầng 1` : `Tầng ${tangDich}`,
+      tuViCanMucTieuTiepTheo: calcTuViNeeded(realmDich, tangDich),
+      tangDich,
+      canhGioiDich,
+      ovrToiThieu: minimumBreakthroughOvr(realm, tang, daiCanhGioi),
+      daiCanhGioi,
+    };
+  }),
+}));
 
 const rootDesign = {
   KIM: { role: "single_target", polarity: "YANG", identity: "Sát thương đơn và xuyên giáp", passive: "Mỗi đòn đánh thứ 4 gây thêm 10% sát thương." },
@@ -175,8 +204,11 @@ const roots = [
 const items = [
   { id: "STONE_LINH_NHO", maDo: "STONE_LINH_NHO", tenDo: "Linh Thạch Nhỏ", name: "Linh Thạch Nhỏ", icon: "💎", loai: "STONE", type: "STONE", giaTriTuVi: 120, giaMua: 20, giaBan: 10, moTa: "Một viên linh thạch chứa linh khí non trẻ." },
   { id: "HUYET_NGOC_NHO", maDo: "HUYET_NGOC_NHO", tenDo: "Huyết Ngọc Nhỏ", name: "Huyết Ngọc Nhỏ", icon: "🧪", loai: "POTION", type: "POTION", healHp: 60, giaMua: 30, giaBan: 15, moTa: "Hồi phục một lượng HP." },
+  { id: "LINH_CAN_NGOC_TUY", maDo: "LINH_CAN_NGOC_TUY", tenDo: "Linh Căn Ngọc Tủy", name: "Linh Căn Ngọc Tủy", icon: "🔷", loai: "LINDAN", type: "LINDAN", tuViLinhCanVal: 80, giaMua: 180, giaBan: 90, moTa: "Thiên tài địa bảo tăng nhẹ tu vi linh căn." },
+  { id: "THIEN_TAI_DIA_BAO", maDo: "THIEN_TAI_DIA_BAO", tenDo: "Thiên Tài Địa Bảo", name: "Thiên Tài Địa Bảo", icon: "💠", loai: "LINDAN", type: "LINDAN", tuViLinhCanVal: 220, giaMua: 520, giaBan: 260, moTa: "Tài nguyên hiếm, tăng tu vi linh căn có giới hạn." },
   { id: "MAT_LANG_NANH", maDo: "MAT_LANG_NANH", tenDo: "Nanh Hoang Sói", name: "Nanh Hoang Sói", icon: "🦴", loai: "MATERIAL", type: "MATERIAL", giaMua: 0, giaBan: 8, moTa: "Chiến lợi phẩm từ Hoang Sói." },
   { id: "SWORD_BAO_KHI_1", maDo: "SWORD_BAO_KHI_1", tenDo: "Kiếm Bảo Khí", name: "Kiếm Bảo Khí", icon: "⚔️", loai: "EQUIPMENT", type: "EQUIPMENT", giaMua: 120, giaBan: 60, stats: { pAtk: 8 }, moTa: "Thanh kiếm nhập môn của tu sĩ." },
+  { id: "DAN_KHI_DONG", maDo: "DAN_KHI_DONG", tenDo: "Đan Phá Khí Động", name: "Đan Phá Khí Động", icon: "🔴", loai: "BREAKTHROUGH_PILL", type: "BREAKTHROUGH_PILL", realmCode: "KHI_DONG", giaMua: 0, giaBan: 0, moTa: "Đan dược cần để phá đại cảnh giới Luyện Thể." },
 ];
 
 const skills = [
@@ -189,15 +221,15 @@ const skills = [
 // Bộ kỹ năng cân bằng cho MVP: mỗi linh căn có đúng 5 vị trí, cùng một ngân sách.
 // Tier 1/1 là nhập môn, 2/2 là bản sắc, tier 3 là tuyệt kỹ. Server là nguồn sự thật.
 const skillBlueprints = {
-  KIM: [["KIM_KICH", "Kim Kích", "⚔️", 1.1], ["THIET_HO", "Thiết Hộ", "🛡️", 0, "shield", 15], ["PHA_GIAP", "Phá Giáp", "🗡️", 1.25, "armor_break", 15], ["KIM_LUAN", "Kim Luân", "⚙️", 0, "buff_atk", 25, 6], ["VAN_KIM_TRAM", "Vạn Kim Trảm", "☄️", 2.05, "stun", 1.2]],
-  MOC: [["MOC_DUONG", "Mộc Dưỡng", "🌿", 0, "heal", 30], ["RE_MOC", "Rễ Mộc", "🌱", 1.0, "root", 1.2], ["SINH_TRUONG", "Sinh Trưởng", "🍃", 0, "buff_hp_regen", 8, 8], ["MOC_LAO", "Mộc Lao", "🌳", 1.15, "root", 1.8], ["VAN_MOC_THANH", "Vạn Mộc Thành", "🌲", 1.75, "root", 1.5]],
-  THUY: [["BANG_TIEN", "Băng Tiễn", "❄️", 1.0, "slow", 15], ["THUY_KHIEN", "Thủy Khiên", "💧", 0, "buff_vitals", 20, 8], ["HAN_TRI", "Hàn Trì", "🧊", 1.1, "slow", 25], ["THUY_LUU", "Thủy Lưu", "🌊", 1.0, "root", 1.1], ["CUU_THIEN_BANG", "Cửu Thiên Băng", "🌨️", 1.8, "slow", 35]],
-  HOA: [["HOA_CAU", "Hỏa Cầu", "🔥", 1.3], ["HOA_YEM", "Hỏa Yểm", "🕯️", 0.9, "burn", 18], ["LIEN_HOA", "Liên Hoa Hỏa", "🌺", 1.2, "burn", 25], ["PHAN_THIEN", "Phần Thiên", "☀️", 0, "buff_crit", 20, 6], ["THIEN_HOA_LIEN", "Thiên Hỏa Liên", "🌋", 1.9, "burn", 45]],
-  THO: [["THO_KICH", "Thổ Kích", "🪨", 1.0], ["THO_GIAP", "Thổ Giáp", "🛡️", 0, "buff_def", 25, 8], ["SON_CHAN", "Sơn Chấn", "⛰️", 1.2, "stun", 0.8], ["DIA_MACH", "Địa Mạch", "🌍", 0, "buff_vitals", 18, 8], ["SON_HA_DAI_THAN", "Sơn Hà Đại Thân", "🏔️", 1.7, "stun", 1.1]],
-  QUANG: [["QUANG_DAO", "Quang Đao", "✨", 1.0], ["TINH_LOC", "Tinh Lộc", "🌟", 0, "heal", 25], ["THANH_TAY", "Thanh Tẩy", "💫", 0, "cleanse", 1], ["QUANG_TOC", "Quang Tốc", "⚡", 0, "buff_spd", 25, 6], ["THIEN_QUANG", "Thiên Quang Phổ Chiếu", "🌞", 1.7]],
-  AM: [["AM_THICH", "Ám Thích", "🌑", 1.15], ["AM_CHU", "Ám Chú", "🕸️", 0.8, "curse", 15], ["THUC_HON", "Thực Hồn", "👁️", 0, "buff_cast", 20, 6], ["U_MINH", "U Minh", "🌘", 1.0, "curse", 25], ["CỬU_U_AM_GIOI", "Cửu U Ám Giới", "🌌", 1.8, "curse", 40]],
-  PHONG: [["PHONG_NHAN", "Phong Nhẫn", "💨", 1.0], ["THANH_PHONG", "Thanh Phong", "🍃", 0, "buff_spd", 25, 6], ["PHONG_BO", "Phong Bộ", "🌀", 1.05, "slow", 15], ["LOAN_PHONG", "Loạn Phong", "🌪️", 1.1, "root", 0.9], ["CUU_TANG_PHONG", "Cửu Tầng Phong", "🌬️", 1.85, "stun", 1.0]],
-  LOI: [["LOI_KICH", "Lôi Kích", "⚡", 1.15], ["LOI_HO", "Lôi Hộ", "🔰", 0, "shield", 10], ["DIEN_LIEN", "Điện Liên", "🔗", 1.1, "stun", 0.6], ["THIEN_LOI", "Thiên Lôi", "🌩️", 1.15, "stun", 0.8], ["VAN_LOI_THIEN_PHAT", "Vạn Lôi Thiên Phạt", "🌩️", 1.9, "stun", 1.1]],
+  KIM: [["KIM_KICH", "Kim Kích", "⚔️", 1.1], ["THIET_HO", "Thiết Hộ", "🛡️", 0, "shield", 15], ["PHA_GIAP", "Phá Giáp", "🗡️", 1.25, "armor_break", 15], ["KIM_LUAN", "Kim Luân", "⚙️", 0, "buff_atk", 25, 6], ["VAN_KIM_TRAM", "Vạn Kim Trảm", "☄️", 2.05, "stun", 1.2], ["KIM_SAT_THANH", "Kim Sát Thành", "🔶", 1.45, "armor_break", 20]],
+  MOC: [["MOC_DUONG", "Mộc Dưỡng", "🌿", 0, "heal", 30], ["RE_MOC", "Rễ Mộc", "🌱", 1.0, "root", 1.2], ["SINH_TRUONG", "Sinh Trưởng", "🍃", 0, "buff_hp_regen", 8, 8], ["MOC_LAO", "Mộc Lao", "🌳", 1.15, "root", 1.8], ["VAN_MOC_THANH", "Vạn Mộc Thành", "🌲", 1.75, "root", 1.5], ["MOC_HON_DON", "Mộc Hồn Độn", "🪵", 1.35, "root", 2.0]],
+  THUY: [["BANG_TIEN", "Băng Tiễn", "❄️", 1.0, "slow", 15], ["THUY_KHIEN", "Thủy Khiên", "💧", 0, "buff_vitals", 20, 8], ["HAN_TRI", "Hàn Trì", "🧊", 1.1, "slow", 25], ["THUY_LUU", "Thủy Lưu", "🌊", 1.0, "root", 1.1], ["CUU_THIEN_BANG", "Cửu Thiên Băng", "🌨️", 1.8, "slow", 35], ["THUYET_HAI", "Tuyết Hải", "🌊", 1.4, "slow", 40]],
+  HOA: [["HOA_CAU", "Hỏa Cầu", "🔥", 1.3], ["HOA_YEM", "Hỏa Yểm", "🕯️", 0.9, "burn", 18], ["LIEN_HOA", "Liên Hoa Hỏa", "🌺", 1.2, "burn", 25], ["PHAN_THIEN", "Phần Thiên", "☀️", 0, "buff_crit", 20, 6], ["THIEN_HOA_LIEN", "Thiên Hỏa Liên", "🌋", 1.9, "burn", 45], ["HOA_VUC", "Hỏa Vực", "🔥", 1.5, "burn", 55]],
+  THO: [["THO_KICH", "Thổ Kích", "🪨", 1.0], ["THO_GIAP", "Thổ Giáp", "🛡️", 0, "buff_def", 25, 8], ["SON_CHAN", "Sơn Chấn", "⛰️", 1.2, "stun", 0.8], ["DIA_MACH", "Địa Mạch", "🌍", 0, "buff_vitals", 18, 8], ["SON_HA_DAI_THAN", "Sơn Hà Đại Thân", "🏔️", 1.7, "stun", 1.1], ["THACH_LUYEN", "Thạch Luyện", "🪨", 1.35, "stun", 1.0]],
+  QUANG: [["QUANG_DAO", "Quang Đao", "✨", 1.0], ["TINH_LOC", "Tinh Lộc", "🌟", 0, "heal", 25], ["THANH_TAY", "Thanh Tẩy", "💫", 0, "cleanse", 1], ["QUANG_TOC", "Quang Tốc", "⚡", 0, "buff_spd", 25, 6], ["THIEN_QUANG", "Thiên Quang Phổ Chiếu", "🌞", 1.7], ["NHAT_DIEM", "Nhất Diện Quang", "🔆", 1.4, "cleanse", 1]],
+  AM: [["AM_THICH", "Ám Thích", "🌑", 1.15], ["AM_CHU", "Ám Chú", "🕸️", 0.8, "curse", 15], ["THUC_HON", "Thực Hồn", "👁️", 0, "buff_cast", 20, 6], ["U_MINH", "U Minh", "🌘", 1.0, "curse", 25], ["CỬU_U_AM_GIOI", "Cửu U Ám Giới", "🌌", 1.8, "curse", 40], ["AM_THUC", "Ám Thực", "🌑", 1.4, "curse", 50]],
+  PHONG: [["PHONG_NHAN", "Phong Nhẫn", "💨", 1.0], ["THANH_PHONG", "Thanh Phong", "🍃", 0, "buff_spd", 25, 6], ["PHONG_BO", "Phong Bộ", "🌀", 1.05, "slow", 15], ["LOAN_PHONG", "Loạn Phong", "🌪️", 1.1, "root", 0.9], ["CUU_TANG_PHONG", "Cửu Tầng Phong", "🌬️", 1.85, "stun", 1.0], ["PHONG_LIEU", "Phong Liêu", "🌪️", 1.4, "slow", 20]],
+  LOI: [["LOI_KICH", "Lôi Kích", "⚡", 1.15], ["LOI_HO", "Lôi Hộ", "🔰", 0, "shield", 10], ["DIEN_LIEN", "Điện Liên", "🔗", 1.1, "stun", 0.6], ["THIEN_LOI", "Thiên Lôi", "🌩️", 1.15, "stun", 0.8], ["VAN_LOI_THIEN_PHAT", "Vạn Lôi Thiên Phạt", "🌩️", 1.9, "stun", 1.1], ["LOI_VUC", "Lôi Vực", "⚡", 1.45, "slow", 30]],
 };
 
 const balancedSkills = Object.entries(skillBlueprints).flatMap(([linhCan, entries], rootIndex) =>
@@ -208,9 +240,9 @@ const balancedSkills = Object.entries(skillBlueprints).flatMap(([linhCan, entrie
     icon,
     linhCan,
     tier: index < 2 ? 1 : index < 4 ? 2 : 3,
-    mpTieuHao: [5, 8, 12, 17, 28][index],
-    hoiChieu: [2, 8, 6, 12, 26][index],
-    range: [5, 3, 5, 4, 6][index],
+    mpTieuHao: [5, 8, 12, 17, 28, 34][index],
+    hoiChieu: [2, 8, 6, 12, 26, 30][index],
+    range: [5, 3, 5, 4, 6, 5][index],
     type: ["KIM", "THO", "PHONG", "LOI"].includes(linhCan) ? "PHYS" : "MAGIC",
     category: "ACTIVE",
     targetType: damage > 0 ? "ENEMY" : "SELF",
@@ -236,17 +268,30 @@ const commonSkills = [
   moTa: "Thần thông cơ bản, mọi tu sĩ đều có thể học.",
 }));
 
+const passiveDesign = {
+  KIM: { name: "Kim Thể Chi Pháp", description: "Tăng 0.3% sát thương kỹ năng Kim mỗi cấp; tăng 0.5% xuyên giáp." , modifiers: { skillDamagePct: 0.003, pDefPenPct: 0.005 } },
+  MOC: { name: "Mộc Linh Sinh Pháp", description: "Tăng 0.5% HP tối đa và 0.4% hồi HP mỗi cấp.", modifiers: { maxHpPct: 0.005, hpRegenPct: 0.004 } },
+  THUY: { name: "Thủy Đức Hộ Thể", description: "Tăng 0.5% MP tối đa và 0.3% hiệu lực khiên/thể lực.", modifiers: { maxMpPct: 0.005, shieldPct: 0.003 } },
+  HOA: { name: "Hỏa Tâm Liệt Ý", description: "Tăng 0.3% tỷ lệ chí mạng và 0.2% sát thương kỹ năng Hỏa.", modifiers: { critPct: 0.003, skillDamagePct: 0.002 } },
+  THO: { name: "Hậu Thổ Chân Thân", description: "Tăng 0.5% phòng thủ và 0.4% HP tối đa mỗi cấp.", modifiers: { defensePct: 0.005, maxHpPct: 0.004 } },
+  QUANG: { name: "Quang Minh Tịnh Tâm", description: "Tăng 0.3% tốc độ và 0.2% kháng hiệu ứng.", modifiers: { speedPct: 0.003, resistPct: 0.002 } },
+  AM: { name: "U Ám Liễm Tức", description: "Giảm 0.3% thời gian hồi chiêu kỹ năng và tăng 0.2% sát thương Ám.", modifiers: { cooldownPct: 0.003, skillDamagePct: 0.002 } },
+  PHONG: { name: "Phong Hành Vô Ảnh", description: "Tăng 0.5% tốc độ di chuyển và 0.2% sát thương kỹ năng Phong.", modifiers: { speedPct: 0.005, skillDamagePct: 0.002 } },
+  LOI: { name: "Lôi Thể Chi Pháp", description: "Tăng 0.3% sát thương kỹ năng Lôi mỗi cấp; tăng 1% hiệu lực điện giật/làm chậm.", modifiers: { skillDamagePct: 0.003, statusEffectPct: 0.01 } },
+};
+
 const passiveSkills = roots.map((root, index) => ({
   id: 400 + index,
   code: `${root.id}_TAM_PHAP`,
-  name: `${root.name} Tâm Pháp`,
+  name: passiveDesign[root.id]?.name || `${root.name} Tâm Pháp`,
   icon: root.emoji,
   linhCan: root.id,
   category: "PASSIVE",
   tier: 1,
   effect: "passive",
-  effectVal: 3 + index % 3,
-  moTa: `Bị động: ${root.passive}`,
+  effectVal: 1,
+  passiveModifiers: passiveDesign[root.id]?.modifiers || {},
+  moTa: `Bị động tự áp dụng: ${passiveDesign[root.id]?.description || root.passive}`,
 }));
 
 const skillCatalog = [...commonSkills, ...balancedSkills, ...passiveSkills];
@@ -256,6 +301,8 @@ const monsterDefs = [
   { id: "HOANG_SOI", code: "HOANG_SOI", name: "Hoang Sói", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["KIM"], color: "#8855cc", hp: 90, maxHp: 90, atk: 9, def: 2, speed: 1.25, spawnX: 80, spawnY: 200, lootTableId: "SOI_LOOT" },
   { id: "THO_HEO", code: "THO_HEO", name: "Thổ Heo Rừng", icon: "🐗", img: "./assets/monsters/tho_heo_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 19, height: 17 }, type: "NORMAL", level: 2, nguHanh: ["THO"], color: "#996633", hp: 120, maxHp: 120, atk: 12, def: 4, speed: 1.05, spawnX: 340, spawnY: 280, lootTableId: "HEO_LOOT" },
   { id: "DOC_THAO", code: "DOC_THAO", name: "Độc Thảo Yêu", icon: "🌱", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 18, height: 21 }, type: "ELITE", level: 3, nguHanh: ["MOC"], color: "#33aa66", hp: 180, maxHp: 180, atk: 16, def: 6, speed: 0.85, spawnX: 500, spawnY: 110, lootTableId: "THAO_LOOT" },
+  { id: "XICH_LUYEN_HO", code: "XICH_LUYEN_HO", name: "Xích Luyện Hổ", icon: "🐯", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 18, height: 18 }, type: "ELITE", level: 4, nguHanh: ["HOA"], color: "#d66a3d", hp: 280, maxHp: 280, atk: 22, def: 8, speed: 1.05, respawnMs: 30000, lootTableId: "HO_LUYEN_LOOT" },
+  { id: "HUYET_NGUYET_LANG", code: "HUYET_NGUYET_LANG", name: "Huyết Nguyệt Lang", icon: "🐺", img: "./assets/monsters/hoang_soi_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 20, height: 20 }, type: "BOSS", level: 7, nguHanh: ["AM"], color: "#d43f72", hp: 720, maxHp: 720, atk: 34, def: 14, speed: 1.15, respawnMs: 90000, lootTableId: "HUYET_LANG_LOOT" },
 ];
 
 const lootTables = {
@@ -274,6 +321,14 @@ const lootTables = {
     { itemId: "MAT_LANG_NANH", chance: 0.8, min: 1, max: 3 },
     { itemId: "SWORD_BAO_KHI_1", chance: 0.08, min: 1, max: 1 },
   ],
+  HO_LUYEN_LOOT: [
+    { itemId: "STONE_LINH_NHO", chance: 0.8, min: 2, max: 4 },
+    { itemId: "LINH_CAN_NGOC_TUY", chance: 0.22, min: 1, max: 1 },
+  ],
+  HUYET_LANG_LOOT: [
+    { itemId: "THIEN_TAI_DIA_BAO", chance: 0.35, min: 1, max: 1 },
+    { itemId: "SWORD_BAO_KHI_1", chance: 0.2, min: 1, max: 1 },
+  ],
 };
 
 const monsterSpawns = [
@@ -281,6 +336,8 @@ const monsterSpawns = [
   { packId: "PACK_HOANG_SOI", templateId: "HOANG_SOI", centerX: 80, centerY: 200, count: 5, radius: 18, aggroRange: 38, leashDistance: 80, chaseDurationMs: 8000 },
   { packId: "PACK_THO_HEO", templateId: "THO_HEO", centerX: 340, centerY: 280, count: 5, radius: 28, aggroRange: 40, leashDistance: 84, chaseDurationMs: 8500 },
   { packId: "PACK_DOC_THAO", templateId: "DOC_THAO", centerX: 500, centerY: 110, count: 4, radius: 22, aggroRange: 42, leashDistance: 88, chaseDurationMs: 9000 },
+  { packId: "PACK_XICH_LUYEN_HO", templateId: "XICH_LUYEN_HO", centerX: 430, centerY: 315, count: 2, radius: 18, aggroRange: 36, leashDistance: 72, chaseDurationMs: 7000 },
+  { packId: "PACK_HUYET_NGUYET_LANG", templateId: "HUYET_NGUYET_LANG", centerX: 535, centerY: 330, count: 1, radius: 4, aggroRange: 48, leashDistance: 110, chaseDurationMs: 12000 },
 ];
 
 const cityTerrain = makeTerrain("thanh_van_tran");

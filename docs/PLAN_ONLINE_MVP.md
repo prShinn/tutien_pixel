@@ -160,4 +160,14 @@ Bình Nguyên Hoang Dã
 ## 5. Ngoài phạm vi MVP
 
 Guild, chiến tranh Chính–Ma, PvP, quest tree lớn, craft, enhance, endgame realm và database production chưa làm trong vertical slice đầu tiên.
+## PHẠM VI UI HIỆN TẠI
+
+MVP hiện tại tập trung PC webgame trước: desktop là layout chuẩn, thao tác bằng chuột/bàn phím. Mobile được để ở phase cuối và không tạo nhánh gameplay riêng trong vertical slice hiện tại.
+
+### Phase 8 — Mobile webgame (làm sau cùng)
+
+- Chuyển HUD PC sang responsive layout, không đổi server/socket contract.
+- Thêm touch joystick, touch skill bar, safe-area và landscape gameplay.
+- Kiểm tra PC và mobile cùng map realtime.
+- Chỉ bắt đầu sau khi Phase 0–7 và gameplay PC qua smoke/regression test.
 

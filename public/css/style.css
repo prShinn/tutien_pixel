@@ -1589,6 +1589,82 @@ body {
   padding: 6px 12px;
   min-width: 230px;
 }
+.target-actions { display:flex; align-items:center; gap:5px; margin-left:4px; }
+.target-action-btn { border:1px solid rgba(231,161,125,.8); border-radius:6px; background:#5b2830; color:#ffe7cf; padding:5px 10px; font-weight:700; cursor:pointer; }
+.target-action-btn:hover { background:#7b3540; }
+#game-controls-hint {
+  position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:5;
+  padding:5px 10px; border:1px solid rgba(215,182,90,.24); border-radius:7px;
+  background:rgba(5,8,16,.7); color:#aaa9b6; font-size:10px; white-space:nowrap;
+  pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,.22);
+}
+#game-controls-hint span { color:#f3d28a; font-weight:700; }
+#game-controls-hint i { color:#596174; padding:0 5px; font-style:normal; }
+
+/* Desktop webgame hotbar: skill ngang ở đáy màn hình, không dùng bố cục vòng mobile. */
+#kpah-hud-bottomright {
+  left: 50%;
+  right: auto;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: auto;
+  pointer-events: none;
+}
+#kpah-hud-bottomright .kpah-skill-ring {
+  width: auto;
+  min-height: 78px;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(215,182,90,.32);
+  border-radius: 13px;
+  background: rgba(7,10,20,.82);
+  box-shadow: 0 10px 28px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.06);
+  backdrop-filter: blur(9px);
+  pointer-events: auto;
+}
+#kpah-hud-bottomright .sk-main,
+#kpah-hud-bottomright .sk-sub {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  border-radius: 11px;
+}
+#kpah-hud-bottomright .sk-main {
+  order: 0;
+  border-color: #e7a17d;
+}
+#kpah-hud-bottomright .sk-sub {
+  order: 1;
+}
+#kpah-hud-bottomright .sk-sub:nth-child(2),
+#kpah-hud-bottomright .sk-sub:nth-child(3),
+#kpah-hud-bottomright .sk-sub:nth-child(4),
+#kpah-hud-bottomright .sk-sub:nth-child(5) {
+  display: flex;
+}
+
+@media (min-width: 701px) and (max-width: 980px) {
+  #kpah-hud-bottomright .kpah-skill-ring { gap: 5px; padding: 5px 7px; }
+  #kpah-hud-bottomright .sk-main,
+  #kpah-hud-bottomright .sk-sub { width: 54px; height: 54px; }
+}
+
+@media (max-width: 700px) {
+  #kpah-hud-bottomright {
+    left: 50%;
+    right: auto;
+    bottom: 8px;
+    transform: translateX(-50%) scale(.82);
+    transform-origin: bottom center;
+  }
+  #game-controls-hint { max-width:calc(100vw - 24px); overflow:hidden; text-overflow:ellipsis; bottom:86px; }
+}
 .target-avatar {
   width: 36px;
   height: 36px;

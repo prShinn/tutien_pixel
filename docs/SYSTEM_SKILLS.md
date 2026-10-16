@@ -228,3 +228,9 @@ Phong khắc Thổ
 - Mana cost scale theo: `mpCost × (1 + realm_stt × 0.05)` — nhân vật cảnh giới cao tốn MP nhiều hơn nhưng có maxMP cao hơn
 - Cooldown giảm theo AGI: `cd_actual = cd_base × max(0.5, 1 - agi × 0.002)`
 - Crit rate base + bonus từ kỹ năng: cap **60%**
+## Quy tắc loadout và passive hiện tại
+
+- Mỗi linh căn có 6 kỹ năng chủ động. Kỹ năng chủ động chỉ được sử dụng khi đã học và gán vào loadout tối đa 4 ô hiện tại.
+- Kỹ năng bị động không chiếm ô, không có thao tác kích hoạt. Chỉ cần học là server tự cộng toàn bộ `passiveModifiers` của các passive đã học.
+- Passive được tính trong server-authoritative damage, crit, phòng thủ, HP/MP, hồi phục và cooldown; client chỉ hiển thị mô tả/hiệu ứng.
+- Ví dụ `LOI_THE_CHI_PHAP`: tăng 0.3% sát thương skill Lôi và 1% hiệu lực hiệu ứng thuộc tính mỗi cấp dữ liệu.

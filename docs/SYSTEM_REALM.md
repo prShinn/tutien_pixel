@@ -135,3 +135,20 @@ cp_realm_bonus = realm_stt × 150 + stage × 20
 ```
 
 Xem `SYSTEM_CHARACTER.md` để biết công thức tổng chiến lực.
+## Quy tắc triển khai hiện tại
+
+Ngưỡng đột phá dùng chỉ số bậc toàn cục:
+
+```text
+globalStep = (realm - 1) × 10 + (stage - 1)
+linhLucThuong = floor(1000 × 1.24 ^ globalStep)
+
+Mỗi đại cảnh giới dành thêm một nấc tăng trưởng. Ngưỡng phá tầng 9 là 1.5 lần linh lực thường;
+vì vậy linh lực nền của tầng 1 cảnh giới kế tiếp luôn lớn hơn ngưỡng vừa dùng để đột phá.
+
+Quy ước dữ liệu: `tuViCan` là mốc hoàn thành tầng hiện tại, `nguongDotPha` là lượng cần dùng để
+đi tới mục tiêu kế tiếp. Ví dụ Khí Động tầng 1 có mốc `8594` để lên tầng 2; không phải mốc lên tầng 9.
+linhLucDotDaiCanh = linhLucThuong × 1.5 tại tầng 9
+```
+
+Ngoài linh lực, server yêu cầu OVR tối thiểu. Đột phá đại cảnh giới còn cần `danPhaCanh` tương ứng và không thể vượt cảnh giới cuối. Client không được tự gửi số lượng tu vi; tu vi chỉ tăng khi hấp thụ vật phẩm hợp lệ trong túi.

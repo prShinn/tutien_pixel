@@ -55,6 +55,7 @@ function mapBESkillToFE(sk) {
     effect: effectCode,                 // debuff/buff code
     effectDur: effectDurTicks,          // ticks
     effectVal: sk.effectVal ?? 0,
+    passiveModifiers: sk.passiveModifiers || {},
     desc: sk.description ?? sk.moTa ?? sk.desc ?? "",
     level: sk.level || 1,
     cdLeft: sk.cdLeft ?? 0,

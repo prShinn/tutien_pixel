@@ -161,6 +161,19 @@ const Combat = {
       });
   },
 
+  attackTarget() {
+    const target = S.target;
+    if (!target || target.dead) return UI.log("Chưa chọn mục tiêu.", "system");
+    const range = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+    if (dist(target.px, target.py, S.player.px, S.player.py) > range) {
+      S.player.targetMovePos = null;
+      S.player.combatMove = true;
+      UI.log("Đang áp sát mục tiêu…", "system");
+      return;
+    }
+    this.attack(target);
+  },
+
   dropLoot(m) {
     if (Math.random() * 100 < m.tyLeRoiTien) {
       const xu = randInt(m.moneyDropFrom, m.moneyDropTo);

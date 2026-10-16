@@ -26,13 +26,14 @@ const Cultivation = {
   },
 
   calcTuNeeded(canhGioi, tangTuVi) {
-    const realm = Math.max(0, Number(canhGioi?.stt) || 0);
-    const stage = Math.max(1, Math.min(9, Number(tangTuVi) || 1));
-    const base = 20; // Tăng base để khởi đầu không quá nhanh
-    const stageGrowth = Math.pow(1.2, stage - 1); // 20% mỗi tầng nhỏ theo kịch bản
-    const realmMultiplier = 1 + realm * 0.5 * stage; // Đại cảnh giới cách biệt lớn hơn
-    const extra = Number(canhGioi?.tuViTienCap || 1);
-    return Math.floor(base * stage * stageGrowth * realmMultiplier + extra);
+    const realm = Math.max(1, Number(canhGioi?.stt) || 1);
+    const stage = Math.max(1, Math.min(Number(canhGioi?.soTang || 9), Number(tangTuVi) || 1));
+    return Math.floor(1000 * Math.pow(1.24, (realm - 1) * 10 + stage - 1));
+  },
+
+  calcBreakthroughThreshold(canhGioi, tangTuVi) {
+    const normal = this.calcTuNeeded(canhGioi, tangTuVi);
+    return Math.floor(normal * (Number(tangTuVi) >= Number(canhGioi?.soTang || 9) ? 1.5 : 1));
   },
 
   calcBreakthroughStatGain(canhGioi, tangTuVi, isMajor = false) {

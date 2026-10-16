@@ -1,8 +1,12 @@
 const { io } = require("socket.io-client");
+const { worlds } = require("../data/mock-data");
 
 const BASE = process.env.DEMO_URL || "http://localhost:3000";
 
 async function main() {
+  const expectedWorld = worlds.find((world) => world.code === "binh_nguyen");
+  const expectedPacks = expectedWorld?.monsterSpawns || [];
+  const expectedCount = expectedPacks.reduce((sum, pack) => sum + Number(pack.count || 0), 0);
   const auth = await (await fetch(`${BASE}/api/auth/demo`, { method: "POST" })).json();
   const socket = io(BASE, { auth: { token: auth.token }, reconnection: false });
   const timer = setTimeout(() => { throw new Error("monster pack smoke timeout"); }, 7000);
@@ -15,9 +19,13 @@ async function main() {
     const monsters = payload.monsters || [];
     const groups = {};
     for (const monster of monsters) (groups[monster.packId] ||= []).push(monster);
-    const packsValid = monsters.length === 14
-      && Object.keys(groups).length === 3
-      && Object.values(groups).every((group) => group.length >= 2 && group.every((monster) => Number.isFinite(monster.packCenterX) && Number.isFinite(monster.packCenterY)));
+    const packsValid = monsters.length === expectedCount
+      && Object.keys(groups).length === expectedPacks.length
+      && Object.values(groups).every((group) => {
+        const expected = expectedPacks.find((pack) => pack.packId === group[0]?.packId);
+        return group.length === Number(expected?.count || 0)
+          && group.every((monster) => Number.isFinite(monster.packCenterX) && Number.isFinite(monster.packCenterY));
+      });
     snapshot = { monsters, groups, packsValid };
   });
   socket.on("monster_update", (payload) => {

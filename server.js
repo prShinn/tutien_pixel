@@ -27,7 +27,7 @@ const { createRateLimiter } = require("./middleware/rate-limit");
 const { setupSocket } = require("./socket/game");
 const ENV = require("./config/env");
 const { realms, roots, items, skills, monsterDefs, worlds } = require("./data/mock-data");
-const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughGain } = require("./data/balance");
+const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain } = require("./data/balance");
 
 const app = express();
 const server = http.createServer(app);
@@ -579,8 +579,7 @@ app.post("/api/player/cultivation/absorb", authMiddleware, (req, res) => {
     if (item.count <= 0) inventory.splice(index, 1);
     writeInventory(player, inventory);
   } else {
-    amount = Math.floor(Number(req.body?.amount) || 0);
-    if (amount <= 0 || amount > 5000) return res.status(400).json({ error: "Lượng tu vi không hợp lệ" });
+    return res.status(400).json({ error: "Chỉ được hấp thụ từ vật phẩm tu vi trong túi" });
   }
 
   player.tuViHienTai = Math.max(0, Number(player.tuViHienTai || 0) + amount);
@@ -594,21 +593,33 @@ app.post("/api/player/cultivation/breakthrough", authMiddleware, (req, res) => {
   if (!player) return res.status(404).json({ error: "Player not found" });
   const realm = realms.find((item) => item.code === player.maCanhGioi) || realms.find((item) => item.stt === Number(player.realm || 1)) || realms[0];
   const stage = Number(player.tangTuVi || player.stage || 1);
-  const threshold = Number(player.tuViLenCap || calcTuViNeeded(realm, stage));
+  const major = stage >= Number(realm.soTang || 9);
+  const threshold = breakthroughThreshold(realm, stage);
   if (Number(player.tuViHienTai || 0) < threshold) return res.status(400).json({ error: "Tu vi chưa đủ", required: threshold, current: player.tuViHienTai || 0 });
-  const major = stage >= 9;
+  const currentPower = combatPower(player);
+  const requiredPower = minimumBreakthroughOvr(realm, stage, major);
+  if (currentPower < requiredPower) return res.status(400).json({ error: "OVR chưa đủ điều kiện đột phá", requiredOvr: requiredPower, currentOvr: currentPower });
+  const next = major ? realms.find((item) => item.stt === Number(realm.stt) + 1) : null;
+  if (major && !next) return res.status(400).json({ error: "Đã đạt cảnh giới tối cao" });
+  if (major && realm.danPhaCanh) {
+    const inventory = readInventory(player);
+    const pillIndex = inventory.findIndex((item) => item.id === realm.danPhaCanh && Number(item.count || 0) > 0);
+    if (pillIndex < 0) return res.status(400).json({ error: `Cần ${realm.danPhaCanh} để phá đại cảnh giới` });
+    inventory[pillIndex].count -= 1;
+    if (inventory[pillIndex].count <= 0) inventory.splice(pillIndex, 1);
+    writeInventory(player, inventory);
+  }
   const gain = breakthroughGain(realm, stage, major);
   player.tuViHienTai = Math.max(0, Number(player.tuViHienTai || 0) - threshold);
   player.stats = { ...(player.stats || {}), str: (player.stats?.str || 0) + gain.str, agi: (player.stats?.agi || 0) + gain.agi, vit: (player.stats?.vit || 0) + gain.vit, ene: (player.stats?.ene || 0) + gain.ene };
   if (major) {
-    const next = realms.find((item) => item.stt === Number(realm.stt) + 1);
-    if (next) { player.maCanhGioi = next.code; player.canhGioi = next; player.tenCanhGioi = next.tenCanhGioi; player.realm = next.stt; }
+    player.maCanhGioi = next.code; player.canhGioi = next; player.tenCanhGioi = next.tenCanhGioi; player.realm = next.stt;
     player.tangTuVi = 1;
   } else {
     player.tangTuVi = stage + 1;
   }
   const currentRealm = player.canhGioi || realm;
-  player.tuViLenCap = calcTuViNeeded(currentRealm, player.tangTuVi);
+  player.tuViLenCap = breakthroughThreshold(currentRealm, player.tangTuVi);
   player.maxHp = 100 + player.stats.vit * 12;
   player.maxMp = 50 + player.stats.ene * 8;
   player.hp = Math.min(Number(player.hp || player.maxHp) + gain.vit * 12, player.maxHp);
@@ -649,7 +660,14 @@ app.post("/api/player/inventory/use", authMiddleware, (req, res) => {
     player.tuViHienTai = Number(player.tuViHienTai || 0) + Number(item.giaTriTuVi || 0);
     result.type = "cultivation_absorbed";
   } else if (type === "LINDAN") {
-    player.tuViLinhCan = Number(player.tuViLinhCan || 0) + Number(item.tuViLinhCanVal || 0);
+    const definition = items.find((entry) => entry.id === item.id);
+    if (!definition || (definition.type || definition.loai) !== "LINDAN") return res.status(400).json({ error: "Vật phẩm linh căn không hợp lệ" });
+    const cap = BALANCE.progression.linhCan.itemCap;
+    const current = Math.max(0, Number(player.tuViLinhCan || 0));
+    const gain = Math.min(Math.max(0, Number(definition.tuViLinhCanVal || 0)), cap - current);
+    if (gain <= 0) return res.status(400).json({ error: "Tu vi linh căn đã đạt giới hạn vật phẩm" });
+    player.tuViLinhCan = current + gain;
+    result.gain = gain;
     result.type = "root_cultivation";
   } else if (type === "POTION" || type === "CONSUME") {
     result.hp = Number(item.healHp || 0);
@@ -771,8 +789,10 @@ app.post("/api/player", authMiddleware, (req, res) => {
     equippedSkills: initialSkills.map((skill) => skill.code),
     skills: initialSkills,
     equipment: normalizeEquipment(req.body?.equipment),
+    inventory: (() => { try { const value = typeof req.body?.jsonIventory === "string" ? JSON.parse(req.body.jsonIventory) : req.body?.inventory; return Array.isArray(value) ? value : []; } catch { return []; } })(),
     unspentStatPoints: 0,
   };
+  player.jsonIventory = JSON.stringify(player.inventory);
   player.combatPower = combatPower(player);
   storePlayer(player);
   res.json(player);

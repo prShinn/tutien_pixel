@@ -221,6 +221,13 @@
       <div id="canvas-area">
         <canvas id="game-canvas"></canvas>
         <div id="map-name-overlay"></div>
+        <div id="game-controls-hint" aria-label="Phím điều khiển">
+          <span>WASD / mũi tên</span> di chuyển
+          <i>•</i><span>Click quái</span> khóa mục tiêu & áp sát
+          <i>•</i><span>Space</span> đánh
+          <i>•</i><span>1–4</span> kỹ năng
+          <i>•</i><span>Esc</span> bỏ chọn
+        </div>
       </div>
 
       <div id="map-widget" aria-label="Bản đồ thu nhỏ">
@@ -247,7 +254,10 @@
               <div class="target-hp-text" id="target-hp-text">100 / 100</div>
             </div>
           </div>
-          <button class="target-close-btn" onclick="S.target = null;" title="Bỏ chọn">✕</button>
+          <div class="target-actions">
+            <button class="target-action-btn" onclick="Combat.attackTarget()">Đánh</button>
+            <button class="target-close-btn" onclick="S.target = null; if (S.player) S.player.combatMove = false;" title="Bỏ chọn">✕</button>
+          </div>
         </div>
       </div>
 

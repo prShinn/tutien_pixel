@@ -100,6 +100,24 @@ function playerHasSkill(player, skill) {
   return refs.includes(String(skill.code)) || refs.includes(String(skill.id));
 }
 
+function passiveProfile(player) {
+  const profile = {
+    maxHpPct: 0, maxMpPct: 0, defensePct: 0, critPct: 0, cooldownPct: 0,
+    hpRegenPct: 0, skillDamageByRoot: {}, statusEffectPct: 0,
+  };
+  for (const skill of skills) {
+    if (!isPassiveSkill(skill) || !playerHasSkill(player, skill)) continue;
+    const modifiers = skill.passiveModifiers || {};
+    for (const key of ["maxHpPct", "maxMpPct", "defensePct", "critPct", "cooldownPct", "hpRegenPct", "statusEffectPct"]) {
+      profile[key] += Number(modifiers[key] || 0);
+    }
+    if (Number(modifiers.skillDamagePct || 0) > 0 && skill.linhCan) {
+      profile.skillDamageByRoot[skill.linhCan] = (profile.skillDamageByRoot[skill.linhCan] || 0) + Number(modifiers.skillDamagePct);
+    }
+  }
+  return profile;
+}
+
 function isOffensiveSkill(skill) {
   if (!skill) return false;
   return Number(skill.satThuong || 0) > 0 && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
@@ -121,7 +139,8 @@ function playerBuffValue(player, keys, now = Date.now()) {
 
 function skillCooldownMs(player, skill, now = Date.now()) {
   const base = Math.max(1, Number(skill?.hoiChieu || 1)) * 1000;
-  const castSpeed = Math.min(60, Math.max(0, playerBuffValue(player, "buff_cast", now)));
+  const passive = passiveProfile(player);
+  const castSpeed = Math.min(60, Math.max(0, playerBuffValue(player, "buff_cast", now) + passive.cooldownPct * 100));
   return Math.max(250, Math.round(base * (1 - castSpeed / 100)));
 }
 
@@ -139,9 +158,10 @@ function refreshPlayerVitals(player, now = Date.now()) {
   const baseMp = Number(player.baseMaxMp || player.maxMp || 50);
   player.baseMaxHp = baseHp;
   player.baseMaxMp = baseMp;
+  const passive = passiveProfile(player);
   const vitalRate = Math.max(0, playerBuffValue(player, "buff_vitals", now));
-  const nextMaxHp = Math.floor(baseHp * (1 + vitalRate / 100));
-  const nextMaxMp = Math.floor(baseMp * (1 + vitalRate / 100));
+  const nextMaxHp = Math.floor(baseHp * (1 + vitalRate / 100 + passive.maxHpPct));
+  const nextMaxMp = Math.floor(baseMp * (1 + vitalRate / 100 + passive.maxMpPct));
   const oldMaxHp = Number(player.maxHp || baseHp);
   const oldMaxMp = Number(player.maxMp || baseMp);
   player.maxHp = nextMaxHp;
@@ -325,12 +345,13 @@ function addLootToPlayer(player, loot) {
   writeInventory(player, inventory);
 }
 
-function applySkillEffect(monster, skill, now) {
+function applySkillEffect(monster, skill, now, passive = {}) {
   if (!skill?.effect || skill.effect === "heal" || String(skill.effect).startsWith("buff_")) return;
   const effect = skill.effect;
   const duration = Math.max(1000, Number(skill.thoiGianBuff || 4) * 1000);
   const statuses = Array.isArray(monster.statusEffects) ? monster.statusEffects.filter((entry) => entry.type !== effect) : [];
-  statuses.push({ type: effect, value: Number(skill.effectVal || 0), expiresAt: now + duration, nextTickAt: now + 1000 });
+  const effectValue = Number(skill.effectVal || 0) * (1 + Number(passive.statusEffectPct || 0));
+  statuses.push({ type: effect, value: effectValue, expiresAt: now + duration, nextTickAt: now + 1000 });
   monster.statusEffects = statuses;
 }
 
@@ -353,11 +374,12 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
   const cost = Number(skill?.mpTieuHao || 0);
   if (Number(player.mp || 0) < cost) return { error: "Không đủ linh lực" };
   const derived = deriveStats(player.stats, player.equipment);
+  const passive = passiveProfile(player);
   const magic = skill?.type === "MAGIC";
   const attack = magic ? derived.mAtk : derived.pAtk;
   // Đánh thường là sustained damage; skill mới dùng hệ số burst trong data.
   const scale = skill
-    ? Number(skill.satThuong || 1) * BALANCE.damage.skillMultiplier
+    ? Number(skill.satThuong || 1) * BALANCE.damage.skillMultiplier * (1 + Number(passive.skillDamageByRoot[skill.linhCan] || 0))
     : BALANCE.damage.basicMultiplier;
   const primaryStat = Number(player.stats?.[magic ? "ene" : "str"] || 0);
   const statScale = skill ? BALANCE.damage.skillStatScale : BALANCE.damage.basicStatScale;
@@ -368,7 +390,7 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
   const defense = activeStatus(monster, "armor_break") ? defenseBase * 0.75 : defenseBase;
   const handDamage = skill ? 1 : 1 + Math.max(0, playerBuffValue(player, "buff_atk")) / 100;
   const counterCritBonus = affinityCritBonus(affinityProfileResult);
-  const critChance = Math.min(0.75, Number(derived.crit || 0) + Math.max(0, playerBuffValue(player, "buff_crit")) / 100 + counterCritBonus);
+  const critChance = Math.min(0.75, Number(derived.crit || 0) + Math.max(0, playerBuffValue(player, "buff_crit")) / 100 + passive.critPct + counterCritBonus);
   const critical = Math.random() < critChance;
   const critMultiplier = critical ? BALANCE.damage.critMultiplier : 1;
   const areaMultiplier = session.areaSecondary ? BALANCE.damage.areaSecondaryMultiplier : 1;
@@ -379,11 +401,11 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
     skillCooldowns[skillKey] = now + cooldownMs;
   }
   monster.hp = Math.max(0, Number(monster.hp || monster.maxHp || 1) - damage);
-  applySkillEffect(monster, skill, now);
+  applySkillEffect(monster, skill, now, passive);
   monster.dead = monster.hp <= 0;
   let loot = null;
   if (monster.dead) {
-    monster.respawnAt = now + 10000;
+    monster.respawnAt = now + Number(monster.respawnMs || 10000);
     loot = rollMonsterLoot(monster);
   }
   return { damage, critical, hp: monster.hp, maxHp: monster.maxHp, dead: monster.dead, skillCode: skill?.code || null, mp: player.mp, cooldownMs, gcdMs: COMBAT_GCD_MS, loot, statusEffects: monster.statusEffects || [], affinityRelation: affinityProfileResult.relation, affinityMultiplier: affinity, affinityStrengthGap: affinityProfileResult.strengthGap, affinityCritBonus: counterCritBonus };
@@ -547,6 +569,13 @@ function setupSocket(io, players = new Map(), options = {}) {
   function publicMonsterState(monster, now) {
     return {
       id: monster.id,
+      name: monster.name || "Yêu thú",
+      icon: monster.icon || "👾",
+      img: monster.img || null,
+      animation: monster.animation || null,
+      type: monster.type || "NORMAL",
+      level: Number(monster.level || 1),
+      nguHanh: monster.nguHanh || [],
       x: Number(monster.x || 0),
       y: Number(monster.y || 0),
       hp: Number(monster.hp || 0),
@@ -555,6 +584,8 @@ function setupSocket(io, players = new Map(), options = {}) {
       targetId: monster.targetId || null,
       speed: Number(monster.speed || MONSTER_MOVE_SPEED),
       packId: monster.packId || null,
+      packCenterX: Number(monster.packCenterX ?? monster.spawnX ?? 0),
+      packCenterY: Number(monster.packCenterY ?? monster.spawnY ?? 0),
       dead: !!monster.dead,
       statusEffects: (monster.statusEffects || [])
         .filter((effect) => Number(effect.expiresAt || 0) > now)
@@ -573,8 +604,9 @@ function setupSocket(io, players = new Map(), options = {}) {
       emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage: 0, miss: true, hp: player.hp, maxHp: player.maxHp });
       return;
     }
+    const passive = passiveProfile(player);
     const defenseBuff = playerBuffValue(player, ["buff_def", "shield"]);
-    const effectiveDefense = Number(derived.pDef || 0) * (1 + Math.max(0, defenseBuff) / 100);
+    const effectiveDefense = Number(derived.pDef || 0) * (1 + Math.max(0, defenseBuff) / 100 + passive.defensePct);
     const damage = Math.max(1, Math.floor(Number(monster.atk || 1) - effectiveDefense + Math.random() * 3));
     player.hp = Math.max(0, Number(player.hp || player.maxHp || 100) - damage);
     if (player.hp <= 0) player.hp = Math.floor(Number(player.maxHp || 100) * 0.25);
@@ -598,7 +630,8 @@ function setupSocket(io, players = new Map(), options = {}) {
       const oldMaxHp = Number(player.maxHp || 0), oldMaxMp = Number(player.maxMp || 0);
       refreshPlayerVitals(player, now);
       if (player.maxHp !== oldMaxHp || player.maxMp !== oldMaxMp) buffChanged = true;
-      const hpRate = Math.max(0, playerBuffValue(player, "buff_hp_regen", now));
+      const passive = passiveProfile(player);
+      const hpRate = Math.max(0, playerBuffValue(player, "buff_hp_regen", now) + Number(player.maxHp || 0) * passive.hpRegenPct);
       const mpRate = Math.max(0, playerBuffValue(player, "buff_mp_regen", now));
       if (!hpRate && !mpRate) {
         playerRegenRuntime.delete(player.id);
@@ -649,7 +682,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         changed = true;
         if (monster.hp <= 0) {
           monster.dead = true;
-          monster.respawnAt = now + 10000;
+          monster.respawnAt = now + Number(monster.respawnMs || 10000);
           break;
         }
       }

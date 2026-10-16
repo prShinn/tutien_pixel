@@ -114,6 +114,19 @@ MVP hiện dùng `x-admin-key` cho các endpoint editor:
   tenCanhGioi: string;
   soTang: number;            // 9 hoặc 1
   tuViTienCap: number;       // base tu vi để bắt đầu realm này
+  tangTuVi: Array<{           // bảng tầng do server công bố
+    id: string;
+    stt: number;
+    tenTang: string;
+    tuViCan: number;
+    nguongDotPha: number;
+    mucTieu: string;
+    tuViCanMucTieuTiepTheo: number;
+    tangDich: number;
+    canhGioiDich: number;
+    ovrToiThieu: number;
+    daiCanhGioi: boolean;
+  }>;
   heSoTang: number;          // >= 1.2
   moTa: string;
   danPhaCanh: string | null; // item ID của đan phá cảnh

@@ -197,3 +197,8 @@ utils.js ───┘                │
 ## 🔄 Phiên Bản & Milestone
 
 Xem file `docs/ROADMAP.md` để biết roadmap phát triển chi tiết.
+## QUY ƯỚC NỀN TẢNG
+
+- Hiện tại phát triển PC webgame trước: chuột, bàn phím, canvas trung tâm và HUD desktop.
+- Không đưa touch joystick hoặc mobile-only layout vào gameplay core trước khi PC slice hoàn thiện.
+- Mobile là phase cuối: chỉ thêm input adapter và responsive HUD, tái sử dụng state/socket/server hiện có.

@@ -245,8 +245,8 @@ const Render = {
         mini.restore();
       }
 
-      mini.fillStyle = isTarget ? "#ff3838" : (monster.type === "ELITE" ? "#ff9f43" : "#ee5253");
-      const dotSz = monster.type === "ELITE" || isTarget ? 3 : 2;
+      mini.fillStyle = isTarget ? "#ff3838" : (monster.type === "BOSS" ? "#d43f72" : (monster.type === "ELITE" ? "#ff9f43" : "#ee5253"));
+      const dotSz = monster.type === "BOSS" ? 4 : (monster.type === "ELITE" || isTarget ? 3 : 2);
       mini.fillRect(mx - dotSz / 2, my - dotSz / 2, dotSz, dotSz);
     }
 

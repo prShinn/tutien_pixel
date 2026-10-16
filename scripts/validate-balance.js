@@ -24,6 +24,12 @@ const rootBuffs = {
   KIM: ["buff_atk"], MOC: ["buff_hp_regen"], THUY: ["buff_vitals"], HOA: ["buff_crit"],
   THO: ["buff_def", "buff_vitals"], QUANG: ["buff_spd"], AM: ["buff_cast"], PHONG: ["buff_spd"],
 };
+for (const root of ["KIM", "MOC", "THUY", "HOA", "THO", "QUANG", "AM", "PHONG", "LOI"]) {
+  const activeCount = skills.filter((skill) => skill.linhCan === root && skill.category === "ACTIVE").length;
+  const passiveCount = skills.filter((skill) => skill.linhCan === root && skill.category === "PASSIVE").length;
+  if (activeCount !== 6) errors.push(`${root} must have exactly 6 active skills`);
+  if (passiveCount < 1) errors.push(`${root} must have an auto-applied passive skill`);
+}
 for (const [root, effects] of Object.entries(rootBuffs)) {
   for (const effect of effects) {
     if (!skills.some((skill) => skill.linhCan === root && skill.effect === effect && Number(skill.effectVal) > 0)) errors.push(`${root} skill bank missing ${effect}`);

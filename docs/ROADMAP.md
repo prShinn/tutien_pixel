@@ -191,3 +191,15 @@
 - Hai tab/trình duyệt cho kết quả giống nhau.
 - Không tin dữ liệu gameplay do client tự tính.
 - Tài liệu contract và trạng thái roadmap được cập nhật cùng code.
+## PHẠM VI NỀN TẢNG HIỆN TẠI
+
+- Ưu tiên PC webgame: canvas/map trung tâm, HUD desktop, chuột + bàn phím, skill bar ngang và panel thông tin.
+- Không đổi gameplay server, Socket.io, combat hay state để chạy mobile trong các phase hiện tại.
+- Mobile responsive, touch joystick, safe-area và landscape là phase cuối sau khi PC webgame hoàn thiện.
+
+## P16 — MOBILE WEBGAME (PHASE CUỐI)
+
+- Thêm touch joystick bên trái; nút đánh, skill và thao tác nhanh bên phải.
+- Hỗ trợ portrait cho menu và landscape cho map; xử lý safe-area, notch và khóa cuộn trang.
+- Tái sử dụng cùng socket/event contract, server state và combat pipeline của PC.
+- Kiểm tra FPS, reconnect, đổi orientation và PC/mobile cùng map realtime.
