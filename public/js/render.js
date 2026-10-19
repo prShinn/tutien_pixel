@@ -130,6 +130,7 @@ const Render = {
     }
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
     for (const npc of S.npcs) Render.npc(npc, cx, cy);
+    for (const drop of S.groundItems || []) Render.groundLoot(drop, cx, cy);
     for (const [, op] of S.players) Render.otherPlayer(op, cx, cy);
     for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
     
@@ -562,6 +563,26 @@ const Render = {
       ctx.fillStyle = "#111"; ctx.fillRect(sx - barW / 2, barY, barW, 3);
       ctx.fillStyle = "#cc2222"; ctx.fillRect(sx - barW / 2, barY, (barW * hp) / maxHp, 3);
     }
+  },
+
+  groundLoot(drop, cx, cy) {
+    const sx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2 - cx;
+    const sy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2 - cy;
+    if (sx < -24 || sy < -24 || sx > cW / CFG.DS + 24 || sy > cH / CFG.DS + 24) return;
+    const pulse = 0.7 + Math.sin(S.animT * 0.006 + sx) * 0.2;
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = drop.kind === "xu" ? "#f4d982" : "#8fe7d7";
+    ctx.strokeStyle = "rgba(5,12,18,.85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#071018";
+    ctx.font = "bold 7px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
+    ctx.restore();
   },
 
   npc(npc, cx, cy) {

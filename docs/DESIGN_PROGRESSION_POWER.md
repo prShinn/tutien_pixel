@@ -1,43 +1,36 @@
-# Thiết kế sức mạnh theo cảnh giới và tu luyện
+# DESIGN PROGRESSION POWER - code-aligned MVP
 
-## Nguyên tắc
+Nguon chuan: `data/balance.js` va `socket/game.js`.
 
-Không dùng một con số OVR duy nhất để quyết định thắng thua. Sức mạnh gồm 5 lớp:
-
-1. **Cảnh giới**: nền sức mạnh, tạo khoảng cách lớn giữa các đại cảnh giới.
-2. **Tầng tu vi**: lợi thế trong cùng đại cảnh giới.
-3. **Tu luyện dang dở**: phần trăm tiến độ giữa hai lần đột phá.
-4. **Thuộc tính**: hướng build công/thủ/pháp/cơ động.
-5. **Trang bị và thần thông**: lợi thế có thể giúp người mới đột phá vượt người cũ build kém.
-
-## Công thức OVR
+## Thu tu dong gop OVR
 
 ```text
-OVR = cảnhGiới×1000
-    + tầng×90
-    + tiếnĐộTuLuyện×70
-    + (pAtk + mAtk + 1.5×(pDef + mDef) + 0.1×maxHP + 0.1×maxMP)
-    + điểmTrangBị
-    + sốSkillĐãHọc×18
+OVR = realm * 1000
+    + stage * 90
+    + masteryContribution
+    + overflowContribution
+    + stat/equipment/skill contribution
+    + linhCan item contribution
 ```
 
-`tiếnĐộTuLuyện = tuViHienTai / tuViLenCap`, giới hạn 0..1. Vì vậy:
+Tien trinh tu luyen duoc tinh theo `currentTuVi / tuViCanMucTieuTiepTheo`, gioi han phan co ban toi 1.0:
 
-- Cùng cảnh giới, người ở tầng cao hơn hoặc gần đột phá hơn chắc chắn có OVR cao hơn nếu các phần còn lại tương đương.
-- Người vừa đột phá có thể vượt người tu lâu nhưng thuộc tính/trang bị thấp.
-- Trang bị tốt tạo lợi thế thật, nhưng không thay thế được cảnh giới.
+- `masteryContribution = min(1, progress) * 70`
+- Neu linh luc vuot nguong, phan du co the dong gop them toi da 360 OVR theo trong so overflow 180.
+- Canh gioi va tang van dong gop lon hon tich luy; tich luy giup vuot nguoi vua dot pha nhung khong vuot vo han.
 
-## Khi tu luyện và đột phá
+## Tich luy va dot pha
 
-- Hấp thụ tài nguyên tăng `tuViHienTai`, từ đó tăng dần phần `tiếnĐộTuLuyện×70`; không cộng stat ảo theo từng viên đá.
-- Mỗi tầng nhỏ nhận ngân sách stat: `4 + floor(cảnhGiới×0.75) + floor(tầng×0.25)`.
-- Phá đại cảnh giới nhận ngân sách lớn hơn: `10 + floor(cảnhGiới×0.75) + floor(tầng×0.25)`.
-- Sau đột phá, tiến độ về 0 nhưng cảnh giới tăng 1. Stat đã nhận và trang bị vẫn giữ nguyên.
-- Về sau có thể cho người chơi tự chia ngân sách; server phải giữ `unspentStatPoints` và xác thực mỗi lần cộng.
+- Nguoi choi co the tiep tuc tich luy hoac bam dot pha khi du dieu kien.
+- Dot pha khong xoa linh luc ve 0; phan linh luc hop le duoc giu lai theo server.
+- Dieu kien gom nguong tu vi, OVR toi thieu va tai nguyen/phuong an dot pha neu realm yeu cau.
+- Tang stat va trang bi giu nguyen sau dot pha.
+- Nguong tu vi duoc sinh luy tien theo 2 realm x 9 tang trong mock data, voi he so tang hien tai 1.24.
 
-## Ví dụ hành vi mong muốn
+## Y nghia can bang
 
-- A: cùng cảnh giới, tầng 1, 0% tu luyện < B: tầng 1, 90% tu luyện.
-- C: vừa đột phá cảnh giới kế tiếp, trang bị tốt < D: cảnh giới cũ, build stat/trang bị rất mạnh có thể xảy ra trong PvP nhỏ, nhưng C vẫn có nền OVR cảnh giới cao hơn.
-- Không cho một stat tăng vô hạn: chí mạng tối đa 50%, né tối đa 35%; skill và trang bị dùng ngân sách riêng.
+Canh gioi la nen, tang va linh luc la loi the trong cung canh gioi, con stat/trang bi/skill tao build. Vi vay mot nguoi tu lau co the manh hon nguoi vua dot pha neu build tot, nhung khong bien viec tich luy thanh cach bo qua toan bo canh gioi.
 
+## Gioi han hien tai
+
+Phan bo stat tu do, reset stat, failure table chi tiet, dan duoc theo realm va nhieu loai tai nguyen dot pha chua hoan thien. Day la phan se mo rong sau khi chot economy va database.

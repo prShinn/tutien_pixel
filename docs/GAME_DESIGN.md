@@ -1,109 +1,120 @@
-# 🎮 GAME DESIGN — Vạn Cổ Đế Tôn
+# GAME DESIGN — Vạn Cổ Đế Tôn (bản bám code)
 
-> Webgame tu tiên pixel-art, online co-op, phong cách hành động nhập vai.
+> Đây là design đã đối chiếu với implementation hiện tại. Mục “Mở rộng sau MVP” không được xem là tính năng đã chạy.
 
----
+## 1. Bối cảnh và kịch bản MVP
 
-## 🌟 Tầm Nhìn Game
+Người chơi bắt đầu tại **Thanh Vân Trấn**, một thành phố an toàn có NPC hướng dẫn và shop. Sau khi chọn tên, giới tính và linh căn, người chơi đi qua trận pháp không gian tới **Bình Nguyên Hoang Dã**.
 
-**Vạn Cổ Đế Tôn** là một webgame tu tiên với:
-- **Thể loại**: Action RPG + Phiêu lưu + Co-op online
-- **Phong cách**: Pixel-art 2D top-down, cuộn bản đồ
-- **Chủ đề**: Tu tiên tiên hiệp — từ người thường đến Đại Đế thống trị vạn cổ
+Tại Bình Nguyên, người chơi khám phá địa hình, tìm bãi quái, đánh quái để nhận xu/vật phẩm, hấp thụ linh thạch, tích lũy linh lực và tự quyết định thời điểm đột phá. Người chơi có thể giữ linh lực vượt mốc để tạo lợi thế khiêu chiến vượt tầng, nhưng cảnh giới vẫn là nền sức mạnh lớn nhất.
 
----
+## 2. Vòng lặp gameplay đã chạy
 
-## 📖 Cốt Truyện
-
-### Bối Cảnh
-Thế giới Huyền Thiên Lục Hợp — nơi linh khí ngập tràn, dị thú hoành hành, các môn phái tranh hùng. Con đường tu tiên là con đường duy nhất để thoát khỏi cái chết và vươn tới bất tử.
-
-### Khởi Đầu
-Người chơi là một **thường nhân** sống trong **Thanh Vân Trấn** (thành trấn khởi đầu). Một ngày, cơ duyên đến — linh căn giác ngộ, bước lên con đường tu tiên.
-
-### Hành Trình
-```
-Thanh Vân Trấn (khởi đầu)
-    ↓ Học võ, nhận buff tân thủ từ NPC
-Bình Nguyên Hoang Dã
-    ↓ Đánh quái, khám phá, nhận nhiệm vụ
-Thanh Long Sơn / Hỏa Yêm Cốc / Huyền Băng Tuyết Nguyên
-    ↓ Phá cảnh giới, vào hang động bí ẩn
-Các Bản Đồ Cấp Cao...
-    ↓ Boss raids, sự kiện chiến tranh Chính-Ma
-Đỉnh Thiên (endgame)
+```text
+Đăng nhập/demo
+  → tạo nhân vật
+  → vào Thanh Vân Trấn
+  → đi tới portal
+  → sang Bình Nguyên Hoang Dã
+  → khóa quái và áp sát
+  → đánh thường/kỹ năng
+  → nhận loot/xu
+  → dùng vật phẩm tăng tu vi
+  → tích lũy hoặc đột phá thủ công
+  → tiếp tục khám phá bãi quái
 ```
 
----
+## 3. Điều khiển PC webgame
 
-## 🎯 Core Gameplay Loop
+| Thao tác | Chức năng |
+|---|---|
+| WASD/mũi tên | Di chuyển |
+| Click nền | Đi tới vị trí chỉ định |
+| Click quái | Khóa mục tiêu và tự áp sát |
+| Space | Đánh thường |
+| 1–4 | Dùng skill chủ động đã trang bị |
+| F | Tương tác NPC |
+| Enter | Mở chat |
+| Esc | Bỏ mục tiêu/đóng thao tác |
 
+## 4. Nhân vật và linh căn
+
+MVP có 9 linh căn: KIM, MOC, THUY, HOA, THO, QUANG, AM, PHONG, LOI.
+
+Mỗi linh căn có:
+
+- Skill tấn công đơn mục tiêu.
+- Skill tấn công diện rộng.
+- Skill đặc trưng/buff/debuff.
+- Skill bị động tự động áp dụng sau khi học.
+- Tương sinh/tương khắc mềm, không áp chế tuyệt đối.
+
+Catalog hiện có 66 skill. Chỉ skill chủ động đã học và gán vào loadout mới xuất hiện trên thanh kỹ năng. Passive không chiếm ô.
+
+## 5. Tu vi, OVR và đột phá
+
+```text
+tuViCan = floor(1000 × 1.24 ^ ((realm - 1) × 10 + stage - 1))
 ```
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│  Đánh quái/Boss → Nhận loot (đồ, xu, nguyên liệu)  │
-│       ↓                                             │
-│  Dùng linh thạch/đan dược → Tăng tu vi             │
-│       ↓                                             │
-│  Đủ tu vi → Phá cảnh giới (cần đan dược đặc thù)  │
-│       ↓                                             │
-│  Trang bị mạnh hơn → Vào vùng đất mới              │
-│       ↓                                             │
-│  Làm nhiệm vụ → Phần thưởng đặc biệt               │
-│       ↓ (loop lại)                                  │
-└─────────────────────────────────────────────────────┘
+
+- Đột phá do người chơi chủ động kích hoạt.
+- Tầng 9 cần ngưỡng `tuViCan × 1.5` và điều kiện OVR/đan phá cảnh.
+- Tầng 1 cảnh giới mới luôn có nền cao hơn ngưỡng đột phá tầng 9 cũ.
+- Tu vi dư sau đột phá được giữ lại.
+- Cảnh giới: `1000 OVR` mỗi bậc.
+- Tầng: `90 OVR` mỗi tầng.
+- Tiến độ trong mốc: tối đa `70 OVR`.
+- Linh lực vượt mốc: tối đa `360 OVR`.
+- Tu vi linh căn từ thiên tài địa bảo: tối đa 1000 điểm, ảnh hưởng tối đa 8% sức mạnh linh căn và 40 OVR.
+
+## 6. Combat
+
+Combat online chạy theo luồng:
+
+```text
+client intent
+  → server kiểm tra player/map/target/range/cooldown/MP
+  → server tính damage/crit/defense/affinity
+  → server cập nhật HP/loot/status
+  → combat_result/player_combat_result
+  → client render animation, số damage, buff và log
 ```
 
----
+Đánh thường là damage duy trì. Skill có burst cao hơn, tiêu MP, cooldown và hiệu ứng riêng. Server là nguồn sự thật; client không được quyết định damage hoặc loot.
 
-## 🧑‍🤝‍🧑 Co-op System
+## 7. Quái và bản đồ
 
-- Người chơi di chuyển trên cùng bản đồ — thấy nhau realtime (Socket.io)
-- Khi cùng nhau chiến đấu boss → boss có HP scale theo số người
-- Chat global + chat phe (Chính/Ma)
-- Party system (tương lai): chia sẻ loot, hồi máu đồng đội
+Hiện có 6 template quái, 17 instance trong các bãi Bình Nguyên:
 
----
+- Quái thường: Hoang Sói, Thổ Heo, Độc Thảo Yêu.
+- Elite: Xích Luyện Hổ.
+- Boss: Huyết Nguyệt Lang.
 
-## 🏷️ Các Hệ Thống Chính
+Mỗi quái có tuần tra, aggro riêng từng con, truy đuổi theo thời gian/khoảng cách, quay về bãi, tấn công người chơi và respawn.
 
-| Hệ thống | File tài liệu | Priority |
-|----------|---------------|----------|
-| Cảnh giới (Realm) | `SYSTEM_REALM.md` | ⭐⭐⭐⭐⭐ |
-| Kỹ năng (Skills) | `SYSTEM_SKILLS.md` | ⭐⭐⭐⭐⭐ |
-| Trang bị (Equipment) | `SYSTEM_EQUIPMENT.md` | ⭐⭐⭐⭐⭐ |
-| Nhân vật (Character) | `SYSTEM_CHARACTER.md` | ⭐⭐⭐⭐⭐ |
-| Tu luyện (Cultivation) | `SYSTEM_CULTIVATION.md` | ⭐⭐⭐⭐⭐ |
-| Quái vật (Monsters) | `SYSTEM_MONSTERS.md` | ⭐⭐⭐⭐ |
-| Vật phẩm (Items) | `SYSTEM_ITEMS.md` | ⭐⭐⭐⭐ |
-| Bản đồ (Map) | `SYSTEM_MAP.md` | ⭐⭐⭐⭐ |
-| NPC | `SYSTEM_NPC.md` | ⭐⭐⭐ |
-| Phe phái (Faction) | `SYSTEM_FACTION.md` | ⭐⭐⭐ |
-| Môn phái/Bang (Guild) | `SYSTEM_GUILD.md` | ⭐⭐ |
-| Nhiệm vụ (Quest) | *(tương lai)* | ⭐⭐ |
+Hiện có 2 map:
 
----
+- Thanh Vân Trấn: CITY, an toàn, NPC/shop, không farm quái chính.
+- Bình Nguyên Hoang Dã: PLAIN/RIVER_VALLEY, bãi quái và boss.
 
-## 🎮 Controls
+## 8. Trạng thái online
 
-| Phím | Hành động |
-|------|-----------|
-| `WASD` / `↑↓←→` | Di chuyển |
-| `Space` | Đánh thường (gần nhất) |
-| `1-4` | Dùng kỹ năng |
-| `F` | Tương tác NPC / nhặt đồ |
-| `Enter` | Mở chat |
-| `Esc` | Đóng modal |
-| `Q` | Mở túi đồ (tương lai) |
-| `J` | Mở nhiệm vụ (tương lai) |
-| `G` | Mở bang phái (tương lai) |
+Đã chạy:
 
----
+- Login nhiều tab/người chơi.
+- Socket room theo map/chunk.
+- Đồng bộ player/quái/chat/combat.
+- Server kiểm tra movement, collision, tốc độ và portal.
+- Portal tới map mới đặt người chơi ở điểm đối diện.
 
-## 🌐 Online Features
+## 9. Mở rộng sau MVP
 
-- **Multiplayer**: Nhiều người chơi trên cùng bản đồ
-- **Chat**: Global, kênh phe Chính/Ma
-- **Events**: Chiến tranh Chính-Ma mỗi tuần
-- **Co-op**: Boss droppool chia sẻ
-- **Auto-save**: Mỗi 60 giây + khi đổi map
+Các nội dung sau chưa xem là đã hoàn thành:
+
+- Database bền vững và Redis adapter.
+- Quest tree/NPC quest.
+- Party, guild, PvP, faction war.
+- Dungeon/bí cảnh và nhiều cảnh giới/map.
+- Boss phase, skill boss, threat table và loot contribution.
+- Craft, enhance, marketplace.
+- Mobile input adapter.

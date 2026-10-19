@@ -5,7 +5,7 @@ const API = Object.freeze({
   AUTO_SAVE_MS: 30000,
   PATHS: Object.freeze({
     auth: { register: "/api/auth/register", login: "/api/auth/login", demo: "/api/auth/demo", me: "/api/auth/me" },
-    worlds: { list: "/api/worlds", default: "/api/worlds/default", byCode: (code) => `/api/worlds/by-code?code=${encodeURIComponent(code)}` },
+    worlds: { list: "/api/worlds", structure: "/api/world-structure", default: "/api/worlds/default", byCode: (code) => `/api/worlds/by-code?code=${encodeURIComponent(code)}` },
     admin: {
       worlds: "/api/admin/worlds",
       world: (code) => `/api/admin/worlds/${encodeURIComponent(code)}`,

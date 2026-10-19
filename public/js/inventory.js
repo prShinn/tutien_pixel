@@ -13,6 +13,7 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 const Inventory = {
+  selectedIndex: -1,
   add(item) {
     if (!S.inventory) S.inventory = [];
     for (const iv of S.inventory) {
@@ -90,5 +91,16 @@ const Inventory = {
       UI.update();
     } else
       UI.log(`${item.icon} ${item.name}: ${item.desc || ""}`, "system");
+  },
+
+  async unequip(item, slotKey) {
+    if (!item || !authToken) return UI.log("Chưa kết nối máy chủ.", "system");
+    const slotMap = { weapon: "weapon", helmet: "hat", armor: "armor", pants: "pants", boots: "boots", ring: "ring", amulet: "amulet", belt: "belt", gem: "gem" };
+    const result = await Net.post(API.PATHS.player.unequipItem, { slot: slotMap[slotKey] || slotKey });
+    if (!result?.player) return UI.log(result?.error || "Không thể tháo trang bị.", "system");
+    Object.assign(S.player, result.player);
+    try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+    UI.log(`Đã tháo ${item.name || "trang bị"} vào túi đồ.`, "loot");
+    UI.buildInv(); UI.renderEquipment(true); UI.update();
   },
 };

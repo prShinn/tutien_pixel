@@ -258,6 +258,7 @@ const Net = {
             const y = Number(mData.y ?? mData.spawnY ?? 0);
             return Monster.make(mData, x, y, mData.id);
           });
+          S.groundItems = Array.isArray(data.groundItems) ? data.groundItems : [];
 
           UI.update();
         } catch (e) { console.error("world_init error:", e); }
@@ -421,9 +422,32 @@ const Net = {
         else S.monsters.push(fresh);
       });
 
+      socket.on("ground_loot_spawn", ({ drops }) => {
+        if (!Array.isArray(drops)) return;
+        for (const drop of drops) {
+          if (!drop?.id) continue;
+          const existing = S.groundItems.find((item) => item.id === drop.id);
+          if (existing) Object.assign(existing, drop);
+          else S.groundItems.push(drop);
+        }
+        UI.pushLoot({ items: drops.map((drop) => ({ ...(drop.item || {}), id: drop.id, name: drop.kind === "xu" ? `${drop.xu} xu` : (drop.item?.name || drop.item?.id), icon: drop.kind === "xu" ? "💰" : drop.item?.icon, count: drop.kind === "xu" ? 1 : drop.count })) }, "Rơi");
+      });
+      socket.on("ground_loot_state", ({ items }) => { S.groundItems = Array.isArray(items) ? items : []; });
+      socket.on("ground_loot_removed", ({ itemId }) => { S.groundItems = S.groundItems.filter((item) => item.id !== itemId); });
+      socket.on("ground_loot_picked", ({ item, player, loot }) => {
+        S.groundItems = S.groundItems.filter((entry) => entry.id !== item?.id);
+        if (player && S.player) {
+          Object.assign(S.player, player);
+          try { S.inventory = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : (player.inventory || S.inventory); } catch { }
+        }
+        UI.pushLoot(loot, "Nhặt");
+        UI.buildInv(); UI.update();
+      });
+
       socket.on("combat_result", (payload) => {
         S.combatPending = false;
         const { attackerId, skillCode, skillName, mp, cooldownMs, gcdMs, loot } = payload;
+        if (attackerId === socket.id && loot) UI.pushLoot(loot);
         const hits = Array.isArray(payload.hits) && payload.hits.length
           ? payload.hits
           : [payload];

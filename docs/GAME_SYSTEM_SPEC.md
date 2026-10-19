@@ -33,7 +33,7 @@ Quan hệ khắc chế không áp chế tuyệt đối: chênh lệch sức mạ
 ## Quái và phiêu lưu
 
 Quái có bãi spawn, tuần tra, phát hiện riêng từng con, truy đuổi trong thời gian/khoảng cách giới hạn rồi quay về.
-`NORMAL`, `ELITE`, `BOSS` có chỉ số, loot và thời gian hồi sinh khác nhau. MVP hiện có Hoang Sói, Thổ Heo, Độc Thảo Yêu, Xích Luyện Hổ và Huyết Nguyệt Lang.
+`NORMAL`, `ELITE`, `BOSS` có chỉ số, loot và thời gian hồi sinh khác nhau. MVP hiện có Mộc Nhân, Hoang Sói, Thổ Heo, Độc Thảo Yêu, Xích Luyện Hổ và Huyết Nguyệt Lang.
 
 ## Ranh giới MVP
 

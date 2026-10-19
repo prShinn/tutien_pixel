@@ -1,158 +1,107 @@
-# 🗺️ SYSTEM — Bản Đồ (Map System)
+# SYSTEM MAP - Dai chau luc phan tang
 
----
+## 1. Mo hinh the gioi
 
-## Loại Bản Đồ
+Game khong dung mot canvas duy nhat cho ca chau luc. The gioi duoc chia thanh 4 tang:
 
-| Type | Code | Đặc điểm | Level quái |
-|------|------|---------|-----------|
-| Thành Trì | `CITY` | An toàn, NPC, shop, không có quái | — |
-| Thôn Làng | `VILLAGE` | NPC đơn giản, quái cấp thấp quanh làng | 1-8 |
-| Đồng Bằng | `PLAIN` | Mở rộng, quái mật độ trung bình | 1-15 |
-| Cao Nguyên | `PLATEAU` | Địa thế cao, quái mạnh hơn | 15-30 |
-| Núi Tuyết | `ICE_MOUNTAIN` | Buff Thủy quái, Slow debuff vùng | 25-40 |
-| Núi Lửa | `VOLCANO` | Buff Hỏa quái, Burn debuff vùng | 30-50 |
-| Hang Động | `DUNGEON` | Tối, boss xuất hiện, loot cao | 20-60 |
-| Chiến Trường | `WARZONE` | Khu vực PvP Chính-Ma hàng tuần | — |
-
----
-
-## Bản Đồ Khởi Đầu
-
-### Thanh Vân Trấn (`code: thanh_van_tran`)
-- **Type**: CITY
-- **Spawn**: Điểm xuất phát mặc định cho tân thủ
-- **NPC**: Trưởng Lão (buff tân thủ), Lão Thương (shop), Trấn Thủ (thông tin)
-- **Portal đến**: Bình Nguyên Hoang Dã, Đào Hoa Thôn
-
----
-
-## Danh Sách Bản Đồ Theo Level
-
-```
-Level 1-10:
-  thanh_van_tran    → Thành Trì khởi đầu
-  dao_hoa_thon      → Thôn Làng (quái 1-5)
-  binh_nguyen_1     → Đồng Bằng Tây (quái 5-12)
-
-Level 10-25:
-  binh_nguyen_2     → Đồng Bằng Đông (quái 10-20)
-  thanh_long_son    → Cao Nguyên Xanh (quái 15-25)
-  hang_bat_ma       → Hang Động Dơi Quỷ (boss: Hắc Bat Vương lv20)
-
-Level 25-45:
-  huyen_bang_tuyen  → Núi Tuyết Huyền (quái 25-40, buff Thủy)
-  hoa_yem_coc       → Núi Lửa Hỏa Viêm (quái 30-45, buff Hỏa)
-  hang_long_du      → Hang Long Du (boss: Tiểu Long lv35)
-
-Level 45+:
-  co_thap_phi_thien → Cao Nguyên Phi Thiên (quái 45-60)
-  vuc_tham_mo       → Hang Động Vực Thẳm (boss events)
-  chien_truong      → Chiến Trường Chính-Ma (PvP weekly)
+```text
+Continent
+└── Region / Chau / Phu
+    └── World map nho
+        └── Landmark, NPC, bai quai, tai nguyen, portal
 ```
 
----
+- **Dai chau luc**: graph dieu huong, lore, cac vung lon va tuyen duong.
+- **Vung dia ly**: Thanh tri, thon da, vung nui, day nui, man hoang.
+- **Map runtime**: terrain, collision, entity va portal; chi map nay duoc tai vao client.
+- **Dia danh**: cong thanh, quan dao, son coc, di tich, bai quai; la point/zone trong map runtime.
 
-## Tile Types
+Nguon graph mock hien tai: `data/world-structure.js`.
 
-| Tile | Value | Tên | Solid | Màu |
-|------|-------|-----|-------|-----|
-| `T.GRASS` | 0 | Cỏ | ❌ | `#2a5a28` |
-| `T.STONE` | 1 | Đá | ❌ | `#5a5a68` |
-| `T.WATER` | 2 | Nước | ✅ | `#1a3a6a` |
-| `T.WALL` | 3 | Tường | ✅ | `#181010` |
-| `T.FLOOR` | 4 | Sàn | ❌ | `#3a3020` |
-| `T.TREE` | 5 | Cây | ✅ | `#141a10` |
-| `T.MTN` | 6 | Núi | ✅ | `#404050` |
-| `T.PLAZA` | 7 | Quảng trường | ❌ | `#4a4030` |
+## 2. Châu lục mẫu
 
----
+Chau luc dau tien la **Cuu Thien Dai Luc**:
 
-## Portal System
+```text
+Thanh Van Phu
+  → Trung Nguyen Hoang Da
+  → Thien Linh Son Mach
+  → Man Hoang Cuc Bac
+```
 
-```json
-// Portal trong map data
+Tuyen phat trien gameplay:
+
+```text
+Thanh tri
+→ Thon da
+→ Ngoai vuc / dong bang
+→ Vung chan nui
+→ Son coc
+→ Day nui
+→ Man hoang bien
+→ Co dia / vuc sau
+```
+
+Map `thanh_van_tran` va `binh_nguyen` dang `ACTIVE`. Cac map con lai dang `PLANNED`: da co ma, ten, cap do, vai tro va ket noi, nhung chua cho nguoi choi di vao khi chua co terrain va noi dung.
+
+## 3. Map runtime va graph la hai lop doc lap
+
+`world-structure` khong duoc dung lam collision hay spawn. Moi world runtime van co contract:
+
+```js
 {
-  "x": 30,
-  "y": 10,
-  "tenMapDen": "Bình Nguyên Tây",
-  "denMap": "binh_nguyen_1",
-  "toX": 5,
-  "toY": 25
+  code, tenMap, type, biome, version, w, h,
+  spawnX, spawnY,
+  jsonMap,
+  layers: { ground, objects, elevation },
+  portals, monsterSpawns, npcs, rules
 }
 ```
 
-- Khi player bước vào tọa độ portal (dist < 0.5 tile) → teleport
-- Hiển thị arrow chỉ hướng portal gần nhất khi portal ngoài màn hình
-- Tên portal hiển thị overlay khi vào bản đồ mới
+Graph chi tra loi: map nam o vung nao, thu tu nao, da mo chua, map nao ket noi va cap de xuat. Runtime tra loi: nguoi choi co di duoc o day khong, vi tri nao walkable va entity nao dang ton tai.
 
----
+## 4. Portal va tuyen duong
 
-## Map Data Structure (Backend)
+Portal la mot canh co huong giua hai map. Portal quan trong phai co cap nguoc lai:
 
-```json
-// GET /api/worlds/by-code?code=thanh_van_tran
-{
-  "id": 1,
-  "code": "thanh_van_tran",
-  "tenMap": "Thanh Vân Trấn",
-  "type": "CITY",
-  "w": 60,
-  "h": 50,
-  "isDefault": true,
-  "spawnX": 30,
-  "spawnY": 25,
-  "jsonMap": [[3,3,3,...], [3,0,0,...], ...],
-  "portals": [
-    {
-      "x": 58, "y": 25,
-      "tenMapDen": "Bình Nguyên Tây",
-      "denMap": "binh_nguyen_1",
-      "toX": 3, "toY": 25
-    }
-  ],
-  "monsters": [
-    {
-      "id": "HOANG_SOI_1",
-      "name": "Hoang Sói",
-      "level": 3,
-      "type": "NORMAL",
-      "nguHanh": ["KIM"],
-      "color": "#aaaaaa",
-      "spawnX": 10, "spawnY": 10
-    }
-  ],
-  "npcs": [
-    {
-      "id": "NPC_TRUONG_LAO",
-      "name": "Trưởng Lão",
-      "type": "dialog",
-      "color": "#c8a84b",
-      "x": 28, "y": 24,
-      "px": 28 * 32 + 16,
-      "py": 24 * 32 + 16,
-      "dialog": "Chào mừng tu sĩ đến Thanh Vân Trấn! Ta sẽ ban cho ngươi sức mạnh ban đầu."
-    }
-  ]
-}
+```text
+map A portal → map B arrival edge
+map B portal → map A arrival edge
 ```
 
----
+Huong den duoc mo ta boi `toX/toY`, nhung UX nen dat diem den theo bien tuong ung:
 
-## Debuff Vùng Đất (Area Debuff)
+- Cong phia phai → vao bien trai map moi.
+- Cong phia trai → vao bien phai.
+- Cong phia tren → vao bien duoi.
+- Cong phia duoi → vao bien tren.
 
-| Map Type | Debuff | Tác động |
-|----------|--------|----------|
-| Núi Tuyết | Frost Ground | Player bị -20% move speed liên tục |
-| Núi Lửa | Scorched Ground | Player nhận 1 Burn nhẹ tích lũy mỗi 5s |
-| Hang Động | Darkness | Camera giảm render range |
+Server van tim diem walkable gan toa do dich truoc khi cho phep join map. Client chi hien thi tran phap/portal va loading state.
 
----
+## 5. Quy mo va streaming
 
-## Mini-map (Tương lai)
+Map con chuan hien tai khoang `600x400 world-pixel`, actor nho hon nhieu so voi map. Khi chau luc mo rong:
 
-- Hiển thị góc màn hình minimap với:
-  - Tile layout đã khám phá (fog of war)
-  - Vị trí player (dot vàng)
-  - Vị trí người chơi khác (dot trắng)
-  - Portal vị trí (chấm xanh)
+- Khong tai toan bo chau luc vao client.
+- API tra graph nhe; API world tra map hien tai theo `code/version`.
+- Socket dung room theo `mapId` va chunk/AOI cho entity.
+- Terrain co the cache theo `mapCode/version`; entity chi broadcast trong vung lan can.
+- Di chuyen giua map la doi room, khong phai keo dai mot canvas vo han.
+
+## 6. Cap do noi dung
+
+Moi map phai co `tier`, `level`, `role` va `status` trong graph. Level chi la goi y; server van quyet dinh combat va dieu kien portal.
+
+- `CITY`, `VILLAGE`: an toan, giao dich, huong dan.
+- `PLAIN`, `WILDERNESS_EDGE`: farm co ban, bai quai nho.
+- `MOUNTAIN_FOOTHILL`, `MOUNTAIN`: dia hinh kho, quai manh hon.
+- `MOUNTAIN_RANGE`, `MOUNTAIN_PASS`: tuyen tien trinh va cua ai.
+- `ANCIENT_WILDERNESS`, `ABYSS`: man hoang/endgame, boss va di tich sau nay.
+
+## 7. API va Admin
+
+- `GET /api/world-structure`: tra graph dai chau luc, co `playable` va `runtime.version`.
+- `GET /api/worlds/by-code?code=...`: tra world runtime cua map dang choi.
+- Admin map editor tao terrain/world; sau nay map moi duoc gan vao graph bang `code`.
+
+Database, version publish, unlock theo quest va multi-instance van de sau khi chot version gameplay.

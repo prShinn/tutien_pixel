@@ -260,6 +260,7 @@
           </div>
         </div>
       </div>
+      <div id="loot-feed" aria-live="polite"></div>
 
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
@@ -285,6 +286,10 @@
 
       <!-- 3. KPAH HUD: TOP RIGHT -->
       <div id="kpah-hud-topright">
+        <div class="hub-actions" aria-label="Lối tắt HUB">
+          <button class="hub-action" onclick="UI.toggleKpahMenu()" title="Mở hành trang">Túi</button>
+          <button class="hub-action" onclick="UI.toggleKpahMenu()" title="Mở HUB nhân vật">HUB</button>
+        </div>
         <div class="online-badge" id="online-badge">● Offline</div>
         <div class="hud-xu">💰 <span id="ui-xu">0</span></div>
       </div>
@@ -300,6 +305,7 @@
         </div>
         <div class="bottom-btns">
           <button class="kpah-btn" onclick="UI.toggleKpahMenu()">Hành Trang</button>
+          <button class="kpah-btn" onclick="UI.toggleContinent()">Đại lục</button>
           <button class="kpah-btn" onclick="UI.toggleChat()">Chat</button>
           <button class="kpah-btn" id="btn-auto" onclick="toggleAuto()">Tự Động</button>
         </div>
@@ -366,12 +372,25 @@
                 <div class="esl" id="slot-gem"><div class="eicon">💎</div>Linh Thạch</div>
               </div>
               <div class="phead" id="inv-head">TÚI ĐỒ (0/40)</div>
+              <div class="inventory-toolbar">
+                <span class="inventory-hint">Chọn vật phẩm để xem thao tác</span>
+                <button class="sbtn" id="inv-use-btn" onclick="UI.useSelectedItem()" disabled>Dùng</button>
+              </div>
               <div id="inv-grid"></div>
+              <div id="inv-selection" class="inv-selection" aria-live="polite">Chưa chọn vật phẩm</div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+      <div id="continent-modal" class="continent-modal" style="display:none;">
+        <div class="continent-box">
+          <div class="continent-head"><div><span class="eyebrow">BẢN ĐỒ ĐẠI LỤC</span><strong id="continent-name">Cửu Thiên Đại Lục</strong></div><button class="kpah-close-btn" onclick="UI.toggleContinent()">✕</button></div>
+          <div id="continent-summary" class="continent-summary">Đang tải địa đồ...</div>
+          <div id="continent-regions" class="continent-regions"></div>
+        </div>
+      </div>
 
     <!-- SHOP -->
     <div id="shop-modal">

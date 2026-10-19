@@ -203,3 +203,26 @@
 - Hỗ trợ portrait cho menu và landscape cho map; xử lý safe-area, notch và khóa cuộn trang.
 - Tái sử dụng cùng socket/event contract, server state và combat pipeline của PC.
 - Kiểm tra FPS, reconnect, đổi orientation và PC/mobile cùng map realtime.
+
+## Trạng thái thực thi theo code — 2026-10-19
+
+| Nhóm | Trạng thái | Ghi chú |
+|---|---|---|
+| P01–P02 Nhân vật/di chuyển | ✅ Đạt MVP | Server authoritative, collision, correction, hướng nhìn và animation state đã có smoke test. |
+| P03–P04 Combat người chơi | ✅ Đạt MVP | Basic attack/skill, range, cooldown, MP, damage, crit, effect và phản hồi bị đánh đã nối realtime. |
+| P05–P08 Quái và vòng đời combat | ✅ Đạt MVP | 6 template, 17 instance, pack spawn, aggro từng con, chase/leash, attack, death, loot, respawn. |
+| P09–P10 Map/portal/spawn | ✅ Đạt MVP | 2 map runtime, portal hai chiều, spawn theo pack, điểm đến walkable và admin map mock. |
+| P11–P12 Tối ưu/render map | 🟡 Demo | Có micro-grid, culling/AOI và renderer hiện tại; chưa benchmark production lớn. |
+| P13 Tạo map Admin | 🟡 Demo | Có generator/editor và snapshot file; chưa có version/publish production đầy đủ. |
+| P14 Damage/defense | ✅ Đạt MVP | Công thức tập trung ở server, có validator balance và affinity mềm. |
+| P15 Tu vi/OVR | ✅ Đạt MVP | Tích lũy, vượt ngưỡng, OVR và đột phá thủ công đã có; economy mở rộng để sau. |
+| BE/database/scale | ⏸ Tạm hoãn | Chỉ bắt đầu sau khi Đại ca chốt version gameplay; hiện dùng mockdata, RAM state và file map admin. |
+
+### Việc tiếp theo không phụ thuộc database
+
+1. Polish UI/UX desktop: thông báo lỗi theo ngữ cảnh, trạng thái target/cast/hurt và hướng dẫn thao tác.
+2. Hoàn thiện preview/editor map bằng cùng renderer runtime, tránh lệch giữa Admin và game.
+3. Benchmark client/render ở map lớn hơn và nhiều entity; tối ưu khi có số đo thực tế.
+4. Bổ sung test regression cho các luồng: di chuyển → đánh → bị đánh → loot → portal.
+
+Không mở rộng quest, guild, PvP, dungeon, mobile hoặc schema database trước khi vertical slice PC hiện tại được chốt.

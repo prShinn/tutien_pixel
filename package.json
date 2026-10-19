@@ -8,6 +8,7 @@
     "smoke": "node scripts/smoke-multiplayer.js",
     "smoke:monster-packs": "node scripts/smoke-monster-packs.js",
     "smoke:map-admin": "node scripts/smoke-map-admin.js",
+    "smoke:ground-loot": "node scripts/smoke-ground-loot.js",
     "smoke:portals": "node scripts/smoke-portals.js",
     "smoke:movement": "node scripts/smoke-movement-authority.js",
     "smoke:demo-loop": "node scripts/smoke-demo-loop.js",
@@ -19,6 +20,7 @@
     "validate:balance": "node scripts/validate-balance.js",
     "validate:assets": "node scripts/validate-assets.js",
     "validate:world": "node scripts/validate-world-scale.js",
+    "validate:world-structure": "node scripts/validate-world-structure.js",
     "animate:asset": "node scripts/animate-asset.js"
   },
   "dependencies": {

@@ -5,7 +5,7 @@
 Project đã đạt mức **vertical slice/demo hoàn chỉnh chơi mượt mà**:
 - Đăng nhập demo độc lập theo tab, multiplayer thời gian thực.
 - Di chuyển mượt mà, server-authoritative chống speed-hack và wall-hack.
-- Hệ thống chiến đấu có chiều sâu: Basic attack, 57 kỹ năng theo 9 linh căn, tương sinh tương khắc Ngũ Hành, hiển thị sát thương nhảy số (vàng to khi CRIT), hit flash chớp trắng quái và chớp đỏ nhân vật.
+- Hệ thống chiến đấu có chiều sâu: Basic attack, 66 kỹ năng theo 9 linh căn, tương sinh tương khắc Ngũ Hành, hiển thị sát thương nhảy số (vàng to khi CRIT), hit flash chớp trắng quái và chớp đỏ nhân vật.
 - Quái theo bầy đàn (Pack AI: Hoang Sói, Thổ Heo, Độc Thảo) tự động truy đuổi và hồi hang khi người chơi chạy xa.
 - Giao diện người dùng chuẩn MMORPG: KPAH HUD (HP/MP/Tu vi), **Target HUD** hiển thị mục tiêu đang nhắm ở top-center kèm thanh máu và hệ, **Minimap** định vị quái/người chơi khác/portal phát sáng dạ quang, và **Mũi tên la bàn dẫn đường portal** hiển thị khoảng cách mét trực quan.
 - Hệ thống Admin Map Editor tự sinh địa hình và liên kết portal 2 chiều.
@@ -14,7 +14,7 @@ Project đã đạt mức **vertical slice/demo hoàn chỉnh chơi mượt mà*
 | Hạng mục | Điểm | Nhận xét |
 |---|---:|---|
 | Chức năng demo | 9.5/10 | Luồng chơi chính, multiplayer, combat, portal, target HUD chạy cực mượt |
-| Nền tảng gameplay | 9.0/10 | 9 hệ linh căn, 57 skill, bầy quái, combat và map micro-grid chuẩn |
+| Nền tảng gameplay | 9.0/10 | 9 hệ linh căn, 66 skill, bầy quái, combat và map micro-grid chuẩn |
 | Realtime & Authority | 8.5/10 | Socket room, AOI, snapshot, portal 2 chiều, chống hack di chuyển |
 | Hiệu năng Client | 9.0/10 | Đã triệt tiêu DOM thrashing 60 FPS trong `renderEquipment`, 40 client tải nhẹ |
 | Khả năng bảo trì | 8.5/10 | Tách 18 modular file client, có comment chuẩn hóa Mục đích/Cấu hình/Xử lý |
@@ -34,7 +34,7 @@ Project đã đạt mức **vertical slice/demo hoàn chỉnh chơi mượt mà*
 | Combat Scale | `npm run smoke:combat-scale` | `{"skill":"KIM_KICH","damage":64,"rangeModel":"5x6=30px","valid":true}` | ✅ ĐẠT |
 | Server State & Absorb | `npm run smoke:state` | `{"created":true,"absorbed":31,"stage":2,"power":1475}` | ✅ ĐẠT |
 | Concurrency 40 Clients | `npm run smoke:concurrency` | `{"clients":40,"elapsedMs":880,"moveEvents":760,"memoryMb":{"rss":140,"heapUsed":77}}` | ✅ ĐẠT |
-| Root Balance | `npm run validate:roots` | `Root balance data valid: 9 roots, 57 skills.` | ✅ ĐẠT |
+| Root Balance | `npm run validate:roots` | `Root balance data valid: 9 roots, 66 skills.` | ✅ ĐẠT |
 | Combat Balance | `npm run validate:balance` | `Combat balance valid: stat budget, derived stats, mitigation, affinity.` | ✅ ĐẠT |
 | World Scale | `npm run validate:world` | `World scale valid: 2 maps micro-grid, actors 14-21px, spawn footprint clear.` | ✅ ĐẠT |
 

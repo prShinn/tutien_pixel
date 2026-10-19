@@ -1159,6 +1159,43 @@ body {
   background: #2a2340;
   box-shadow: inset 0 0 0 1px rgba(232, 200, 112, 0.25), 0 0 8px rgba(232, 200, 112, 0.16);
 }
+
+/* HUB / inventory interaction layer */
+.hub-actions { display:flex; gap:4px; margin-top:5px; justify-content:flex-end; }
+.hub-action { border:1px solid rgba(215,182,90,.35); background:rgba(12,16,28,.82); color:#e6d48d; border-radius:6px; padding:3px 7px; font-family:inherit; font-size:9px; font-weight:700; line-height:1.2; cursor:pointer; }
+.hub-action:hover { border-color:#f0c96b; background:rgba(215,182,90,.18); transform:translateY(-1px); }
+.inventory-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:28px; }
+.inventory-hint { color:#7f8ba5; font-size:9px; }
+.inventory-toolbar .sbtn:disabled { opacity:.4; cursor:not-allowed; }
+.inv-selection { min-height:24px; margin-top:6px; padding:5px 7px; border:1px solid rgba(120,135,170,.2); border-radius:6px; color:#b8c4dd; background:rgba(7,10,20,.72); font-size:9px; }
+.isl { position:relative; cursor:pointer; transition:transform .12s, border-color .12s, background .12s; }
+.isl:hover { transform:translateY(-2px); border-color:#d7b65a; background:rgba(215,182,90,.12); }
+.isl.selected { border-color:#f0c96b; box-shadow:0 0 0 1px rgba(240,201,107,.5), 0 0 12px rgba(240,201,107,.2); background:rgba(215,182,90,.16); }
+.esl { cursor:pointer; transition:transform .12s, border-color .12s; }
+.esl:hover { transform:translateY(-2px); border-color:#d7b65a; }
+.esl.equipped { border-color:rgba(128,216,220,.55); color:#d7eff2; background:linear-gradient(145deg,rgba(22,45,58,.8),rgba(5,10,18,.9)); }
+#loot-feed { position:fixed; left:50%; top:24%; transform:translateX(-50%); z-index:450; display:flex; flex-direction:column; align-items:center; gap:5px; pointer-events:none; }
+.loot-drop-toast { padding:6px 12px; border:1px solid rgba(215,182,90,.65); border-radius:999px; background:rgba(10,15,24,.9); color:#f4d982; box-shadow:0 6px 20px rgba(0,0,0,.32); font-size:11px; animation:lootRise 2.6s ease-out forwards; }
+@keyframes lootRise { 0%{opacity:0; transform:translateY(10px) scale(.94)} 12%{opacity:1; transform:translateY(0) scale(1)} 78%{opacity:1} 100%{opacity:0; transform:translateY(-22px) scale(.98)} }
+@media (max-width:760px) { .hub-actions { display:none; } #loot-feed { top:18%; } .inventory-hint { display:none; } }
+.continent-modal { position:fixed; inset:0; z-index:900; align-items:center; justify-content:center; padding:20px; background:rgba(2,5,12,.78); backdrop-filter:blur(6px); }
+.continent-box { width:min(900px, calc(100vw - 30px)); max-height:min(680px, calc(100vh - 40px)); overflow:auto; border:1px solid rgba(128,216,220,.35); border-radius:16px; background:linear-gradient(145deg,#0b1421,#101326); box-shadow:0 22px 80px rgba(0,0,0,.6); color:#dbe7f2; }
+.continent-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:16px 18px; border-bottom:1px solid rgba(128,216,220,.18); }
+.continent-head strong { display:block; margin-top:4px; color:#f4d982; font-size:19px; }
+.continent-summary { padding:12px 18px; color:#9baec4; font-size:11px; line-height:1.5; }
+.continent-regions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0 18px 18px; }
+.continent-region { padding:11px; border:1px solid rgba(128,216,220,.16); border-radius:10px; background:rgba(9,18,29,.72); }
+.region-title b { display:block; color:#8fe7d7; font-size:12px; }
+.region-title span { display:block; margin-top:4px; color:#788ba1; font-size:9px; line-height:1.4; }
+.continent-maps { display:grid; gap:5px; margin-top:9px; }
+.continent-map { position:relative; display:grid; gap:2px; padding:7px 8px; border-left:3px solid #44536b; background:rgba(255,255,255,.035); }
+.continent-map.playable { border-left-color:#7ee787; background:rgba(68,140,100,.12); }
+.continent-map.planned { opacity:.62; }
+.continent-map b { font-size:10px; color:#e7edf5; }
+.continent-map small { color:#8b9aae; font-size:8px; }
+.map-status { position:absolute; top:6px; right:7px; color:#7ee787; font-size:8px; }
+.planned .map-status { color:#9a8b65; }
+@media (max-width:760px) { .continent-regions { grid-template-columns:1fr; } .continent-box { max-height:calc(100vh - 20px); } }
 .sbtn.ssell:hover {
   border-color: var(--gold);
   color: var(--gold);

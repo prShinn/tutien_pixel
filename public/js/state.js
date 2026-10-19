@@ -28,6 +28,7 @@ const S = {
   mapW: 0,
   mapH: 0,
   monsters: [],
+  groundItems: [],
   // socketId -> remote player snapshot; state thuộc về runtime, không phải global module.
   players: new Map(),
   npcs: [],

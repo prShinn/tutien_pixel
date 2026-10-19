@@ -14,6 +14,7 @@
 
 const UI = {
   _lastEqHash: "",
+  selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
   toggleKpahMenu() {
     const el = document.getElementById("kpah-menu-modal");
@@ -30,6 +31,23 @@ const UI = {
       if (el.style.display === "flex") {
         document.getElementById("chat-inp").focus();
       }
+    }
+  },
+  async toggleContinent() {
+    const el = document.getElementById("continent-modal");
+    if (!el) return;
+    const opening = el.style.display === "none";
+    el.style.display = opening ? "flex" : "none";
+    if (!opening || this._continentLoaded) return;
+    try {
+      const data = await Net.get(API.PATHS.worlds.structure);
+      const regions = document.getElementById("continent-regions");
+      document.getElementById("continent-name").textContent = data.name || "Đại lục";
+      document.getElementById("continent-summary").textContent = data.description || "Địa đồ đang được cập nhật.";
+      regions.innerHTML = (data.regions || []).map((region) => `<section class="continent-region"><div class="region-title"><b>${region.name}</b><span>${region.description || ""}</span></div><div class="continent-maps">${(region.maps || []).map((map) => `<div class="continent-map ${map.playable ? "playable" : "planned"}"><span class="map-status">${map.playable ? "Đang mở" : "Quy hoạch"}</span><b>${map.name}</b><small>${map.type} · Lv ${map.level}</small></div>`).join("")}</div></section>`).join("");
+      this._continentLoaded = true;
+    } catch (error) {
+      document.getElementById("continent-summary").textContent = "Không tải được địa đồ máy chủ.";
     }
   },
   showLoading() {
@@ -204,7 +222,9 @@ const UI = {
       if (!el) continue;
       const icon = slot.item?.icon || slot.label.slice(0, 1);
       el.innerHTML = `<div class="eicon">${icon}</div>${slot.item?.name || slot.label}`;
-      el.title = slot.item?.description || "";
+      el.classList.toggle("equipped", Boolean(slot.item));
+      el.title = slot.item ? `${slot.item.name || slot.label}\nClick để tháo` : `${slot.label}\nÔ trống`;
+      el.onclick = slot.item ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
     }
   },
 
@@ -253,7 +273,9 @@ const UI = {
       if (it) {
         el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
         el.innerHTML = `${it.icon || "📦"}<span class="icnt">x${it.count || 1}</span>`;
-        el.onclick = () => Inventory.use(i);
+        el.classList.toggle("selected", this.selectedInventoryIndex === i);
+        el.onclick = () => this.selectInventoryItem(i);
+        el.ondblclick = () => Inventory.use(i);
         el.onmouseenter = (e) => this.showTip(it, e);
         el.onmousemove = (e) => this.moveTip(e);
         el.onmouseleave = () => this.hideTip();
@@ -262,6 +284,41 @@ const UI = {
       }
       grid.appendChild(el);
     }
+    const selected = S.inventory[this.selectedInventoryIndex];
+    const selection = document.getElementById("inv-selection");
+    const useBtn = document.getElementById("inv-use-btn");
+    if (selection) selection.textContent = selected ? `${selected.icon || "📦"} ${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
+    if (useBtn) {
+      useBtn.disabled = !selected;
+      useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "Trang bị" : "Dùng";
+    }
+  },
+
+  selectInventoryItem(index) {
+    this.selectedInventoryIndex = Number(index);
+    Inventory.selectedIndex = this.selectedInventoryIndex;
+    this.buildInv();
+    const item = S.inventory[this.selectedInventoryIndex];
+    if (item) this.showTip(item, { clientX: window.innerWidth - 330, clientY: window.innerHeight - 190 });
+  },
+
+  useSelectedItem() {
+    if (this.selectedInventoryIndex >= 0) Inventory.use(this.selectedInventoryIndex);
+  },
+
+  pushLoot(loot) {
+    const feed = document.getElementById("loot-feed");
+    if (!feed || !loot) return;
+    const entries = [];
+    if (Number(loot.xu || 0) > 0) entries.push(`💰 +${loot.xu} xu`);
+    for (const item of loot.items || []) entries.push(`${item.icon || "📦"} ${item.name || item.id} x${item.count || 1}`);
+    entries.forEach((text) => {
+      const el = document.createElement("div");
+      el.className = "loot-drop-toast";
+      el.textContent = text;
+      feed.appendChild(el);
+      setTimeout(() => el.remove(), 2600);
+    });
   },
 
   log(msg, cls = "") {

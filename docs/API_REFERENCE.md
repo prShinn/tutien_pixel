@@ -1,6 +1,6 @@
-# 🔌 API REFERENCE — Backend :8090
+# 🔌 API REFERENCE — Backend :3000
 
-> Base URL: `http://localhost:8090`  
+> Base URL: `http://localhost:3000`
 > Auth: `Bearer <token>` trong header `Authorization`
 
 ---

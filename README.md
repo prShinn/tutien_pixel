@@ -3,7 +3,7 @@
 ## Stack
 - **Express** — REST API (auth, save/load)
 - **Socket.io** — Real-time co-op (move sync, chat, combat fx)
-- **lowdb** — JSON file DB (local, zero-config)
+- **In-memory Maps** — runtime demo state; admin world snapshots use `data/admin-worlds.json`
 - **bcryptjs** — Password hashing
 - **JWT** — Auth tokens (7 ngày)
 

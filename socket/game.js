@@ -28,6 +28,7 @@ const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStren
 // Production: Redis pub/sub ở đây
 const sessions = new Map();
 const roomMonsters = new Map();
+const roomGroundItems = new Map();
 const roomRuntime = new Map();
 const MONSTER_ROOM_CAP = 9;
 const MONSTER_MIN_ON_JOIN = 3;
@@ -334,15 +335,39 @@ function rollMonsterLoot(monster) {
 }
 
 function addLootToPlayer(player, loot) {
-  if (!loot) return;
+  if (!loot) return { acceptedXu: 0, acceptedItems: 0 };
+  let acceptedItems = 0;
   player.xu = Number(player.xu || 0) + Number(loot.xu || 0);
   const inventory = readInventory(player);
   for (const drop of loot.items || []) {
     const existing = inventory.find((item) => item.id === drop.id);
-    if (existing) existing.count = Math.min(99, Number(existing.count || 0) + Number(drop.count || 1));
-    else if (inventory.length < 40) inventory.push({ ...drop });
+    if (existing) {
+      const before = Number(existing.count || 0);
+      existing.count = Math.min(99, before + Number(drop.count || 1));
+      acceptedItems += Math.max(0, existing.count - before);
+    } else if (inventory.length < 40) {
+      inventory.push({ ...drop });
+      acceptedItems += Number(drop.count || 1);
+    }
   }
   writeInventory(player, inventory);
+  return { acceptedXu: Number(loot.xu || 0), acceptedItems };
+}
+
+function publicGroundItem(drop, now = Date.now()) {
+  return { id: drop.id, kind: drop.kind, item: drop.item || null, count: drop.count || 1, xu: drop.xu || 0, x: drop.x, y: drop.y, expiresAt: Math.max(0, Number(drop.expiresAt || now) - now) };
+}
+
+function spawnGroundLoot(roomId, x, y, loot, ownerId) {
+  if (!loot || (!loot.xu && !(loot.items || []).length)) return [];
+  const drops = roomGroundItems.get(roomId) || [];
+  const now = Date.now();
+  const created = [];
+  if (Number(loot.xu || 0) > 0) created.push({ id: `loot_${roomId}_${now}_${Math.random().toString(36).slice(2, 7)}`, kind: "xu", xu: Number(loot.xu), x: Number(x), y: Number(y), ownerId, expiresAt: now + 60000 });
+  for (const item of loot.items || []) created.push({ id: `loot_${roomId}_${now}_${Math.random().toString(36).slice(2, 7)}`, kind: "item", item: { ...item }, count: Number(item.count || 1), x: Number(x) + (Math.random() - .5) * 1.4, y: Number(y) + (Math.random() - .5) * 1.4, ownerId, expiresAt: now + 60000 });
+  drops.push(...created);
+  roomGroundItems.set(roomId, drops);
+  return created.map((drop) => publicGroundItem(drop, now));
 }
 
 function applySkillEffect(monster, skill, now, passive = {}) {
@@ -846,7 +871,8 @@ function setupSocket(io, players = new Map(), options = {}) {
         mapVersion: Number(worldData.version || 0),
         player: playerData || null,
         players: worldPlayers,
-        monsters
+        monsters,
+        groundItems: (roomGroundItems.get(roomId) || []).map((item) => publicGroundItem(item))
       });
 
       // Notify others on same map
@@ -948,6 +974,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       if (![...sessions.values()].some((item) => item.mapId === oldMapId)) {
         roomMonsters.delete(oldMapId);
         roomRuntime.delete(oldMapId);
+        roomGroundItems.delete(oldMapId);
       }
 
       const worldData = requestedWorld;
@@ -961,7 +988,8 @@ function setupSocket(io, players = new Map(), options = {}) {
         mapVersion: Number(worldData.version || 0),
         player: playerData || null,
         players: worldPlayers,
-        monsters: ensureRoomMonsters(roomId, worldData)
+        monsters: ensureRoomMonsters(roomId, worldData),
+        groundItems: (roomGroundItems.get(roomId) || []).map((item) => publicGroundItem(item))
       });
 
       emitNear(roomId, arrival.x, arrival.y, "player_join", { ...session }, socket.id);
@@ -1024,7 +1052,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       const hits = [{ targetId: monster.id, ...result }];
       let bonusXu = Number(result.loot?.xu || 0);
       const droppedItems = [...(result.loot?.items || [])];
-      if (result.loot) addLootToPlayer(player, result.loot);
+      let groundDrops = result.loot ? spawnGroundLoot(roomId, monster.x, monster.y, result.loot, socket.id) : [];
       const aoeRange = Number(skill?.dienRong || 0) * SKILL_RANGE_SCALE;
       if (aoeRange > 0) {
         for (const nearby of monsters) {
@@ -1037,13 +1065,39 @@ function setupSocket(io, players = new Map(), options = {}) {
             hits.push({ targetId: nearby.id, ...extra });
             bonusXu += Number(extra.loot?.xu || 0);
             droppedItems.push(...(extra.loot?.items || []));
-            if (extra.loot) addLootToPlayer(player, extra.loot);
+            if (extra.loot) groundDrops.push(...spawnGroundLoot(roomId, nearby.x, nearby.y, extra.loot, socket.id));
           }
         }
       }
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
-      emitNear(roomId, session.x, session.y, "combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, loot: (bonusXu || droppedItems.length) ? { xu: bonusXu, items: droppedItems } : null });
+      if (groundDrops.length) emitNear(roomId, session.x, session.y, "ground_loot_spawn", { drops: groundDrops });
+      emitNear(roomId, session.x, session.y, "combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, groundDrops, loot: null });
+    });
+
+    socket.on("pickup_ground_item", ({ itemId }) => {
+      const session = sessions.get(socket.id);
+      const player = getPlayerByUserId(socket.userId);
+      if (!session || !player) return;
+      const drops = roomGroundItems.get(session.mapId) || [];
+      const index = drops.findIndex((drop) => String(drop.id) === String(itemId));
+      if (index < 0) return socket.emit("action_error", { action: "pickup", error: "Vật phẩm đã biến mất" });
+      const drop = drops[index];
+      if (Math.hypot(Number(session.x) - Number(drop.x), Number(session.y) - Number(drop.y)) > 30) return socket.emit("action_error", { action: "pickup", error: "Đứng gần vật phẩm để nhặt" });
+      const loot = drop.kind === "xu" ? { xu: drop.xu, items: [] } : { xu: 0, items: [{ ...drop.item, count: drop.count }] };
+      if (drop.kind === "item") {
+        const inventory = readInventory(player);
+        const existing = inventory.find((item) => item.id === drop.item.id);
+        const available = existing ? Math.max(0, 99 - Number(existing.count || 0)) : (inventory.length < 40 ? Number(drop.count || 1) : 0);
+        if (available < Number(drop.count || 1)) return socket.emit("action_error", { action: "pickup", error: "Túi đồ đầy hoặc vật phẩm đã đủ stack" });
+      }
+      const accepted = addLootToPlayer(player, loot);
+      if (drop.kind === "item" && accepted.acceptedItems < Number(drop.count || 1)) return socket.emit("action_error", { action: "pickup", error: "Túi đồ đầy hoặc vật phẩm đã đủ stack" });
+      drops.splice(index, 1);
+      roomGroundItems.set(session.mapId, drops);
+      players.set(player.id, player);
+      socket.emit("ground_loot_picked", { item: publicGroundItem(drop), player, loot });
+      socket.to(`map:${session.mapId}`).emit("ground_loot_removed", { itemId: drop.id });
     });
 
     socket.on("attack_effect", ({ targetId, damage, mapId }) => {
@@ -1083,6 +1137,13 @@ function setupSocket(io, players = new Map(), options = {}) {
   const respawnTimer = setInterval(() => {
     const now = Date.now();
     updatePlayerRegeneration(now);
+    for (const [mapId, drops] of roomGroundItems.entries()) {
+      const active = drops.filter((drop) => Number(drop.expiresAt || 0) > now);
+      if (active.length !== drops.length) {
+        roomGroundItems.set(mapId, active);
+        io.to(`map:${mapId}`).emit("ground_loot_state", { items: active.map((item) => publicGroundItem(item, now)) });
+      }
+    }
     for (const [mapId, monsters] of roomMonsters.entries()) {
       for (const monster of monsters) {
         if (!monster.dead || !monster.respawnAt || monster.respawnAt > now) continue;

@@ -27,6 +27,7 @@ const { createRateLimiter } = require("./middleware/rate-limit");
 const { setupSocket } = require("./socket/game");
 const ENV = require("./config/env");
 const { realms, roots, items, skills, monsterDefs, worlds } = require("./data/mock-data");
+const { getWorldStructure } = require("./data/world-structure");
 const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain } = require("./data/balance");
 
 const app = express();
@@ -334,6 +335,30 @@ app.get("/api/worlds/default", (req, res) => sendCachedWorld(req, res, worlds.fi
 app.get("/api/worlds/by-code", (req, res) => {
   const world = worlds.find((item) => item.code === String(req.query.code || "").toLowerCase());
   return sendCachedWorld(req, res, world);
+});
+
+app.get("/api/world-structure", (_req, res) => {
+  const structure = getWorldStructure();
+  const activeCodes = new Set(worlds.map((world) => String(world.code || "").toLowerCase()));
+  for (const region of structure.regions) {
+    for (const map of region.maps) {
+      map.playable = activeCodes.has(map.code);
+      if (map.playable) map.runtime = { code: map.code, version: worlds.find((world) => world.code === map.code)?.version || 1 };
+    }
+  }
+  const knownCodes = new Set(structure.regions.flatMap((region) => region.maps.map((map) => map.code)));
+  const unmanaged = worlds.filter((world) => !knownCodes.has(String(world.code || "").toLowerCase()));
+  if (unmanaged.length) {
+    structure.regions.push({
+      id: "ADMIN_PUBLISHED",
+      name: "Bản đồ mới xuất bản",
+      terrain: "custom",
+      order: 99,
+      description: "Map được tạo từ Admin và chưa gắn vào vùng địa lý chính.",
+      maps: unmanaged.map((world) => ({ code: world.code, name: world.tenMap || world.name || world.code, type: world.type || "CUSTOM", status: "ACTIVE", playable: true, tier: 0, level: "chưa định", role: "admin_published", connections: [], runtime: { code: world.code, version: world.version || 1 } })),
+    });
+  }
+  res.json(structure);
 });
 app.get("/api/admin/worlds", adminMapMiddleware, (req, res) => {
   res.json(worlds.map((world) => ({
