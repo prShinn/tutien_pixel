@@ -23,6 +23,7 @@ const { JWT_SECRET } = require("../middleware/auth");
 const AUTH_BACKEND = ENV.authBackend;
 const { skills, monsterDefs, items, lootTables } = require("../data/mock-data");
 const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage } = require("../data/balance");
+const { createCommandPipeline } = require("./command-pipeline");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
@@ -820,9 +821,15 @@ function setupSocket(io, players = new Map(), options = {}) {
   }
 
   io.on("connection", (socket) => {
+    const commandHandlers = {};
+    const commandPipeline = createCommandPipeline({
+      handlers: commandHandlers,
+      onAlias: (event, command) => console.warn(`[Command] legacy event '${event}' -> '${command}'`),
+    });
+
     // ── join_world ────────────────────────────────────────────────
-    socket.on("join_world", async ({ mapCode, x = 26, y = 30, mapVersion = 0, hasMap = false } = {}) => {
-      if (sessions.has(socket.id)) return;
+    const handleJoinWorld = async ({ mapCode, x = 26, y = 30, mapVersion = 0, hasMap = false } = {}, ctx = {}) => {
+      if (sessions.has(socket.id)) return { joined: false, alreadyJoined: true };
       let roomId = (mapCode || "").trim().toLowerCase();
       console.log(`[Socket] ${socket.username} gia nhập. MapCode nhận được: "${roomId || "RỖNG"}"`);
 
@@ -830,7 +837,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       if (worldData) roomId = String(worldData.code || worldData.maMap || worldData.id || roomId).toLowerCase();
       if (!worldData) {
         console.error(`[Socket] Lỗi: Không có dữ liệu bản đồ cho ${socket.username}.`);
-        return;
+        return ctx.fail?.("WORLD_NOT_FOUND", "Bản đồ không tồn tại", "join_world");
       }
 
       const monsters = ensureRoomMonsters(roomId, worldData);
@@ -877,14 +884,15 @@ function setupSocket(io, players = new Map(), options = {}) {
 
       // Notify others on same map
       emitNear(roomId, x, y, "player_join", session, socket.id);
-    });
+      return { joined: true, mapCode: roomId, playerId: socket.id };
+    };
 
     // ── move ──────────────────────────────────────────────────────
-    socket.on("move", ({ x, y, mapId, mapCode }) => {
+    const handleMove = ({ x, y, mapId, mapCode } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
-      if (!session) return;
+      if (!session) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "move");
       const now = Date.now();
-      if (now - Number(session.lastMoveAt || 0) < MOVE_MIN_INTERVAL_MS) return;
+      if (now - Number(session.lastMoveAt || 0) < MOVE_MIN_INTERVAL_MS) return { accepted: false, throttled: true };
       session.lastMoveAt = now;
       const roomId = session.mapId;
       const rawX = Number(x);
@@ -903,7 +911,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !validBounds || !validSpeed || blocked) {
         const reason = blocked ? "Vị trí bị địa hình chặn" : (!validSpeed ? "Tốc độ di chuyển không hợp lệ" : "Tọa độ di chuyển không hợp lệ");
         socket.emit("movement_corrected", { x: oldX, y: oldY, reason });
-        return;
+        return { accepted: false, corrected: true, x: oldX, y: oldY, reason };
       }
       const oldChunkRoom = session.chunkRoom || sessionChunkRoom(session);
       session.x = rawX;
@@ -927,25 +935,26 @@ function setupSocket(io, players = new Map(), options = {}) {
       if (playerData) { playerData.x = rawX; playerData.y = rawY; playerData.mapCode = roomId; playerData.mapId = roomId; players.set(playerData.id, playerData); }
       // Broadcast to same map only (không gửi cho chính mình)
       emitNear(roomId, rawX, rawY, "player_move", { ...session }, socket.id);
-    });
+      return { accepted: true, x: rawX, y: rawY, mapCode: roomId };
+    };
 
     // ── map_change ────────────────────────────────────────────────
-    socket.on("map_change", async ({ mapId, mapCode, x, y }) => {
+    const handleMapChange = async ({ mapId, mapCode, x, y } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
-      if (!session) return;
+      if (!session) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "map_change");
       const roomId = (mapId || mapCode || session.mapId).toLowerCase();
       const oldMapId = session.mapId;
       const sourceWorld = resolveWorld(oldMapId);
       const requestedWorld = resolveWorld(roomId);
-      if (!requestedWorld) return socket.emit("action_error", { action: "map_change", error: "Bản đồ không tồn tại" });
+      if (!requestedWorld) return ctx.fail?.("WORLD_NOT_FOUND", "Bản đồ không tồn tại", "map_change");
       const portal = (sourceWorld?.portals || []).find((item) => {
         const destination = String(item.denMap || item.toMap || "").toLowerCase();
         return destination === roomId
           && Math.hypot(Number(session.x) - Number(item.x), Number(session.y) - Number(item.y)) <= PORTAL_ACTIVATION_RANGE;
       });
-      if (!portal) return socket.emit("action_error", { action: "map_change", error: "Bạn chưa đứng trong phạm vi portal hợp lệ" });
+      if (!portal) return ctx.fail?.("PORTAL_REQUIRED", "Bạn chưa đứng trong phạm vi portal hợp lệ", "map_change");
       const arrival = nearestWalkablePoint(requestedWorld, portal.toX, portal.toY);
-      if (!arrival) return socket.emit("action_error", { action: "map_change", error: "Điểm đến portal không thể đặt nhân vật" });
+      if (!arrival) return ctx.fail?.("ARRIVAL_BLOCKED", "Điểm đến portal không thể đặt nhân vật", "map_change");
 
       // Leave old room
       if (session.mapId) {
@@ -993,17 +1002,18 @@ function setupSocket(io, players = new Map(), options = {}) {
       });
 
       emitNear(roomId, arrival.x, arrival.y, "player_join", { ...session }, socket.id);
-    });
+      return { changed: true, mapCode: roomId, x: arrival.x, y: arrival.y };
+    };
 
     // ── chat ──────────────────────────────────────────────────────
-    socket.on("chat", ({ message }) => {
-      if (!message || typeof message !== "string") return;
+    const handleChat = ({ message } = {}, ctx = {}) => {
+      if (!message || typeof message !== "string") return ctx.fail?.("INVALID_MESSAGE", "Tin nhắn không hợp lệ", "chat");
       const clean = message.slice(0, 100).trim();
-      if (!clean) return;
+      if (!clean) return ctx.fail?.("EMPTY_MESSAGE", "Tin nhắn không được để trống", "chat");
       const session = sessions.get(socket.id);
-      if (!session) return;
+      if (!session) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "chat");
       const now = Date.now();
-      if (now - Number(session.lastChatAt || 0) < 500) return;
+      if (now - Number(session.lastChatAt || 0) < 500) return { accepted: false, throttled: true };
       session.lastChatAt = now;
 
       const payload = {
@@ -1016,39 +1026,41 @@ function setupSocket(io, players = new Map(), options = {}) {
       // Broadcast to same map
       socket.to(`map:${session.mapId}`).emit("chat_message", payload);
       socket.emit("chat_message", payload); // echo back to self
-    });
+      return { accepted: true, message: clean, ts: now };
+    };
 
     // ── attack_effect (visual sync only — damage tính server-side sau) ─
-    socket.on("skill_request", ({ skillCode }) => {
+    const handleSkill = ({ skillCode } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
       const player = getPlayerByUserId(socket.userId);
-      if (!session || !player) return;
+      if (!session || !player) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "skill");
       const result = resolveSelfSkill(player, skillCode, session);
-      if (result.error) return socket.emit("action_error", { action: "skill", error: result.error });
+      if (result.error) return ctx.fail?.("SKILL_REJECTED", result.error, "skill");
       players.set(player.id, player);
       socket.emit("skill_result", result);
-    });
+      return result;
+    };
 
-    socket.on("attack_request", ({ targetId, skillCode, mapId }) => {
+    const handleAttack = ({ targetId, skillCode, mapId } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
       const player = getPlayerByUserId(socket.userId);
-      if (!session) return socket.emit("action_error", { action: "combat", error: "Phiên chơi chưa sẵn sàng" });
-      if (!player) return socket.emit("action_error", { action: "combat", error: "Không tìm thấy nhân vật" });
+      if (!session) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "combat");
+      if (!player) return ctx.fail?.("PLAYER_NOT_FOUND", "Không tìm thấy nhân vật", "combat");
       const roomId = String(session.mapId || mapId || "").toLowerCase();
       const monsters = roomMonsters.get(roomId) || [];
       const monster = monsters.find((item) => String(item.id) === String(targetId));
-      if (!monster) return socket.emit("action_error", { action: "combat", error: "Quái không còn trong bản đồ hiện tại" });
-      if (monster.dead) return socket.emit("action_error", { action: "combat", error: "Quái đang hồi sinh" });
+      if (!monster) return ctx.fail?.("TARGET_NOT_FOUND", "Quái không còn trong bản đồ hiện tại", "combat");
+      if (monster.dead) return ctx.fail?.("TARGET_DEAD", "Quái đang hồi sinh", "combat");
       const skill = findSkill(skillCode);
       // Bù sai số tâm actor giữa client render và tọa độ tile authoritative.
       const attackRange = skill
         ? Number(skill.range || 5) * SKILL_RANGE_SCALE
         : BASIC_ATTACK_RANGE + 2;
       if (monsterDistanceTiles(session, monster) > attackRange) {
-        return socket.emit("action_error", { action: "combat", error: "Mục tiêu ngoài phạm vi kỹ năng" });
+        return ctx.fail?.("OUT_OF_RANGE", "Mục tiêu ngoài phạm vi kỹ năng", "combat");
       }
       const result = resolveMonsterAttack(player, monster, skillCode, session);
-      if (result.error) return socket.emit("action_error", { action: "combat", error: result.error });
+      if (result.error) return ctx.fail?.("COMBAT_REJECTED", result.error, "combat");
       const hits = [{ targetId: monster.id, ...result }];
       let bonusXu = Number(result.loot?.xu || 0);
       const droppedItems = [...(result.loot?.items || [])];
@@ -1072,33 +1084,82 @@ function setupSocket(io, players = new Map(), options = {}) {
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
       if (groundDrops.length) emitNear(roomId, session.x, session.y, "ground_loot_spawn", { drops: groundDrops });
-      emitNear(roomId, session.x, session.y, "combat_result", { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, groundDrops, loot: null });
-    });
+      const combatPayload = { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, groundDrops, loot: null };
+      emitNear(roomId, session.x, session.y, "combat_result", combatPayload);
+      return { accepted: true, ...combatPayload };
+    };
 
-    socket.on("pickup_ground_item", ({ itemId }) => {
+    const handlePickup = ({ itemId } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
       const player = getPlayerByUserId(socket.userId);
-      if (!session || !player) return;
+      if (!session || !player) return ctx.fail?.("SESSION_NOT_READY", "Phiên chơi chưa sẵn sàng", "pickup");
       const drops = roomGroundItems.get(session.mapId) || [];
       const index = drops.findIndex((drop) => String(drop.id) === String(itemId));
-      if (index < 0) return socket.emit("action_error", { action: "pickup", error: "Vật phẩm đã biến mất" });
+      if (index < 0) return ctx.fail?.("LOOT_NOT_FOUND", "Vật phẩm đã biến mất", "pickup");
       const drop = drops[index];
-      if (Math.hypot(Number(session.x) - Number(drop.x), Number(session.y) - Number(drop.y)) > 30) return socket.emit("action_error", { action: "pickup", error: "Đứng gần vật phẩm để nhặt" });
+      if (Math.hypot(Number(session.x) - Number(drop.x), Number(session.y) - Number(drop.y)) > 30) return ctx.fail?.("LOOT_OUT_OF_RANGE", "Đứng gần vật phẩm để nhặt", "pickup");
       const loot = drop.kind === "xu" ? { xu: drop.xu, items: [] } : { xu: 0, items: [{ ...drop.item, count: drop.count }] };
       if (drop.kind === "item") {
         const inventory = readInventory(player);
         const existing = inventory.find((item) => item.id === drop.item.id);
         const available = existing ? Math.max(0, 99 - Number(existing.count || 0)) : (inventory.length < 40 ? Number(drop.count || 1) : 0);
-        if (available < Number(drop.count || 1)) return socket.emit("action_error", { action: "pickup", error: "Túi đồ đầy hoặc vật phẩm đã đủ stack" });
+        if (available < Number(drop.count || 1)) return ctx.fail?.("INVENTORY_FULL", "Túi đồ đầy hoặc vật phẩm đã đủ stack", "pickup");
       }
       const accepted = addLootToPlayer(player, loot);
-      if (drop.kind === "item" && accepted.acceptedItems < Number(drop.count || 1)) return socket.emit("action_error", { action: "pickup", error: "Túi đồ đầy hoặc vật phẩm đã đủ stack" });
+      if (drop.kind === "item" && accepted.acceptedItems < Number(drop.count || 1)) return ctx.fail?.("INVENTORY_FULL", "Túi đồ đầy hoặc vật phẩm đã đủ stack", "pickup");
       drops.splice(index, 1);
       roomGroundItems.set(session.mapId, drops);
       players.set(player.id, player);
       socket.emit("ground_loot_picked", { item: publicGroundItem(drop), player, loot });
       socket.to(`map:${session.mapId}`).emit("ground_loot_removed", { itemId: drop.id });
+      return { accepted: true, itemId: drop.id, loot };
+    };
+
+    Object.assign(commandHandlers, {
+      "world.join": handleJoinWorld,
+      "movement.intent": handleMove,
+      "map.change": handleMapChange,
+      "combat.attack": handleAttack,
+      "combat.skill": handleSkill,
+      "loot.pickup": handlePickup,
+      "chat.send": handleChat,
+      "world.resync": () => {
+        const session = sessions.get(socket.id);
+        if (!session) return { __commandError: { code: "SESSION_NOT_READY", message: "Phiên chơi chưa sẵn sàng" } };
+        const worldData = resolveWorld(session.mapId);
+        const playerData = getPlayerByUserId(socket.userId);
+        socket.emit("world_init", {
+          map: null,
+          mapCode: session.mapId,
+          mapVersion: Number(worldData?.version || 0),
+          player: playerData || null,
+          players: nearbySessions(session.mapId, session.x, session.y, socket.id),
+          monsters: ensureRoomMonsters(session.mapId, worldData),
+          groundItems: (roomGroundItems.get(session.mapId) || []).map((item) => publicGroundItem(item)),
+        });
+        return { accepted: true, authoritative: true, mapCode: session.mapId };
+      },
     });
+    socket.on("game_command", (envelope, ack) => commandPipeline.dispatch(socket, envelope, ack));
+
+    const legacyContext = (action) => ({
+      fail: (_code, message) => {
+        socket.emit("action_error", { action, error: message });
+        return undefined;
+      },
+    });
+    const legacy = (event, action, handler) => socket.on(event, (payload) => {
+      console.warn(`[Command] legacy event '${event}' -> '${event === "join_world" ? "world.join" : event}'`);
+      return handler(payload, legacyContext(action));
+    });
+    legacy("join_world", "join_world", handleJoinWorld);
+    legacy("move", "move", handleMove);
+    legacy("map_change", "map_change", handleMapChange);
+    legacy("chat", "chat", handleChat);
+    legacy("skill_request", "skill", handleSkill);
+    legacy("attack_request", "combat", handleAttack);
+    legacy("pickup_ground_item", "pickup", handlePickup);
+    legacy("monster_sync", "resync", () => commandHandlers["world.resync"]());
 
     socket.on("attack_effect", ({ targetId, damage, mapId }) => {
       const session = sessions.get(socket.id);
@@ -1109,11 +1170,6 @@ function setupSocket(io, players = new Map(), options = {}) {
         targetId,
         damage,
       });
-    });
-
-    // ── monster_sync (Host syncs monster positions to others) ──
-    socket.on("monster_sync", () => {
-      // Deprecated: server tự điều khiển vị trí và trạng thái monster.
     });
 
     // ── disconnect ────────────────────────────────────────────────

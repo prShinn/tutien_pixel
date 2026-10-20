@@ -367,7 +367,7 @@ const SkillSystem = {
     if (socket?.connected && !offensive) {
       startCastAnimation();
       S.combatPending = true;
-      socket.emit("skill_request", { skillCode: skill.code || skill.id || skill._beId });
+      Net.command("combat.skill", { skillCode: skill.code || skill.id || skill._beId });
       return;
     }
 
@@ -385,7 +385,7 @@ const SkillSystem = {
       S.target = target;
       startCastAnimation();
       S.combatPending = true;
-      socket.emit("attack_request", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapId: S.mapCode });
+      Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapId: S.mapCode });
       return;
     }
 

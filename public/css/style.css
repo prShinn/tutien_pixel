@@ -1495,7 +1495,8 @@ body {
   content: "";
   position: absolute; inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 48%, rgba(2, 3, 10, .42) 100%);
+  /* Chỉ tạo chiều sâu nhẹ; không phủ tối map và không làm nhân vật nổi như đang ở trong aura. */
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(2, 3, 10, .20) 100%);
   z-index: 2;
 }
 #game-canvas { position: relative; z-index: 1; }
@@ -1649,18 +1650,18 @@ body {
 }
 #kpah-hud-bottomright .kpah-skill-ring {
   width: auto;
-  min-height: 78px;
-  padding: 7px 9px;
+  min-height: 70px;
+  padding: 5px 7px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid rgba(215,182,90,.32);
-  border-radius: 13px;
-  background: rgba(7,10,20,.82);
-  box-shadow: 0 10px 28px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.06);
-  backdrop-filter: blur(9px);
+  gap: 6px;
+  border: 1px solid rgba(215,182,90,.38);
+  border-radius: 7px;
+  background: rgba(7,10,20,.92);
+  box-shadow: 0 7px 18px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter: none;
   pointer-events: auto;
 }
 #kpah-hud-bottomright .sk-main,
@@ -1668,9 +1669,9 @@ body {
   position: relative;
   inset: auto;
   flex: 0 0 auto;
-  width: 62px;
-  height: 62px;
-  border-radius: 11px;
+  width: 58px;
+  height: 58px;
+  border-radius: 7px;
 }
 #kpah-hud-bottomright .sk-main {
   order: 0;
@@ -1685,6 +1686,24 @@ body {
 #kpah-hud-bottomright .sk-sub:nth-child(5) {
   display: flex;
 }
+
+/* Desktop hotbar: ưu tiên đọc nhanh bằng icon + phím, không dùng cảm giác nút mobile. */
+#kpah-hud-bottomright .sk-main {
+  width: 72px;
+  border-radius: 7px;
+  background: #542b34;
+  border-color: #e7a17d;
+}
+#kpah-hud-bottomright .sk-sub {
+  background: #182943;
+  border-color: #6fabb7;
+}
+#kpah-hud-bottomright .sk-main:hover,
+#kpah-hud-bottomright .sk-sub:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 rgba(0,0,0,.28), 0 0 10px rgba(128,216,220,.22);
+}
+#kpah-hud-bottomright .skbar-icon img { border-radius: 4px; }
 
 @media (min-width: 701px) and (max-width: 980px) {
   #kpah-hud-bottomright .kpah-skill-ring { gap: 5px; padding: 5px 7px; }

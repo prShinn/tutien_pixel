@@ -374,7 +374,7 @@ const Render = {
     const idle = activeAction === "idle";
     // Nhịp thở chỉ dịch thân rất ít; điểm neo vẫn là chân nên nhân vật không bị cảm giác bay.
     const idlePhase = now * 0.0032;
-    const bob = idle ? Math.sin(idlePhase) * 0.16 : Math.abs(stride) * 0.18;
+    const bob = idle ? Math.sin(idlePhase) * 0.08 : Math.abs(stride) * 0.12;
     const sway = idle
       ? Math.sin(idlePhase * 0.7) * 0.008
       : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
@@ -387,7 +387,7 @@ const Render = {
       // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
       ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 1, moving ? 6.5 + Math.abs(stride) * 0.5 : 6.5, 1.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 0.8, moving ? 5.8 + Math.abs(stride) * 0.4 : 5.8, 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước

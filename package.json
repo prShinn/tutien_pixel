@@ -13,6 +13,7 @@
     "smoke:movement": "node scripts/smoke-movement-authority.js",
     "smoke:demo-loop": "node scripts/smoke-demo-loop.js",
     "smoke:client": "node scripts/smoke-client-shell.js",
+    "smoke:commands": "node scripts/smoke-command-contract.js",
     "smoke:combat-scale": "node scripts/smoke-combat-scale.js",
     "smoke:concurrency": "node scripts/smoke-concurrency.js",
     "smoke:state": "node scripts/smoke-server-state.js",

@@ -30,6 +30,26 @@ const Net = {
   _pendingRequests: new Map(),
   _savePromise: null,
 
+  command(type, payload = {}, onAck) {
+    if (!socket?.connected) return Promise.resolve({ ok: false, error: { code: "OFFLINE", message: "Chưa kết nối máy chủ" } });
+    const requestId = `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
+    return new Promise((resolve) => {
+      socket.emit("game_command", { requestId, type, payload }, (response) => {
+        if (!response?.ok && response?.error?.message) {
+          if (["combat.attack", "combat.skill"].includes(type)) S.combatPending = false;
+          if (type === "map.change" && S.player) {
+            S.player.isTeleporting = false;
+            S.player.portalLocked = false;
+            UI.hideLoading();
+          }
+          UI.log(`⚠ ${response.error.message}`, "system");
+        }
+        onAck?.(response);
+        resolve(response);
+      });
+    });
+  },
+
   _requestKey(method, path, body) {
     const payload = typeof body === "string" ? body : JSON.stringify(body || "");
     return `${method}:${path}:${payload}`;
@@ -173,7 +193,7 @@ const Net = {
         const p = S.player;
         if (p) {
           const mCode = p.mapCode || p.mapId || S.mapCode || "";
-          socket.emit("join_world", {
+          Net.command("world.join", {
             mapCode: mCode,
             mapId: mCode,
             x: p.x,
@@ -583,7 +603,7 @@ const Net = {
         return;
       }
       Net._lastMoveSentAt = now;
-      socket.emit("move", {
+      Net.command("movement.intent", {
         x: S.player.x,
         y: S.player.y,
         mapId: S.mapCode,
@@ -619,8 +639,8 @@ const Net = {
       Net._clearOthers();
       // Flush vị trí hiện tại trước: server phải xác nhận nhân vật đang chạm portal.
       // Không nhảy client tới điểm đến khi server chưa trả world_init.
-      socket.emit("move", { x: S.player?.x, y: S.player?.y, mapId: S.mapCode });
-      setTimeout(() => socket.emit("map_change", { mapId: mapCode, mapCode: mapCode, x: px, y: py }), 65);
+      Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapId: S.mapCode });
+      setTimeout(() => Net.command("map.change", { mapId: mapCode, mapCode, x: px, y: py }), 65);
     }
   },
 
@@ -629,7 +649,7 @@ const Net = {
     const msg = inp.value.trim();
     if (!msg) return;
     if (socket?.connected) {
-      socket.emit("chat", { message: msg });
+      Net.command("chat.send", { message: msg });
     } else {
       UI.log(`[Tôi]: ${msg}`, "chat");
     }

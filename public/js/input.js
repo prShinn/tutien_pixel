@@ -95,7 +95,7 @@ const Input = {
       const dx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2;
       const dy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2;
       if (dist(dx, dy, wx, wy) < 22) {
-        if (socket?.connected) socket.emit("pickup_ground_item", { itemId: drop.id });
+        if (socket?.connected) Net.command("loot.pickup", { itemId: drop.id });
         else UI.log("Cần kết nối máy chủ để nhặt vật phẩm.", "system");
         return;
       }

@@ -259,3 +259,22 @@ MVP hiện dùng `x-admin-key` cho các endpoint editor:
 | `chat` | `{message}` | Gửi chat global |
 | `faction_chat` | `{message}` | Gửi chat phe |
 | `attack_player` | `{targetId, damage}` | PvP attack (chiến trường) |
+
+### Command contract chuẩn
+
+Gameplay realtime mới dùng một event duy nhất:
+
+```js
+socket.emit("game_command", {
+  requestId: "unique-request-id",
+  type: "movement.intent",
+  payload: { x: 301, y: 200, mapCode: "thanh_van_tran" }
+}, (ack) => {});
+```
+
+Command hợp lệ: `world.join`, `movement.intent`, `map.change`, `combat.attack`,
+`combat.skill`, `loot.pickup`, `chat.send`, `world.resync`.
+
+Ack thành công có dạng `{ ok: true, requestId, command, serverTime, result }`.
+Ack lỗi có dạng `{ ok: false, requestId, command, serverTime, error: { code, message } }`.
+Các event cũ vẫn được server nhận tạm thời và chuyển vào cùng handler để tương thích demo.

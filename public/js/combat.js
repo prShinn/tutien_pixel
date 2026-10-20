@@ -125,7 +125,7 @@ const Combat = {
     if (S.player) { S.player.animState = "attack"; S.player.animUntil = Date.now() + 360; }
     if (socket?.connected) {
       S.combatPending = true;
-      socket.emit("attack_request", { targetId: m.id, mapId: S.mapCode });
+      Net.command("combat.attack", { targetId: m.id, mapId: S.mapCode });
       return;
     }
     const baseAtk = Combat.pAtk();
