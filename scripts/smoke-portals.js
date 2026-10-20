@@ -17,7 +17,7 @@ function world(code, name, spawnX, spawnY) {
   const ground = grid(width, height, 0);
   const objects = grid(width, height, -1);
   const elevation = grid(width, height, 0);
-  return { code, tenMap: name, type: "PLAIN", biome: "PLAINS", w: width, h: height, spawnX, spawnY, layers: { ground, objects, elevation }, portals: [] };
+  return { code, tenMap: name, status: "PUBLISHED", type: "PLAIN", biome: "PLAINS", w: width, h: height, spawnX, spawnY, layers: { ground, objects, elevation }, portals: [] };
 }
 
 async function request(path, options = {}) {

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thiên Địa Đồ · Admin</title>
+    <link rel="stylesheet" href="/admin/admin.css?v=1" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/admin"><span class="brand-mark">Đồ</span><span><b>Thiên Địa Đồ</b><small>Realm operations</small></span></a>
+        <nav class="nav" aria-label="Admin navigation">
+          <p class="nav-label">Vận hành</p>
+          <a class="nav-item active" href="#overview" data-view="overview"><span>⌂</span>Tổng quan</a>
+          <a class="nav-item" href="/admin/map-editor"><span>⌘</span>Bản đồ &amp; Portal</a>
+          <p class="nav-label">Nội dung</p>
+          <a class="nav-item" href="#quests" data-view="content" data-collection="quests"><span>◇</span>Quest <i>Mock API</i></a>
+          <a class="nav-item" href="#npcs" data-view="content" data-collection="npcs"><span>♙</span>NPC <i>Mock API</i></a>
+          <a class="nav-item" href="#items" data-view="content" data-collection="items"><span>◈</span>Items &amp; Loot <i>Mock API</i></a>
+          <a class="nav-item" href="#skills" data-view="content" data-collection="skills"><span>✦</span>Skills <i>Mock API</i></a>
+          <p class="nav-label">Hệ thống</p>
+          <a class="nav-item" href="#accounts" data-view="content" data-collection="accounts"><span>◎</span>Tài khoản <i>Mock API</i></a>
+          <a class="nav-item disabled" href="#moderation" data-view="moderation"><span>⚑</span>Moderation <i>Sắp tới</i></a>
+          <a class="nav-item disabled" href="#settings" data-view="settings"><span>⚙</span>Cấu hình <i>Sắp tới</i></a>
+        </nav>
+        <div class="sidebar-foot"><span class="status-dot"></span>Demo server online<small>Data-driven control plane</small></div>
+      </aside>
+      <main class="main">
+        <header class="topbar"><div><span class="eyebrow">CONTROL ROOM / DEMO</span><h1 id="view-title">Tổng quan thế giới</h1></div><div class="admin-session"><label>Admin key <input id="admin-key" type="password" value="demo-admin" /></label><a href="/" class="back-link">← Vào game</a></div></header>
+        <section id="overview" class="view active-view">
+          <div class="hero"><div><p class="eyebrow">Thiên Địa Đồ</p><h2>Một châu lục, một nguồn dữ liệu.</h2><p>Quản lý nội dung từ cấu hình. Runtime chỉ đọc những gì đã xuất bản.</p></div><a class="hero-action" href="/admin/map-editor">Mở Map Editor <span>→</span></a></div>
+          <div class="stat-grid">
+            <article class="stat-card"><span class="stat-icon green">◫</span><div><small>Map đã xuất bản</small><strong id="published-count">—</strong></div><em id="draft-count">— bản nháp</em></article>
+            <article class="stat-card"><span class="stat-icon blue">⌁</span><div><small>Portal đang quản lý</small><strong id="portal-count">—</strong></div><em>Liên kết liên map</em></article>
+            <article class="stat-card"><span class="stat-icon red">♞</span><div><small>Bãi quái</small><strong id="pack-count">—</strong></div><em>Spawn theo cấu hình</em></article>
+            <article class="stat-card"><span class="stat-icon gold">✦</span><div><small>Cảnh giới</small><strong id="realm-count">—</strong></div><em>Tiến trình tu vi</em></article>
+          </div>
+          <div class="content-grid"><section class="panel map-panel"><div class="panel-head"><div><span class="eyebrow">WORLD REGISTRY</span><h3>Bản đồ trong hệ thống</h3></div><a href="/admin/map-editor" class="text-link">Quản lý map →</a></div><div id="world-list" class="world-list"><div class="loading">Đang đọc world registry…</div></div></section><section class="panel roadmap"><div class="panel-head"><div><span class="eyebrow">MODULE ROADMAP</span><h3>Luồng mở rộng</h3></div></div><div class="module-row ready"><span>01</span><div><b>Map / Portal</b><small>Đang hoạt động · draft và publish</small></div><strong>Ready</strong></div><div class="module-row ready"><span>02</span><div><b>Monster spawn</b><small>Đang hoạt động · pack, aggro, leash</small></div><strong>Ready</strong></div><div class="module-row"><span>03</span><div><b>NPC / Quest</b><small>Schema data-driven, chờ module Admin</small></div><strong>Next</strong></div><div class="module-row"><span>04</span><div><b>Items / Loot / Shop</b><small>Đang dùng mock catalog, chờ CRUD Admin</small></div><strong>Next</strong></div><div class="module-row"><span>05</span><div><b>Account / Moderation</b><small>Chờ phân quyền và persistence</small></div><strong>Later</strong></div></section></div>
+        </section>
+        <section id="placeholder" class="placeholder-view"><div class="placeholder-mark">✦</div><span class="eyebrow">MODULE RESERVED</span><h2 id="placeholder-title">Module đang được chuẩn bị</h2><p>Khung Admin đã sẵn sàng. Khi chốt schema, module này sẽ nối CRUD server mà không ảnh hưởng gameplay.</p><a href="/admin" class="hero-action">Về tổng quan <span>→</span></a></section>
+        <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">DEMO CONTENT API</span><h2 id="content-title">Collection</h2><p id="content-meta">In-memory · chưa lưu database</p></div><button id="new-record" class="hero-action">+ Bản ghi demo</button></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div></div></section>
+      </main>
+    </div>
+    <script src="/admin/admin.js?v=1"></script>
+  </body>
+</html>

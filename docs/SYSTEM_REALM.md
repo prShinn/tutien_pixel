@@ -43,11 +43,11 @@
 ### Ngưỡng tu vi mỗi tầng nhỏ
 
 ```
-base_tu_vi(realm, stage) = base × multiplier ^ (realm_idx × 9 + stage - 1)
+base_tu_vi(realm, stage) = base × multiplier ^ (realm_idx × 10 + stage - 1)
 
 Trong đó:
 - base = 1000 (tu vi khởi điểm tầng 1)
-- multiplier = 1.25 (mỗi tầng tăng 25%)
+- multiplier = 1.24 (mỗi bậc toàn cục tăng 24%, luôn không thấp hơn 20%)
 - realm_idx = 0..11 (0 = Luyện Thể, 11 = Đế Tôn)
 - stage = 1..9
 ```
@@ -57,13 +57,13 @@ Trong đó:
 | Cảnh giới | Tầng | Tu vi cần | Ghi chú |
 |-----------|------|-----------|---------|
 | Luyện Thể 1 | 1 | 1,000 | Start |
-| Luyện Thể 5 | 5 | ~3,052 | |
-| Luyện Thể 9 | 9 | ~7,451 | |
-| Khí Động 1 | 10 | ~9,313 | Phá đại cảnh giới |
-| Khí Động 9 | 18 | ~35,527 | |
-| Chân Nguyên 1 | 28 | ~135,525 | |
-| Đế Tôn 9 | 108 | ~massive | |
-| Đại Đế | 109 | ~∞ | 1 tầng duy nhất, không có threshold |
+| Luyện Thể 5 | 5 | 2,364 | |
+| Luyện Thể 9 | 9 | 5,588 | Ngưỡng phá cảnh: 8,383 |
+| Khí Động 1 | 10 | 8,594 | Cao hơn ngưỡng phá Luyện Thể |
+| Khí Động 9 | 18 | 48,038 | Ngưỡng phá cảnh: 72,057 |
+| Chân Nguyên 1 | 28 | 634,819 | |
+| Đế Tôn 9 | 108 | 105,623,085,265,925 | Ngưỡng phá cảnh: 158,434,627,898,887 |
+| Đại Đế | 109 | 162,406,055,904,887 | 1 tầng duy nhất, không có threshold |
 
 ### Hệ số phá đại cảnh giới
 - Ngưỡng phá đại cảnh giới = tu vi tầng 9 của đại cảnh × **1.5** (50% thêm)
@@ -82,19 +82,19 @@ Trong đó:
     "tenCanhGioi": "Luyện Thể Cảnh",
     "soTang": 9,
     "tuViTienCap": 1000,
-    "heSoTang": 1.25,
+    "heSoTang": 1.24,
     "moTa": "Khởi đầu của vạn dặm tu tiên",
-    "danPhaCanh": null
+    "danPhaCanh": "DAN_PHI_THANG"
   },
   {
     "stt": 2,
     "code": "KHI_DONG",
     "tenCanhGioi": "Khí Động Cảnh",
     "soTang": 9,
-    "tuViTienCap": 9313,
-    "heSoTang": 1.25,
+    "tuViTienCap": 8594,
+    "heSoTang": 1.24,
     "moTa": "Vận hành linh khí, khai phá kinh mạch",
-    "danPhaCanh": "PHI_THANG_DAN"
+    "danPhaCanh": "DAN_KHI_NGUNG"
   }
 ]
 ```

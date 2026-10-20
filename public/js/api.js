@@ -9,6 +9,10 @@ const API = Object.freeze({
     admin: {
       worlds: "/api/admin/worlds",
       world: (code) => `/api/admin/worlds/${encodeURIComponent(code)}`,
+      validateWorld: (code) => `/api/admin/worlds/${encodeURIComponent(code)}/validate`,
+      publishWorld: (code) => `/api/admin/worlds/${encodeURIComponent(code)}/publish`,
+      content: (collection) => `/api/admin/content/${encodeURIComponent(collection)}`,
+      contentItem: (collection, id) => `/api/admin/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
       linkPortal: "/api/admin/portals/link",
       portal: (code, id) => `/api/admin/worlds/${encodeURIComponent(code)}/portals/${encodeURIComponent(id)}`,
     },

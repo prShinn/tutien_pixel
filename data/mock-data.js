@@ -145,17 +145,29 @@ function makeTerrain(kind) {
 }
 
 const realmDefinitions = [
-  { id: 1, stt: 1, code: "LUYEN_THE", tenCanhGioi: "Luyện Thể", soTang: 9, tuViTienCap: 0, heSoTang: 1.2, moTa: "Rèn luyện thân thể, đặt nền móng tu tiên.", danPhaCanh: "DAN_KHI_DONG" },
-  { id: 2, stt: 2, code: "KHI_DONG", tenCanhGioi: "Khí Động", soTang: 9, tuViTienCap: 1200, heSoTang: 1.25, moTa: "Cảm nhận và vận chuyển linh khí.", danPhaCanh: "DAN_KHI_DONG" },
+  { id: 1, stt: 1, code: "LUYEN_THE", tenCanhGioi: "Luyện Thể", soTang: 9, heSoTang: 1.24, moTa: "Rèn luyện thân thể, đặt nền móng tu tiên.", danPhaCanh: "DAN_PHI_THANG" },
+  { id: 2, stt: 2, code: "KHI_DONG", tenCanhGioi: "Khí Động", soTang: 9, heSoTang: 1.24, moTa: "Cảm nhận linh khí, khai mở kinh mạch và vận hành chu thiên.", danPhaCanh: "DAN_KHI_NGUNG" },
+  { id: 3, stt: 3, code: "LY_HOP", tenCanhGioi: "Ly Hợp", soTang: 9, heSoTang: 1.24, moTa: "Linh lực ly hợp tùy tâm, thân và khí bắt đầu hòa làm một.", danPhaCanh: "DAN_LY_HOP" },
+  { id: 4, stt: 4, code: "CHAN_NGUYEN", tenCanhGioi: "Chân Nguyên", soTang: 9, heSoTang: 1.24, moTa: "Linh khí ngưng luyện thành chân nguyên bền vững.", danPhaCanh: "DAN_CHAN_NGUYEN" },
+  { id: 5, stt: 5, code: "THAN_DU", tenCanhGioi: "Thần Du", soTang: 9, heSoTang: 1.24, moTa: "Thần thức có thể rời thân, cảm ứng thiên địa ở khoảng cách xa.", danPhaCanh: "DAN_THAN_HANH" },
+  { id: 6, stt: 6, code: "SIEU_PHAM", tenCanhGioi: "Siêu Phàm", soTang: 9, heSoTang: 1.24, moTa: "Vượt khỏi giới hạn phàm thể, sinh mệnh bước sang tầng thứ mới.", danPhaCanh: "DAN_SIEU_PHAM" },
+  { id: 7, stt: 7, code: "NHAP_THANH", tenCanhGioi: "Nhập Thánh", soTang: 9, heSoTang: 1.24, moTa: "Chạm tới thánh đạo, pháp tắc bắt đầu hiện hình.", danPhaCanh: "DAN_THANH_VI" },
+  { id: 8, stt: 8, code: "THANH_VUONG", tenCanhGioi: "Thánh Vương", soTang: 9, heSoTang: 1.24, moTa: "Thánh lực viên mãn, đủ sức thống lĩnh một phương.", danPhaCanh: "DAN_HU_KHONG" },
+  { id: 9, stt: 9, code: "DONG_HU", tenCanhGioi: "Động Hư", soTang: 9, heSoTang: 1.24, moTa: "Nhìn thấu hư không, lĩnh ngộ khe nứt và quy luật không gian.", danPhaCanh: "DAN_HU_VUONG" },
+  { id: 10, stt: 10, code: "HU_VUONG", tenCanhGioi: "Hư Vương", soTang: 9, heSoTang: 1.24, moTa: "Làm chủ hư không, một niệm có thể vượt qua khoảng cách lớn.", danPhaCanh: "DAN_DAI_DAO" },
+  { id: 11, stt: 11, code: "DAO_NGUYEN", tenCanhGioi: "Đạo Nguyên", soTang: 9, heSoTang: 1.24, moTa: "Truy nguyên đại đạo, cô đọng đạo lực của bản thân.", danPhaCanh: "DAN_DE_NGUYEN" },
+  { id: 12, stt: 12, code: "DE_TON", tenCanhGioi: "Đế Tôn", soTang: 9, heSoTang: 1.24, moTa: "Đạo lực hóa đế uy, đứng trên đỉnh của muôn pháp.", danPhaCanh: "DAN_DAI_DE" },
+  { id: 13, stt: 13, code: "DAI_DE", tenCanhGioi: "Đại Đế", soTang: 1, heSoTang: 1.24, moTa: "Cảnh giới tối cao hiện tại, đại đạo quy nhất.", danPhaCanh: null },
 ];
 
 // Schema tầng tu vi dùng chung cho mock API và database thật sau này.
-const realms = realmDefinitions.map((realm) => ({
+const realms = realmDefinitions.map((realm, realmIndex) => ({
   ...realm,
   tuViTienCap: calcTuViNeeded(realm, 1),
   tangTuVi: Array.from({ length: Number(realm.soTang || 9) }, (_, index) => {
     const tang = index + 1;
-    const daiCanhGioi = tang === Number(realm.soTang || 9);
+    const toiCao = realmIndex === realmDefinitions.length - 1 && tang === Number(realm.soTang || 9);
+    const daiCanhGioi = !toiCao && tang === Number(realm.soTang || 9);
     const tangDich = daiCanhGioi ? 1 : tang + 1;
     const canhGioiDich = daiCanhGioi ? realm.stt + 1 : realm.stt;
     const realmDich = daiCanhGioi ? { ...realm, stt: canhGioiDich } : realm;
@@ -165,14 +177,15 @@ const realms = realmDefinitions.map((realm) => ({
       tenTang: `Tầng ${tang}`,
       code: `${realm.code}_T${tang}`,
       tuViCan: calcTuViNeeded(realm, tang),
-      nguongDotPha: breakthroughThreshold(realm, tang),
+      nguongDotPha: toiCao ? null : breakthroughThreshold(realm, tang),
       // Mục tiêu tiếp theo được ghi rõ để client không hiểu nhầm nguongDotPha là tầng đích.
-      mucTieu: daiCanhGioi ? `Cảnh giới ${canhGioiDich} - Tầng 1` : `Tầng ${tangDich}`,
-      tuViCanMucTieuTiepTheo: calcTuViNeeded(realmDich, tangDich),
-      tangDich,
-      canhGioiDich,
-      ovrToiThieu: minimumBreakthroughOvr(realm, tang, daiCanhGioi),
+      mucTieu: toiCao ? null : (daiCanhGioi ? `Cảnh giới ${canhGioiDich} - Tầng 1` : `Tầng ${tangDich}`),
+      tuViCanMucTieuTiepTheo: toiCao ? null : calcTuViNeeded(realmDich, tangDich),
+      tangDich: toiCao ? null : tangDich,
+      canhGioiDich: toiCao ? null : canhGioiDich,
+      ovrToiThieu: toiCao ? null : minimumBreakthroughOvr(realm, tang, daiCanhGioi),
       daiCanhGioi,
+      toiCao,
     };
   }),
 }));
@@ -201,6 +214,33 @@ const roots = [
   ["LOI", "Lôi", "⚡", "#ffff88", "#3a3a1a"],
 ].map(([id, name, emoji, color, bg]) => ({ id, name, emoji, color, bg, ...rootDesign[id] }));
 
+const breakthroughPills = [
+  ["DAN_PHI_THANG", "Phi Thăng Đan", "KHI_DONG", "Luyện Thể", "Khí Động"],
+  ["DAN_KHI_NGUNG", "Khí Ngưng Đan", "LY_HOP", "Khí Động", "Ly Hợp"],
+  ["DAN_LY_HOP", "Ly Hợp Đan", "CHAN_NGUYEN", "Ly Hợp", "Chân Nguyên"],
+  ["DAN_CHAN_NGUYEN", "Chân Nguyên Đan", "THAN_DU", "Chân Nguyên", "Thần Du"],
+  ["DAN_THAN_HANH", "Thần Hành Đan", "SIEU_PHAM", "Thần Du", "Siêu Phàm"],
+  ["DAN_SIEU_PHAM", "Siêu Phàm Đan", "NHAP_THANH", "Siêu Phàm", "Nhập Thánh"],
+  ["DAN_THANH_VI", "Thánh Vị Đan", "THANH_VUONG", "Nhập Thánh", "Thánh Vương"],
+  ["DAN_HU_KHONG", "Hư Không Đan", "DONG_HU", "Thánh Vương", "Động Hư"],
+  ["DAN_HU_VUONG", "Hư Vương Đan", "HU_VUONG", "Động Hư", "Hư Vương"],
+  ["DAN_DAI_DAO", "Đại Đạo Nguyên Đan", "DAO_NGUYEN", "Hư Vương", "Đạo Nguyên"],
+  ["DAN_DE_NGUYEN", "Đế Nguyên Đan", "DE_TON", "Đạo Nguyên", "Đế Tôn"],
+  ["DAN_DAI_DE", "Đại Đế Hóa Thân", "DAI_DE", "Đế Tôn", "Đại Đế"],
+].map(([id, name, realmCode, fromRealm, toRealm]) => ({
+  id,
+  maDo: id,
+  tenDo: name,
+  name,
+  icon: "🔴",
+  loai: "BREAKTHROUGH_PILL",
+  type: "BREAKTHROUGH_PILL",
+  realmCode,
+  giaMua: 0,
+  giaBan: 0,
+  moTa: `Đan dược đặc thù để đột phá từ ${fromRealm} lên ${toRealm}.`,
+}));
+
 const items = [
   { id: "STONE_LINH_NHO", maDo: "STONE_LINH_NHO", tenDo: "Linh Thạch Nhỏ", name: "Linh Thạch Nhỏ", icon: "💎", loai: "STONE", type: "STONE", giaTriTuVi: 120, giaMua: 20, giaBan: 10, moTa: "Một viên linh thạch chứa linh khí non trẻ." },
   { id: "HUYET_NGOC_NHO", maDo: "HUYET_NGOC_NHO", tenDo: "Huyết Ngọc Nhỏ", name: "Huyết Ngọc Nhỏ", icon: "🧪", loai: "POTION", type: "POTION", healHp: 60, giaMua: 30, giaBan: 15, moTa: "Hồi phục một lượng HP." },
@@ -208,7 +248,7 @@ const items = [
   { id: "THIEN_TAI_DIA_BAO", maDo: "THIEN_TAI_DIA_BAO", tenDo: "Thiên Tài Địa Bảo", name: "Thiên Tài Địa Bảo", icon: "💠", loai: "LINDAN", type: "LINDAN", tuViLinhCanVal: 220, giaMua: 520, giaBan: 260, moTa: "Tài nguyên hiếm, tăng tu vi linh căn có giới hạn." },
   { id: "MAT_LANG_NANH", maDo: "MAT_LANG_NANH", tenDo: "Nanh Hoang Sói", name: "Nanh Hoang Sói", icon: "🦴", loai: "MATERIAL", type: "MATERIAL", giaMua: 0, giaBan: 8, moTa: "Chiến lợi phẩm từ Hoang Sói." },
   { id: "SWORD_BAO_KHI_1", maDo: "SWORD_BAO_KHI_1", tenDo: "Kiếm Bảo Khí", name: "Kiếm Bảo Khí", icon: "⚔️", loai: "EQUIPMENT", type: "EQUIPMENT", giaMua: 120, giaBan: 60, stats: { pAtk: 8 }, moTa: "Thanh kiếm nhập môn của tu sĩ." },
-  { id: "DAN_KHI_DONG", maDo: "DAN_KHI_DONG", tenDo: "Đan Phá Khí Động", name: "Đan Phá Khí Động", icon: "🔴", loai: "BREAKTHROUGH_PILL", type: "BREAKTHROUGH_PILL", realmCode: "KHI_DONG", giaMua: 0, giaBan: 0, moTa: "Đan dược cần để phá đại cảnh giới Luyện Thể." },
+  ...breakthroughPills,
 ];
 
 const skills = [

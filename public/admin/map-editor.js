@@ -27,6 +27,9 @@ const editor = {
   knownMaps: new Set(),
   mapCatalog: new Map(),
   selectedPortalId: null,
+  selectedMonsterPackId: null,
+  monsterCatalog: [],
+  status: "DRAFT",
   ground: [],
   objects: [],
   elevation: [],
@@ -114,7 +117,14 @@ function generateMap() {
   editor.objects = makeGrid(editor.width, editor.height, TILE.EMPTY);
   editor.elevation = makeGrid(editor.width, editor.height, 0);
   editor.portals = [];
+  editor.monsterSpawns = [];
   editor.selectedPortalId = null;
+  editor.selectedMonsterPackId = null;
+  editor.status = "DRAFT";
+  $("publish-status").textContent = editor.status;
+  $("publish-status").classList.remove("published");
+  $("validation-result").className = "validation-result hint";
+  $("validation-result").textContent = "Lưu map để bắt đầu kiểm tra.";
 
   for (let y = 0; y < editor.height; y += 1) {
     for (let x = 0; x < editor.width; x += 1) {
@@ -302,6 +312,18 @@ function drawMap() {
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#dbc49c";
   ctx.beginPath(); ctx.arc(actorX, actorY - actorH * .36, actorW * .22, 0, Math.PI * 2); ctx.fill();
+  for (const pack of editor.monsterSpawns) {
+    const px = (Number(pack.centerX) + .5) * size;
+    const py = (Number(pack.centerY) + .5) * size;
+    const radius = Math.max(5, Number(pack.radius || 18) * size);
+    ctx.strokeStyle = pack.packId === editor.selectedMonsterPackId ? "#fff2a8" : "#d76b62";
+    ctx.fillStyle = "rgba(160,48,48,.12)";
+    ctx.lineWidth = Math.max(1, size * .6);
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ffe0d8";
+    ctx.font = `${Math.max(9, size * 3)}px Segoe UI`;
+    ctx.fillText(`${pack.templateId} ×${pack.count}`, px + 5, py - 5);
+  }
   for (const portal of editor.portals) {
     const px = (Number(portal.x) + .5) * size;
     const py = (Number(portal.y) + .5) * size;
@@ -344,6 +366,14 @@ function renderPalette() {
 }
 
 function paintAt(x, y) {
+  if (editor.layer === "monster") {
+    $("monster-center-x").value = x;
+    $("monster-center-y").value = y;
+    const selected = editor.monsterSpawns.find((pack) => pack.packId === editor.selectedMonsterPackId);
+    if (selected) { selected.centerX = x; selected.centerY = y; }
+    requestDraw();
+    return;
+  }
   if (editor.layer === "portal") {
     $("portal-source-x").value = x;
     $("portal-source-y").value = y;
@@ -392,11 +422,19 @@ function composeCollision() {
 }
 
 function mapPayload() {
+  const realmMin = Number($("realm-min").value || 1);
+  const realmMax = Number($("realm-max").value || 13);
   return {
     code: $("map-code").value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_"),
     tenMap: $("map-name").value.trim(),
     type: $("map-type").value,
     biome: $("map-biome").value,
+    status: editor.status,
+    regionId: $("map-region").value.trim(),
+    tier: Number($("map-tier").value || 0),
+    recommendedRealmMin: Math.min(realmMin, realmMax),
+    recommendedRealmMax: Math.max(realmMin, realmMax),
+    tags: $("map-tags").value.split(",").map((tag) => tag.trim()).filter(Boolean),
     seed: $("map-seed").value,
     w: editor.width,
     h: editor.height,
@@ -407,7 +445,12 @@ function mapPayload() {
     monsters: editor.monsters,
     monsterSpawns: editor.monsterSpawns,
     npcs: editor.npcs,
-    rules: editor.rules,
+    rules: {
+      ...editor.rules,
+      safeZone: $("rule-safe-zone").checked,
+      noMonsters: $("rule-no-monsters").checked,
+      allowRecall: $("rule-allow-recall").checked,
+    },
   };
 }
 
@@ -522,14 +565,103 @@ async function deletePortal() {
   setStatus(`Đã xóa portal ${data.removed}`, "ok");
 }
 
+function resetMonsterPackForm() {
+  editor.selectedMonsterPackId = null;
+  $("monster-pack-id").value = "";
+  $("monster-center-x").value = "";
+  $("monster-center-y").value = "";
+  $("monster-count").value = 4; $("monster-radius").value = 18;
+  $("monster-aggro").value = 40; $("monster-leash").value = 72; $("monster-chase").value = 7000;
+  $("delete-monster-pack").disabled = true;
+  renderMonsterPackList(); requestDraw();
+}
+
+function selectMonsterPack(packId) {
+  const pack = editor.monsterSpawns.find((item) => item.packId === packId);
+  if (!pack) return resetMonsterPackForm();
+  editor.selectedMonsterPackId = pack.packId;
+  $("monster-template").value = pack.templateId; $("monster-pack-id").value = pack.packId;
+  $("monster-center-x").value = pack.centerX; $("monster-center-y").value = pack.centerY;
+  $("monster-count").value = pack.count; $("monster-radius").value = pack.radius;
+  $("monster-aggro").value = pack.aggroRange; $("monster-leash").value = pack.leashDistance;
+  $("monster-chase").value = pack.chaseDurationMs;
+  $("delete-monster-pack").disabled = false;
+  renderMonsterPackList(); requestDraw();
+}
+
+function renderMonsterPackList() {
+  const host = $("monster-pack-list");
+  if (!editor.monsterSpawns.length) { host.innerHTML = '<p class="hint">Map chưa có bãi quái.</p>'; return; }
+  host.innerHTML = "";
+  for (const pack of editor.monsterSpawns) {
+    const monster = editor.monsterCatalog.find((item) => item.id === pack.templateId || item.code === pack.templateId);
+    const button = document.createElement("button");
+    button.type = "button"; button.className = `portal-item${pack.packId === editor.selectedMonsterPackId ? " active" : ""}`;
+    button.textContent = `${monster?.name || pack.templateId} ×${pack.count} · (${pack.centerX},${pack.centerY})`;
+    button.addEventListener("click", () => selectMonsterPack(pack.packId)); host.appendChild(button);
+  }
+}
+
+function saveMonsterPack() {
+  const templateId = $("monster-template").value;
+  const centerX = Number($("monster-center-x").value), centerY = Number($("monster-center-y").value);
+  if (!templateId) throw new Error("Chưa chọn loại quái");
+  if (![centerX, centerY].every(Number.isFinite)) throw new Error("Chọn bút Bãi quái và đặt tâm đàn trên map");
+  const generatedId = `PACK_${templateId}_${editor.monsterSpawns.length + 1}`;
+  const packId = ($("monster-pack-id").value.trim() || generatedId).toUpperCase().replace(/[^A-Z0-9_-]+/g, "_");
+  const pack = { packId, templateId, centerX, centerY, count: Number($("monster-count").value), radius: Number($("monster-radius").value), aggroRange: Number($("monster-aggro").value), leashDistance: Number($("monster-leash").value), chaseDurationMs: Number($("monster-chase").value) };
+  const oldId = editor.selectedMonsterPackId;
+  if (editor.monsterSpawns.some((item) => item.packId === packId && item.packId !== oldId)) throw new Error("Mã đàn quái đã tồn tại");
+  const index = editor.monsterSpawns.findIndex((item) => item.packId === oldId);
+  if (index >= 0) editor.monsterSpawns[index] = pack; else editor.monsterSpawns.push(pack);
+  editor.selectedMonsterPackId = packId; selectMonsterPack(packId);
+  setStatus(`Đã cập nhật bãi quái ${packId}`, "ok");
+}
+
+function deleteMonsterPack() {
+  editor.monsterSpawns = editor.monsterSpawns.filter((item) => item.packId !== editor.selectedMonsterPackId);
+  resetMonsterPackForm();
+}
+
+async function refreshMonsterCatalog() {
+  const response = await fetch(API.BASE + API.PATHS.data.monsters); const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Không tải được ngân hàng quái");
+  editor.monsterCatalog = Array.isArray(data) ? data : [];
+  $("monster-template").innerHTML = editor.monsterCatalog.map((monster) => `<option value="${monster.id}">${monster.name} · cấp ${monster.level}</option>`).join("");
+  renderMonsterPackList();
+}
+
+function renderValidation(validation) {
+  const host = $("validation-result"), errors = validation?.errors || [], warnings = validation?.warnings || [];
+  host.className = `validation-result hint ${errors.length ? "error" : "ok"}`;
+  host.textContent = [...errors.map((text) => `Lỗi: ${text}`), ...warnings.map((text) => `Cảnh báo: ${text}`)].join("\n") || "Map hợp lệ, có thể xuất bản.";
+}
+
+async function validateMap() {
+  if (!editor.currentCode) await saveMap();
+  const response = await fetch(API.BASE + API.PATHS.admin.validateWorld(editor.currentCode), { headers: adminHeaders() });
+  const data = await response.json(); if (!response.ok) throw new Error(data.error || "Không kiểm tra được map");
+  renderValidation(data); return data;
+}
+
+async function publishMap() {
+  await saveMap();
+  const response = await fetch(API.BASE + API.PATHS.admin.publishWorld(editor.currentCode), { method: "POST", headers: adminHeaders() });
+  const data = await response.json();
+  if (!response.ok) { renderValidation(data.validation); throw new Error(data.error || "Không xuất bản được map"); }
+  editor.status = "PUBLISHED"; $("publish-status").textContent = editor.status; $("publish-status").classList.add("published");
+  renderValidation(data.validation); await refreshMapList(editor.currentCode); setStatus(`Đã xuất bản ${editor.currentCode}`, "ok");
+}
+
 async function refreshMapList(selected = "") {
   const response = await fetch(API.BASE + API.PATHS.admin.worlds, { headers: adminHeaders() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không tải được danh sách map");
   editor.knownMaps = new Set(data.map((map) => map.code));
   editor.mapCatalog = new Map(data.map((map) => [map.code, map]));
-  $("map-list").innerHTML = '<option value="">Map mới</option>' + data.map((map) => `<option value="${map.code}">${map.tenMap} · ${map.w}×${map.h}</option>`).join("");
-  $("map-list").value = selected;
+  $("map-list").innerHTML = '<option value="">Map mới</option>' + data.map((map) => `<option value="${map.code}">[${map.status}] ${map.tenMap} · ${map.w}×${map.h}</option>`).join("");
+  const queryMap = new URLSearchParams(window.location.search).get("map");
+  $("map-list").value = selected || queryMap || "";
   refreshPortalTargets($("portal-target-map").value);
   renderPortalList();
 }
@@ -546,7 +678,7 @@ async function loadMap() {
   const code = $("map-list").value;
   if (!code) { generateMap(); return; }
   setStatus("Đang tải map…");
-  const response = await fetch(API.BASE + API.PATHS.worlds.byCode(code));
+  const response = await fetch(API.BASE + API.PATHS.admin.world(code), { headers: adminHeaders() });
   const world = await response.json();
   if (!response.ok) throw new Error(world.error || "Không tải được map");
   editor.width = Number(world.w); editor.height = Number(world.h);
@@ -554,6 +686,8 @@ async function loadMap() {
   editor.portals = world.portals || []; editor.monsters = world.monsters || [];
   editor.selectedPortalId = null;
   editor.monsterSpawns = world.monsterSpawns || []; editor.npcs = world.npcs || []; editor.rules = world.rules || {};
+  editor.status = world.status || "PUBLISHED";
+  editor.selectedMonsterPackId = null;
   editor.currentCode = world.code;
   $("map-name").value = world.tenMap || world.name || world.code;
   $("map-code").value = world.code;
@@ -561,10 +695,22 @@ async function loadMap() {
   $("map-biome").value = world.biome || (world.type === "CITY" ? "CITY" : "PLAINS");
   $("map-width").value = editor.width; $("map-height").value = editor.height;
   $("map-seed").value = world.seed || world.code;
+  $("map-region").value = world.regionId || "ADMIN_PUBLISHED";
+  $("map-tier").value = Number(world.tier || 0);
+  $("realm-min").value = Number(world.recommendedRealmMin || 1);
+  $("realm-max").value = Number(world.recommendedRealmMax || 13);
+  $("map-tags").value = (world.tags || []).join(", ");
+  $("rule-safe-zone").checked = Boolean(editor.rules.safeZone);
+  $("rule-no-monsters").checked = Boolean(editor.rules.noMonsters);
+  $("rule-allow-recall").checked = editor.rules.allowRecall !== false;
+  $("publish-status").textContent = editor.status;
+  $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
   normalizeLoadedLayers(world);
   resizeCanvas();
   refreshPortalTargets();
   renderPortalList();
+  renderMonsterPackList();
+  renderValidation(world.validation);
   setStatus(`Đã mở ${world.tenMap || world.code}`, "ok");
 }
 
@@ -577,6 +723,9 @@ async function saveMap() {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không lưu được map");
   editor.currentCode = data.code;
+  editor.status = data.status || editor.status;
+  $("publish-status").textContent = editor.status;
+  $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
   await refreshMapList(data.code);
   setStatus(`Đã lưu ${data.tenMap} · phiên bản ${data.version}`, "ok");
 }
@@ -593,6 +742,12 @@ $("save-map").addEventListener("click", () => saveMap().catch((error) => setStat
 $("new-portal").addEventListener("click", resetPortalForm);
 $("save-portal").addEventListener("click", () => savePortalLink().catch((error) => setStatus(error.message, "error")));
 $("delete-portal").addEventListener("click", () => deletePortal().catch((error) => setStatus(error.message, "error")));
+$("new-monster-pack").addEventListener("click", resetMonsterPackForm);
+$("save-monster-pack").addEventListener("click", () => { try { saveMonsterPack(); } catch (error) { setStatus(error.message, "error"); } });
+$("delete-monster-pack").addEventListener("click", deleteMonsterPack);
+$("validate-map").addEventListener("click", () => validateMap().catch((error) => setStatus(error.message, "error")));
+$("publish-map").addEventListener("click", () => publishMap().catch((error) => setStatus(error.message, "error")));
+$("rule-safe-zone").addEventListener("change", () => { if ($("rule-safe-zone").checked) $("rule-no-monsters").checked = true; });
 $("portal-target-map").addEventListener("change", () => {
   const target = editor.mapCatalog.get($("portal-target-map").value);
   if (!target) return;
@@ -619,4 +774,7 @@ canvas.addEventListener("pointercancel", () => { editor.painting = false; });
 updateRangeLabels();
 renderPalette();
 generateMap();
-refreshMapList().catch((error) => setStatus(`${error.message} · dùng key demo-admin`, "error"));
+refreshMapList().then(() => {
+  if (new URLSearchParams(window.location.search).get("map")) return loadMap();
+}).catch((error) => setStatus(`${error.message} · dùng key demo-admin`, "error"));
+refreshMonsterCatalog().catch((error) => setStatus(error.message, "error"));

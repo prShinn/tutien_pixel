@@ -106,6 +106,67 @@ function normalizePortals(value, width, height) {
   }).filter((portal) => portal.denMap);
 }
 
+function normalizeStringList(value, max = 12) {
+  const source = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(source.map((item) => String(item).trim().toLowerCase()).filter(Boolean))].slice(0, max);
+}
+
+function normalizeWorldRules(value = {}, type = "PLAIN") {
+  const safeZone = Boolean(value.safeZone) || String(type).toUpperCase() === "CITY";
+  return {
+    safeZone,
+    noMonsters: safeZone || Boolean(value.noMonsters),
+    allowRecall: value.allowRecall !== false,
+    deathPenalty: Math.max(0, Math.min(100, Number(value.deathPenalty || 0))),
+  };
+}
+
+function normalizeMonsterSpawns(value, width, height) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.slice(0, 100).map((spawn, index) => {
+    const templateId = String(spawn?.templateId || "").trim().toUpperCase();
+    if (!monsterDefs.some((monster) => monster.id === templateId || monster.code === templateId)) return null;
+    let packId = String(spawn?.packId || `PACK_${templateId}_${index + 1}`).trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, "_").slice(0, 80);
+    while (seen.has(packId)) packId = `${packId}_${index + 1}`;
+    seen.add(packId);
+    return {
+      packId,
+      templateId,
+      centerX: clampInteger(spawn?.centerX, 4, width - 5, Math.floor(width / 2)),
+      centerY: clampInteger(spawn?.centerY, 4, height - 5, Math.floor(height / 2)),
+      count: clampInteger(spawn?.count, 1, 20, 4),
+      radius: clampInteger(spawn?.radius, 2, 80, 18),
+      aggroRange: clampInteger(spawn?.aggroRange, 8, 160, 40),
+      leashDistance: clampInteger(spawn?.leashDistance, 16, 240, 72),
+      chaseDurationMs: clampInteger(spawn?.chaseDurationMs, 1000, 30000, 7000),
+    };
+  }).filter(Boolean);
+}
+
+function worldStatus(world) {
+  return String(world?.status || "PUBLISHED").toUpperCase() === "DRAFT" ? "DRAFT" : "PUBLISHED";
+}
+
+function isWorldPublished(world) {
+  return worldStatus(world) === "PUBLISHED";
+}
+
+function validateWorldForPublish(world) {
+  const errors = [];
+  const warnings = [];
+  if (!world || !world.code) return { valid: false, errors: ["Map không tồn tại"], warnings };
+  if (!isWalkablePoint(world, world.spawnX, world.spawnY)) errors.push("Điểm sinh nhân vật bị chặn hoặc quá sát biên");
+  for (const portal of world.portals || []) {
+    const target = worlds.find((item) => item.code === String(portal.denMap || portal.toMap || "").toLowerCase());
+    if (!target) errors.push(`Portal ${portal.id} trỏ tới map không tồn tại`);
+    else if (!isWorldPublished(target)) warnings.push(`Portal ${portal.id} trỏ tới map nháp ${target.code}`);
+    if (!isWalkablePoint(world, portal.x, portal.y)) errors.push(`Portal ${portal.id} nằm tại vị trí bị chặn`);
+  }
+  if (!world.rules?.noMonsters && !(world.monsterSpawns || []).length) warnings.push("Map cho phép quái nhưng chưa có bãi quái");
+  return { valid: errors.length === 0, errors, warnings };
+}
+
 function isWalkablePoint(world, x, y) {
   const tx = Math.round(Number(x));
   const ty = Math.round(Number(y));
@@ -163,6 +224,8 @@ function normalizeWorldPayload(payload, existing = null) {
   const layers = deriveLayers(payload, width, height);
   const spawnX = clampInteger(payload?.spawnX, 8, width - 9, Math.floor(width / 2));
   const spawnY = clampInteger(payload?.spawnY, 8, height - 9, Math.floor(height / 2));
+  const type = String(payload?.type || existing?.type || "PLAIN").toUpperCase();
+  const status = String(payload?.status || existing?.status || (existing ? "PUBLISHED" : "DRAFT")).toUpperCase() === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
   for (let y = spawnY - 8; y <= spawnY + 8; y += 1) {
     for (let x = spawnX - 8; x <= spawnX + 8; x += 1) {
       if (Math.hypot(x - spawnX, y - spawnY) > 8) continue;
@@ -177,8 +240,14 @@ function normalizeWorldPayload(payload, existing = null) {
     id: existing?.id || `world_${code}`,
     code,
     tenMap: String(payload?.tenMap || payload?.name || existing?.tenMap || code).trim().slice(0, 80),
-    type: String(payload?.type || existing?.type || "PLAIN").toUpperCase(),
+    type,
     biome: String(payload?.biome || existing?.biome || "PLAINS").toUpperCase(),
+    status,
+    regionId: String(payload?.regionId || existing?.regionId || "ADMIN_PUBLISHED").trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, "_").slice(0, 60),
+    tier: clampInteger(payload?.tier, 0, 99, existing?.tier || 0),
+    recommendedRealmMin: clampInteger(payload?.recommendedRealmMin, 1, 13, existing?.recommendedRealmMin || 1),
+    recommendedRealmMax: clampInteger(payload?.recommendedRealmMax, 1, 13, existing?.recommendedRealmMax || 13),
+    tags: normalizeStringList(payload?.tags ?? existing?.tags),
     seed: String(payload?.seed || existing?.seed || code).slice(0, 80),
     w: width,
     h: height,
@@ -189,9 +258,9 @@ function normalizeWorldPayload(payload, existing = null) {
     layers: { ground: layers.ground, objects: layers.objects, elevation: layers.elevation },
     portals: normalizePortals(payload?.portals ?? existing?.portals, width, height),
     monsters: Array.isArray(payload?.monsters) ? payload.monsters : (existing?.monsters || []),
-    monsterSpawns: Array.isArray(payload?.monsterSpawns) ? payload.monsterSpawns : (existing?.monsterSpawns || []),
+    monsterSpawns: normalizeMonsterSpawns(payload?.monsterSpawns ?? existing?.monsterSpawns, width, height),
     npcs: Array.isArray(payload?.npcs) ? payload.npcs : (existing?.npcs || []),
-    rules: payload?.rules && typeof payload.rules === "object" ? payload.rules : (existing?.rules || {}),
+    rules: normalizeWorldRules(payload?.rules && typeof payload.rules === "object" ? payload.rules : (existing?.rules || {}), type),
     managedBy: "ADMIN",
     version: Number(existing?.version || 0) + 1,
     createdAt: existing?.createdAt || new Date().toISOString(),
@@ -244,6 +313,30 @@ function adminMapMiddleware(req, res, next) {
   next();
 }
 
+// Demo content registry: giữ cùng contract với DB tương lai, hiện chạy in-memory.
+const adminContent = {
+  quests: [
+    { id: "quest_intro_001", name: "Rời Thanh Vân Trấn", status: "DRAFT", level: 1, steps: 3, reward: "Linh thạch nhỏ x10" },
+    { id: "quest_wolf_001", name: "Dẹp bầy Hoang Sói", status: "DRAFT", level: 2, steps: 2, reward: "Huyết ngọc nhỏ x2" },
+  ],
+  npcs: [
+    { id: "npc_huong_dan", name: "Lão Tu Sĩ", role: "GUIDE", mapCode: "thanh_van_tran", status: "ACTIVE" },
+    { id: "npc_shop", name: "Chủ Tiệm", role: "SHOP", mapCode: "thanh_van_tran", status: "ACTIVE" },
+  ],
+  items,
+  skills,
+};
+
+function adminCollection(name) {
+  const key = String(name || "").toLowerCase();
+  if (key === "accounts") return [...users.values()].map((user) => publicUser(user));
+  return adminContent[key] || null;
+}
+
+function adminContentId(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").slice(0, 80);
+}
+
 loadAdminWorlds();
 
 function publicUser(user) {
@@ -270,6 +363,15 @@ function worldSummary(world) {
     w: world.w,
     h: world.h,
     isDefault: Boolean(world.isDefault),
+    status: worldStatus(world),
+    regionId: world.regionId || "UNASSIGNED",
+    tier: Number(world.tier || 0),
+    recommendedRealmMin: Number(world.recommendedRealmMin || 1),
+    recommendedRealmMax: Number(world.recommendedRealmMax || 13),
+    tags: normalizeStringList(world.tags),
+    rules: normalizeWorldRules(world.rules, world.type),
+    portalCount: (world.portals || []).length,
+    monsterPackCount: (world.monsterSpawns || []).length,
     version: Number(world.version || 0),
   };
 }
@@ -330,24 +432,25 @@ app.get("/api/auth/me", authMiddleware, (req, res) => {
   res.json({ user: { id: req.userId, username: req.username } });
 });
 
-app.get("/api/worlds", (req, res) => res.json(worlds.map(worldSummary)));
-app.get("/api/worlds/default", (req, res) => sendCachedWorld(req, res, worlds.find((world) => world.isDefault)));
+app.get("/api/worlds", (req, res) => res.json(worlds.filter(isWorldPublished).map(worldSummary)));
+app.get("/api/worlds/default", (req, res) => sendCachedWorld(req, res, worlds.find((world) => world.isDefault && isWorldPublished(world)) || worlds.find(isWorldPublished)));
 app.get("/api/worlds/by-code", (req, res) => {
-  const world = worlds.find((item) => item.code === String(req.query.code || "").toLowerCase());
+  const world = worlds.find((item) => item.code === String(req.query.code || "").toLowerCase() && isWorldPublished(item));
   return sendCachedWorld(req, res, world);
 });
 
 app.get("/api/world-structure", (_req, res) => {
   const structure = getWorldStructure();
-  const activeCodes = new Set(worlds.map((world) => String(world.code || "").toLowerCase()));
+  const publishedWorlds = worlds.filter(isWorldPublished);
+  const activeCodes = new Set(publishedWorlds.map((world) => String(world.code || "").toLowerCase()));
   for (const region of structure.regions) {
     for (const map of region.maps) {
       map.playable = activeCodes.has(map.code);
-      if (map.playable) map.runtime = { code: map.code, version: worlds.find((world) => world.code === map.code)?.version || 1 };
+      if (map.playable) map.runtime = { code: map.code, version: publishedWorlds.find((world) => world.code === map.code)?.version || 1 };
     }
   }
   const knownCodes = new Set(structure.regions.flatMap((region) => region.maps.map((map) => map.code)));
-  const unmanaged = worlds.filter((world) => !knownCodes.has(String(world.code || "").toLowerCase()));
+  const unmanaged = publishedWorlds.filter((world) => !knownCodes.has(String(world.code || "").toLowerCase()));
   if (unmanaged.length) {
     structure.regions.push({
       id: "ADMIN_PUBLISHED",
@@ -362,24 +465,60 @@ app.get("/api/world-structure", (_req, res) => {
 });
 app.get("/api/admin/worlds", adminMapMiddleware, (req, res) => {
   res.json(worlds.map((world) => ({
-    id: world.id,
-    code: world.code,
-    tenMap: world.tenMap,
-    type: world.type,
-    biome: world.biome || "LEGACY",
-    w: world.w,
-    h: world.h,
+    ...worldSummary(world),
     spawnX: world.spawnX,
     spawnY: world.spawnY,
-    version: world.version || 0,
     managedBy: world.managedBy || "SEED",
+    validation: validateWorldForPublish(world),
   })));
+});
+app.get("/api/admin/content/:collection", adminMapMiddleware, (req, res) => {
+  const data = adminCollection(req.params.collection);
+  if (!data) return res.status(404).json({ error: "Collection admin chưa được hỗ trợ" });
+  return res.json({ collection: req.params.collection, demo: true, persisted: false, data });
+});
+app.post("/api/admin/content/:collection", adminMapMiddleware, (req, res) => {
+  const key = String(req.params.collection || "").toLowerCase();
+  const collection = adminContent[key];
+  if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const id = adminContentId(body.id || `${key}_${Date.now()}`);
+  if (!id || collection.some((item) => item.id === id)) return res.status(409).json({ error: "ID đã tồn tại hoặc không hợp lệ" });
+  const record = { ...body, id, updatedAt: new Date().toISOString() };
+  collection.push(record);
+  return res.status(201).json({ demo: true, persisted: false, data: record });
+});
+app.put("/api/admin/content/:collection/:id", adminMapMiddleware, (req, res) => {
+  const key = String(req.params.collection || "").toLowerCase();
+  const collection = adminContent[key];
+  if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
+  const index = collection.findIndex((item) => item.id === req.params.id);
+  if (index < 0) return res.status(404).json({ error: "Bản ghi không tồn tại" });
+  collection[index] = { ...collection[index], ...(req.body || {}), id: collection[index].id, updatedAt: new Date().toISOString() };
+  return res.json({ demo: true, persisted: false, data: collection[index] });
+});
+app.delete("/api/admin/content/:collection/:id", adminMapMiddleware, (req, res) => {
+  const key = String(req.params.collection || "").toLowerCase();
+  const collection = adminContent[key];
+  if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
+  const index = collection.findIndex((item) => item.id === req.params.id);
+  if (index < 0) return res.status(404).json({ error: "Bản ghi không tồn tại" });
+  const [removed] = collection.splice(index, 1);
+  return res.json({ demo: true, persisted: false, removed: removed.id });
+});
+app.get("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
+  const world = worlds.find((item) => item.code === String(req.params.code || "").toLowerCase());
+  if (!world) return res.status(404).json({ error: "Map không tồn tại" });
+  return res.json({ ...world, status: worldStatus(world), validation: validateWorldForPublish(world) });
 });
 app.post("/api/admin/worlds", adminMapMiddleware, (req, res) => {
   try {
     const code = String(req.body?.code || "").trim().toLowerCase();
     if (worlds.some((world) => world.code === code)) return res.status(409).json({ error: "Mã map đã tồn tại" });
     const world = normalizeWorldPayload(req.body);
+    const validation = validateWorldForPublish(world);
+    if (isWorldPublished(world) && !validation.valid) return res.status(400).json({ error: "Map chưa đủ điều kiện xuất bản", validation });
+    if (!isWorldPublished(world)) world.isDefault = false;
     if (world.isDefault) worlds.forEach((item) => { item.isDefault = false; });
     worlds.push(world);
     worldResponseCache.clear();
@@ -395,6 +534,9 @@ app.put("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
     const index = worlds.findIndex((world) => world.code === code);
     if (index < 0) return res.status(404).json({ error: "Map không tồn tại" });
     const world = normalizeWorldPayload({ ...req.body, code }, worlds[index]);
+    const validation = validateWorldForPublish(world);
+    if (isWorldPublished(world) && !validation.valid) return res.status(400).json({ error: "Map chưa đủ điều kiện xuất bản", validation });
+    if (!isWorldPublished(world)) world.isDefault = false;
     if (world.isDefault) worlds.forEach((item, itemIndex) => { if (itemIndex !== index) item.isDefault = false; });
     worlds[index] = world;
     worldResponseCache.clear();
@@ -403,6 +545,22 @@ app.put("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
+});
+app.get("/api/admin/worlds/:code/validate", adminMapMiddleware, (req, res) => {
+  const world = worlds.find((item) => item.code === String(req.params.code || "").toLowerCase());
+  if (!world) return res.status(404).json({ error: "Map không tồn tại" });
+  return res.json(validateWorldForPublish(world));
+});
+app.post("/api/admin/worlds/:code/publish", adminMapMiddleware, (req, res) => {
+  const world = worlds.find((item) => item.code === String(req.params.code || "").toLowerCase());
+  if (!world) return res.status(404).json({ error: "Map không tồn tại" });
+  const validation = validateWorldForPublish(world);
+  if (!validation.valid) return res.status(400).json({ error: "Map chưa đủ điều kiện xuất bản", validation });
+  world.status = "PUBLISHED";
+  touchAdminWorld(world);
+  worldResponseCache.clear();
+  persistAdminWorlds();
+  return res.json({ world, validation });
 });
 app.delete("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
   const code = String(req.params.code || "").toLowerCase();
@@ -619,13 +777,13 @@ app.post("/api/player/cultivation/breakthrough", authMiddleware, (req, res) => {
   const realm = realms.find((item) => item.code === player.maCanhGioi) || realms.find((item) => item.stt === Number(player.realm || 1)) || realms[0];
   const stage = Number(player.tangTuVi || player.stage || 1);
   const major = stage >= Number(realm.soTang || 9);
+  const next = major ? realms.find((item) => item.stt === Number(realm.stt) + 1) : null;
+  if (major && !next) return res.status(400).json({ error: "Đã đạt cảnh giới tối cao" });
   const threshold = breakthroughThreshold(realm, stage);
   if (Number(player.tuViHienTai || 0) < threshold) return res.status(400).json({ error: "Tu vi chưa đủ", required: threshold, current: player.tuViHienTai || 0 });
   const currentPower = combatPower(player);
   const requiredPower = minimumBreakthroughOvr(realm, stage, major);
   if (currentPower < requiredPower) return res.status(400).json({ error: "OVR chưa đủ điều kiện đột phá", requiredOvr: requiredPower, currentOvr: currentPower });
-  const next = major ? realms.find((item) => item.stt === Number(realm.stt) + 1) : null;
-  if (major && !next) return res.status(400).json({ error: "Đã đạt cảnh giới tối cao" });
   if (major && realm.danPhaCanh) {
     const inventory = readInventory(player);
     const pillIndex = inventory.findIndex((item) => item.id === realm.danPhaCanh && Number(item.count || 0) > 0);
@@ -930,14 +1088,15 @@ app.post("/api/player/equipment/unequip", authMiddleware, (req, res) => {
   res.json({ player, result: { type: "equipment_unequipped", slot, itemId: item.id } });
 });
 
-app.get(["/admin", "/admin/"], (req, res) => res.sendFile(path.join(__dirname, "public", "admin", "map-editor.html")));
+app.get(["/admin", "/admin/"], (req, res) => res.sendFile(path.join(__dirname, "public", "admin", "index.html")));
+app.get(["/admin/map-editor", "/admin/map-editor/"], (req, res) => res.sendFile(path.join(__dirname, "public", "admin", "map-editor.html")));
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 socketRuntime = setupSocket(io, players, {
   getPlayerByUserId: playerFor,
-  getWorldByCode: (code) => worlds.find((world) => world.code === String(code || "").toLowerCase()) || null,
-  getDefaultWorld: () => worlds.find((world) => world.isDefault) || worlds[0] || null,
+  getWorldByCode: (code) => worlds.find((world) => world.code === String(code || "").toLowerCase() && isWorldPublished(world)) || null,
+  getDefaultWorld: () => worlds.find((world) => world.isDefault && isWorldPublished(world)) || worlds.find(isWorldPublished) || null,
 });
 const { broadcast, sessions } = socketRuntime;
 setInterval(() => {

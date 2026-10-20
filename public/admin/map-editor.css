@@ -35,7 +35,7 @@ button { color: var(--paper); background: var(--panel-2); border: 1px solid var(
 button:hover { border-color: var(--gold); }
 button.primary { background: var(--gold); color: #1b160b; border-color: var(--gold); font-weight: 700; }
 button.ghost { background: transparent; }
-.workspace { display: grid; grid-template-columns: 292px minmax(0, 1fr); height: calc(100vh - 68px); }
+.workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: calc(100vh - 68px); }
 .inspector { overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
 .inspector section { padding: 17px 18px 18px; border-bottom: 1px solid var(--line); }
 h2 { margin: 0 0 14px; color: var(--gold); font: 600 12px/1.2 "Segoe UI", sans-serif; letter-spacing: .08em; }
@@ -76,6 +76,13 @@ input[type="range"] { accent-color: var(--gold); padding: 0; width: 100%; grid-c
 .portal-list { display: grid; gap: 5px; margin-top: 12px; }
 .portal-item { width: 100%; text-align: left; padding: 7px 8px; font-size: 11px; }
 .portal-item.active { border-color: var(--gold); color: var(--gold); }
+.rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+.status-badge { padding: 3px 7px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.status-badge.published { color: var(--jade); border-color: var(--jade); }
+.publish-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.validation-result { padding: 8px; border-left: 2px solid var(--line); white-space: pre-line; }
+.validation-result.error { color: var(--danger); border-color: var(--danger); }
+.validation-result.ok { color: var(--jade); border-color: var(--jade); }
 @media (max-width: 900px) {
   .workspace { grid-template-columns: 240px minmax(0, 1fr); }
   .topbar small, .legend { display: none; }

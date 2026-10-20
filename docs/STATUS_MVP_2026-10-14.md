@@ -1,4 +1,4 @@
-# Trạng thái MVP realtime — cập nhật 2026-10-19
+# Trạng thái MVP realtime — cập nhật 2026-10-20
 
 ## Phạm vi thực tế
 
@@ -10,11 +10,13 @@ MVP đang chạy bằng mockdata và state RAM. Server là nguồn sự thật t
 - Tạo nhân vật có tên, giới tính, linh căn, chỉ số và skill khởi đầu.
 - REST catalog: worlds, realms/stages, roots, items, skills, monsters, balance.
 - Socket room theo map/chunk, player join/move/leave, chat.
+- Gameplay mutation đi qua `game_command` có validate, ack và idempotency; event cũ chỉ còn là lớp tương thích tạm thời.
 - Movement server-authoritative: bounds, collision, path, tốc độ và correction.
 - Portal server-authoritative, kiểm tra vị trí và điểm đến hợp lệ.
 - Combat server-authoritative: basic attack, active skill, MP, cooldown, GCD, damage, crit, defense, affinity, status, loot.
 - Passive skill tự áp dụng; active skill phải học và gán tối đa 4 ô.
 - Tu vi, hấp thụ vật phẩm, tích lũy vượt mốc, OVR và đột phá thủ công.
+- Đủ 13 đại cảnh giới theo kịch bản, tổng cộng 109 tầng và 12 loại đan phá đại cảnh giới.
 - Quái thường/elite/boss, pack spawn, patrol, aggro riêng, chase, leash, attack, respawn.
 - HUD PC, target HUD, skill bar ngang, minimap, chat, inventory, animation/effect cơ bản.
 
@@ -36,12 +38,14 @@ Client không được quyết định damage, HP, loot, tọa độ hợp lệ 
 - Save contract đầy đủ và transaction/rollback.
 - Redis adapter, scale nhiều process, queue và telemetry.
 - Quest, party, guild, PvP/faction, dungeon/bí cảnh.
+- Nội dung/economy cho các cảnh giới cao: map, quái, boss, nguồn linh lực và nguyên liệu chế tạo đan tương ứng.
 - Boss phase/AOE/threat/loot contribution.
 - Mobile input chuyên biệt.
 
 ## Kiểm thử đã chạy
 
 - Balance/root/assets/world validators.
+- Realm validator: đủ chuỗi 13 cảnh giới, ngưỡng tăng liên tục, tầng đầu cảnh giới sau cao hơn ngưỡng phá cảnh trước.
 - Server state smoke.
 - Monster pack và individual aggro smoke.
 - Portal hai chiều smoke.

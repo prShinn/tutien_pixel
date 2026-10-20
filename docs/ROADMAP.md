@@ -215,7 +215,7 @@
 | P11–P12 Tối ưu/render map | 🟡 Demo | Có micro-grid, culling/AOI và renderer hiện tại; chưa benchmark production lớn. |
 | P13 Tạo map Admin | 🟡 Demo | Có generator/editor và snapshot file; chưa có version/publish production đầy đủ. |
 | P14 Damage/defense | ✅ Đạt MVP | Công thức tập trung ở server, có validator balance và affinity mềm. |
-| P15 Tu vi/OVR | ✅ Đạt MVP | Tích lũy, vượt ngưỡng, OVR và đột phá thủ công đã có; economy mở rộng để sau. |
+| P15 Tu vi/OVR | ✅ Đạt MVP | Đủ 13 đại cảnh giới/109 tầng, tích lũy, vượt ngưỡng, OVR, đan phá cảnh và đột phá thủ công; economy cảnh giới cao để sau. |
 | BE/database/scale | ⏸ Tạm hoãn | Chỉ bắt đầu sau khi Đại ca chốt version gameplay; hiện dùng mockdata, RAM state và file map admin. |
 
 ### Việc tiếp theo không phụ thuộc database

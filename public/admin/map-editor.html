@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Thiên Địa Đồ · Map Admin</title>
-    <link rel="stylesheet" href="/admin/map-editor.css?v=3" />
+    <link rel="stylesheet" href="/admin/map-editor.css?v=5" />
   </head>
   <body>
     <header class="topbar">
@@ -14,6 +14,7 @@
         <small>Biên tập địa hình tu tiên</small>
       </div>
       <div class="top-actions">
+        <a href="/admin" class="ghost">← Admin Hub</a>
         <label>Admin key <input id="admin-key" type="password" value="demo-admin" /></label>
         <select id="map-list"><option value="">Map mới</option></select>
         <button id="load-map" class="ghost">Mở map</button>
@@ -49,6 +50,20 @@
             <label>Cao <input id="map-height" type="number" min="240" max="1024" value="400" /></label>
           </div>
           <label>Hạt giống <input id="map-seed" value="van-co-001" /></label>
+          <div class="field-pair">
+            <label>Vùng địa lý <input id="map-region" value="ADMIN_PUBLISHED" /></label>
+            <label>Tier <input id="map-tier" type="number" min="0" max="99" value="0" /></label>
+          </div>
+          <div class="field-pair">
+            <label>Cảnh giới từ <input id="realm-min" type="number" min="1" max="13" value="1" /></label>
+            <label>Đến <input id="realm-max" type="number" min="1" max="13" value="13" /></label>
+          </div>
+          <label>Thẻ phân loại <input id="map-tags" placeholder="farm, sơn thủy, tân thủ" /></label>
+          <div class="rule-grid">
+            <label class="check"><input id="rule-safe-zone" type="checkbox" /> Khu an toàn</label>
+            <label class="check"><input id="rule-no-monsters" type="checkbox" /> Không quái</label>
+            <label class="check"><input id="rule-allow-recall" type="checkbox" checked /> Cho phép hồi thành</label>
+          </div>
           <button id="generate-map" class="wide">Sinh địa hình</button>
         </section>
 
@@ -67,6 +82,7 @@
             <button data-layer="objects">Vật thể</button>
             <button data-layer="elevation">Cao độ</button>
             <button data-layer="spawn">Điểm sinh</button>
+            <button data-layer="monster">Bãi quái</button>
             <button data-layer="portal">Portal</button>
           </div>
           <div id="tile-palette" class="palette"></div>
@@ -74,8 +90,34 @@
           <label class="check"><input id="show-grid" type="checkbox" /> Hiện lưới ô</label>
         </section>
 
+        <section id="monster-panel">
+          <h2>04 · Bãi quái</h2>
+          <p class="hint">Chọn bút Bãi quái rồi nhấp map để đặt tâm đàn. Runtime sinh quái hoàn toàn từ cấu hình này.</p>
+          <label>Loại quái <select id="monster-template"><option value="">Đang tải...</option></select></label>
+          <label>Mã đàn <input id="monster-pack-id" placeholder="PACK_WOLF_01" /></label>
+          <div class="field-pair">
+            <label>X tâm <input id="monster-center-x" type="number" readonly /></label>
+            <label>Y tâm <input id="monster-center-y" type="number" readonly /></label>
+          </div>
+          <div class="field-pair">
+            <label>Số lượng <input id="monster-count" type="number" min="1" max="20" value="4" /></label>
+            <label>Bán kính <input id="monster-radius" type="number" min="2" max="80" value="18" /></label>
+          </div>
+          <div class="field-pair">
+            <label>Phạm vi đuổi <input id="monster-aggro" type="number" min="8" max="160" value="40" /></label>
+            <label>Dây cương <input id="monster-leash" type="number" min="16" max="240" value="72" /></label>
+          </div>
+          <label>Thời gian đuổi (ms) <input id="monster-chase" type="number" min="1000" max="30000" value="7000" /></label>
+          <div class="portal-actions">
+            <button id="new-monster-pack" class="ghost">+ Mới</button>
+            <button id="save-monster-pack" class="wide">Lưu bãi quái</button>
+            <button id="delete-monster-pack" class="ghost" disabled>Xóa</button>
+          </div>
+          <div id="monster-pack-list" class="portal-list"><p class="hint">Map chưa có bãi quái.</p></div>
+        </section>
+
         <section id="portal-panel">
-          <h2>04 · Liên kết portal</h2>
+          <h2>05 · Liên kết portal</h2>
           <p class="hint">Chọn bút Portal rồi nhấp lên map để đặt cổng nguồn.</p>
           <div class="field-pair">
             <label>X nguồn <input id="portal-source-x" type="number" readonly /></label>
@@ -95,6 +137,15 @@
           </div>
           <div id="portal-list" class="portal-list"><p class="hint">Map chưa có portal.</p></div>
         </section>
+        <section>
+          <h2>06 · Kiểm tra &amp; xuất bản</h2>
+          <p>Trạng thái: <strong id="publish-status" class="status-badge">DRAFT</strong></p>
+          <div class="publish-actions">
+            <button id="validate-map" class="ghost">Kiểm tra</button>
+            <button id="publish-map" class="primary">Xuất bản</button>
+          </div>
+          <div id="validation-result" class="validation-result hint">Lưu map để bắt đầu kiểm tra.</div>
+        </section>
       </aside>
 
       <section class="map-stage">
@@ -113,6 +164,6 @@
       </section>
     </main>
     <script src="/js/api.js"></script>
-    <script src="/admin/map-editor.js?v=4"></script>
+    <script src="/admin/map-editor.js?v=5"></script>
   </body>
 </html>
