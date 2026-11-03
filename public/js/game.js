@@ -32,7 +32,8 @@ function update(dt) {
     const modalOpen =
       Boolean(document.getElementById("shop-modal")?.classList.contains("open")) ||
       Boolean(document.getElementById("dialog-modal")?.classList.contains("open")) ||
-      (document.getElementById("kpah-menu-modal")?.style.display === "flex");
+      (document.getElementById("kpah-menu-modal")?.style.display === "flex") ||
+      (document.getElementById("quest-modal")?.style.display === "flex");
     if (!modalOpen && !isTyping) {
       let dx = 0, dy = 0;
       if (Input.keys["KeyA"] || Input.keys["ArrowLeft"] || Input.keys["a"]) dx = -1;

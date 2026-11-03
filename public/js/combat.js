@@ -131,7 +131,8 @@ const Combat = {
     const baseAtk = Combat.pAtk();
     const threat = monsterPressure(S.player, m);
     if (Math.random() < Math.min(0.32, Math.max(0, threat) * 0.16)) {
-      Render.combatFx(m.px, m.py, "miss", "#a8ff8a", 0.7);
+      if (typeof SkillVFX !== "undefined") SkillVFX.basicAttack(S.player, m, { miss: true });
+      else Render.combatFx(m.px, m.py, "miss", "#a8ff8a", 0.7);
       Render.floatDmg(m.px, m.py, -26, "MISS", "#88ff88");
       S.atkCd = CFG.ATK_CD;
       return;
@@ -149,7 +150,8 @@ const Combat = {
       dmg += critAdd;
     }
     m.hitUntil = Date.now() + 180;
-    Render.combatFx(m.px, m.py, isCrit ? "crit" : "hit", isCrit ? "#fff06a" : "#ff765c", isCrit ? 1.25 : 1);
+    if (typeof SkillVFX !== "undefined") SkillVFX.basicAttack(S.player, m, { critical: isCrit });
+    else Render.combatFx(m.px, m.py, isCrit ? "crit" : "hit", isCrit ? "#fff06a" : "#ff765c", isCrit ? 1.25 : 1);
     Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#fff06a" : "#ff5555", isCrit);
     
     S.atkCd = CFG.ATK_CD;

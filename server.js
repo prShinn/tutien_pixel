@@ -29,6 +29,10 @@ const ENV = require("./config/env");
 const { realms, roots, items, skills, monsterDefs, worlds } = require("./data/mock-data");
 const { getWorldStructure } = require("./data/world-structure");
 const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain } = require("./data/balance");
+const QuestService = require("./game/quest-service");
+const SkillVfxProfileStore = require("./game/skill-vfx-profile-store");
+const AdminContentService = require("./game/admin-content-service");
+const GameStateStore = require("./game/game-state-store");
 
 const app = express();
 const server = http.createServer(app);
@@ -39,17 +43,66 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+class PersistedMap extends Map {
+  constructor(onChange) {
+    super();
+    this.onChange = onChange;
+  }
+
+  set(key, value) {
+    super.set(key, value);
+    this.onChange?.();
+    return this;
+  }
+
+  delete(key) {
+    const deleted = super.delete(key);
+    if (deleted) this.onChange?.();
+    return deleted;
+  }
+
+  clear() {
+    if (this.size) {
+      super.clear();
+      this.onChange?.();
+    }
+  }
+
+  restore(key, value) {
+    return Map.prototype.set.call(this, key, value);
+  }
+}
+
+const GAME_STATE_FILE = process.env.GAME_STATE_FILE
+  ? path.resolve(process.env.GAME_STATE_FILE)
+  : path.join(__dirname, "data", "game-state.json");
+const gameStateStore = new GameStateStore(GAME_STATE_FILE, {
+  onError: (error) => console.error("Game state persistence failed:", error.message),
+});
+const restoredGameState = gameStateStore.load();
 const users = new Map();
 const usersByUsername = new Map();
 const registeringUsernames = new Set();
-const players = new Map();
+const players = new PersistedMap(scheduleGameStateSave);
 const playersByUserId = new Map();
 const worldResponseCache = new Map();
 let socketRuntime = null;
 let nextUserId = 1;
 let nextPlayerId = 1;
+for (const user of restoredGameState.users) {
+  users.set(user.id, user);
+  usersByUsername.set(user.username.toLowerCase(), user);
+  nextUserId = Math.max(nextUserId, user.id + 1);
+}
+for (const player of restoredGameState.players) {
+  players.restore(player.id, player);
+  playersByUserId.set(Number(player.userId), player);
+  nextPlayerId = Math.max(nextPlayerId, Number(player.id) + 1);
+}
 const ADMIN_MAP_KEY = ENV.adminMapKey;
 const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
+const SKILL_VFX_FILE = path.join(__dirname, "data", "skill-vfx.json");
+const skillVfxProfileStore = new SkillVfxProfileStore(SKILL_VFX_FILE);
 const MAP_MIN_W = 320;
 const MAP_MIN_H = 240;
 const MAP_MAX_SIZE = 1024;
@@ -364,7 +417,7 @@ function adminCollection(name) {
 }
 
 function adminContentId(value) {
-  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").slice(0, 80);
+  return String(value || "").trim().replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 80);
 }
 
 loadAdminWorlds();
@@ -380,7 +433,20 @@ function findUserByUsername(username) {
 function storeUser(user) {
   users.set(user.id, user);
   usersByUsername.set(String(user.username).toLowerCase(), user);
+  if (!user.isDemo) scheduleGameStateSave();
   return user;
+}
+
+function scheduleGameStateSave() {
+  const durableUsers = [...users.values()].filter((user) => !user.isDemo);
+  const durableUserIds = new Set(durableUsers.map((user) => Number(user.id)));
+  gameStateStore.schedule(() => ({
+    schemaVersion: 1,
+    users: durableUsers.map(({ id, username, passwordHash }) => ({ id, username, passwordHash })),
+    players: [...players.values()]
+      .filter((player) => durableUserIds.has(Number(player.userId)))
+      .map((player) => JSON.parse(JSON.stringify(player))),
+  }));
 }
 
 function worldSummary(world) {
@@ -449,13 +515,20 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
   }
 
   registeringUsernames.add(usernameKey);
+  let createdUser = null;
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     if (findUserByUsername(username)) return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
-    const user = { id: nextUserId++, username, passwordHash };
-    storeUser(user);
-    return res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
+    createdUser = { id: nextUserId++, username, passwordHash };
+    storeUser(createdUser);
+    await gameStateStore.flush();
+    return res.json({ token: signToken(createdUser.id, createdUser.username), user: publicUser(createdUser) });
   } catch (error) {
+    if (createdUser && users.get(createdUser.id) === createdUser) {
+      users.delete(createdUser.id);
+      usersByUsername.delete(usernameKey);
+      scheduleGameStateSave();
+    }
     console.error("Registration failed");
     return res.status(500).json({ error: "Không thể tạo tài khoản lúc này" });
   } finally {
@@ -526,6 +599,39 @@ app.get("/api/admin/worlds", adminMapMiddleware, (req, res) => {
     validation: validateWorldForPublish(world),
   })));
 });
+app.get("/api/admin/skill-vfx", adminMapMiddleware, (_req, res) => {
+  res.set("Cache-Control", "no-store").json({ profiles: skillVfxProfileStore.list() });
+});
+app.post("/api/admin/skill-vfx", adminMapMiddleware, async (req, res) => {
+  try {
+    const result = await skillVfxProfileStore.create(req.body);
+    if (!result.ok) return res.status(result.status).json({ error: result.message, code: result.code });
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error("Failed to persist skill VFX profile:", error.message);
+    return res.status(500).json({ error: "Không lưu được cấu hình animation" });
+  }
+});
+app.put("/api/admin/skill-vfx/:skillCode", adminMapMiddleware, async (req, res) => {
+  try {
+    const result = await skillVfxProfileStore.update(req.params.skillCode, req.body);
+    if (!result.ok) return res.status(result.status).json({ error: result.message, code: result.code });
+    return res.json(result);
+  } catch (error) {
+    console.error("Failed to persist skill VFX profile:", error.message);
+    return res.status(500).json({ error: "Không lưu được cấu hình animation" });
+  }
+});
+app.delete("/api/admin/skill-vfx/:skillCode", adminMapMiddleware, async (req, res) => {
+  try {
+    const result = await skillVfxProfileStore.remove(req.params.skillCode);
+    if (!result.ok) return res.status(result.status).json({ error: result.message, code: result.code });
+    return res.json(result);
+  } catch (error) {
+    console.error("Failed to persist skill VFX profile:", error.message);
+    return res.status(500).json({ error: "Không lưu được cấu hình animation" });
+  }
+});
 app.get("/api/admin/content/:collection", adminMapMiddleware, (req, res) => {
   const data = adminCollection(req.params.collection);
   if (!data) return res.status(404).json({ error: "Collection admin chưa được hỗ trợ" });
@@ -535,10 +641,15 @@ app.post("/api/admin/content/:collection", adminMapMiddleware, (req, res) => {
   const key = String(req.params.collection || "").toLowerCase();
   const collection = adminContent[key];
   if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
-  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : null;
+  if (!body) return res.status(400).json({ error: "Bản ghi phải là một đối tượng JSON" });
   const id = adminContentId(body.id || `${key}_${Date.now()}`);
-  if (!id || collection.some((item) => item.id === id)) return res.status(409).json({ error: "ID đã tồn tại hoặc không hợp lệ" });
-  const record = { ...body, id, updatedAt: new Date().toISOString() };
+  if (!id) return res.status(400).json({ error: "Mã bản ghi không hợp lệ" });
+  const record = { ...body, id };
+  const validationError = AdminContentService.validateRecord(key, record);
+  if (validationError) return res.status(400).json({ error: validationError });
+  if (AdminContentService.hasDuplicate(collection, key, record)) return res.status(409).json({ error: "Mã bản ghi hoặc mã nội dung đã tồn tại" });
+  record.updatedAt = new Date().toISOString();
   collection.push(record);
   return res.status(201).json({ demo: true, persisted: false, data: record });
 });
@@ -546,16 +657,22 @@ app.put("/api/admin/content/:collection/:id", adminMapMiddleware, (req, res) => 
   const key = String(req.params.collection || "").toLowerCase();
   const collection = adminContent[key];
   if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
-  const index = collection.findIndex((item) => item.id === req.params.id);
+  const index = collection.findIndex((item) => String(item.id) === String(req.params.id));
   if (index < 0) return res.status(404).json({ error: "Bản ghi không tồn tại" });
-  collection[index] = { ...collection[index], ...(req.body || {}), id: collection[index].id, updatedAt: new Date().toISOString() };
+  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) return res.status(400).json({ error: "Bản ghi phải là một đối tượng JSON" });
+  const record = { ...collection[index], ...req.body, id: collection[index].id };
+  const validationError = AdminContentService.validateRecord(key, record);
+  if (validationError) return res.status(400).json({ error: validationError });
+  if (AdminContentService.hasDuplicate(collection, key, record, collection[index].id)) return res.status(409).json({ error: "Mã nội dung đã tồn tại" });
+  record.updatedAt = new Date().toISOString();
+  collection[index] = record;
   return res.json({ demo: true, persisted: false, data: collection[index] });
 });
 app.delete("/api/admin/content/:collection/:id", adminMapMiddleware, (req, res) => {
   const key = String(req.params.collection || "").toLowerCase();
   const collection = adminContent[key];
   if (!collection) return res.status(400).json({ error: "Collection này chưa cho phép ghi" });
-  const index = collection.findIndex((item) => item.id === req.params.id);
+  const index = collection.findIndex((item) => String(item.id) === String(req.params.id));
   if (index < 0) return res.status(404).json({ error: "Bản ghi không tồn tại" });
   const [removed] = collection.splice(index, 1);
   return res.json({ demo: true, persisted: false, removed: removed.id });
@@ -738,6 +855,7 @@ app.get("/api/canh-gioi/:id", (req, res) => {
 app.get("/api/linh-can", (req, res) => res.json(roots));
 app.get("/api/items", (req, res) => res.json(items));
 app.get("/api/skills", (req, res) => res.json(skills));
+app.get("/api/skill-vfx", (_req, res) => res.set("Cache-Control", "no-store").json({ profiles: skillVfxProfileStore.list() }));
 app.get("/api/balance", (req, res) => res.json(BALANCE));
 app.get("/api/skills/catalog", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
@@ -800,6 +918,43 @@ function writeInventory(player, inventory) {
   player.inventory = inventory;
   player.jsonIventory = JSON.stringify(inventory);
 }
+
+app.get("/api/quests", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  players.set(player.id, player);
+  return res.json(QuestService.snapshot(player));
+});
+
+app.post("/api/quests/:id/accept", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  const result = QuestService.accept(player, req.params.id);
+  if (!result.ok) return res.status(result.code === "QUEST_NOT_FOUND" ? 404 : 409).json({ error: result.message, code: result.code });
+  players.set(player.id, player);
+  return res.json(result);
+});
+
+app.post("/api/quests/:id/track", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  const result = QuestService.track(player, req.params.id);
+  if (!result.ok) return res.status(result.code === "QUEST_NOT_FOUND" ? 404 : 409).json({ error: result.message, code: result.code });
+  players.set(player.id, player);
+  return res.json(result);
+});
+
+app.post("/api/quests/:id/claim", authMiddleware, (req, res) => {
+  const player = playerFor(req.userId);
+  if (!player) return res.status(404).json({ error: "Player not found" });
+  const result = QuestService.claim(player, req.params.id, items);
+  if (!result.ok) {
+    const status = result.code === "QUEST_NOT_FOUND" ? 404 : result.code === "QUEST_NOT_READY" ? 409 : 400;
+    return res.status(status).json({ error: result.message, code: result.code });
+  }
+  players.set(player.id, player);
+  return res.json({ ...result, player: { xu: player.xu, tuViHienTai: player.tuViHienTai, inventory: readInventory(player) } });
+});
 
 app.post("/api/player/cultivation/absorb", authMiddleware, (req, res) => {
   const player = playerFor(req.userId);
@@ -963,7 +1118,7 @@ app.post("/api/player/shop/sell", authMiddleware, (req, res) => {
   res.json({ player, result: { type: "sold", itemId: item.id, price } });
 });
 
-app.post("/api/player", authMiddleware, (req, res) => {
+app.post("/api/player", authMiddleware, async (req, res) => {
   if (Number(req.body?.userId) !== req.userId) return res.status(403).json({ error: "Player không thuộc tài khoản" });
   const existing = playerFor(req.userId);
   if (existing) return res.status(409).json(existing);
@@ -1035,7 +1190,15 @@ app.post("/api/player", authMiddleware, (req, res) => {
   player.jsonIventory = JSON.stringify(player.inventory);
   player.combatPower = combatPower(player);
   storePlayer(player);
-  res.json(player);
+  try {
+    await gameStateStore.flush();
+    res.json(player);
+  } catch (error) {
+    players.delete(player.id);
+    playersByUserId.delete(req.userId);
+    console.error("Character persistence failed");
+    res.status(503).json({ error: "Chưa thể lưu nhân vật, vui lòng thử lại" });
+  }
 });
 
 app.post("/api/player/stats/allocate", authMiddleware, (req, res) => {
@@ -1156,9 +1319,41 @@ socketRuntime = setupSocket(io, players, {
   getDefaultWorld: () => worlds.find((world) => world.isDefault && isWorldPublished(world)) || worlds.find(isWorldPublished) || null,
 });
 const { broadcast, sessions } = socketRuntime;
-setInterval(() => {
+const serverMessageTimer = setInterval(() => {
   if (sessions.size) broadcast("server_msg", { text: `[System] ${sessions.size} tu sĩ đang trực tuyến` });
 }, 300000);
+serverMessageTimer.unref?.();
+
+let shutdownPromise = null;
+function shutdownServer(signal) {
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = (async () => {
+    clearInterval(serverMessageTimer);
+    await new Promise((resolve) => io.close(resolve));
+    await gameStateStore.flush();
+    console.log(`Server stopped cleanly after ${signal}.`);
+  })();
+  return shutdownPromise;
+}
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => {
+    shutdownServer(signal).catch((error) => {
+      console.error("Graceful shutdown failed:", error.message);
+      process.exitCode = 1;
+    });
+  });
+}
+if (process.send) {
+  process.on("message", (message) => {
+    if (message?.type !== "shutdown") return;
+    process.disconnect();
+    shutdownServer("IPC").catch((error) => {
+      console.error("Graceful shutdown failed:", error.message);
+      process.exitCode = 1;
+    });
+  });
+}
 
 const PORT = ENV.port;
 server.listen(PORT, () => console.log(`Tu Tien demo running at http://localhost:${PORT}`));

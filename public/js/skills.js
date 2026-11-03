@@ -142,17 +142,54 @@ const SkillSystem = {
     if (!host || !this._book) return;
     const learned = new Set(this._book.learnedSkills || []);
     const visible = (this._book.skills || []).filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player?.linhCan);
-    host.innerHTML = visible.map((skill) => {
+    const rows = visible.map((skill) => {
       const known = learned.has(skill.code);
       const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
-      const marked = this._selected.has(skill.code);
-      const action = known ? (passive ? "TỰ ĐỘNG" : (marked ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
-      const fn = known ? (passive ? "" : `SkillSystem.toggleEquip('${skill.code}')`) : `SkillSystem.learnSkill('${skill.code}')`;
+      const action = known ? (passive ? "TỰ ĐỘNG" : (this._selected.has(skill.code) ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
       const damage = Number(skill.satThuong || 0);
       const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
-      const categoryLabel = passive ? "BỊ ĐỘNG" : "CHỦ ĐỘNG";
-      return `<div class="skill-book-row"><div class="skill-book-info"><strong>${skill.icon || "✦"} ${skill.name} <span class="skill-category ${passive ? "passive" : "active"}">${categoryLabel}</span></strong><small>T${skill.tier || 1} · ${details}</small><em>${skill.description || skill.moTa || skill.desc || ""}</em></div><button ${fn ? `onclick="${fn}"` : "disabled"}>${action}</button></div>`;
-    }).join("") + `<button class="sbtn" onclick="SkillSystem.saveLoadout()">Lưu loadout</button>`;
+      const row = document.createElement("div");
+      row.className = "skill-book-row";
+      const info = document.createElement("div");
+      info.className = "skill-book-info";
+      const title = document.createElement("strong");
+      const icon = UI.createPixelIcon({ effect: skill.effect, damageType: skill.damageType, category: skill.category, name: skill.name }, "skill", "skill-book-icon");
+      title.append(icon, document.createTextNode(` ${skill.name || skill.code || "Kỹ năng"} `));
+      const category = document.createElement("span");
+      category.className = `skill-category ${passive ? "passive" : "active"}`;
+      category.textContent = passive ? "BỊ ĐỘNG" : "CHỦ ĐỘNG";
+      title.appendChild(category);
+      const summary = document.createElement("small");
+      summary.textContent = `T${skill.tier || 1} · ${details}`;
+      const description = document.createElement("em");
+      description.textContent = skill.description || skill.moTa || skill.desc || "";
+      info.append(title, summary, description);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = action;
+      button.disabled = known && passive;
+      if (!known) button.onclick = () => SkillSystem.learnSkill(skill.code);
+      else if (!passive) button.onclick = () => SkillSystem.toggleEquip(skill.code);
+      const preview = document.createElement("button");
+      preview.type = "button";
+      preview.className = "skill-preview-btn";
+      preview.textContent = "Xem";
+      preview.title = `Xem hiệu ứng ${skill.name || skill.code}`;
+      preview.setAttribute("aria-label", `Xem hiệu ứng kỹ năng ${skill.name || skill.code}`);
+      preview.onclick = () => {
+        if (typeof SkillVFX !== "undefined") SkillVFX.preview(skill);
+      };
+      const actions = document.createElement("div");
+      actions.className = "skill-book-actions";
+      actions.append(preview, button);
+      row.append(info, actions);
+      return row;
+    });
+    const save = document.createElement("button");
+    save.className = "sbtn skill-save-btn";
+    save.textContent = "Lưu loadout";
+    save.onclick = () => SkillSystem.saveLoadout();
+    host.replaceChildren(...rows, save);
   },
 
   // Gán kỹ năng ngẫu nhiên: 2 thấp (tier 1-2) và 2 cao (tier 3-4) theo kịch bản
@@ -345,10 +382,11 @@ const SkillSystem = {
     if (document.getElementById("dialog-modal").classList.contains("open")) return;
 
     const skill = p.skills[slotIdx];
-    const startCastAnimation = () => {
+    const startCastAnimation = (target = null) => {
       const physicalStrike = this.isOffensive(skill) && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
       p.animState = physicalStrike ? "attack" : "cast";
       p.animUntil = Date.now() + (physicalStrike ? 360 : 520);
+      if (typeof SkillVFX !== "undefined") SkillVFX.charge(skill, p, target);
     };
 
     if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
@@ -384,7 +422,7 @@ const SkillSystem = {
             .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
       if (!target) return UI.log("Không có mục tiêu trong tầm.", "system");
       S.target = target;
-      startCastAnimation();
+      startCastAnimation(target);
       S.combatPending = true;
       Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
       return;
@@ -397,6 +435,7 @@ const SkillSystem = {
     if (!offensive && !["heal", "restore_mp"].includes(skill.effect) && !skill.effect?.startsWith("buff_")) {
       if (["shield", "speed"].includes(String(skill.effect || ""))) this.applyBuff(p, skill);
       if (skill.effect === "cleanse") p.debuffs = {};
+      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
       return;
     }
 
@@ -407,6 +446,7 @@ const SkillSystem = {
       p.hp = Math.min(p.maxHp, p.hp + healAmt);
       Render.floatDmg(p.px, p.py, -40, "+" + healAmt, "#44ff88");
       UI.log(`${skill.icon} ${skill.name} → Hồi ${healAmt} HP`, "level");
+      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
       return;
     }
 
@@ -415,12 +455,14 @@ const SkillSystem = {
       p.mp = Math.min(p.maxMp, p.mp + restore);
       Render.floatDmg(p.px, p.py, -40, "+" + restore, "#66ccff");
       UI.log(`${skill.icon} ${skill.name} → Hồi ${restore} MP`, "level");
+      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
       return;
     }
 
     // ── Buff bản thân ──
     if (skill.effect?.startsWith("buff_")) {
       this.applyBuff(p, skill);
+      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
       return;
     }
 
@@ -438,17 +480,20 @@ const SkillSystem = {
       }
       const aoeRange = (skill.aoeR || 3) * CFG.SKILL_RANGE_SCALE;
       let hits = 0;
+      const hitTargets = [];
       for (const m of S.monsters) {
         if (m.dead) continue;
         if (dist(m.px, m.py, center.px, center.py) < aoeRange) {
           const dmg = this.calcDmg(skill, m, hits > 0);
           this.hitMonster(m, dmg, skill);
+          hitTargets.push(m);
           hits++;
         }
       }
       if (hits === 0)
         UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
       else {
+        if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, hitTargets);
         UI.log(
           `${skill.icon} ${skill.name} [${skill.damageType}] → ${hits} mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
           "combat",
@@ -471,6 +516,7 @@ const SkillSystem = {
       }
       const dmg = this.calcDmg(skill, best);
       this.hitMonster(best, dmg, skill);
+      if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, [best]);
       UI.log(
         `${skill.icon} ${skill.name} [${skill.damageType}×${skill.satThuong}] → ${best.name} -${dmg}${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
         "combat",
@@ -602,10 +648,8 @@ const SkillSystem = {
         categoryEl.className = `sk-category ${passive ? 'passive' : 'active'}`;
         slotEl.classList.toggle('passive-skill', passive);
         slotEl.title = passive ? `${sk.name} · Bị động (tự động)` : `${sk.name} · Chủ động · phím ${i + 1}`;
-        iconEl.textContent = sk.icon || (sk.damageType === 'MAGIC' ? '✨' : '⚔️');
-        const rawIcon = sk.icon || (sk.damageType === "MAGIC" ? "✨" : "⚔️");
-        if (/^(https?:|\.|\/)/.test(String(rawIcon))) iconEl.innerHTML = `<img src="${rawIcon}" alt="" loading="lazy">`;
-        else iconEl.textContent = rawIcon;
+        iconEl.className = `skbar-icon pixel-icon ${UI.pixelIconClass(sk, "skill")}`;
+        iconEl.replaceChildren();
         nameEl.textContent = sk.name;
 
         // MP cost
@@ -619,16 +663,19 @@ const SkillSystem = {
           slotEl.appendChild(typeEl);
         }
         if (sk.damageType === 'MAGIC') {
-          typeEl.textContent = '✨M';
+          typeEl.textContent = 'PHÁP';
           typeEl.className = 'sk-type magic';
         } else {
-          typeEl.textContent = '⚔P';
+          typeEl.textContent = 'VẬT';
           typeEl.className = 'sk-type phys';
         }
 
         // Border màu theo type
-        slotEl.style.borderColor = sk.damageType === 'MAGIC' ? '#602090' : '#6a4010';
+        slotEl.style.borderColor = '';
+        slotEl.classList.toggle('skill-magic', sk.damageType === 'MAGIC');
+        slotEl.classList.toggle('skill-physical', sk.damageType !== 'MAGIC');
       } else {
+        iconEl.className = 'skbar-icon';
         iconEl.textContent = '—';
         nameEl.textContent = 'Chưa có';
         mpEl.textContent   = '';
@@ -638,6 +685,7 @@ const SkillSystem = {
         const categoryEl = slotEl.querySelector('.sk-category');
         if (categoryEl) categoryEl.remove();
         slotEl.classList.remove('passive-skill');
+        slotEl.classList.remove('skill-magic', 'skill-physical');
         slotEl.title = '';
       }
 
@@ -664,10 +712,13 @@ const SkillSystem = {
     const el = document.getElementById('skill-tip');
     if (!el || !sk) return;
 
-    document.getElementById('stip-name').textContent  = `${sk.icon || ''} ${sk.name}`;
+    document.getElementById('stip-name').replaceChildren(
+      UI.createPixelIcon(sk, 'skill', 'tip-pixel-icon'),
+      document.createTextNode(` ${sk.name}`),
+    );
 
     const passive = String(sk.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
-    const typeLabel = passive ? 'BỊ ĐỘNG · Tự động' : `CHỦ ĐỘNG · ${sk.damageType === 'MAGIC' ? 'Pháp thuật ✨' : 'Vật lý ⚔'}`;
+    const typeLabel = passive ? 'BỊ ĐỘNG · Tự động' : `CHỦ ĐỘNG · ${sk.damageType === 'MAGIC' ? 'Pháp thuật' : 'Vật lý'}`;
     const typeEl = document.getElementById('stip-type');
     typeEl.textContent = typeLabel;
     typeEl.className   = passive ? 'sv stip-type-passive' : (sk.damageType === 'MAGIC' ? 'sv stip-type-magic' : 'sv stip-type-phys');

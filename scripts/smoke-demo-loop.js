@@ -1,6 +1,7 @@
 const { io } = require("socket.io-client");
 
 const BASE = process.env.DEMO_URL || "http://localhost:3000";
+let moveSequence = 0;
 // Runtime hiện chỉ chặn nước (tile 2); cây/núi là decoration đi xuyên được.
 const SOLID = new Set([2]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -12,9 +13,14 @@ async function request(path, options = {}) {
   return data;
 }
 
+async function createDemoToken() {
+  const auth = await request("/api/auth/demo", { method: "POST" });
+  return auth.token;
+}
+
 async function createFighter(name) {
   const auth = await request("/api/auth/demo", { method: "POST" });
-  await request("/api/player", {
+  const created = await request("/api/player", {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${auth.token}` },
     body: JSON.stringify({
@@ -23,7 +29,7 @@ async function createFighter(name) {
       x: 80, y: 200, mapCode: "binh_nguyen", mapId: "binh_nguyen", jsonIventory: "[]",
     }),
   });
-  return auth.token;
+  return { token: auth.token, player: created };
 }
 
 function findCollisionProbe(world) {
@@ -54,7 +60,7 @@ function connect(token, x, y) {
 
 async function verifyCollision(world) {
   const probe = findCollisionProbe(world);
-  const token = await createFighter("Va chạm demo");
+  const token = await createDemoToken();
   const { socket, init } = connect(token, probe.startX, probe.startY);
   try {
     await init;
@@ -72,43 +78,55 @@ async function verifyCollision(world) {
   }
 }
 
-async function moveToPortal(socket, observer) {
-  for (let x = 76; x >= 28; x -= 4) {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`move was not confirmed at ${x},200`)), 1500);
-      const onCorrection = ({ reason }) => {
-        clearTimeout(timer);
-        socket.off("movement_corrected", onCorrection);
-        reject(new Error(`move corrected at ${x},200: ${reason}`));
-      };
-      const onMove = (payload) => {
-        if (Number(payload.x) !== x || Number(payload.y) !== 200) return;
-        clearTimeout(timer);
-        socket.off("movement_corrected", onCorrection);
-        observer.off("player_move", onMove);
-        resolve();
-      };
-      socket.once("movement_corrected", onCorrection);
-      observer.on("player_move", onMove);
-      socket.emit("move", { x, y: 200, mapId: "binh_nguyen" });
-    });
-    await sleep(55);
+async function moveStep(socket, x, y, mapCode = "binh_nguyen") {
+  const response = await new Promise((resolve) => socket.emit("game_command", {
+    requestId: `demo-loop-move-${++moveSequence}`,
+    type: "movement.intent",
+    payload: { x, y, mapCode },
+  }, resolve));
+  if (!response?.ok || !response.result?.accepted) throw new Error(response?.error?.message || `move was not accepted at ${x},${y}`);
+  await sleep(55);
+  return { x: Number(response.result.x), y: Number(response.result.y) };
+}
+
+async function moveIntoCombatRange(socket, start, target) {
+  let position = { x: Number(start.x), y: Number(start.y) };
+  for (let step = 0; step < 40; step += 1) {
+    const dx = Number(target.x) - position.x;
+    const dy = Number(target.y) - position.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= 21) return position;
+    const amount = Math.min(3.5, Math.max(0, Math.abs(dx) - 8));
+    if (!amount) return position;
+    position = await moveStep(socket, position.x + Math.sign(dx) * amount, position.y);
+  }
+  throw new Error("could not enter attack range from the server spawn");
+}
+
+async function moveToPortal(socket, startX) {
+  let x = Number(startX);
+  while (x > 12) {
+    x = Math.max(12, x - 3.5);
+    const position = await moveStep(socket, x, 200);
+    x = position.x;
   }
 }
 
 async function verifyCombatAndPortal(portal) {
-  const token = await createFighter("Hành trình demo");
+  const fighter = await createFighter("Hành trình demo");
   const observerToken = (await request("/api/auth/demo", { method: "POST" })).token;
   const observerConn = connect(observerToken, 20, 200);
   const observer = observerConn.socket;
-  const { socket, init } = connect(token, 80, 200);
+  const { socket, init } = connect(fighter.token, fighter.player.x, fighter.player.y);
   try {
     await observerConn.init;
     const initial = await init;
+    const start = { x: Number(initial.player?.x ?? fighter.player.x), y: Number(initial.player?.y ?? fighter.player.y) };
     const target = [...(initial.monsters || [])]
       .filter((monster) => !monster.dead)
-      .sort((a, b) => Math.hypot(a.x - 80, a.y - 200) - Math.hypot(b.x - 80, b.y - 200))[0];
-    if (!target || Math.hypot(target.x - 80, target.y - 200) > 24) throw new Error("no monster in basic attack range");
+      .sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y))[0];
+    if (!target) throw new Error("no monster near the server spawn");
+    const combatPosition = await moveIntoCombatRange(socket, start, target);
 
     const combat = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("combat result timeout")), 5000);
@@ -124,7 +142,7 @@ async function verifyCombatAndPortal(portal) {
     const combatResult = await combat;
     if (Number(combatResult.damage) < 1) throw new Error("basic attack caused no damage");
 
-    await moveToPortal(socket, observer);
+    await moveToPortal(socket, combatPosition.x);
     const transitioned = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("portal transition timeout")), 6000);
       socket.once("action_error", ({ error }) => { clearTimeout(timer); reject(new Error(error)); });

@@ -24,6 +24,8 @@ const AUTH_BACKEND = ENV.authBackend;
 const { skills, monsterDefs, items, lootTables } = require("../data/mock-data");
 const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage, monsterPressure } = require("../data/balance");
 const { createCommandPipeline } = require("./command-pipeline");
+const QuestService = require("../game/quest-service");
+const { publishSupportSkill } = require("./skill-visual-event");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
@@ -939,6 +941,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         monsters,
         groundItems: (roomGroundItems.get(roomId) || []).map((item) => publicGroundItem(item))
       });
+      if (playerData) socket.emit("quest_state_update", QuestService.snapshot(playerData));
 
       // Notify others on same map
       emitNear(roomId, position.x, position.y, "player_join", session, socket.id);
@@ -1095,7 +1098,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       const result = resolveSelfSkill(player, skillCode, session);
       if (result.error) return ctx.fail?.("SKILL_REJECTED", result.error, "skill");
       players.set(player.id, player);
-      socket.emit("skill_result", result);
+      publishSupportSkill({ socket, session, result, emitNear });
       return result;
     };
 
@@ -1120,6 +1123,9 @@ function setupSocket(io, players = new Map(), options = {}) {
       const result = resolveMonsterAttack(player, monster, skillCode, session);
       if (result.error) return ctx.fail?.("COMBAT_REJECTED", result.error, "combat");
       const hits = [{ targetId: monster.id, ...result }];
+      let questAdvanced = result.dead
+        ? QuestService.applyEvent(player, { type: "monster_kill", count: 1 })
+        : false;
       let bonusXu = Number(result.loot?.xu || 0);
       const droppedItems = [...(result.loot?.items || [])];
       let groundDrops = result.loot ? spawnGroundLoot(roomId, monster.x, monster.y, result.loot, socket.id) : [];
@@ -1133,6 +1139,7 @@ function setupSocket(io, players = new Map(), options = {}) {
           const extra = resolveMonsterAttack(extraPlayer, nearby, skillCode, { ...session, bypassCooldown: true, areaSecondary: true });
           if (!extra.error) {
             hits.push({ targetId: nearby.id, ...extra });
+            if (extra.dead && QuestService.applyEvent(player, { type: "monster_kill", count: 1 })) questAdvanced = true;
             bonusXu += Number(extra.loot?.xu || 0);
             droppedItems.push(...(extra.loot?.items || []));
             if (extra.loot) groundDrops.push(...spawnGroundLoot(roomId, nearby.x, nearby.y, extra.loot, socket.id));
@@ -1141,6 +1148,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       }
       player.combatPower = player.combatPower || 0;
       players.set(player.id, player);
+      if (questAdvanced) socket.emit("quest_state_update", QuestService.snapshot(player));
       if (groundDrops.length) emitNear(roomId, session.x, session.y, "ground_loot_spawn", { drops: groundDrops });
       const combatPayload = { attackerId: socket.id, attackerName: socket.username, targetId, ...result, skillName: skill?.name || null, hits, groundDrops, loot: null };
       emitNear(roomId, session.x, session.y, "combat_result", combatPayload);
@@ -1165,9 +1173,12 @@ function setupSocket(io, players = new Map(), options = {}) {
       }
       const accepted = addLootToPlayer(player, loot);
       if (drop.kind === "item" && accepted.acceptedItems < Number(drop.count || 1)) return ctx.fail?.("INVENTORY_FULL", "Túi đồ đầy hoặc vật phẩm đã đủ stack", "pickup");
+      const questAdvanced = drop.kind === "item"
+        && QuestService.applyEvent(player, { type: "collect_item", itemId: drop.item.id, count: drop.count });
       drops.splice(index, 1);
       roomGroundItems.set(session.mapId, drops);
       players.set(player.id, player);
+      if (questAdvanced) socket.emit("quest_state_update", QuestService.snapshot(player));
       socket.emit("ground_loot_picked", { item: publicGroundItem(drop), player, loot });
       socket.to(`map:${session.mapId}`).emit("ground_loot_removed", { itemId: drop.id });
       return { accepted: true, itemId: drop.id, loot };
@@ -1200,6 +1211,7 @@ function setupSocket(io, players = new Map(), options = {}) {
           monsters: ensureRoomMonsters(session.mapId, worldData),
           groundItems: (roomGroundItems.get(session.mapId) || []).map((item) => publicGroundItem(item)),
         });
+        if (playerData) socket.emit("quest_state_update", QuestService.snapshot(playerData));
         return { accepted: true, authoritative: true, mapCode: session.mapId };
       },
     });

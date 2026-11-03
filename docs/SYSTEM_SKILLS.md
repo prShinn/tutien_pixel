@@ -29,8 +29,8 @@ Moi linh can co skill gay damage de train quai. Vai tro khac nhau: cong kich, ph
 
 ## Luong su dung
 
-`learn skill -> server cap nhat learnedSkills -> equip active vao 4 slot -> client gui skill_request -> server kiem tra muc tieu/range/MP/cooldown -> server tinh damage/effect -> socket tra ket qua -> client render floating text, flash va animation.`
+`learn skill -> server cap nhat learnedSkills -> equip active vao 4 slot -> client gui skill_request -> server kiem tra muc tieu/range/MP/cooldown -> server tinh damage/effect -> socket tra ket qua -> client render pixel animation theo skill va linh can.`
 
 ## Chua co trong MVP
 
-Skill tree, nang cap tier theo cap do, combo, animation rieng cho tung effect, PvP day du, party buff va he thong sach/ngoc hoc skill chi la huong mo rong; khong duoc xem la tinh nang da hoan tat.
+Skill tree, nang cap tier theo cap do, combo, PvP day du, party buff va he thong sach/ngoc hoc skill chi la huong mo rong. Animation pixel theo ma skill da duoc bo sung o frontend; sprite sheet rieng cho tung skill van la huong mo rong.

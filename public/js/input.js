@@ -37,10 +37,15 @@ const Input = {
       if (e.key) Input.keys[e.key.toLowerCase()] = true;
       const active = document.activeElement;
       const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.id === "chat-inp" && active.offsetParent !== null;
+      const isFormControl = active?.matches?.("input, textarea, select, [contenteditable='true']");
       if (!isInput && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
         e.preventDefault();
       }
       if (isInput) return;
+      if (e.code === "KeyQ" && !e.repeat && !isFormControl) {
+        e.preventDefault();
+        QuestUI.toggle();
+      }
       if (e.code === "KeyF" || e.key === "f" || e.key === "F") World.checkNpcInteract();
       if (e.code === "Escape") {
         S.target = null;
@@ -54,6 +59,7 @@ const Input = {
         if (menu) menu.style.display = "none";
         const continent = document.getElementById("continent-modal");
         if (continent) continent.style.display = "none";
+        QuestUI.close();
       }
       if (e.code === "Enter") {
         const ci = document.getElementById("chat-inp");

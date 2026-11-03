@@ -1,2 +1,4 @@
 node_modules
 *.log
+/data/game-state.json
+/data/game-state.json.*.tmp

@@ -139,6 +139,7 @@ const Render = {
     const tint = p.root ? p.root.color : "#4488cc";
     Render.player(p.px - cx, p.py - cy, tint, p);
     Render.drawCombatFx(cx, cy);
+    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy);
 
     // KPAH Name Tags & HP Bar
     ctx.font = "bold 6px monospace";
@@ -370,7 +371,8 @@ const Render = {
     const activeAction = actor?.animUntil > now
       ? actor.animState
       : (moving ? "walk" : "idle");
-    const animation = { idle: { row: 0, speed: 240 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 240 };
+    const hurtRow = Number(actor?.animation?.rows || 4) > 4 ? 4 : 2;
+    const animation = { idle: { row: 0, speed: 240 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 }, hurt: { row: hurtRow, speed: 90 } }[activeAction] || { row: 0, speed: 240 };
     if (this._prefersReducedMotion === undefined) {
       this._prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
     }
@@ -378,8 +380,12 @@ const Render = {
     const rawFrame = reduceMotion ? 0 : Math.floor(now / animation.speed) % 4;
     // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
     const frameIndex = reduceMotion
-      ? ((activeAction === "attack" || activeAction === "cast") ? 2 : 0)
+      ? ((activeAction === "attack" || activeAction === "cast" || activeAction === "hurt") ? 2 : 0)
       : (activeAction === "idle" ? [0, 1, 2, 1][rawFrame] : rawFrame);
+    const hurtProgress = activeAction === "hurt"
+      ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
+      : 0;
+    const hurtShift = reduceMotion ? 0 : Math.sin(hurtProgress * Math.PI) * 3 * Number(actor?.hurtDirection || -1);
     const phase = now * (moving ? 0.0065 : 0.0012);
     const stride = Math.sin(phase);
     const idle = activeAction === "idle";
@@ -407,32 +413,36 @@ const Render = {
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (moving && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (moving && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
-      ctx.scale(actor?.direction === "left" ? -1 : 1, 1);
+      const facingScale = actor?.direction === "left" ? -1 : 1;
+      ctx.scale(facingScale, 1);
       const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
       const spriteFrame = actor?.animation?.kind === "grid"
         ? { col: frameIndex % Number(actor.animation.cols || 4), row: animation.row, cols: actor.animation.cols || 4, rows: actor.animation.rows || 4 }
         : (defaultCharacterSheet ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null);
-      const drawn = this.drawSprite(imgToDraw, 0, -actorH / 2 - 2, actorW, actorH, spriteFrame);
+      const drawn = this.drawSprite(imgToDraw, hurtShift * facingScale, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
         this.drawBuffEffects(sx, sy, actor, actorW, actorH);
         if (actor?.hitUntil > Date.now()) {
           ctx.save();
           const pulse = 0.58 + Math.sin(Date.now() * 0.045) * 0.18;
-          ctx.strokeStyle = `rgba(255, 45, 45, ${pulse})`;
-          ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
-          ctx.shadowBlur = 4;
-          ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.ellipse(sx, sy - actorH * 0.48, actorW * 0.62, actorH * 0.54, 0, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.globalAlpha = pulse;
+          ctx.fillStyle = "#ff5268";
+          const halfW = Math.ceil(actorW * 0.55);
+          const topY = sy - actorH * 0.9;
+          for (const [x, y] of [[sx - halfW, topY], [sx + halfW - 2, topY], [sx - halfW, sy - 3], [sx + halfW - 2, sy - 3]]) {
+            ctx.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, 3, 3);
+          }
           ctx.restore();
         }
         return;
       }
     }
 
-    const x = sx - 4, y = sy - 9;
+    const fallbackActionShift = activeAction === "hurt"
+      ? hurtShift
+      : (activeAction === "attack" ? Math.sin((frameIndex / 3) * Math.PI) * 2 : 0);
+    const x = sx - 4 + fallbackActionShift, y = sy - 9;
     // Bóng đổ
     ctx.fillStyle = "rgba(0,0,0,.2)";
     ctx.beginPath(); ctx.ellipse(sx, sy + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
@@ -458,16 +468,22 @@ const Render = {
     // Chi tiết áo
     ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.fillRect(x + 3, y + 4, 2, 4);
+    if (activeAction === "attack") {
+      const direction = actor?.direction === "left" ? -1 : 1;
+      const handX = direction > 0 ? x + 7 : x - 3;
+      ctx.fillStyle = "#d8cba8";
+      ctx.fillRect(handX, y + 5, 4, 2);
+      ctx.fillStyle = "#fff0b2";
+      ctx.fillRect(handX + direction * 3, y + 3, 2, 2);
+      ctx.fillRect(handX + direction * 5, y + 1, 2, 2);
+    }
 
     if (actor?.hitUntil > Date.now()) {
       ctx.save();
-      ctx.strokeStyle = "rgba(255, 45, 45, 0.75)";
-      ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
-      ctx.shadowBlur = 3;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.ellipse(sx, sy - 4, 5.5, 7, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.fillStyle = "#ff5268";
+      for (const [x, y] of [[sx - 6, sy - 10], [sx + 4, sy - 10], [sx - 6, sy + 2], [sx + 4, sy + 2]]) {
+        ctx.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, 3, 3);
+      }
       ctx.restore();
     }
   },
@@ -488,7 +504,7 @@ const Render = {
 
     const now = Date.now();
     const moving = ["chase", "return", "patrol"].includes(m.state);
-    const action = m.hitUntil > now ? "hit" : (m.state === "attack" ? "attack" : (moving ? "walk" : "idle"));
+    const action = m.hitUntil > now ? "hit" : (m.attackUntil > now || m.state === "attack" ? "attack" : (moving ? "walk" : "idle"));
     const animation = m.animation || { kind: "procedural", width: m.size || 18, height: m.size || 18 };
     const spriteW = Number(animation.width || m.size || 18);
     const spriteH = Number(animation.height || m.size || 18);
@@ -524,8 +540,15 @@ const Render = {
     }
     
     if (!useSprite) {
-      const x = sx - spriteW / 2, y = sy - spriteH / 2;
-      const wave = Math.sin(S.animT * 0.005) * 1;
+      const attackProgress = action === "attack"
+        ? (m.attackUntil > now
+          ? Math.max(0, Math.min(1, (now - Number(m.attackStartedAt || now)) / 360))
+          : (m.state === "attack" ? (now % 360) / 360 : 0))
+        : 0;
+      const attackDir = Number(m.attackDirection || 1);
+      const lunge = action === "attack" ? Math.sin(attackProgress * Math.PI) * 3 : 0;
+      const x = sx - spriteW / 2 + attackDir * lunge, y = sy - spriteH / 2;
+      const wave = action === "attack" ? -Math.round(attackProgress * 2) : Math.sin(S.animT * 0.005) * 1;
       
       // Bóng
       ctx.fillStyle = "rgba(0,0,0,.15)";
@@ -550,18 +573,27 @@ const Render = {
       ctx.fillStyle = "#f00";
       ctx.fillRect(x + spriteW * 0.22, y + spriteH * 0.24 + wave, 1, 1);
       ctx.fillRect(x + spriteW * 0.67, y + spriteH * 0.24 + wave, 1, 1);
+      if (action === "attack") {
+        const slashX = attackDir > 0 ? x + spriteW + 1 : x - 5;
+        const slashY = y + spriteH * 0.42 + wave;
+        ctx.fillStyle = m.color || "#aa1111";
+        ctx.fillRect(slashX, slashY + 3, 4, 2);
+        ctx.fillRect(slashX + attackDir, slashY, 3, 2);
+        ctx.fillStyle = "#ffe7a0";
+        ctx.fillRect(slashX + attackDir, slashY + 1, 3, 1);
+      }
     }
 
     if (m.hitUntil > now) {
       ctx.save();
       const pulse = 0.58 + Math.sin(now * 0.045) * 0.18;
-      ctx.strokeStyle = `rgba(255, 45, 45, ${pulse})`;
-      ctx.shadowColor = "rgba(255, 30, 30, 0.7)";
-      ctx.shadowBlur = 4;
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.ellipse(sx, sy - spriteH * 0.08, spriteW * 0.62, spriteH * 0.54, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = "#ff5268";
+      const halfW = Math.ceil(spriteW * 0.56);
+      const topY = sy - spriteH * 0.62;
+      for (const [x, y] of [[sx - halfW, topY], [sx + halfW - 2, topY], [sx - halfW, sy + 1], [sx + halfW - 2, sy + 1]]) {
+        ctx.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, 3, 3);
+      }
       ctx.restore();
     }
     

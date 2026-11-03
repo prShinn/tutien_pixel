@@ -423,6 +423,7 @@ const Net = {
         for (const data of monsters) {
           const m = S.monsters.find((mon) => mon.id === data.id);
           if (!m) continue;
+          const previousState = m.state;
           m.tpx = Number(data.x) * CFG.TS + CFG.TS / 2;
           m.tpy = Number(data.y) * CFG.TS + CFG.TS / 2;
           m.hp = Number(data.hp ?? m.hp);
@@ -431,19 +432,37 @@ const Net = {
           m.targetId = data.targetId || null;
           m.statusEffects = Array.isArray(data.statusEffects) ? data.statusEffects : [];
           m.dead = !!data.dead;
+          if (!m.dead && m.state === "attack" && previousState !== "attack") {
+            const target = data.targetId === socket.id ? S.player : S.players.get(data.targetId);
+            if (target && typeof Monster !== "undefined") Monster.playAttack(m, target, { targetId: data.targetId });
+            else {
+              m.attackStartedAt = Date.now();
+              m.attackUntil = m.attackStartedAt + 360;
+            }
+          }
           if (!m.dead) m.respawnT = m.spawnCD || 10;
         }
       });
 
-      socket.on("player_combat_result", ({ targetId, damage, miss, hp, maxHp }) => {
+      socket.on("player_combat_result", ({ targetId, attackerId, damage, miss, hp, maxHp }) => {
+        const monster = S.monsters.find((entry) => entry.id === attackerId);
+        const targetActor = targetId === socket.id ? S.player : S.players.get(targetId);
+        if (monster && targetActor && typeof Monster !== "undefined") {
+          Monster.playAttack(monster, targetActor, { targetId, damage, miss });
+        }
+        if (targetActor && !miss && Number(damage) > 0) {
+          targetActor.hitUntil = Date.now() + 220;
+          targetActor.animState = "hurt";
+          targetActor.animUntil = Date.now() + 260;
+          if (monster) targetActor.hurtDirection = monster.px < targetActor.px ? 1 : -1;
+        }
         if (targetId !== socket.id || !S.player) return;
         S.player.hp = Number(hp ?? S.player.hp);
         if (maxHp) S.player.maxHp = Number(maxHp);
-        Render.combatFx(S.player.px, S.player.py, miss ? "miss" : "hurt", miss ? "#a8ff8a" : "#ff5268", miss ? 0.7 : 1);
+        if (typeof SkillVFX === "undefined") {
+          Render.combatFx(S.player.px, S.player.py, miss ? "miss" : "hurt", miss ? "#a8ff8a" : "#ff5268", miss ? 0.7 : 1);
+        }
         if (!miss && Number(damage) > 0) {
-          S.player.hitUntil = Date.now() + 220;
-          S.player.animState = "hurt";
-          S.player.animUntil = Date.now() + 260;
           S.cameraShake = { until: Date.now() + 90, power: 1.8 };
         }
         Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
@@ -495,10 +514,14 @@ const Net = {
       socket.on("combat_result", (payload) => {
         S.combatPending = false;
         const { attackerId, skillCode, skillName, mp, cooldownMs, gcdMs, loot } = payload;
+        const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
+        const vfx = typeof SkillVFX !== "undefined" ? SkillVFX : null;
+        const skill = skillCode && vfx ? vfx.findSkill(skillCode, actor) : null;
         if (attackerId === socket.id && loot) UI.pushLoot(loot);
         const hits = Array.isArray(payload.hits) && payload.hits.length
           ? payload.hits
           : [payload];
+        const visualHits = [];
         for (const hit of hits) {
           const m = S.monsters.find(mon => mon.id === hit.targetId);
           if (!m) continue;
@@ -511,21 +534,28 @@ const Net = {
           }
           m.hitUntil = Date.now() + 180;
           const missed = Boolean(hit.miss);
-          Render.combatFx(m.px, m.py, missed ? "miss" : (hit.critical ? "crit" : "hit"), missed ? "#a8ff8a" : (hit.critical ? "#fff06a" : "#ff765c"), hit.critical ? 1.25 : 1);
+          visualHits.push({ ...m, miss: missed, critical: Boolean(hit.critical) });
+          if (!skill && (!vfx || skillCode)) {
+            Render.combatFx(m.px, m.py, missed ? "miss" : (hit.critical ? "crit" : "hit"), missed ? "#a8ff8a" : (hit.critical ? "#fff06a" : "#ff765c"), hit.critical ? 1.25 : 1);
+          }
+          if (!skill && !skillCode && vfx) vfx.basicAttack(actor || { px: m.px - 20, py: m.py }, m, { miss: missed, critical: Boolean(hit.critical) });
           Render.floatDmg(m.px, m.py, -30, missed ? "MISS" : ((hit.critical ? "CRIT! " : "") + "-" + hit.damage), missed ? "#88ff88" : (hit.critical ? "#fff06a" : "#ff5555"), Boolean(hit.critical));
         }
+        if (skill && vfx && visualHits.length) {
+          const source = actor || { px: visualHits[0].px, py: visualHits[0].py };
+          vfx.impact(skill, source, visualHits);
+        }
         if (skillCode && skillName) {
-          const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
           if (actor) {
-            const skill = actor === S.player
-              ? actor.skills?.find(item => item.id === skillCode || item.code === skillCode)
-              : null;
             const physicalStrike = skill && SkillSystem.isOffensive(skill)
               && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
             actor.animState = physicalStrike ? "attack" : "cast";
             actor.animUntil = Date.now() + (physicalStrike ? 360 : 520);
             Render.floatSkill(actor.px, actor.py, skillName);
           }
+        } else if (actor) {
+          actor.animState = "attack";
+          actor.animUntil = Date.now() + 360;
         }
         if (attackerId === socket.id && S.player) {
           if (typeof mp === "number") S.player.mp = mp;
@@ -554,19 +584,36 @@ const Net = {
         }
       });
 
+      socket.on("player_skill_cast", ({ playerId, skillCode, skillName, effect }) => {
+        const actor = S.players.get(playerId);
+        if (!actor) return;
+        actor.animState = "cast";
+        actor.animUntil = Date.now() + 520;
+        const skill = typeof SkillVFX !== "undefined" ? SkillVFX.findSkill(skillCode, actor) : null;
+        if (skill && typeof SkillVFX !== "undefined") SkillVFX.support(skill, actor);
+        else Render.combatFx(actor.px, actor.py, "skill", effectColor(effect));
+        if (skillName) Render.floatSkill(actor.px, actor.py, skillName, effectColor(effect));
+      });
+
+      socket.on("quest_state_update", (snapshot) => {
+        if (typeof QuestUI !== "undefined") QuestUI.applySnapshot(snapshot);
+      });
+
       socket.on("skill_result", ({ skillCode, skillName, effect, effectVal, effectDurationMs, hp, maxHp, mp, maxMp, heal, mpRestore, buffs, cooldownMs, gcdMs }) => {
         S.combatPending = false;
         S.combatGcd = Math.floor((gcdMs || 350) / 16);
         if (!S.player) return;
         S.player.animState = "cast";
         S.player.animUntil = Date.now() + 520;
-        Render.combatFx(S.player.px, S.player.py, "skill", effectColor(effect));
         S.player.hp = hp;
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
         if (typeof maxMp === "number") S.player.maxMp = maxMp;
         S.player.buffs = buffs || {};
-        const skill = S.player.skills?.find(item => String(item.id) === String(skillCode) || String(item.code) === String(skillCode));
+        const skill = (typeof SkillVFX !== "undefined" && SkillVFX.findSkill(skillCode, S.player))
+          || S.player.skills?.find(item => String(item.id) === String(skillCode) || String(item.code) === String(skillCode));
+        if (typeof SkillVFX !== "undefined" && skill) SkillVFX.support(skill, S.player);
+        else Render.combatFx(S.player.px, S.player.py, "skill", effectColor(effect));
         if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
         if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName, effectColor(effect));
         if (heal) UI.log(`${skill?.icon || "✦"} Hồi ${heal} HP`, "level");

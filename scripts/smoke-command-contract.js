@@ -3,7 +3,7 @@ const { io } = require("socket.io-client");
 const BASE = process.env.DEMO_URL || "http://localhost:3000";
 
 async function register(prefix) {
-  const username = `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`;
+  const username = `${prefix.slice(0, 4)}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
   const response = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },

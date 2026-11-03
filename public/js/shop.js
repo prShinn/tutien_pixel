@@ -13,7 +13,7 @@
 
 const Shop = {
   open(npc) {
-    document.getElementById("shop-title").textContent = `🏪 ${npc.name}`;
+    document.getElementById("shop-title").textContent = `Cửa hàng · ${npc.name}`;
     this.render();
     document.getElementById("shop-modal").classList.add("open");
   },
@@ -34,7 +34,20 @@ const Shop = {
       if (!item || !item.giaMua) continue;
       const div = document.createElement("div");
       div.className = "shop-item";
-      div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name}</div><div class="si-desc">${item.desc || ""}</div></div><span class="si-price">${item.giaMua}xu</span>`;
+      const icon = UI.createPixelIcon(item, "", "si-emoji");
+      const info = document.createElement("div");
+      info.className = "si-info";
+      const name = document.createElement("div");
+      name.className = "si-name";
+      name.textContent = item.name || id;
+      const desc = document.createElement("div");
+      desc.className = "si-desc";
+      desc.textContent = item.desc || "";
+      info.append(name, desc);
+      const price = document.createElement("span");
+      price.className = "si-price";
+      price.textContent = `${item.giaMua} xu`;
+      div.append(icon, info, price);
       const btn = document.createElement("button");
       btn.className = "sbtn";
       btn.textContent = "Mua";
@@ -46,13 +59,26 @@ const Shop = {
     // ── Cột BÁN ──
     const sell = document.getElementById("shop-sell-list");
     sell.innerHTML = '<div class="shop-col-head">BÁN VẬT PHẨM</div>';
-    if (!S.inventory.length)
-      sell.innerHTML +=
-        '<div style="color:var(--text2);font-size:11px;padding:8px">Túi đồ trống</div>';
+    if (!S.inventory.length) {
+      const empty = document.createElement("div");
+      empty.className = "shop-empty";
+      empty.textContent = "Túi đồ trống";
+      sell.appendChild(empty);
+    }
     S.inventory.forEach((item, idx) => {
       const div = document.createElement("div");
       div.className = "shop-item";
-      div.innerHTML = `<span class="si-emoji">${item.icon}</span><div class="si-info"><div class="si-name">${item.name} x${item.count}</div></div><span class="si-sell">${item.giaBan || 0}xu/cái</span>`;
+      const icon = UI.createPixelIcon(item, "", "si-emoji");
+      const info = document.createElement("div");
+      info.className = "si-info";
+      const name = document.createElement("div");
+      name.className = "si-name";
+      name.textContent = `${item.name || item.id} x${item.count || 1}`;
+      info.appendChild(name);
+      const price = document.createElement("span");
+      price.className = "si-sell";
+      price.textContent = `${item.giaBan || 0} xu/cái`;
+      div.append(icon, info, price);
       const btn = document.createElement("button");
       btn.className = "sbtn ssell";
       btn.textContent = "Bán";

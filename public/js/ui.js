@@ -16,6 +16,34 @@ const UI = {
   _lastEqHash: "",
   selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
+  pixelIconClass(item = {}, slotHint = "") {
+    const values = [slotHint, item.slot, item.type, item.loai, item.id, item.name, item.effect, item.damageType, item.category]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("vi")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (/mpd|restore.?mp|heal.?mp|mana|(^|\W)mp(\W|$)|linh khi/.test(values)) return "icon-potion-mp";
+    if (/hpd|restore.?hp|heal.?hp|(^|\W)heal(\W|$)|(^|\W)hp(\W|$)|sinh luc|hoi mau|dan duoc/.test(values)) return "icon-potion-hp";
+    if (/consume|potion|thuoc|elixir|(^|\W)dan(\W|$)/.test(values)) return "icon-potion-hp";
+    if (/weapon|sword|kiem|vu khi/.test(values)) return "icon-sword";
+    if (/helmet|hat|mu|non/.test(values)) return "icon-helmet";
+    if (/armor|robe|pants|giap|quan|ao/.test(values)) return "icon-armor";
+    if (/boot|giay/.test(values)) return "icon-boots";
+    if (/ring|nhan/.test(values)) return "icon-ring";
+    if (/amulet|belt|gem|stone|tal|vong|dai|linh thach|nguyen to/.test(values)) return "icon-talisman";
+    if (/shield|def|phong thu|the luc/.test(values)) return "icon-shield";
+    if (/physical|melee|vat ly/.test(values)) return "icon-sword";
+    if (/passive|bi dong|buff|support|ho tro/.test(values)) return "icon-lotus";
+    if (/magic|phap|spell|skill/.test(values)) return "icon-talisman";
+    return "icon-bag";
+  },
+  createPixelIcon(item, slotHint = "", extraClass = "") {
+    const icon = document.createElement("span");
+    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${extraClass ? ` ${extraClass}` : ""}`;
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  },
   toggleKpahMenu() {
     const el = document.getElementById("kpah-menu-modal");
     if (el) el.style.display = (el.style.display === "none") ? "flex" : "none";
@@ -226,8 +254,12 @@ const UI = {
     for (const slot of slots) {
       const el = document.getElementById(slot.id);
       if (!el) continue;
-      const icon = slot.item?.icon || slot.label.slice(0, 1);
-      el.innerHTML = `<div class="eicon">${icon}</div>${slot.item?.name || slot.label}`;
+      const iconWrap = document.createElement("div");
+      iconWrap.className = "eicon";
+      iconWrap.appendChild(this.createPixelIcon(slot.item || {}, slot.id));
+      const label = document.createElement("span");
+      label.textContent = slot.item?.name || slot.label;
+      el.replaceChildren(iconWrap, label);
       el.classList.toggle("equipped", Boolean(slot.item));
       el.title = slot.item ? `${slot.item.name || slot.label}\nClick để tháo` : `${slot.label}\nÔ trống`;
       el.onclick = slot.item ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
@@ -236,8 +268,11 @@ const UI = {
 
   showTip(item, e) {
     const tip = document.getElementById("tip");
-    document.getElementById("tip-name").textContent =
-      (item.icon || "") + " " + item.name;
+    const tipName = document.getElementById("tip-name");
+    tipName.replaceChildren(
+      this.createPixelIcon(item, "", "tip-pixel-icon"),
+      document.createTextNode(` ${item.name || item.id || "Vật phẩm"}`),
+    );
     document.getElementById("tip-type").textContent =
       item.type === "STONE"
         ? "Linh Thạch"
@@ -278,7 +313,11 @@ const UI = {
       el.className = it ? "isl" : "isl empty";
       if (it) {
         el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
-        el.innerHTML = `${it.icon || "📦"}<span class="icnt">x${it.count || 1}</span>`;
+        const icon = this.createPixelIcon(it, "", "inventory-pixel-icon");
+        const count = document.createElement("span");
+        count.className = "icnt";
+        count.textContent = `x${it.count || 1}`;
+        el.replaceChildren(icon, count);
         el.classList.toggle("selected", this.selectedInventoryIndex === i);
         el.onclick = () => this.selectInventoryItem(i);
         el.ondblclick = () => Inventory.use(i);
@@ -293,7 +332,7 @@ const UI = {
     const selected = S.inventory[this.selectedInventoryIndex];
     const selection = document.getElementById("inv-selection");
     const useBtn = document.getElementById("inv-use-btn");
-    if (selection) selection.textContent = selected ? `${selected.icon || "📦"} ${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
+    if (selection) selection.textContent = selected ? `${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
     if (useBtn) {
       useBtn.disabled = !selected;
       useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "Trang bị" : "Dùng";

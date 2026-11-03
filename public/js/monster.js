@@ -149,6 +149,18 @@ const Monster = {
     }
   },
 
+  playAttack(m, target, outcome = {}) {
+    if (!m || !target) return;
+    const now = Date.now();
+    const targetKey = outcome.targetId || target.socketId || target.id || null;
+    const alreadyAnimating = Number(m.attackUntil || 0) > now && m.attackTargetId === targetKey;
+    m.attackStartedAt = alreadyAnimating ? m.attackStartedAt : now;
+    m.attackUntil = Math.max(Number(m.attackUntil || 0), now + 360);
+    m.attackTargetId = targetKey;
+    m.attackDirection = Number(target.px ?? target.x ?? 0) < Number(m.px || 0) ? -1 : 1;
+    if (!alreadyAnimating && typeof SkillVFX !== "undefined") SkillVFX.monsterAttack(m, target, outcome);
+  },
+
   _moveTowardsTarget(m, speed) {
     const tdx = m.tpx - m.px,
       tdy = m.tpy - m.py,
@@ -180,18 +192,21 @@ const Monster = {
     const derived = deriveCombatStats(p.stats, p.equipment);
     const threat = monsterPressure(p, m, derived);
     if (Math.random() < Math.min(0.32, Combat.evasion() + Math.max(0, threat) * 0.16)) {
-      Render.combatFx(p.px, p.py, "miss", "#a8ff8a", 0.7);
+      Monster.playAttack(m, p, { miss: true });
+      if (typeof SkillVFX === "undefined") Render.combatFx(p.px, p.py, "miss", "#a8ff8a", 0.7);
       Render.floatDmg(p.px, p.py, -36, "MISS", "#88ff88");
     } else {
       const defense = Number(derived.pDef || 0) * (1 + Math.max(0, threat) * 0.05);
       const monsterElement = m.linhCan || m.element || m.nguHanh?.[0];
       const affinity = affinityProfile(monsterElement, p.linhCan, elementalStrength(m), elementalStrength(p));
       const dmg = Math.max(1, Math.floor(((Number(m.atk || 1) * (1 + Math.max(0, threat) * 0.7) * affinity.multiplier + randInt(0, 2)) * weakenMult) * 100 / (100 + defense)));
+      Monster.playAttack(m, p, { damage: dmg });
       p.hp = Math.max(0, p.hp - dmg);
       p.hitUntil = Date.now() + 220;
       p.animState = "hurt";
       p.animUntil = Date.now() + 260;
-      Render.combatFx(p.px, p.py, "hurt", "#ff5268");
+      p.hurtDirection = m.px < p.px ? 1 : -1;
+      if (typeof SkillVFX === "undefined") Render.combatFx(p.px, p.py, "hurt", "#ff5268");
       S.cameraShake = { until: Date.now() + 90, power: 1.8 };
       Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
       if (p.hp <= 0) {

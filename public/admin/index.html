@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Thiên Địa Đồ · Admin</title>
-    <link rel="stylesheet" href="/admin/admin.css?v=1" />
+    <link rel="stylesheet" href="/admin/admin.css?v=4" />
   </head>
   <body>
     <div class="admin-shell">
@@ -19,6 +19,7 @@
           <a class="nav-item" href="#npcs" data-view="content" data-collection="npcs"><span>♙</span>NPC <i>Mock API</i></a>
           <a class="nav-item" href="#items" data-view="content" data-collection="items"><span>◈</span>Items &amp; Loot <i>Mock API</i></a>
           <a class="nav-item" href="#skills" data-view="content" data-collection="skills"><span>✦</span>Skills <i>Mock API</i></a>
+          <a class="nav-item" href="#skill-vfx" data-view="skill-vfx"><span>▧</span>VFX Skill <i>Pixel studio</i></a>
           <p class="nav-label">Hệ thống</p>
           <a class="nav-item" href="#accounts" data-view="content" data-collection="accounts"><span>◎</span>Tài khoản <i>Mock API</i></a>
           <a class="nav-item disabled" href="#moderation" data-view="moderation"><span>⚑</span>Moderation <i>Sắp tới</i></a>
@@ -36,13 +37,43 @@
             <article class="stat-card"><span class="stat-icon red">♞</span><div><small>Bãi quái</small><strong id="pack-count">—</strong></div><em>Spawn theo cấu hình</em></article>
             <article class="stat-card"><span class="stat-icon gold">✦</span><div><small>Cảnh giới</small><strong id="realm-count">—</strong></div><em>Tiến trình tu vi</em></article>
           </div>
-          <div class="content-grid"><section class="panel map-panel"><div class="panel-head"><div><span class="eyebrow">WORLD REGISTRY</span><h3>Bản đồ trong hệ thống</h3></div><a href="/admin/map-editor" class="text-link">Quản lý map →</a></div><div id="world-list" class="world-list"><div class="loading">Đang đọc world registry…</div></div></section><section class="panel roadmap"><div class="panel-head"><div><span class="eyebrow">MODULE ROADMAP</span><h3>Luồng mở rộng</h3></div></div><div class="module-row ready"><span>01</span><div><b>Map / Portal</b><small>Đang hoạt động · draft và publish</small></div><strong>Ready</strong></div><div class="module-row ready"><span>02</span><div><b>Monster spawn</b><small>Đang hoạt động · pack, aggro, leash</small></div><strong>Ready</strong></div><div class="module-row"><span>03</span><div><b>NPC / Quest</b><small>Schema data-driven, chờ module Admin</small></div><strong>Next</strong></div><div class="module-row"><span>04</span><div><b>Items / Loot / Shop</b><small>Đang dùng mock catalog, chờ CRUD Admin</small></div><strong>Next</strong></div><div class="module-row"><span>05</span><div><b>Account / Moderation</b><small>Chờ phân quyền và persistence</small></div><strong>Later</strong></div></section></div>
+          <div class="content-grid"><section class="panel map-panel"><div class="panel-head"><div><span class="eyebrow">WORLD REGISTRY</span><h3>Bản đồ trong hệ thống</h3></div><a href="/admin/map-editor" class="text-link">Quản lý map →</a></div><div id="world-list" class="world-list"><div class="loading">Đang đọc world registry…</div></div></section><section class="panel roadmap"><div class="panel-head"><div><span class="eyebrow">MODULE ROADMAP</span><h3>Luồng mở rộng</h3></div></div><div class="module-row ready"><span>01</span><div><b>Map / Portal</b><small>Đang hoạt động · draft và publish</small></div><strong>Ready</strong></div><div class="module-row ready"><span>02</span><div><b>Monster spawn</b><small>Đang hoạt động · pack, aggro, leash</small></div><strong>Ready</strong></div><div class="module-row"><span>03</span><div><b>NPC / Quest</b><small>Catalog Admin demo, chưa nối runtime</small></div><strong>Demo</strong></div><div class="module-row"><span>04</span><div><b>Items / Loot / Skill</b><small>CRUD mock server, RAM, chưa lưu bền vững</small></div><strong>Demo</strong></div><div class="module-row"><span>05</span><div><b>Account / Moderation</b><small>Chỉ xem · chờ phân quyền và persistence</small></div><strong>Later</strong></div></section></div>
         </section>
-        <section id="placeholder" class="placeholder-view"><div class="placeholder-mark">✦</div><span class="eyebrow">MODULE RESERVED</span><h2 id="placeholder-title">Module đang được chuẩn bị</h2><p>Khung Admin đã sẵn sàng. Khi chốt schema, module này sẽ nối CRUD server mà không ảnh hưởng gameplay.</p><a href="/admin" class="hero-action">Về tổng quan <span>→</span></a></section>
-        <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">DEMO CONTENT API</span><h2 id="content-title">Collection</h2><p id="content-meta">In-memory · chưa lưu database</p></div><button id="new-record" class="hero-action">+ Bản ghi demo</button></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div></div></section>
+        <section id="placeholder" class="placeholder-view"><div class="placeholder-mark">✦</div><span class="eyebrow">MODULE RESERVED</span><h2 id="placeholder-title">Module đang được chuẩn bị</h2><p>Quản lý tài khoản và moderation cần hoàn thiện phân quyền cùng lưu trữ bền vững trước khi mở thao tác.</p><a href="/admin" class="hero-action">Về tổng quan <span>→</span></a></section>
+        <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">DEMO CONTENT API</span><h2 id="content-title">Collection</h2><p id="content-meta">In-memory · chưa lưu database</p></div><div class="content-tools"><label class="content-search-label" for="content-search">Tìm bản ghi</label><input id="content-search" class="content-search" type="search" placeholder="Tên, mã hoặc nội dung…" /><button id="new-record" class="hero-action" type="button">+ Thêm bản ghi</button></div></div><div id="content-feedback" class="content-feedback" role="status" aria-live="polite" hidden></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div></div></section>
+        <section id="skill-vfx-view" class="skill-vfx-view">
+          <div class="vfx-heading"><div><span class="eyebrow">PIXEL EFFECT WORKSHOP</span><h2>Hoạt ảnh kỹ năng</h2><p>Tinh chỉnh hiệu ứng theo tên skill và linh căn. Bản xem thử dùng đúng bộ vẽ pixel trong game.</p></div><span id="vfx-save-state" class="vfx-save-state">Chưa tải dữ liệu</span></div>
+          <div class="vfx-layout">
+            <aside class="panel vfx-library"><div class="vfx-panel-head"><div><span class="eyebrow">SKILL CATALOG</span><h3>Danh sách skill</h3></div><span id="vfx-count" class="vfx-count">0</span></div><input id="vfx-search" class="vfx-search" type="search" placeholder="Tìm tên hoặc mã skill…" /><div id="vfx-skill-list" class="vfx-skill-list"><div class="loading">Đang tải danh mục skill…</div></div></aside>
+            <div class="vfx-workspace">
+              <section class="panel vfx-editor"><div class="vfx-panel-head"><div><span class="eyebrow">EFFECT PROFILE</span><h3 id="vfx-skill-name">Chọn một skill</h3></div><span id="vfx-profile-badge" class="vfx-profile-badge">Mặc định</span></div>
+                <div class="vfx-form-grid"><label>Skill<select id="vfx-skill-select"></select></label><label>Linh căn<select id="vfx-root"></select></label><label class="vfx-wide">Tên hiệu ứng<input id="vfx-label" maxlength="60" placeholder="Tên hiệu ứng pixel" /></label><label class="vfx-wide">Mẫu animation<select id="vfx-form"></select></label><label>Thời lượng <small>300–1200 ms</small><input id="vfx-duration" type="number" min="300" max="1200" step="50" /></label></div>
+                <div class="vfx-color-grid"><label>Màu chính<input id="vfx-color-main" type="color" /></label><label>Màu sáng<input id="vfx-color-light" type="color" /></label><label>Màu tối<input id="vfx-color-dark" type="color" /></label><label>Màu nhấn<input id="vfx-color-accent" type="color" /></label></div>
+                <div class="vfx-actions"><button id="vfx-create" class="vfx-button primary">+ Tạo cấu hình</button><button id="vfx-save" class="vfx-button">Lưu chỉnh sửa</button><button id="vfx-delete" class="vfx-button danger">Xóa cấu hình</button><button id="vfx-reset" class="vfx-button subtle">↺ Khôi phục mặc định</button></div>
+                <p class="vfx-local-note">Cấu hình được dùng chung trên máy chủ game hiện tại.</p>
+              </section>
+              <section class="panel vfx-preview-panel"><div class="vfx-panel-head"><div><span class="eyebrow">LIVE PREVIEW</span><h3>Animation pixel 2D</h3></div><button id="vfx-replay" class="vfx-button subtle">▶ Thử lại</button></div><canvas id="vfx-preview" width="480" height="220" aria-label="Xem thử hiệu ứng kỹ năng"></canvas><div class="vfx-preview-caption"><span><i class="vfx-legend-player"></i> Nhân vật</span><span><i class="vfx-legend-target"></i> Mục tiêu</span><span id="vfx-preview-label">Chọn skill để bắt đầu</span></div></section>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
-    <script src="/js/api.js?v=1"></script>
-    <script src="/admin/admin.js?v=2"></script>
+    <dialog id="content-editor-dialog" class="content-editor" aria-labelledby="content-editor-title">
+      <form id="content-editor-form" novalidate>
+        <header class="content-editor-head"><div><span class="eyebrow">CHỈNH SỬA NỘI DUNG</span><h2 id="content-editor-title">Thêm bản ghi</h2></div><button id="content-editor-close" class="content-editor-close" type="button" aria-label="Đóng cửa sổ">×</button></header>
+        <p id="content-editor-help" class="content-editor-help">Dữ liệu đang chạy trên mock server và sẽ mất khi server khởi động lại.</p>
+        <label class="content-editor-id-label" for="content-record-id">Mã bản ghi</label><input id="content-record-id" class="content-record-id" maxlength="80" autocomplete="off" required />
+        <label class="content-editor-json-label" for="content-record-json">Các trường dữ liệu <small>Nhập JSON hợp lệ; mã bản ghi được quản lý riêng ở trên.</small></label>
+        <textarea id="content-record-json" class="content-record-json" spellcheck="false" rows="16" autocapitalize="off" autocomplete="off"></textarea>
+        <p id="content-editor-error" class="content-editor-error" role="alert" hidden></p>
+        <footer class="content-editor-actions"><button id="content-editor-cancel" class="vfx-button subtle" type="button">Hủy</button><button id="content-editor-save" class="vfx-button primary" type="submit">Lưu bản ghi</button></footer>
+      </form>
+    </dialog>
+    <script src="/js/api.js?v=3"></script>
+    <script>window.ctx = null; window.S = { player: null }; window.CFG = {};</script>
+    <script src="/js/skill-vfx.js?v=4"></script>
+    <script src="/admin/content-utils.js?v=1"></script>
+    <script src="/admin/content-manager.js?v=1"></script>
+    <script src="/admin/admin.js?v=7"></script>
   </body>
 </html>
