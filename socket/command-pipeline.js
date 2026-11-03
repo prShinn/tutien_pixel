@@ -19,6 +19,9 @@ const COMMAND_ALIASES = Object.freeze({
   chat: "chat.send",
   monster_sync: "world.resync",
 });
+const COMMAND_MIN_INTERVAL_MS = Object.freeze({
+  "world.resync": 1000,
+});
 
 function validatePayload(command, payload) {
   const finite = (value) => Number.isFinite(Number(value));
@@ -38,6 +41,8 @@ function validatePayload(command, payload) {
 
 function createCommandPipeline({ handlers, onAlias } = {}) {
   const recent = new Map();
+  const inFlight = new Map();
+  const lastCommandAt = new Map();
   const maxAgeMs = 30_000;
 
   const cleanup = setInterval(() => {
@@ -60,7 +65,7 @@ function createCommandPipeline({ handlers, onAlias } = {}) {
     const safeAck = typeof ack === "function" ? ack : () => {};
     const requestId = String(envelope?.requestId || "").trim();
     const command = String(envelope?.type || "").trim();
-    if (!requestId) return safeAck(failure("", command || "unknown", "INVALID_REQUEST_ID", "Thiếu requestId"));
+    if (!requestId || requestId.length > 96) return safeAck(failure("", command || "unknown", "INVALID_REQUEST_ID", "requestId không hợp lệ"));
     if (!COMMAND_TYPES.includes(command)) return safeAck(failure(requestId, command || "unknown", "UNKNOWN_COMMAND", "Command không được hỗ trợ"));
     if (!envelope || !envelope.payload || typeof envelope.payload !== "object" || Array.isArray(envelope.payload)) {
       return safeAck(failure(requestId, command, "INVALID_PAYLOAD", "Payload command không hợp lệ"));
@@ -70,7 +75,25 @@ function createCommandPipeline({ handlers, onAlias } = {}) {
 
     const key = `${socket.id}:${requestId}`;
     const previous = recent.get(key);
-    if (previous && previous.command === command) return safeAck(previous.result);
+    if (previous) {
+      if (Date.now() - previous.createdAt <= maxAgeMs) {
+        if (previous.command === command) return safeAck(previous.result);
+        return safeAck(failure(requestId, command, "REQUEST_ID_REUSED", "requestId đã được dùng cho command khác"));
+      }
+      recent.delete(key);
+    }
+    const pending = inFlight.get(key);
+    if (pending) {
+      if (pending.command !== command) return safeAck(failure(requestId, command, "REQUEST_ID_REUSED", "requestId đã được dùng cho command khác"));
+      return safeAck(await pending.promise);
+    }
+    const minimumIntervalMs = COMMAND_MIN_INTERVAL_MS[command] || 0;
+    const now = Date.now();
+    const lastCommandAtMs = Number(lastCommandAt.get(command) || 0);
+    if (now - lastCommandAtMs < minimumIntervalMs) {
+      return safeAck(failure(requestId, command, "RATE_LIMITED", "Command được gửi quá nhanh"));
+    }
+    if (minimumIntervalMs) lastCommandAt.set(command, now);
 
     const handler = handlers?.[command];
     if (typeof handler !== "function") return safeAck(failure(requestId, command, "COMMAND_NOT_IMPLEMENTED", "Command chưa được đăng ký"));
@@ -83,19 +106,20 @@ function createCommandPipeline({ handlers, onAlias } = {}) {
       },
     };
 
-    try {
-      const result = await handler(envelope.payload, ctx);
-      const commandResult = result?.__commandError
+    const operation = Promise.resolve()
+      .then(() => handler(envelope.payload, ctx))
+      .then((result) => result?.__commandError
         ? failure(requestId, command, result.__commandError.code, result.__commandError.message)
-        : response(requestId, command, result);
-      recent.set(key, { command, result: commandResult, createdAt: Date.now() });
-      return safeAck(commandResult);
-    } catch (error) {
-      console.error(`[Command] ${command} failed:`, error);
-      const commandResult = failure(requestId, command, "INTERNAL_COMMAND_ERROR", "Không thể xử lý command");
-      recent.set(key, { command, result: commandResult, createdAt: Date.now() });
-      return safeAck(commandResult);
-    }
+        : response(requestId, command, result))
+      .catch((error) => {
+        console.error(`[Command] ${command} failed:`, error);
+        return failure(requestId, command, "INTERNAL_COMMAND_ERROR", "Không thể xử lý command");
+      });
+    inFlight.set(key, { command, promise: operation });
+    const commandResult = await operation;
+    inFlight.delete(key);
+    recent.set(key, { command, result: commandResult, createdAt: Date.now() });
+    return safeAck(commandResult);
   }
 
   function alias(socket, event, payload) {
@@ -105,7 +129,13 @@ function createCommandPipeline({ handlers, onAlias } = {}) {
     return dispatch(socket, { requestId: `legacy:${event}:${Date.now()}:${Math.random().toString(16).slice(2)}`, type: command, payload: payload || {} });
   }
 
-  return { dispatch, alias, COMMAND_TYPES, COMMAND_ALIASES };
+  function close() {
+    clearInterval(cleanup);
+    recent.clear();
+    lastCommandAt.clear();
+  }
+
+  return { dispatch, alias, close, COMMAND_TYPES, COMMAND_ALIASES };
 }
 
 module.exports = { COMMAND_TYPES, COMMAND_ALIASES, createCommandPipeline };

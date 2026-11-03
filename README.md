@@ -18,7 +18,7 @@ npm install
 
 # 2. Copy env
 cp .env.example .env
-# Đổi JWT_SECRET trong .env trước khi deploy!
+# Chỉ dùng giá trị mặc định ở máy dev. Production cần JWT_SECRET và ADMIN_MAP_KEY riêng.
 
 # 3. Chạy server
 node server.js
@@ -123,9 +123,16 @@ echo "web: node server.js" > Procfile
 
 # Set env vars trên dashboard:
 # PORT=3000
-# JWT_SECRET=<random 64 chars>
+# JWT_SECRET=<ít nhất 32 byte ngẫu nhiên>
+# ADMIN_MAP_KEY=<ít nhất 32 byte ngẫu nhiên>
+# CORS_ORIGINS=https://game.example.com (nếu frontend nằm khác origin)
+# TRUST_PROXY_HOPS=1 (chỉ đặt theo đúng số proxy tin cậy trước Node)
 # NODE_ENV=production
 ```
+
+Server từ chối khởi động production nếu secret còn thiếu, quá ngắn hoặc là placeholder.
+Endpoint đăng nhập demo chỉ bật ngoài production. Với client cùng origin, có thể để
+`CORS_ORIGINS` trống; nếu tách frontend, khai báo danh sách origin cách nhau bằng dấu phẩy.
 
 ### Docker
 ```dockerfile

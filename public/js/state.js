@@ -41,6 +41,8 @@ const S = {
   animT: 0,
   animF: 0,
   floatingTexts: [],
+  combatFx: [],
+  cameraShake: { until: 0, power: 0 },
   cam: { x: 0, y: 0 },
   lastTs: 0,
   // Giữ tương thích với nhánh offline cũ; online hiện do server điều khiển.

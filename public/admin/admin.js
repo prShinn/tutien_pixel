@@ -49,7 +49,7 @@ function renderContent(collection, payload) {
 
 async function openContent(collection) {
   try {
-    const payload = await getJson(`/api/admin/content/${encodeURIComponent(collection)}`, { headers: adminHeaders() });
+    const payload = await getJson(API.BASE + API.PATHS.admin.content(collection), { headers: adminHeaders() });
     renderContent(collection, payload);
   } catch (error) { $("content-table").innerHTML = `<div class="empty">${error.message}</div>`; }
 }
@@ -57,8 +57,8 @@ async function openContent(collection) {
 async function loadOverview() {
   try {
     const [worlds, realms] = await Promise.all([
-      getJson("/api/admin/worlds", { headers: adminHeaders() }),
-      getJson("/api/canh-gioi"),
+      getJson(API.BASE + API.PATHS.admin.worlds, { headers: adminHeaders() }),
+      getJson(API.BASE + API.PATHS.data.realms),
     ]);
     state.worlds = worlds; state.realms = realms;
     renderStats(); renderWorlds();
@@ -86,7 +86,7 @@ $("new-record").addEventListener("click", async () => {
   const name = window.prompt(`Tên ${contentLabels[activeCollection] || activeCollection} demo`, "Nội dung mới");
   if (!name) return;
   try {
-    await getJson(`/api/admin/content/${activeCollection}`, { method: "POST", headers: { ...adminHeaders(), "content-type": "application/json" }, body: JSON.stringify({ id: `${activeCollection}_demo_${Date.now()}`, name, status: "DRAFT" }) });
+    await getJson(API.BASE + API.PATHS.admin.content(activeCollection), { method: "POST", headers: { ...adminHeaders(), "content-type": "application/json" }, body: JSON.stringify({ id: `${activeCollection}_demo_${Date.now()}`, name, status: "DRAFT" }) });
     openContent(activeCollection);
   } catch (error) { window.alert(error.message); }
 });

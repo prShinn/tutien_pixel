@@ -125,22 +125,31 @@ const Combat = {
     if (S.player) { S.player.animState = "attack"; S.player.animUntil = Date.now() + 360; }
     if (socket?.connected) {
       S.combatPending = true;
-      Net.command("combat.attack", { targetId: m.id, mapId: S.mapCode });
+      Net.command("combat.attack", { targetId: m.id, mapCode: S.mapCode });
       return;
     }
     const baseAtk = Combat.pAtk();
-    const armorDef = (Number(m.def) || 0) + (Number(m.vit) || 0) * 0.2;
+    const threat = monsterPressure(S.player, m);
+    if (Math.random() < Math.min(0.32, Math.max(0, threat) * 0.16)) {
+      Render.combatFx(m.px, m.py, "miss", "#a8ff8a", 0.7);
+      Render.floatDmg(m.px, m.py, -26, "MISS", "#88ff88");
+      S.atkCd = CFG.ATK_CD;
+      return;
+    }
+    const armorDef = (Number(m.def) || 0) + (Number(m.vit) || 0) * 0.2 + Math.max(0, threat) * 40;
     const basicStat = Number(S.player.stats?.str || 0) * GAME_BALANCE.damage.basicStatScale;
     const attackBuff = S.player.buffs?.buff_atk || S.player.buffs?.atk;
     const attackBuffActive = attackBuff && (!attackBuff.expiresAt || attackBuff.expiresAt > Date.now()) ? Number(attackBuff.value || 0) : 0;
     const handMultiplier = 1 + Math.max(0, attackBuffActive) / 100;
-    let dmg = Math.max(1, Math.floor(((baseAtk * GAME_BALANCE.damage.basicMultiplier + basicStat) * handMultiplier) * 100 / (100 + Math.max(0, armorDef)) + randInt(0, 2)));
+    const pressureScale = Math.max(0.42, 1 - Math.max(0, threat) * 0.18);
+    let dmg = Math.max(1, Math.floor((((baseAtk * GAME_BALANCE.damage.basicMultiplier + basicStat) * handMultiplier) * pressureScale) * 100 / (100 + Math.max(0, armorDef)) + randInt(0, 2)));
     const isCrit = Math.random() < Combat.critChance(m);
     if (isCrit) {
       const critAdd = Math.max(1, Math.round(baseAtk * (0.5 + Combat.critMultiplier())));
       dmg += critAdd;
     }
     m.hitUntil = Date.now() + 180;
+    Render.combatFx(m.px, m.py, isCrit ? "crit" : "hit", isCrit ? "#fff06a" : "#ff765c", isCrit ? 1.25 : 1);
     Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#fff06a" : "#ff5555", isCrit);
     
     S.atkCd = CFG.ATK_CD;

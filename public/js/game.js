@@ -164,10 +164,9 @@ function update(dt) {
           Combat.attack(best);
         }
       }
-      if (
-        dist(p.px, p.py, p.x * CFG.TS + CFG.TS / 2, p.y * CFG.TS + CFG.TS / 2) < 4
-      )
-        World.checkPortals();
+      // p.px/p.py luôn được đồng bộ từ p.x/p.y ở ngay phía trên; gọi trực tiếp
+      // để portalLocked vẫn được mở khóa khi người chơi đi ra xa cổng.
+      World.checkPortals();
     }
     
     // Cập nhật vị trí cho Other Players (Interpolation)
@@ -193,6 +192,12 @@ function update(dt) {
       f.life -= dt; 
       f.y -= dt * 0.02; // bay lên từ từ
       return f.life > 0; 
+    });
+    S.combatFx = (S.combatFx || []).filter((fx) => {
+      fx.life -= dt;
+      fx.x += (fx.vx || 0) * dt * 0.06;
+      fx.y += (fx.vy || 0) * dt * 0.06;
+      return fx.life > 0;
     });
 
     if (!Net._isOnline) {
@@ -221,10 +226,21 @@ function selectGender(g) {
   S.creation.gender = gender;
   const male = document.getElementById("btn-gender-male");
   const female = document.getElementById("btn-gender-female");
+  const preview = document.getElementById("creation-gender-preview");
+  const previewName = document.getElementById("creation-gender-name");
+  const previewDescription = document.getElementById("creation-gender-description");
   male?.classList.toggle("active", gender === "MALE");
   female?.classList.toggle("active", gender === "FEMALE");
   male?.setAttribute("aria-pressed", String(gender === "MALE"));
   female?.setAttribute("aria-pressed", String(gender === "FEMALE"));
+  if (preview) {
+    preview.src = `./assets/characters/cultivator-${gender.toLowerCase()}.png`;
+    preview.alt = gender === "FEMALE" ? "Nhân vật nữ, áo trắng hồng" : "Nhân vật nam, áo xanh lam";
+  }
+  if (previewName) previewName.textContent = gender === "FEMALE" ? "Nữ hiệp thanh nhã" : "Kiếm khách trẻ";
+  if (previewDescription) previewDescription.textContent = gender === "FEMALE"
+    ? "Áo trắng hồng điểm vàng, mang theo linh lực dịu dàng mà mạnh mẽ."
+    : "Áo xanh thanh nhã, sẵn sàng bước vào hành trình tu luyện.";
 }
 
 window.selectGender = selectGender;

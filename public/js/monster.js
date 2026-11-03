@@ -177,17 +177,22 @@ const Monster = {
   _performAttack(m, p) {
     const weakenEff = m.statusEffects?.find((e) => e.type === "weaken");
     const weakenMult = weakenEff ? weakenEff.value : 1;
-    if (Math.random() < Combat.evasion()) {
+    const derived = deriveCombatStats(p.stats, p.equipment);
+    const threat = monsterPressure(p, m, derived);
+    if (Math.random() < Math.min(0.32, Combat.evasion() + Math.max(0, threat) * 0.16)) {
+      Render.combatFx(p.px, p.py, "miss", "#a8ff8a", 0.7);
       Render.floatDmg(p.px, p.py, -36, "MISS", "#88ff88");
     } else {
-      const dmg = Math.max(
-        1,
-        Math.floor((m.atk - Combat.pDef() + randInt(0, 3)) * weakenMult),
-      );
+      const defense = Number(derived.pDef || 0) * (1 + Math.max(0, threat) * 0.05);
+      const monsterElement = m.linhCan || m.element || m.nguHanh?.[0];
+      const affinity = affinityProfile(monsterElement, p.linhCan, elementalStrength(m), elementalStrength(p));
+      const dmg = Math.max(1, Math.floor(((Number(m.atk || 1) * (1 + Math.max(0, threat) * 0.7) * affinity.multiplier + randInt(0, 2)) * weakenMult) * 100 / (100 + defense)));
       p.hp = Math.max(0, p.hp - dmg);
       p.hitUntil = Date.now() + 220;
       p.animState = "hurt";
       p.animUntil = Date.now() + 260;
+      Render.combatFx(p.px, p.py, "hurt", "#ff5268");
+      S.cameraShake = { until: Date.now() + 90, power: 1.8 };
       Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
       if (p.hp <= 0) {
         p.hp = Math.floor(p.maxHp * 0.25);

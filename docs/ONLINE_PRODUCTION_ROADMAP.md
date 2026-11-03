@@ -34,6 +34,10 @@ trạng thái. Tiến trình nhân vật cũng chưa được persist đầy đ�
 - Hoàn thiện một map chuẩn: di chuyển, collision, monster, combat, loot, portal.
 - Giữ smoke test cho multiplayer, movement authority, combat, map và loot.
 - Không thêm tính năng lớn nếu chưa có test tương ứng.
+- Baseline online hiện có: production fail-fast khi secret thiếu/yếu, CORS dùng allowlist,
+  demo auth bị tắt trong production, inventory/equipment khởi tạo từ server và socket join
+  lấy map/vị trí từ state server đã lưu. Socket command có in-flight dedup; resync bị giới hạn
+  và timer dedup được đóng khi socket disconnect.
 
 ### Phase 1 — Persist dữ liệu
 

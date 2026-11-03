@@ -344,12 +344,13 @@ const SkillSystem = {
     if (document.getElementById("shop-modal").classList.contains("open")) return;
     if (document.getElementById("dialog-modal").classList.contains("open")) return;
 
+    const skill = p.skills[slotIdx];
     const startCastAnimation = () => {
-      p.animState = "cast";
-      p.animUntil = Date.now() + 520;
+      const physicalStrike = this.isOffensive(skill) && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
+      p.animState = physicalStrike ? "attack" : "cast";
+      p.animUntil = Date.now() + (physicalStrike ? 360 : 520);
     };
 
-    const skill = p.skills[slotIdx];
     if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
       UI.log(`${skill.icon || "✦"} ${skill.name} là kỹ năng bị động và luôn có hiệu lực.`, "system");
       return;
@@ -385,7 +386,7 @@ const SkillSystem = {
       S.target = target;
       startCastAnimation();
       S.combatPending = true;
-      Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapId: S.mapCode });
+      Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
       return;
     }
 
@@ -567,6 +568,8 @@ const SkillSystem = {
         : null;
       const slotEl = document.getElementById(`skbar-slot-${i}`);
       if (!slotEl) continue;
+      slotEl.disabled = !sk;
+      slotEl.setAttribute("aria-label", sk ? `Kỹ năng ${i + 1}: ${sk.name}` : `Ô kỹ năng ${i + 1}, chưa gắn`);
       const ensure = (selector, tag, className) => {
         let el = slotEl.querySelector(selector);
         if (!el) { el = document.createElement(tag); el.className = className; slotEl.appendChild(el); }

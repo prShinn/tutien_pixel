@@ -84,6 +84,19 @@ function deriveCombatStats(stats = {}, equipment = {}) {
   return { pAtk: 8 + s.str * 4 + s.agi * 0.5 + e.pAtk, mAtk: 8 + s.ene * 4 + s.agi * 0.5 + e.mAtk, pDef: 3 + s.vit * 2 + s.agi * 0.25 + e.pDef, mDef: 3 + s.ene * 1.5 + s.vit * 0.25 + e.mDef, maxHp: 100 + s.vit * 12 + e.maxHP, maxMp: 50 + s.ene * 8 + e.maxMP };
 }
 
+function combatTier(entity = {}) {
+  const realm = Math.max(1, Number(entity.canhGioi?.stt || entity.realm || 1));
+  const stage = Math.max(1, Number(entity.tangTuVi || entity.stage || 1));
+  return (realm - 1) * 9 + stage;
+}
+
+function monsterPressure(player = {}, monster = {}, derived = deriveCombatStats(player.stats, player.equipment)) {
+  const levelGap = Math.max(-8, Math.min(12, Number(monster.level || 1) - combatTier(player)));
+  const monsterThreat = Number(monster.atk || 0) * 1.8 + Number(monster.def || 0) * 1.2 + Number(monster.maxHp || monster.hp || 0) * 0.04;
+  const playerThreat = Number(derived.pAtk || 0) * 0.9 + Number(derived.pDef || 0) * 0.8 + Number(derived.maxHp || 100) * 0.03;
+  return Math.max(-0.35, Math.min(1.5, levelGap * 0.12 + (monsterThreat / Math.max(1, playerThreat) - 1) * 0.35));
+}
+
 function calcCombatPower(player = {}) {
   const d = deriveCombatStats(player.stats, player.equipment);
   const realm = Number(player.canhGioi?.stt || player.realm || 1), stage = Number(player.tangTuVi || player.stage || 1);

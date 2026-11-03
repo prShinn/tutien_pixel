@@ -133,6 +133,20 @@ function mitigateDamage(raw, defense) {
   return Math.max(BALANCE.damage.min, raw * BALANCE.damage.defenseBase / (BALANCE.damage.defenseBase + Math.max(0, defense || 0)));
 }
 
+function combatTier(entity = {}) {
+  const realm = Math.max(1, Number(entity.canhGioi?.stt || entity.realm || 1));
+  const stage = Math.max(1, Number(entity.tangTuVi || entity.stage || 1));
+  return (realm - 1) * 9 + stage;
+}
+
+// Áp lực mối đe dọa dùng chung cho quái: level là trục chính, chỉ số thực tế là phần hiệu chỉnh.
+function monsterPressure(player = {}, monster = {}, derived = deriveStats(player.stats, player.equipment)) {
+  const levelGap = Math.max(-8, Math.min(12, Number(monster.level || 1) - combatTier(player)));
+  const monsterThreat = Number(monster.atk || 0) * 1.8 + Number(monster.def || 0) * 1.2 + Number(monster.maxHp || monster.hp || 0) * 0.04;
+  const playerThreat = Number(derived.pAtk || 0) * 0.9 + Number(derived.pDef || 0) * 0.8 + Number(derived.maxHp || 100) * 0.03;
+  return Math.max(-0.35, Math.min(1.5, levelGap * 0.12 + (monsterThreat / Math.max(1, playerThreat) - 1) * 0.35));
+}
+
 function combatPower(player = {}) {
   const derived = deriveStats(player.stats, player.equipment);
   const realm = Number(player.canhGioi?.stt || player.realm || 1);
@@ -176,4 +190,4 @@ function breakthroughGain(realm = {}, stage = 1, major = false) {
   return { str: base + (remainder > 0 ? 1 : 0), agi: base + (remainder > 1 ? 1 : 0), vit: base + (remainder > 2 ? 1 : 0), ene: base };
 }
 
-module.exports = { BALANCE, affinityMultiplier, affinityCritBonus, affinityProfile, elementalStrength, deriveStats, mitigateDamage, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain };
+module.exports = { BALANCE, affinityMultiplier, affinityCritBonus, affinityProfile, elementalStrength, deriveStats, mitigateDamage, combatTier, monsterPressure, combatPower, calcTuViNeeded, breakthroughThreshold, minimumBreakthroughOvr, breakthroughGain };

@@ -27,7 +27,7 @@
         <div class="sidebar-foot"><span class="status-dot"></span>Demo server online<small>Data-driven control plane</small></div>
       </aside>
       <main class="main">
-        <header class="topbar"><div><span class="eyebrow">CONTROL ROOM / DEMO</span><h1 id="view-title">Tổng quan thế giới</h1></div><div class="admin-session"><label>Admin key <input id="admin-key" type="password" value="demo-admin" /></label><a href="/" class="back-link">← Vào game</a></div></header>
+        <header class="topbar"><div><span class="eyebrow">CONTROL ROOM / DEMO</span><h1 id="view-title">Tổng quan thế giới</h1></div><div class="admin-session"><label>Admin key <input id="admin-key" type="password" placeholder="Nhập admin key" autocomplete="off" /></label><a href="/" class="back-link">← Vào game</a></div></header>
         <section id="overview" class="view active-view">
           <div class="hero"><div><p class="eyebrow">Thiên Địa Đồ</p><h2>Một châu lục, một nguồn dữ liệu.</h2><p>Quản lý nội dung từ cấu hình. Runtime chỉ đọc những gì đã xuất bản.</p></div><a class="hero-action" href="/admin/map-editor">Mở Map Editor <span>→</span></a></div>
           <div class="stat-grid">
@@ -42,6 +42,7 @@
         <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">DEMO CONTENT API</span><h2 id="content-title">Collection</h2><p id="content-meta">In-memory · chưa lưu database</p></div><button id="new-record" class="hero-action">+ Bản ghi demo</button></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div></div></section>
       </main>
     </div>
-    <script src="/admin/admin.js?v=1"></script>
+    <script src="/js/api.js?v=1"></script>
+    <script src="/admin/admin.js?v=2"></script>
   </body>
 </html>

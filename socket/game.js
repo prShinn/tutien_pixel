@@ -22,7 +22,7 @@ const ENV = require("../config/env");
 const { JWT_SECRET } = require("../middleware/auth");
 const AUTH_BACKEND = ENV.authBackend;
 const { skills, monsterDefs, items, lootTables } = require("../data/mock-data");
-const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage } = require("../data/balance");
+const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStrength, mitigateDamage, monsterPressure } = require("../data/balance");
 const { createCommandPipeline } = require("./command-pipeline");
 
 // In-memory session store: socketId → session
@@ -236,6 +236,7 @@ function createRoomMonster(roomId, world, serial, pack = null) {
     chaseTargetId: null,
     chaseStartedAt: 0,
     reaggroAt: 0,
+    linhCan: template.linhCan || template.element || template.nguHanh?.[0] || null,
     hp: maxHp, maxHp, dead: false,
   };
 }
@@ -290,8 +291,13 @@ function ensureRoomMonsters(roomId, world) {
     monster.chaseTargetId = monster.chaseTargetId || null;
     monster.chaseStartedAt = Number(monster.chaseStartedAt || 0);
     monster.reaggroAt = Number(monster.reaggroAt || 0);
+    monster.linhCan = monster.linhCan || monster.element || monster.nguHanh?.[0] || null;
     monster.maxHp = Number(monster.maxHp || monster.hp || 1);
     monster.hp = Number(monster.hp ?? monster.maxHp);
+    monster.maxMp = Number(monster.maxMp || monster.mp || 0);
+    monster.mp = Number(monster.mp ?? monster.maxMp);
+    monster.mAtk = Number(monster.mAtk || 0);
+    monster.mDef = Number(monster.mDef || monster.def || 0);
     monster.dead = !!monster.dead;
   });
   let serial = monsters.length;
@@ -413,14 +419,26 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
   const affinityProfileResult = affinityProfile(player.linhCan, defenderElement, elementalStrength(player), elementalStrength(monster));
   const affinity = affinityProfileResult.multiplier;
   const defenseBase = magic ? Number(monster.mDef ?? monster.def ?? 0) : Number(monster.pDef ?? monster.def ?? 0);
-  const defense = activeStatus(monster, "armor_break") ? defenseBase * 0.75 : defenseBase;
+  const threat = monsterPressure(player, monster, derived);
+  const defense = (activeStatus(monster, "armor_break") ? defenseBase * 0.75 : defenseBase) + Math.max(0, threat) * 40;
   const handDamage = skill ? 1 : 1 + Math.max(0, playerBuffValue(player, "buff_atk")) / 100;
   const counterCritBonus = affinityCritBonus(affinityProfileResult);
   const critChance = Math.min(0.75, Number(derived.crit || 0) + Math.max(0, playerBuffValue(player, "buff_crit")) / 100 + passive.critPct + counterCritBonus);
+  const missChance = Math.min(0.32, Math.max(0, threat) * 0.16);
+  const attackMissed = Math.random() < missChance;
+  if (attackMissed) {
+    player.mp = Math.max(0, Number(player.mp || 0) - cost);
+    if (!bypassCooldown) {
+      session.combatGcdUntil = now + COMBAT_GCD_MS;
+      skillCooldowns[skillKey] = now + cooldownMs;
+    }
+    return { damage: 0, critical: false, miss: true, hp: monster.hp, maxHp: monster.maxHp, skillCode: skill?.code || null, mp: player.mp, cooldownMs, gcdMs: COMBAT_GCD_MS, loot: null, statusEffects: monster.statusEffects || [], threat: Number(threat.toFixed(3)) };
+  }
   const critical = Math.random() < critChance;
   const critMultiplier = critical ? BALANCE.damage.critMultiplier : 1;
   const areaMultiplier = session.areaSecondary ? BALANCE.damage.areaSecondaryMultiplier : 1;
-  const damage = Math.max(1, Math.floor(mitigateDamage((attack * scale + primaryStat * statScale) * affinity * handDamage * critMultiplier * areaMultiplier, defense)));
+  const pressureScale = Math.max(0.42, 1 - Math.max(0, threat) * 0.18);
+  const damage = Math.max(1, Math.floor(mitigateDamage((attack * scale + primaryStat * statScale) * affinity * handDamage * critMultiplier * areaMultiplier * pressureScale, defense)));
   player.mp = Math.max(0, Number(player.mp || 0) - cost);
   if (!bypassCooldown) {
     session.combatGcdUntil = now + COMBAT_GCD_MS;
@@ -434,7 +452,7 @@ function resolveMonsterAttack(player, monster, skillCode, session) {
     monster.respawnAt = now + Number(monster.respawnMs || 10000);
     loot = rollMonsterLoot(monster);
   }
-  return { damage, critical, hp: monster.hp, maxHp: monster.maxHp, dead: monster.dead, skillCode: skill?.code || null, mp: player.mp, cooldownMs, gcdMs: COMBAT_GCD_MS, loot, statusEffects: monster.statusEffects || [], affinityRelation: affinityProfileResult.relation, affinityMultiplier: affinity, affinityStrengthGap: affinityProfileResult.strengthGap, affinityCritBonus: counterCritBonus };
+  return { damage, critical, miss: false, threat: Number(threat.toFixed(3)), hp: monster.hp, maxHp: monster.maxHp, dead: monster.dead, skillCode: skill?.code || null, mp: player.mp, cooldownMs, gcdMs: COMBAT_GCD_MS, loot, statusEffects: monster.statusEffects || [], affinityRelation: affinityProfileResult.relation, affinityMultiplier: affinity, affinityStrengthGap: affinityProfileResult.strengthGap, affinityCritBonus: counterCritBonus };
 }
 
 function resolveSelfSkill(player, skillCode, session) {
@@ -602,10 +620,18 @@ function setupSocket(io, players = new Map(), options = {}) {
       type: monster.type || "NORMAL",
       level: Number(monster.level || 1),
       nguHanh: monster.nguHanh || [],
+      linhCan: monster.linhCan || monster.element || monster.nguHanh?.[0] || null,
       x: Number(monster.x || 0),
       y: Number(monster.y || 0),
       hp: Number(monster.hp || 0),
       maxHp: Number(monster.maxHp || monster.hp || 1),
+      mp: Number(monster.mp || monster.maxMp || 0),
+      maxMp: Number(monster.maxMp || monster.mp || 0),
+      atk: Number(monster.atk || 0),
+      def: Number(monster.def || 0),
+      mAtk: Number(monster.mAtk || 0),
+      mDef: Number(monster.mDef || monster.def || 0),
+      attackType: monster.attackType || "PHYSICAL",
       state: monster.state || "idle",
       targetId: monster.targetId || null,
       speed: Number(monster.speed || MONSTER_MOVE_SPEED),
@@ -630,14 +656,21 @@ function setupSocket(io, players = new Map(), options = {}) {
       emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage: 0, miss: true, hp: player.hp, maxHp: player.maxHp });
       return;
     }
-    const passive = passiveProfile(player);
-    const defenseBuff = playerBuffValue(player, ["buff_def", "shield"]);
-    const effectiveDefense = Number(derived.pDef || 0) * (1 + Math.max(0, defenseBuff) / 100 + passive.defensePct);
-    const damage = Math.max(1, Math.floor(Number(monster.atk || 1) - effectiveDefense + Math.random() * 3));
+  const passive = passiveProfile(player);
+  const defenseBuff = playerBuffValue(player, ["buff_def", "shield"]);
+    const pressure = monsterPressure(player, monster, derived);
+    const monsterMagic = String(monster.attackType || "").toUpperCase() === "MAGIC" || Number(monster.mAtk || 0) > Number(monster.atk || 0) * 1.1;
+    const defenseStat = monsterMagic ? Number(derived.mDef || 0) : Number(derived.pDef || 0);
+    const effectiveDefense = defenseStat * (1 + Math.max(0, defenseBuff) / 100 + passive.defensePct);
+    const monsterElement = monster.linhCan || monster.element || monster.nguHanh?.[0];
+    const monsterAffinity = affinityProfile(monsterElement, player.linhCan, elementalStrength(monster), elementalStrength(player));
+    const monsterAttack = Number(monsterMagic ? (monster.mAtk || monster.atk) : monster.atk || 1);
+    const incomingScale = 1 + Math.max(0, pressure) * 0.7;
+    const damage = Math.max(1, Math.floor(mitigateDamage(monsterAttack * incomingScale * monsterAffinity.multiplier + Math.random() * 2, effectiveDefense)));
     player.hp = Math.max(0, Number(player.hp || player.maxHp || 100) - damage);
     if (player.hp <= 0) player.hp = Math.floor(Number(player.maxHp || 100) * 0.25);
     players.set(player.id, player);
-    emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage, miss: false, hp: player.hp, maxHp: player.maxHp });
+    emitNear(roomId, targetSession.x, targetSession.y, "player_combat_result", { targetId: targetSession.id, attackerId: monster.id, damage, miss: false, hp: player.hp, maxHp: player.maxHp, pressure: Number(pressure.toFixed(3)), affinityRelation: monsterAffinity.relation, affinityMultiplier: monsterAffinity.multiplier });
   }
 
   function updatePlayerRegeneration(now) {
@@ -828,22 +861,40 @@ function setupSocket(io, players = new Map(), options = {}) {
     });
 
     // ── join_world ────────────────────────────────────────────────
-    const handleJoinWorld = async ({ mapCode, x = 26, y = 30, mapVersion = 0, hasMap = false } = {}, ctx = {}) => {
+    const handleJoinWorld = async (_intent = {}, ctx = {}) => {
       if (sessions.has(socket.id)) return { joined: false, alreadyJoined: true };
-      let roomId = (mapCode || "").trim().toLowerCase();
-      console.log(`[Socket] ${socket.username} gia nhập. MapCode nhận được: "${roomId || "RỖNG"}"`);
-
-      let worldData = resolveWorld(roomId);
-      if (worldData) roomId = String(worldData.code || worldData.maMap || worldData.id || roomId).toLowerCase();
+      const playerData = getPlayerByUserId(socket.userId);
+      const isDemoAccount = options.isDemoUser?.(socket.userId) === true;
+      const requestedMapCode = isDemoAccount ? String(_intent.mapCode || "").trim().toLowerCase() : "";
+      const savedMapCode = String(playerData?.mapCode || playerData?.mapId || "").trim().toLowerCase();
+      const savedWorld = savedMapCode ? resolveWorld(savedMapCode) : null;
+      const requestedWorld = requestedMapCode ? resolveWorld(requestedMapCode) : null;
+      const worldData = savedWorld || requestedWorld || resolveWorld("");
       if (!worldData) {
-        console.error(`[Socket] Lỗi: Không có dữ liệu bản đồ cho ${socket.username}.`);
-        return ctx.fail?.("WORLD_NOT_FOUND", "Bản đồ không tồn tại", "join_world");
+        console.error(`[Socket] No published start world for ${socket.username}.`);
+        return ctx.fail?.("WORLD_NOT_FOUND", "Bản đồ khởi đầu không khả dụng", "join_world");
       }
+      const roomId = String(worldData.code || worldData.maMap || worldData.id || "").toLowerCase();
+      const savedX = Number(playerData?.x);
+      const savedY = Number(playerData?.y);
+      const savedPosition = savedWorld && Number.isFinite(savedX) && Number.isFinite(savedY)
+        ? nearestWalkablePoint(worldData, savedX, savedY)
+        : null;
+      const requestedX = Number(_intent.x);
+      const requestedY = Number(_intent.y);
+      const requestedPosition = isDemoAccount && !playerData && Number.isFinite(requestedX) && Number.isFinite(requestedY)
+        ? nearestWalkablePoint(worldData, requestedX, requestedY)
+        : null;
+      const position = savedPosition || requestedPosition || nearestWalkablePoint(
+        worldData,
+        worldData.spawnX ?? Math.floor(Number(worldData.w || 40) / 2),
+        worldData.spawnY ?? Math.floor(Number(worldData.h || 30) / 2),
+      );
+      if (!position) return ctx.fail?.("SPAWN_UNAVAILABLE", "Bản đồ chưa có điểm sinh hợp lệ", "join_world");
+      console.log(`[Socket] ${socket.username} gia nhập map ${roomId}.`);
 
       const monsters = ensureRoomMonsters(roomId, worldData);
 
-      // Lấy tên nhân vật từ player data
-      const playerData = getPlayerByUserId(socket.userId);
       const session = {
         id: socket.id,
         userId: socket.userId,
@@ -855,13 +906,20 @@ function setupSocket(io, players = new Map(), options = {}) {
         stage: playerData?.stage || playerData?.tangTuVi || 1,
         mapId: roomId,
         mapCode: roomId,
-        x,
-        y,
+        x: position.x,
+        y: position.y,
         joinedAt: Date.now(),
         lastMoveAt: 0,
         lastAcceptedMoveAt: Date.now(),
         lastChatAt: 0,
       };
+      if (playerData) {
+        playerData.x = position.x;
+        playerData.y = position.y;
+        playerData.mapCode = roomId;
+        playerData.mapId = roomId;
+        players.set(playerData.id, playerData);
+      }
       sessions.set(socket.id, session);
 
       // Join map room
@@ -870,7 +928,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       socket.join(session.chunkRoom);
 
       // Gửi toàn bộ thông tin thế giới cho người chơi vừa vào
-      const worldPlayers = nearbySessions(roomId, x, y, socket.id);
+      const worldPlayers = nearbySessions(roomId, position.x, position.y, socket.id);
 
       socket.emit("world_init", {
         map: null,
@@ -883,7 +941,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       });
 
       // Notify others on same map
-      emitNear(roomId, x, y, "player_join", session, socket.id);
+      emitNear(roomId, position.x, position.y, "player_join", session, socket.id);
       return { joined: true, mapCode: roomId, playerId: socket.id };
     };
 
@@ -1126,6 +1184,11 @@ function setupSocket(io, players = new Map(), options = {}) {
       "world.resync": () => {
         const session = sessions.get(socket.id);
         if (!session) return { __commandError: { code: "SESSION_NOT_READY", message: "Phiên chơi chưa sẵn sàng" } };
+        const now = Date.now();
+        if (now - Number(session.lastResyncAt || 0) < 1000) {
+          return { __commandError: { code: "RATE_LIMITED", message: "Vui lòng chờ trước khi đồng bộ lại thế giới" } };
+        }
+        session.lastResyncAt = now;
         const worldData = resolveWorld(session.mapId);
         const playerData = getPlayerByUserId(socket.userId);
         socket.emit("world_init", {
@@ -1174,6 +1237,7 @@ function setupSocket(io, players = new Map(), options = {}) {
 
     // ── disconnect ────────────────────────────────────────────────
     socket.on("disconnect", () => {
+      commandPipeline.close();
       const session = sessions.get(socket.id);
       if (session) {
         emitNear(session.mapId, session.x, session.y, "player_leave", { id: socket.id }, socket.id);

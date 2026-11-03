@@ -776,5 +776,5 @@ renderPalette();
 generateMap();
 refreshMapList().then(() => {
   if (new URLSearchParams(window.location.search).get("map")) return loadMap();
-}).catch((error) => setStatus(`${error.message} · dùng key demo-admin`, "error"));
+}).catch((error) => setStatus(`${error.message} · kiểm tra Admin key cấu hình trên server`, "error"));
 refreshMonsterCatalog().catch((error) => setStatus(error.message, "error"));

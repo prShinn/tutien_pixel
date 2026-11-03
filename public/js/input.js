@@ -50,6 +50,10 @@ const Input = {
         }
         Shop.close();
         DialogUI.close();
+        const menu = document.getElementById("kpah-menu-modal");
+        if (menu) menu.style.display = "none";
+        const continent = document.getElementById("continent-modal");
+        if (continent) continent.style.display = "none";
       }
       if (e.code === "Enter") {
         const ci = document.getElementById("chat-inp");
@@ -64,6 +68,14 @@ const Input = {
     window.addEventListener("keyup", (e) => {
       Input.keys[e.code] = false;
       if (e.key) Input.keys[e.key.toLowerCase()] = false;
+    });
+    window.addEventListener("blur", () => {
+      // Tránh nhân vật tiếp tục chạy sau khi người chơi Alt-Tab hoặc mất focus cửa sổ.
+      Input.keys = {};
+      if (S.player?.isMoving) {
+        S.player.isMoving = false;
+        Net.emitMove(true);
+      }
     });
     window.addEventListener("resize", Input._resizeHandler);
 

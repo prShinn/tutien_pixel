@@ -13,16 +13,25 @@
 | POST | `/api/auth/login` | `{username, password}` | `{token, user}` | ❌ |
 | GET | `/api/auth/me` | — | `{user}` | ✅ |
 
+Đăng ký mới dùng username 3-20 ký tự (chữ, số, `_`, `-`) và password 8-72 byte UTF-8.
+Endpoint demo chỉ hoạt động ngoài production.
+
 ---
 
 ## 🧑 Player
 
 | Method | Endpoint | Body | Response | Auth |
 |--------|----------|------|----------|------|
-| GET | `/api/player/:id` | — | PlayerData | ✅ |
+| GET | `/api/player/me` | — | PlayerData | ✅ |
+| GET | `/api/player/state` | — | PlayerData (tương thích cũ) | ✅ |
 | GET | `/api/player/by-user/:userId` | — | PlayerData | ✅ |
-| POST | `/api/player` | PlayerData | PlayerData+id | ✅ |
-| PUT | `/api/player/:id` | PlayerData | PlayerData | ✅ |
+| POST | `/api/player` | `{userId, name, gender, linhCan, stats, mapCode?}` | PlayerData do server khởi tạo | ✅ |
+| PUT | `/api/player/:id` | `{name?, gender?, img?}` | PlayerData | ✅ |
+
+Server tự cấp inventory/equipment ban đầu và tự chọn điểm sinh từ map khởi đầu đã xuất bản.
+Các trường `inventory`, `jsonIventory`, `equipment`, `x` và `y` trong request tạo nhân vật
+không được dùng làm nguồn state. Trang bị và inventory chỉ thay đổi qua endpoint gameplay
+chuyên biệt; vị trí online được cập nhật bởi socket server.
 
 ### PlayerData Fields
 
@@ -260,6 +269,10 @@ MVP hiện dùng `x-admin-key` cho các endpoint editor:
 | `faction_chat` | `{message}` | Gửi chat phe |
 | `attack_player` | `{targetId, damage}` | PvP attack (chiến trường) |
 
+Trong production, `join_world` dùng map và vị trí đã lưu ở server; `mapId`, `mapCode`, `x`
+và `y` từ client không thể chọn map hay đặt tọa độ. Tài khoản demo ở môi trường dev vẫn
+được phép chọn map/tọa độ để kiểm tra nội dung, nhưng vị trí luôn được hiệu chỉnh về ô đi được.
+
 ### Command contract chuẩn
 
 Gameplay realtime mới dùng một event duy nhất:
@@ -277,4 +290,5 @@ Command hợp lệ: `world.join`, `movement.intent`, `map.change`, `combat.attac
 
 Ack thành công có dạng `{ ok: true, requestId, command, serverTime, result }`.
 Ack lỗi có dạng `{ ok: false, requestId, command, serverTime, error: { code, message } }`.
+`requestId` được deduplicate trong 30 giây trên mỗi socket; `world.resync` giới hạn một lần/giây.
 Các event cũ vẫn được server nhận tạm thời và chuyển vào cùng handler để tương thích demo.

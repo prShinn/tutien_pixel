@@ -32,9 +32,16 @@ const { BALANCE, deriveStats, combatPower, calcTuViNeeded, breakthroughThreshold
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: true, credentials: true } });
+app.set("trust proxy", ENV.trustProxyHops);
+const io = new Server(server, {
+  cors: {
+    origin: ENV.isProduction ? ENV.corsOrigins : true,
+    credentials: true,
+  },
+});
 const users = new Map();
 const usersByUsername = new Map();
+const registeringUsernames = new Set();
 const players = new Map();
 const playersByUserId = new Map();
 const worldResponseCache = new Map();
@@ -42,9 +49,6 @@ let socketRuntime = null;
 let nextUserId = 1;
 let nextPlayerId = 1;
 const ADMIN_MAP_KEY = ENV.adminMapKey;
-if (ENV.isProduction && ADMIN_MAP_KEY === "demo-admin") {
-  console.warn("CẢNH BÁO: ADMIN_MAP_KEY đang sử dụng giá trị mặc định trong môi trường production!");
-}
 const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
 const MAP_MIN_W = 320;
 const MAP_MIN_H = 240;
@@ -53,9 +57,13 @@ const PORTAL_EDGE_MARGIN = 12;
 const PORTAL_EXIT_OFFSET = 24;
 const SEEDED_WORLDS = new Map(worlds.map((world) => [world.code, JSON.parse(JSON.stringify(world))]));
 
-const authLimiter = createRateLimiter({ windowMs: 60000, max: 120, message: "Quá nhiều yêu cầu xác thực, vui lòng thử lại sau." });
+const authLimiter = createRateLimiter({ windowMs: 60000, max: 30, message: "Quá nhiều yêu cầu xác thực, vui lòng thử lại sau." });
+const demoLimiter = createRateLimiter({ windowMs: 60000, max: 60, message: "Đã đạt giới hạn tạo phiên demo." });
 
-app.use(cors());
+app.use(cors({
+  origin: ENV.isProduction ? ENV.corsOrigins : true,
+  credentials: true,
+}));
 app.use("/api/admin/worlds", express.json({ limit: "12mb" }));
 app.use(express.json({ limit: "512kb" }));
 
@@ -174,6 +182,26 @@ function isWalkablePoint(world, x, y) {
   return Number(world?.jsonMap?.[ty]?.[tx]) !== 2;
 }
 
+function nearestWalkablePoint(world, x, y) {
+  const width = Number(world?.w || 0);
+  const height = Number(world?.h || 0);
+  if (width < 9 || height < 9) return null;
+  const centerX = clampInteger(x, 4, width - 5, Math.floor(width / 2));
+  const centerY = clampInteger(y, 4, height - 5, Math.floor(height / 2));
+  if (isWalkablePoint(world, centerX, centerY)) return { x: centerX, y: centerY };
+  for (let radius = 1; radius <= 16; radius += 1) {
+    for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+      for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+        if (Math.max(Math.abs(offsetX), Math.abs(offsetY)) !== radius) continue;
+        const candidateX = centerX + offsetX;
+        const candidateY = centerY + offsetY;
+        if (isWalkablePoint(world, candidateX, candidateY)) return { x: candidateX, y: candidateY };
+      }
+    }
+  }
+  return null;
+}
+
 function portalSide(world, x, y) {
   const width = Number(world?.w || 1);
   const height = Number(world?.h || 1);
@@ -226,6 +254,8 @@ function normalizeWorldPayload(payload, existing = null) {
   const spawnY = clampInteger(payload?.spawnY, 8, height - 9, Math.floor(height / 2));
   const type = String(payload?.type || existing?.type || "PLAIN").toUpperCase();
   const status = String(payload?.status || existing?.status || (existing ? "PUBLISHED" : "DRAFT")).toUpperCase() === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+  const recommendedRealmMin = clampInteger(payload?.recommendedRealmMin, 1, 13, existing?.recommendedRealmMin || 1);
+  const recommendedRealmMax = clampInteger(payload?.recommendedRealmMax, recommendedRealmMin, 13, Math.max(recommendedRealmMin, existing?.recommendedRealmMax || 13));
   for (let y = spawnY - 8; y <= spawnY + 8; y += 1) {
     for (let x = spawnX - 8; x <= spawnX + 8; x += 1) {
       if (Math.hypot(x - spawnX, y - spawnY) > 8) continue;
@@ -245,8 +275,8 @@ function normalizeWorldPayload(payload, existing = null) {
     status,
     regionId: String(payload?.regionId || existing?.regionId || "ADMIN_PUBLISHED").trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, "_").slice(0, 60),
     tier: clampInteger(payload?.tier, 0, 99, existing?.tier || 0),
-    recommendedRealmMin: clampInteger(payload?.recommendedRealmMin, 1, 13, existing?.recommendedRealmMin || 1),
-    recommendedRealmMax: clampInteger(payload?.recommendedRealmMax, 1, 13, existing?.recommendedRealmMax || 13),
+    recommendedRealmMin,
+    recommendedRealmMax,
     tags: normalizeStringList(payload?.tags ?? existing?.tags),
     seed: String(payload?.seed || existing?.seed || code).slice(0, 80),
     w: width,
@@ -406,24 +436,48 @@ function sendCachedWorld(req, res, world) {
 app.post("/api/auth/register", authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
-  if (username.length < 3 || password.length < 4) return res.status(400).json({ error: "Username tối thiểu 3 ký tự, password tối thiểu 4 ký tự" });
-  if (findUserByUsername(username)) return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
-  const user = { id: nextUserId++, username, passwordHash: await bcrypt.hash(password, 10) };
-  storeUser(user);
-  res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
+  const usernameKey = username.toLowerCase();
+  const passwordBytes = Buffer.byteLength(password, "utf8");
+  if (username.length < 3 || username.length > 20 || !/^[\p{L}\p{N}_-]+$/u.test(username)) {
+    return res.status(400).json({ error: "Username phải dài 3-20 ký tự, chỉ gồm chữ, số, _ hoặc -" });
+  }
+  if (passwordBytes < 8 || passwordBytes > 72) {
+    return res.status(400).json({ error: "Password phải dài ít nhất 8 byte và không quá 72 byte" });
+  }
+  if (findUserByUsername(username) || registeringUsernames.has(usernameKey)) {
+    return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
+  }
+
+  registeringUsernames.add(usernameKey);
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    if (findUserByUsername(username)) return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
+    const user = { id: nextUserId++, username, passwordHash };
+    storeUser(user);
+    return res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
+  } catch (error) {
+    console.error("Registration failed");
+    return res.status(500).json({ error: "Không thể tạo tài khoản lúc này" });
+  } finally {
+    registeringUsernames.delete(usernameKey);
+  }
 });
 
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
+  if (username.length > 20 || Buffer.byteLength(password, "utf8") > 72) {
+    return res.status(401).json({ error: "Tên đăng nhập hoặc mật khẩu sai" });
+  }
   const user = findUserByUsername(username);
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(401).json({ error: "Tên đăng nhập hoặc mật khẩu sai" });
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
-app.post("/api/auth/demo", authLimiter, (req, res) => {
+app.post("/api/auth/demo", demoLimiter, (req, res) => {
+  if (ENV.isProduction) return res.status(404).json({ error: "Không tìm thấy endpoint" });
   const username = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const user = { id: nextUserId++, username, passwordHash: "demo" };
+  const user = { id: nextUserId++, username, passwordHash: "demo", isDemo: true };
   storeUser(user);
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
@@ -926,15 +980,18 @@ app.post("/api/player", authMiddleware, (req, res) => {
   const linhCan = validRoot ? validRoot.id : "KIM";
   const defaultRealm = realms.find((r) => r.stt === 1) || realms[0];
   const requestedMap = String(req.body?.mapCode || req.body?.mapId || "").trim().toLowerCase();
-  const selectedWorld = (requestedMap && worlds.find((w) => w.code === requestedMap)) || worlds.find((w) => w.isDefault) || worlds[0];
-  const rawX = Number(req.body?.x);
-  const rawY = Number(req.body?.y);
-  const spawnX = Number.isFinite(rawX) && isWalkablePoint(selectedWorld, Math.round(rawX), Math.round(rawY))
-    ? Math.round(rawX)
-    : Number(selectedWorld?.spawnX ?? 300);
-  const spawnY = Number.isFinite(rawY) && isWalkablePoint(selectedWorld, Math.round(rawX), Math.round(rawY))
-    ? Math.round(rawY)
-    : Number(selectedWorld?.spawnY ?? 200);
+  const defaultWorld = worlds.find((world) => world.isDefault && isWorldPublished(world)) || worlds.find(isWorldPublished);
+  const demoWorld = users.get(req.userId)?.isDemo
+    ? worlds.find((world) => world.code === "binh_nguyen" && isWorldPublished(world))
+    : null;
+  const selectedWorld = demoWorld && requestedMap === demoWorld.code ? demoWorld : defaultWorld;
+  if (!selectedWorld) return res.status(503).json({ error: "Chưa có bản đồ khởi đầu khả dụng" });
+  const spawn = nearestWalkablePoint(
+    selectedWorld,
+    selectedWorld.spawnX ?? Math.floor(Number(selectedWorld.w || 600) / 2),
+    selectedWorld.spawnY ?? Math.floor(Number(selectedWorld.h || 400) / 2),
+  );
+  if (!spawn) return res.status(503).json({ error: "Bản đồ khởi đầu chưa có điểm sinh hợp lệ" });
   const derived = deriveStats(stats, {});
 
   const rootSkills = skills.filter((skill) => skill.linhCan === linhCan && skill.category !== "PASSIVE");
@@ -948,7 +1005,7 @@ app.post("/api/player", authMiddleware, (req, res) => {
     userId: req.userId,
     name,
     gender,
-    img: req.body?.img ? String(req.body.img) : null,
+    img: gender === "FEMALE" ? "./assets/char_female_anim-source.png" : "./assets/char_male_anim-source.png",
     linhCan,
     stats,
     derivedStats: derived,
@@ -966,13 +1023,13 @@ app.post("/api/player", authMiddleware, (req, res) => {
     canhGioi: defaultRealm,
     mapCode: selectedWorld.code,
     mapId: selectedWorld.code,
-    x: spawnX,
-    y: spawnY,
+    x: spawn.x,
+    y: spawn.y,
     learnedSkills: [...skills.filter((skill) => skill.linhCan === "COMMON"), ...rootSkills.slice(0, 2), ...skills.filter((skill) => skill.linhCan === linhCan && skill.category === "PASSIVE")].map((skill) => skill.code),
     equippedSkills: initialSkills.map((skill) => skill.code),
     skills: initialSkills,
-    equipment: normalizeEquipment(req.body?.equipment),
-    inventory: (() => { try { const value = typeof req.body?.jsonIventory === "string" ? JSON.parse(req.body.jsonIventory) : req.body?.inventory; return Array.isArray(value) ? value : []; } catch { return []; } })(),
+    equipment: emptyEquipment(),
+    inventory: [],
     unspentStatPoints: 0,
   };
   player.jsonIventory = JSON.stringify(player.inventory);
@@ -1004,7 +1061,6 @@ app.put("/api/player/:id", authMiddleware, (req, res) => {
   for (const key of ["name", "gender", "img"]) {
     if (req.body?.[key] !== undefined) player[key] = req.body[key];
   }
-  if (req.body?.equipment !== undefined) player.equipment = normalizeEquipment(req.body.equipment);
   player.combatPower = combatPower(player);
   storePlayer(player);
   res.json(player);
@@ -1095,6 +1151,7 @@ app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.ht
 
 socketRuntime = setupSocket(io, players, {
   getPlayerByUserId: playerFor,
+  isDemoUser: (userId) => users.get(Number(userId))?.isDemo === true,
   getWorldByCode: (code) => worlds.find((world) => world.code === String(code || "").toLowerCase() && isWorldPublished(world)) || null,
   getDefaultWorld: () => worlds.find((world) => world.isDefault && isWorldPublished(world)) || worlds.find(isWorldPublished) || null,
 });

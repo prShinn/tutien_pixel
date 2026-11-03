@@ -29,12 +29,32 @@ const Net = {
   _isOnline: false,
   _pendingRequests: new Map(),
   _savePromise: null,
+  _mapChangeTimer: null,
+  COMMAND_TIMEOUT_MS: 8000,
 
   command(type, payload = {}, onAck) {
     if (!socket?.connected) return Promise.resolve({ ok: false, error: { code: "OFFLINE", message: "Chưa kết nối máy chủ" } });
     const requestId = `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
     return new Promise((resolve) => {
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const response = { ok: false, requestId, command: type, error: { code: "COMMAND_TIMEOUT", message: "Máy chủ không phản hồi, vui lòng thử lại." } };
+        if (["combat.attack", "combat.skill"].includes(type)) S.combatPending = false;
+        if (type === "map.change" && S.player) {
+          S.player.isTeleporting = false;
+          S.player.portalLocked = false;
+          UI.hideLoading();
+        }
+        UI.log(`⚠ ${response.error.message}`, "system");
+        onAck?.(response);
+        resolve(response);
+      }, Net.COMMAND_TIMEOUT_MS);
       socket.emit("game_command", { requestId, type, payload }, (response) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
         if (!response?.ok && response?.error?.message) {
           if (["combat.attack", "combat.skill"].includes(type)) S.combatPending = false;
           if (type === "map.change" && S.player) {
@@ -104,7 +124,7 @@ const Net = {
 
   // ── Save ──
   async saveNow(event) {
-    if (!authToken || !S.player) return;
+    if (!authToken || !S.player) return Promise.resolve();
 
     // Tránh việc gọi save liên tục tạo ra hàng đợi vô hạn
     if (this._savePromise) {
@@ -194,8 +214,7 @@ const Net = {
         if (p) {
           const mCode = p.mapCode || p.mapId || S.mapCode || "";
           Net.command("world.join", {
-            mapCode: mCode,
-            mapId: mCode,
+          mapCode: mCode,
             x: p.x,
             y: p.y,
             mapVersion: S.mapVersion || 0,
@@ -208,6 +227,13 @@ const Net = {
 
       socket.on("disconnect", () => {
         S.combatPending = false;
+        clearTimeout(Net._mapChangeTimer);
+        Net._mapChangeTimer = null;
+        if (S.player) {
+          S.player.isTeleporting = false;
+          S.player.portalLocked = false;
+        }
+        UI.hideLoading();
         Net.saveNow();
         Net._isOnline = false;
         Net._setBadge(false);
@@ -413,10 +439,12 @@ const Net = {
         if (targetId !== socket.id || !S.player) return;
         S.player.hp = Number(hp ?? S.player.hp);
         if (maxHp) S.player.maxHp = Number(maxHp);
+        Render.combatFx(S.player.px, S.player.py, miss ? "miss" : "hurt", miss ? "#a8ff8a" : "#ff5268", miss ? 0.7 : 1);
         if (!miss && Number(damage) > 0) {
           S.player.hitUntil = Date.now() + 220;
           S.player.animState = "hurt";
           S.player.animUntil = Date.now() + 260;
+          S.cameraShake = { until: Date.now() + 90, power: 1.8 };
         }
         Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
         if (S.player.hp <= 0) S.player.hp = Math.floor(S.player.maxHp * 0.25);
@@ -482,13 +510,20 @@ const Net = {
             if (S.player) S.player.combatMove = false;
           }
           m.hitUntil = Date.now() + 180;
-          Render.floatDmg(m.px, m.py, -30, (hit.critical ? "CRIT! " : "") + "-" + hit.damage, hit.critical ? "#fff06a" : "#ff5555", Boolean(hit.critical));
+          const missed = Boolean(hit.miss);
+          Render.combatFx(m.px, m.py, missed ? "miss" : (hit.critical ? "crit" : "hit"), missed ? "#a8ff8a" : (hit.critical ? "#fff06a" : "#ff765c"), hit.critical ? 1.25 : 1);
+          Render.floatDmg(m.px, m.py, -30, missed ? "MISS" : ((hit.critical ? "CRIT! " : "") + "-" + hit.damage), missed ? "#88ff88" : (hit.critical ? "#fff06a" : "#ff5555"), Boolean(hit.critical));
         }
         if (skillCode && skillName) {
           const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
           if (actor) {
-            actor.animState = "cast";
-            actor.animUntil = Date.now() + 520;
+            const skill = actor === S.player
+              ? actor.skills?.find(item => item.id === skillCode || item.code === skillCode)
+              : null;
+            const physicalStrike = skill && SkillSystem.isOffensive(skill)
+              && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
+            actor.animState = physicalStrike ? "attack" : "cast";
+            actor.animUntil = Date.now() + (physicalStrike ? 360 : 520);
             Render.floatSkill(actor.px, actor.py, skillName);
           }
         }
@@ -525,6 +560,7 @@ const Net = {
         if (!S.player) return;
         S.player.animState = "cast";
         S.player.animUntil = Date.now() + 520;
+        Render.combatFx(S.player.px, S.player.py, "skill", effectColor(effect));
         S.player.hp = hp;
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
@@ -606,7 +642,7 @@ const Net = {
       Net.command("movement.intent", {
         x: S.player.x,
         y: S.player.y,
-        mapId: S.mapCode,
+        mapCode: S.mapCode,
       });
     }
   },
@@ -636,11 +672,15 @@ const Net = {
     const py = Math.floor(y);
     if (socket?.connected) {
       UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
+      clearTimeout(Net._mapChangeTimer);
       Net._clearOthers();
       // Flush vị trí hiện tại trước: server phải xác nhận nhân vật đang chạm portal.
       // Không nhảy client tới điểm đến khi server chưa trả world_init.
-      Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapId: S.mapCode });
-      setTimeout(() => Net.command("map.change", { mapId: mapCode, mapCode, x: px, y: py }), 65);
+      Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapCode: S.mapCode });
+      Net._mapChangeTimer = setTimeout(() => {
+        Net._mapChangeTimer = null;
+        if (socket?.connected) Net.command("map.change", { mapCode, x: px, y: py });
+      }, 65);
     }
   },
 

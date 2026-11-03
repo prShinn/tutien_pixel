@@ -70,9 +70,15 @@ const UI = {
     const profileName = document.getElementById("ui-profile-name");
     if (profileName) profileName.textContent = p.name || "Tu sĩ";
     const profileAvatar = document.getElementById("ui-profile-avatar");
+    const hudAvatar = document.getElementById("ui-avatar");
+    const characterSprite = `./assets/characters/cultivator-${p.gender === "FEMALE" ? "female" : "male"}.png`;
+    if (hudAvatar) {
+      hudAvatar.src = characterSprite;
+      hudAvatar.alt = p.gender === "FEMALE" ? "Nhân vật nữ" : "Nhân vật nam";
+    }
     if (profileAvatar) {
-      const avatarFallback = p.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male.png";
-      profileAvatar.src = /_anim-source\.png$/i.test(p.img || "") ? avatarFallback : (p.img || avatarFallback);
+      profileAvatar.src = characterSprite;
+      profileAvatar.alt = p.gender === "FEMALE" ? "Nhân vật nữ" : "Nhân vật nam";
     }
     const rootEl = document.getElementById("ui-root");
     if (rootEl) {
@@ -140,7 +146,7 @@ const UI = {
     if (bTu) bTu.style.width = Math.min(100, Math.max(0, Math.floor((tuViHienTai / tuViLenCap) * 100))) + "%";
 
     const uiXu = document.getElementById("ui-xu");
-    if (uiXu) uiXu.textContent = p.xu.toLocaleString();
+    if (uiXu) uiXu.textContent = Math.floor(Number(p.xu) || 0).toLocaleString();
 
     const mapName = document.getElementById("mini-map-name");
     if (mapName) mapName.textContent = S.mapName || S.mapCode || "Bản đồ";

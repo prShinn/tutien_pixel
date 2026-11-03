@@ -83,7 +83,9 @@ const Render = {
     S.cam.x = Math.max(0, Math.min(S.mapW * ts - lcW, S.cam.x));
     S.cam.y = Math.max(0, Math.min(S.mapH * ts - lcH, S.cam.y));
     
-    const cx = S.cam.x, cy = S.cam.y;
+    const shakePower = S.cameraShake?.until > Date.now() ? Number(S.cameraShake.power || 0) : 0;
+    const cx = S.cam.x + (shakePower ? (Math.random() - 0.5) * shakePower : 0);
+    const cy = S.cam.y + (shakePower ? (Math.random() - 0.5) * shakePower : 0);
     ctx.clearRect(0, 0, cW, cH);
 
     if (!S.tiles || S.tiles.length === 0) {
@@ -136,6 +138,7 @@ const Render = {
     
     const tint = p.root ? p.root.color : "#4488cc";
     Render.player(p.px - cx, p.py - cy, tint, p);
+    Render.drawCombatFx(cx, cy);
 
     // KPAH Name Tags & HP Bar
     ctx.font = "bold 6px monospace";
@@ -358,27 +361,35 @@ const Render = {
   },
 
   player(sx, sy, tint, actor = S.player) {
-    const defaultImg = actor?.gender === "FEMALE" ? "./assets/char_female.png" : "./assets/char_male_anim-source.png";
-    const imgToDraw = actor?.img || defaultImg;
+    const gender = actor?.gender === "FEMALE" ? "female" : "male";
+    const defaultImg = `./assets/characters/cultivator-${gender}.png`;
+    const isBuiltInCharacter = /(?:char_(?:male|female)(?:_anim-source)?\.png|characters\/cultivator-(?:male|female)\.png)$/i.test(actor?.img || "");
+    const imgToDraw = !actor?.img || isBuiltInCharacter ? defaultImg : actor.img;
     const moving = !!actor?.isMoving;
     const now = Date.now();
     const activeAction = actor?.animUntil > now
       ? actor.animState
       : (moving ? "walk" : "idle");
     const animation = { idle: { row: 0, speed: 240 }, walk: { row: 1, speed: 115 }, attack: { row: 2, speed: 82 }, cast: { row: 3, speed: 125 } }[activeAction] || { row: 0, speed: 240 };
-    const rawFrame = Math.floor(now / animation.speed) % 4;
+    if (this._prefersReducedMotion === undefined) {
+      this._prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
+    }
+    const reduceMotion = this._prefersReducedMotion;
+    const rawFrame = reduceMotion ? 0 : Math.floor(now / animation.speed) % 4;
     // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
-    const frameIndex = activeAction === "idle" ? [0, 1, 2, 1][rawFrame] : rawFrame;
+    const frameIndex = reduceMotion
+      ? ((activeAction === "attack" || activeAction === "cast") ? 2 : 0)
+      : (activeAction === "idle" ? [0, 1, 2, 1][rawFrame] : rawFrame);
     const phase = now * (moving ? 0.0065 : 0.0012);
     const stride = Math.sin(phase);
     const idle = activeAction === "idle";
     // Nhịp thở chỉ dịch thân rất ít; điểm neo vẫn là chân nên nhân vật không bị cảm giác bay.
     const idlePhase = now * 0.0032;
-    const bob = idle ? Math.sin(idlePhase) * 0.08 : Math.abs(stride) * 0.12;
-    const sway = idle
+    const bob = reduceMotion ? 0 : (idle ? Math.sin(idlePhase) * 0.08 : Math.abs(stride) * 0.12);
+    const sway = reduceMotion ? 0 : idle
       ? Math.sin(idlePhase * 0.7) * 0.008
       : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
-    const attackPulse = actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
+    const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
     const actorH = Number(actor?.animation?.height || CFG.ACTOR_H);
     
@@ -395,10 +406,9 @@ const Render = {
       ctx.translate(sx, sy - bob + (CFG.ACTOR_FOOT_OFFSET || 0));
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
-      ctx.scale(1 + (moving ? Math.abs(stride) * 0.035 : 0), 1 - (moving ? Math.abs(stride) * 0.025 : 0));
+      ctx.scale(1 + (moving && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (moving && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
       ctx.scale(actor?.direction === "left" ? -1 : 1, 1);
-      const defaultCharacterSheet = (!actor?.img && actor?.gender !== "FEMALE")
-        || /char_(?:male|female)(?:_anim-source)?\.png$/i.test(actor?.img || "");
+      const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
       const spriteFrame = actor?.animation?.kind === "grid"
         ? { col: frameIndex % Number(actor.animation.cols || 4), row: animation.row, cols: actor.animation.cols || 4, rows: actor.animation.rows || 4 }
         : (defaultCharacterSheet ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null);
@@ -708,6 +718,56 @@ const Render = {
       maxLife: isCrit ? 1000 : 800,
       isCrit: Boolean(isCrit),
     });
+  },
+
+  combatFx(wx, wy, type = "hit", color = "#ff9f68", power = 1) {
+    if (!S.combatFx) S.combatFx = [];
+    const cfg = {
+      hit: { count: 5, life: 230, radius: 5, spread: 1.7 },
+      crit: { count: 9, life: 340, radius: 8, spread: 2.4 },
+      hurt: { count: 6, life: 260, radius: 6, spread: 1.8 },
+      miss: { count: 3, life: 220, radius: 4, spread: 1.2 },
+      skill: { count: 8, life: 300, radius: 7, spread: 2.1 },
+    }[type] || { count: 5, life: 230, radius: 5, spread: 1.7 };
+    for (let i = 0; i < cfg.count; i += 1) {
+      const angle = (Math.PI * 2 * i) / cfg.count + Math.random() * 0.35;
+      const speed = (0.35 + Math.random() * cfg.spread) * Math.max(0.6, power);
+      S.combatFx.push({
+        x: wx, y: wy, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: cfg.life + Math.random() * 80, maxLife: cfg.life + 80,
+        radius: cfg.radius * (0.6 + Math.random() * 0.7), color, type,
+      });
+    }
+    S.combatFx.push({ x: wx, y: wy, life: cfg.life, maxLife: cfg.life, radius: cfg.radius, color, type, ring: true });
+  },
+
+  drawCombatFx(cx, cy) {
+    if (!S.combatFx?.length) return;
+    for (const fx of S.combatFx) {
+      const alpha = Math.max(0, fx.life / fx.maxLife);
+      const x = fx.x - cx, y = fx.y - cy;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = fx.color;
+      ctx.fillStyle = fx.color;
+      ctx.lineWidth = fx.type === "crit" ? 1.5 : 1;
+      if (fx.ring) {
+        const progress = 1 - alpha;
+        ctx.beginPath();
+        ctx.arc(x, y, fx.radius * (0.5 + progress * 1.4), 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        const length = fx.type === "crit" ? 3.8 : 2.8;
+        const angle = Math.atan2(fx.vy || 0, fx.vx || 1);
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(-length, 0);
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   },
 
   drawBuffEffects(sx, sy, actor, actorW, actorH) {

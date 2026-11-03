@@ -208,9 +208,12 @@ const Auth = {
       skills: visibleSkills,
       buffs: {},
     };
-    try {
-      S.inventory = JSON.parse(playerData.jsonIventory) || [];
-    } catch (e) {}
+    const rawInventory = (() => {
+      if (Array.isArray(playerData.inventory)) return playerData.inventory;
+      if (typeof playerData.jsonIventory !== "string") return [];
+      try { return JSON.parse(playerData.jsonIventory); } catch { return []; }
+    })();
+    S.inventory = Array.isArray(rawInventory) ? rawInventory : [];
     // World state will be initialized by Socket (Server Authoritative)
     enterGame(null, S.player.x, S.player.y);
   },

@@ -45,6 +45,7 @@
             id="inp-pass"
             type="password"
             placeholder="Password..."
+            maxlength="72"
             autocomplete="current-password"
           />
         </div>
@@ -55,6 +56,7 @@
             id="inp-confirm"
             type="password"
             placeholder="Nhập lại password..."
+            maxlength="72"
           />
         </div>
         <button class="big-btn" id="auth-btn" onclick="Auth.submit()">
@@ -94,7 +96,7 @@
       <div class="title-sub">
         Chọn linh căn · Phân bổ thuộc tính · Bắt đầu tu luyện
       </div>
-      <div class="card" style="width: 510px">
+      <div class="card creation-card">
         <div class="field-group">
           <div class="sec-title">✦ PHÁP DANH</div>
           <input
@@ -106,9 +108,26 @@
         </div>
         <div class="field-group">
           <div class="sec-title">✦ GIỚI TÍNH</div>
-          <div style="display: flex; gap: 10px; margin-top: 8px;">
-            <button class="sbtn active" id="btn-gender-male" onclick="selectGender('MALE')">♂ NAM</button>
-            <button class="sbtn" id="btn-gender-female" onclick="selectGender('FEMALE')">♀ NỮ</button>
+          <div class="gender-picker" role="group" aria-label="Chọn nhân vật">
+            <button class="gender-choice active" type="button" id="btn-gender-male" aria-pressed="true" onclick="selectGender('MALE')">
+              <span class="gender-mark" aria-hidden="true">♂</span><span><strong>Nam</strong><small>Kiếm khách</small></span>
+            </button>
+            <button class="gender-choice" type="button" id="btn-gender-female" aria-pressed="false" onclick="selectGender('FEMALE')">
+              <span class="gender-mark" aria-hidden="true">♀</span><span><strong>Nữ</strong><small>Nữ hiệp</small></span>
+            </button>
+          </div>
+          <div class="gender-preview" aria-live="polite">
+            <div class="gender-preview-portrait sprite-portrait">
+              <img id="creation-gender-preview" class="sprite-atlas" src="./assets/characters/cultivator-male.png" alt="Nhân vật nam, trang phục xanh lam">
+            </div>
+            <div class="gender-preview-copy">
+              <span class="eyebrow">NGOẠI HÌNH TU SĨ</span>
+              <strong id="creation-gender-name">Kiếm khách trẻ</strong>
+              <p id="creation-gender-description">Áo xanh thanh nhã, sẵn sàng bước vào hành trình tu luyện.</p>
+              <div class="animation-pills" aria-label="Có hoạt ảnh nghỉ ngơi, di chuyển và thi triển kỹ năng">
+                <span>Nghỉ ngơi</span><span>Di chuyển</span><span>Kỹ năng</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="field-group">
@@ -264,8 +283,8 @@
 
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
-        <div class="hud-avatar">
-          <img id="ui-avatar" src="./assets/char_male.png" alt="" />
+        <div class="hud-avatar sprite-portrait">
+          <img id="ui-avatar" class="sprite-atlas" src="./assets/characters/cultivator-male.png" alt="Nhân vật nam" />
         </div>
         <div class="hud-bars">
           <div class="hud-name-row">
@@ -287,8 +306,8 @@
       <!-- 3. KPAH HUD: TOP RIGHT -->
       <div id="kpah-hud-topright">
         <div class="hub-actions" aria-label="Lối tắt HUB">
-          <button class="hub-action" onclick="UI.toggleKpahMenu()" title="Mở hành trang">Túi</button>
-          <button class="hub-action" onclick="UI.toggleKpahMenu()" title="Mở HUB nhân vật">HUB</button>
+          <button class="hub-action" type="button" onclick="UI.toggleKpahMenu()" title="Mở nhân vật và hành trang">Nhân vật</button>
+          <button class="hub-action" type="button" onclick="UI.toggleContinent()" title="Mở bản đồ đại lục">Đại lục</button>
         </div>
         <div class="online-badge" id="online-badge">● Offline</div>
         <div class="hud-xu">💰 <span id="ui-xu">0</span></div>
@@ -314,11 +333,11 @@
       <!-- 5. KPAH HUD: BOTTOM RIGHT (Skills) -->
       <div id="kpah-hud-bottomright">
         <div class="kpah-skill-ring">
-          <div class="sk-main" onclick="Input.keys['Space'] = true; setTimeout(()=>Input.keys['Space']=false, 100)">Đánh<br/>(Space)</div>
-          <div class="sk-sub" id="skbar-slot-0" onclick="SkillSystem.useSkill(0)">1<br/><span id="skbar-name-0" style="font-size:8px;">—</span></div>
-          <div class="sk-sub" id="skbar-slot-1" onclick="SkillSystem.useSkill(1)">2<br/><span id="skbar-name-1" style="font-size:8px;">—</span></div>
-          <div class="sk-sub" id="skbar-slot-2" onclick="SkillSystem.useSkill(2)">3<br/><span id="skbar-name-2" style="font-size:8px;">—</span></div>
-          <div class="sk-sub" id="skbar-slot-3" onclick="SkillSystem.useSkill(3)">4<br/><span id="skbar-name-3" style="font-size:8px;">—</span></div>
+          <button class="sk-main" type="button" aria-label="Đánh thường, phím Space" onclick="Input.keys['Space'] = true; setTimeout(()=>Input.keys['Space']=false, 100)"><span class="skbar-key">Space</span><svg class="sk-main-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3l6 6-9.5 9.5-3-3L18 6m-8 8l-7 7m2-9l4 4" /></svg><strong>Đánh</strong></button>
+          <button class="sk-sub" type="button" id="skbar-slot-0" aria-label="Kỹ năng ô 1" onclick="SkillSystem.useSkill(0)">1<br/><span id="skbar-name-0" style="font-size:8px;">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-1" aria-label="Kỹ năng ô 2" onclick="SkillSystem.useSkill(1)">2<br/><span id="skbar-name-1" style="font-size:8px;">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-2" aria-label="Kỹ năng ô 3" onclick="SkillSystem.useSkill(2)">3<br/><span id="skbar-name-2" style="font-size:8px;">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-3" aria-label="Kỹ năng ô 4" onclick="SkillSystem.useSkill(3)">4<br/><span id="skbar-name-3" style="font-size:8px;">—</span></button>
         </div>
       </div>
 
@@ -327,12 +346,12 @@
         <div class="kpah-modal-box">
           <div class="kpah-modal-header">
             <span>Hành Trang & Thuộc Tính</span>
-            <button class="kpah-close-btn" onclick="UI.toggleKpahMenu()">✕</button>
+            <button class="kpah-close-btn" type="button" aria-label="Đóng hành trang" onclick="UI.toggleKpahMenu()">✕</button>
           </div>
           <div class="kpah-modal-body">
             <div class="kpah-col-left">
               <div class="character-identity">
-                <img id="ui-profile-avatar" src="./assets/char_male.png" alt="Nhân vật" />
+                <div class="character-portrait sprite-portrait"><img id="ui-profile-avatar" class="sprite-atlas" src="./assets/characters/cultivator-male.png" alt="Nhân vật nam" /></div>
                 <div class="character-identity-copy"><strong id="ui-profile-name">Tu sĩ</strong><span id="ui-profile-root">Chưa định linh căn</span><span id="ui-profile-realm">Luyện Thể</span></div>
                 <div class="profile-ovr"><small>OVR</small><b id="ui-profile-ovr">0</b></div>
               </div>
