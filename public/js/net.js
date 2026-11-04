@@ -364,6 +364,7 @@ const Net = {
               ? (moveDx < 0 ? "left" : "right")
               : (moveDy < 0 ? "up" : "down");
           }
+          if (!op.isMoving) op.walkDistance = 0;
           op.isMoving = true;
           clearTimeout(op._moveTimer);
           op._moveTimer = setTimeout(() => { op.isMoving = false; }, 180);
@@ -541,7 +542,10 @@ const Net = {
           m.dead = !!hit.dead;
           if (m.dead && S.target?.id === m.id) {
             S.target = null;
-            if (S.player) S.player.combatMove = false;
+            if (S.player) {
+              S.player.combatMove = false;
+              World.cancelPlayerMove(S.player);
+            }
           }
           m.hitUntil = Date.now() + 180;
           const missed = Boolean(hit.miss);
@@ -651,15 +655,6 @@ const Net = {
         if (typeof maxMp === "number") S.player.maxMp = maxMp;
         if (buffs) S.player.buffs = buffs;
         UI.update();
-      });
-
-      socket.on("attack_fx", ({ attackerName, targetId, damage }) => {
-        if (targetId && targetId.startsWith("mon_")) {
-          const m = S.monsters.find(mon => mon.id === targetId);
-          if (m && !m.dead) {
-            Render.floatDmg(m.px, m.py, -30, "-" + damage, "#ffaa44");
-          }
-        }
       });
 
       socket.on("action_error", ({ action, error }) => {

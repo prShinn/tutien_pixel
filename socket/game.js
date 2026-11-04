@@ -26,6 +26,9 @@ const { BALANCE, deriveStats, affinityCritBonus, affinityProfile, elementalStren
 const { createCommandPipeline } = require("./command-pipeline");
 const QuestService = require("../game/quest-service");
 const { publishSupportSkill } = require("./skill-visual-event");
+const { movementPathCollides } = require("./movement-collision");
+const { findMonsterPath, getMonsterChaseWaypoint, clearMonsterChasePath } = require("./monster-path");
+const RoomLifecycle = require("../game/room-lifecycle");
 
 // In-memory session store: socketId → session
 // Production: Redis pub/sub ở đây
@@ -33,6 +36,7 @@ const sessions = new Map();
 const roomMonsters = new Map();
 const roomGroundItems = new Map();
 const roomRuntime = new Map();
+const ROOM_EMPTY_TTL_MS = 120_000;
 const MONSTER_ROOM_CAP = 9;
 const MONSTER_MIN_ON_JOIN = 3;
 const MONSTER_AGGRO_RANGE = 40;
@@ -48,40 +52,19 @@ const AOI_RADIUS = 150;
 const MOVE_MIN_INTERVAL_MS = 45;
 const PLAYER_MAX_MOVE_SPEED = 58;
 const MOVE_BURST_TOLERANCE = 2.5;
-const PLAYER_COLLISION_RADIUS = 0.45;
 const PORTAL_ACTIVATION_RANGE = 18;
 
-function isSolidTile(world, tx, ty) {
-  if (!world || tx < 0 || ty < 0 || tx >= Number(world.w || 0) || ty >= Number(world.h || 0)) return true;
-  const tiles = world.jsonMap || world.tiles;
-  // Tạm thời chỉ chặn sông nước ao hồ (tile = 2)
-  return Number(tiles?.[ty]?.[tx]) === 2;
+function markRoomActive(roomId, now = Date.now()) {
+  const runtime = roomRuntime.get(roomId) || { lastSpawnAt: now, lastBroadcastAt: 0, emptySince: 0 };
+  RoomLifecycle.markRoomActive(runtime);
+  roomRuntime.set(roomId, runtime);
 }
 
-function positionCollides(world, x, y) {
-  if (!world) return false;
-  const cx = Number(x) + 0.5;
-  const cy = Number(y) + 0.5;
-  const minX = Math.floor(cx - PLAYER_COLLISION_RADIUS);
-  const maxX = Math.floor(cx + PLAYER_COLLISION_RADIUS - 1e-9);
-  const minY = Math.floor(cy - PLAYER_COLLISION_RADIUS);
-  const maxY = Math.floor(cy + PLAYER_COLLISION_RADIUS - 1e-9);
-  for (let ty = minY; ty <= maxY; ty += 1) {
-    for (let tx = minX; tx <= maxX; tx += 1) {
-      if (isSolidTile(world, tx, ty)) return true;
-    }
-  }
-  return false;
-}
-
-function movementPathCollides(world, fromX, fromY, toX, toY) {
-  const distance = Math.hypot(toX - fromX, toY - fromY);
-  const steps = Math.max(1, Math.ceil(distance / 0.5));
-  for (let index = 1; index <= steps; index += 1) {
-    const progress = index / steps;
-    if (positionCollides(world, fromX + (toX - fromX) * progress, fromY + (toY - fromY) * progress)) return true;
-  }
-  return false;
+function markRoomEmpty(roomId, now = Date.now()) {
+  if ([...sessions.values()].some((session) => session.mapId === roomId)) return;
+  const runtime = roomRuntime.get(roomId) || { lastSpawnAt: now, lastBroadcastAt: 0, emptySince: now };
+  RoomLifecycle.markRoomEmpty(runtime, now);
+  roomRuntime.set(roomId, runtime);
 }
 
 function findSkill(skillRef) {
@@ -277,7 +260,7 @@ function ensureRoomMonsters(roomId, world) {
     roomMonsters.set(roomId, seeded);
   }
   const monsters = roomMonsters.get(roomId);
-  if (!roomRuntime.has(roomId)) roomRuntime.set(roomId, { lastSpawnAt: Date.now(), lastBroadcastAt: 0 });
+  if (!roomRuntime.has(roomId)) roomRuntime.set(roomId, { lastSpawnAt: Date.now(), lastBroadcastAt: 0, emptySince: 0 });
   monsters.forEach((monster, index) => {
     monster.id = monster.id || `mon_${roomId}_seed_${index}`;
     monster.x = Number(monster.x ?? monster.spawnX ?? Math.floor(Number(world?.w || 40) / 2));
@@ -773,6 +756,9 @@ function setupSocket(io, players = new Map(), options = {}) {
           monster.chaseTargetId = null;
           monster.chaseStartedAt = 0;
           monster.reaggroAt = now + 2500;
+          monster.patrolTarget = null;
+          clearMonsterChasePath(monster);
+          monster.state = "return";
           targetSession = null;
           changed = true;
         }
@@ -785,7 +771,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         changed = true;
       }
 
-      if (!targetSession) {
+      if (!targetSession && monster.state !== "return") {
         if (!monster.nextPatrolAt) monster.nextPatrolAt = now + 1500 + Math.random() * 3000;
         if (now >= Number(monster.nextPatrolAt || 0)) {
           monster.nextPatrolAt = now + 3500 + Math.random() * 4500;
@@ -799,14 +785,56 @@ function setupSocket(io, players = new Map(), options = {}) {
         }
       }
 
-      const destination = targetSession
+      const home = { x: Number(monster.spawnX || 0), y: Number(monster.spawnY || 0) };
+      let destination = targetSession
         ? { x: Number(targetSession.x), y: Number(targetSession.y) }
-        : (monster.patrolTarget || { x: Number(monster.spawnX || 0), y: Number(monster.spawnY || 0) });
+        : (monster.patrolTarget || home);
+      const targetDistance = targetSession ? monsterDistanceTiles(targetSession, monster) : Infinity;
+      if (targetSession) {
+        monster.returnPath = null;
+        monster.returnPathFailed = false;
+        if (targetDistance > MONSTER_ATTACK_RANGE) {
+          const chaseRoute = getMonsterChaseWaypoint(world, monster, targetSession, now);
+          if (chaseRoute.failed || !chaseRoute.waypoint) {
+            monster.state = "chase";
+            monster.targetId = targetSession.id;
+            continue;
+          }
+          destination = chaseRoute.waypoint;
+        }
+      } else if (!monster.patrolTarget) {
+        const homeDistance = Math.hypot(home.x - Number(monster.x || 0), home.y - Number(monster.y || 0));
+        if (homeDistance <= 0.15) {
+          monster.returnPath = [];
+          monster.returnPathFailed = false;
+          monster.state = "idle";
+          monster.targetId = null;
+          continue;
+        }
+        const targetChanged = monster.returnPathTargetX !== home.x || monster.returnPathTargetY !== home.y;
+        const retryFailedRoute = monster.returnPathFailed && now >= Number(monster.returnPathRetryAt || 0);
+        if (monster.state !== "return" || targetChanged || (!Array.isArray(monster.returnPath) && !monster.returnPathFailed) || retryFailedRoute) {
+          monster.returnPath = findMonsterPath(world, monster.x, monster.y, home.x, home.y);
+          monster.returnPathTargetX = home.x;
+          monster.returnPathTargetY = home.y;
+          monster.returnPathFailed = !monster.returnPath;
+          monster.returnPathRetryAt = monster.returnPathFailed ? now + 3000 : 0;
+        }
+        if (monster.returnPathFailed) {
+          monster.state = "return";
+          monster.targetId = null;
+          continue;
+        }
+        while (monster.returnPath.length && Math.hypot(monster.returnPath[0].x - Number(monster.x || 0), monster.returnPath[0].y - Number(monster.y || 0)) <= 0.15) {
+          monster.returnPath.shift();
+        }
+        destination = monster.returnPath[0] || home;
+      }
       const dx = destination.x - Number(monster.x || 0);
       const dy = destination.y - Number(monster.y || 0);
       const distance = Math.hypot(dx, dy);
       const frozen = activeStatus(monster, "root", now) || activeStatus(monster, "stun", now);
-      if (targetSession && distance <= MONSTER_ATTACK_RANGE) {
+      if (targetSession && targetDistance <= MONSTER_ATTACK_RANGE) {
         monster.state = "attack";
         monster.targetId = targetSession.id;
         if (!frozen) damagePlayerFromMonster(roomId, monster, targetSession, now);
@@ -821,6 +849,11 @@ function setupSocket(io, players = new Map(), options = {}) {
           monster.x = nextX;
           monster.y = nextY;
           changed = true;
+        } else if (targetSession) {
+          clearMonsterChasePath(monster);
+        } else if (!monster.patrolTarget) {
+          monster.returnPath = null;
+          monster.state = "return";
         }
         monster.state = targetSession ? "chase" : (monster.patrolTarget ? "patrol" : "return");
         monster.targetId = targetSession?.id || null;
@@ -923,6 +956,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         players.set(playerData.id, playerData);
       }
       sessions.set(socket.id, session);
+      markRoomActive(roomId);
 
       // Join map room
       socket.join(`map:${roomId}`);
@@ -1031,6 +1065,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       socket.join(`map:${roomId}`);
       session.chunkRoom = sessionChunkRoom(session);
       socket.join(session.chunkRoom);
+      markRoomActive(roomId);
 
       const playerData = getPlayerByUserId(socket.userId);
       if (playerData) {
@@ -1041,11 +1076,7 @@ function setupSocket(io, players = new Map(), options = {}) {
         players.set(playerData.id, playerData);
       }
 
-      if (![...sessions.values()].some((item) => item.mapId === oldMapId)) {
-        roomMonsters.delete(oldMapId);
-        roomRuntime.delete(oldMapId);
-        roomGroundItems.delete(oldMapId);
-      }
+      markRoomEmpty(oldMapId);
 
       const worldData = requestedWorld;
 
@@ -1090,7 +1121,7 @@ function setupSocket(io, players = new Map(), options = {}) {
       return { accepted: true, message: clean, ts: now };
     };
 
-    // ── attack_effect (visual sync only — damage tính server-side sau) ─
+    // ── self-targeted support skill ───────────────────────────────
     const handleSkill = ({ skillCode } = {}, ctx = {}) => {
       const session = sessions.get(socket.id);
       const player = getPlayerByUserId(socket.userId);
@@ -1171,6 +1202,8 @@ function setupSocket(io, players = new Map(), options = {}) {
         const available = existing ? Math.max(0, 99 - Number(existing.count || 0)) : (inventory.length < 40 ? Number(drop.count || 1) : 0);
         if (available < Number(drop.count || 1)) return ctx.fail?.("INVENTORY_FULL", "Túi đồ đầy hoặc vật phẩm đã đủ stack", "pickup");
       }
+      // Keep validation, inventory mutation, and drop removal synchronous. The Node event loop
+      // then lets only one distinct pickup request claim this in-memory drop in this process.
       const accepted = addLootToPlayer(player, loot);
       if (drop.kind === "item" && accepted.acceptedItems < Number(drop.count || 1)) return ctx.fail?.("INVENTORY_FULL", "Túi đồ đầy hoặc vật phẩm đã đủ stack", "pickup");
       const questAdvanced = drop.kind === "item"
@@ -1236,17 +1269,6 @@ function setupSocket(io, players = new Map(), options = {}) {
     legacy("pickup_ground_item", "pickup", handlePickup);
     legacy("monster_sync", "resync", () => commandHandlers["world.resync"]());
 
-    socket.on("attack_effect", ({ targetId, damage, mapId }) => {
-      const session = sessions.get(socket.id);
-      if (!session) return;
-      socket.to(`map:${mapId}`).emit("attack_fx", {
-        attackerId: socket.id,
-        attackerName: socket.username,
-        targetId,
-        damage,
-      });
-    });
-
     // ── disconnect ────────────────────────────────────────────────
     socket.on("disconnect", () => {
       commandPipeline.close();
@@ -1257,10 +1279,7 @@ function setupSocket(io, players = new Map(), options = {}) {
 
         // Dọn dẹp nếu không còn ai trong map
         const leftInRoom = [...sessions.values()].filter(s => s.mapId === session.mapId).length;
-        if (leftInRoom === 0) {
-          roomMonsters.delete(session.mapId);
-          roomRuntime.delete(session.mapId);
-        }
+        if (leftInRoom === 0) markRoomEmpty(session.mapId);
       }
     });
   });
@@ -1276,7 +1295,26 @@ function setupSocket(io, players = new Map(), options = {}) {
         io.to(`map:${mapId}`).emit("ground_loot_state", { items: active.map((item) => publicGroundItem(item, now)) });
       }
     }
+    for (const mapId of new Set([...roomRuntime.keys(), ...roomMonsters.keys(), ...roomGroundItems.keys()])) {
+      const active = [...sessions.values()].some((session) => session.mapId === mapId);
+      const runtime = roomRuntime.get(mapId) || { lastSpawnAt: now, lastBroadcastAt: 0, emptySince: now };
+      if (active) {
+        RoomLifecycle.markRoomActive(runtime);
+        roomRuntime.set(mapId, runtime);
+        continue;
+      }
+      RoomLifecycle.markRoomEmpty(runtime, now);
+      roomRuntime.set(mapId, runtime);
+      const hasLiveDrops = (roomGroundItems.get(mapId) || []).some((drop) => Number(drop.expiresAt || 0) > now);
+      if (RoomLifecycle.shouldDisposeRoom(runtime, now, ROOM_EMPTY_TTL_MS, hasLiveDrops)) {
+        roomMonsters.delete(mapId);
+        roomGroundItems.delete(mapId);
+        roomRuntime.delete(mapId);
+      }
+    }
     for (const [mapId, monsters] of roomMonsters.entries()) {
+      const activePlayers = [...sessions.values()].some((session) => session.mapId === mapId);
+      if (!activePlayers) continue;
       for (const monster of monsters) {
         if (!monster.dead || !monster.respawnAt || monster.respawnAt > now) continue;
         monster.dead = false;
@@ -1288,12 +1326,16 @@ function setupSocket(io, players = new Map(), options = {}) {
         monster.chaseTargetId = null;
         monster.chaseStartedAt = 0;
         monster.reaggroAt = 0;
+        monster.patrolTarget = null;
+        clearMonsterChasePath(monster);
+        monster.returnPath = null;
+        monster.returnPathFailed = false;
+        monster.state = "idle";
         delete monster.respawnAt;
         io.to(`map:${mapId}`).emit("monster_spawn", { monster });
       }
-      const activePlayers = [...sessions.values()].some((session) => session.mapId === mapId);
       const world = mapCache.get(mapId);
-      const runtime = roomRuntime.get(mapId) || { lastSpawnAt: now, lastBroadcastAt: 0 };
+      const runtime = roomRuntime.get(mapId) || { lastSpawnAt: now, lastBroadcastAt: 0, emptySince: 0 };
       roomRuntime.set(mapId, runtime);
       const isCity = String(world?.type || "").toUpperCase() === "CITY" || Boolean(world?.rules?.noMonsters);
       if (activePlayers && !isCity && !world?.monsterSpawns?.length && !world?.monsters?.length && monsters.length < MONSTER_ROOM_CAP && now - Number(runtime.lastSpawnAt || 0) >= 5000) {

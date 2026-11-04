@@ -17,7 +17,20 @@ async function main() {
   if (missing.length) throw new Error(`game shell missing: ${missing.join(", ")}`);
 
   const paths = assetPaths(html).filter((path) => /\.(?:js|css)$/i.test(path));
-  const results = await Promise.all(paths.map(async (path) => {
+  const bootstrapPath = paths.find((path) => /\/js\/bootstrap\.js$/i.test(path));
+  if (!bootstrapPath) throw new Error("game shell missing client bootstrap");
+  const bootstrapResponse = await fetch(`${BASE}${bootstrapPath}`);
+  if (!bootstrapResponse.ok) throw new Error(`client bootstrap failed: ${bootstrapResponse.status}`);
+  const bootstrap = await bootstrapResponse.text();
+  const classicAssets = [...bootstrap.matchAll(/src:\s*["']([^"']+)["']/g)].map((match) =>
+    new URL(match[1], `${BASE}/`).pathname,
+  );
+  const moduleAssets = [...bootstrap.matchAll(/import\(["']([^"']+\.mjs[^"']*)["']\)/g)].map((match) =>
+    new URL(match[1], `${BASE}${bootstrapPath}`).pathname,
+  );
+  paths.push(...classicAssets, ...moduleAssets);
+  const uniquePaths = [...new Set(paths)];
+  const results = await Promise.all(uniquePaths.map(async (path) => {
     const asset = await fetch(`${BASE}${path}`);
     return { path, ok: asset.ok, type: asset.headers.get("content-type") || "" };
   }));

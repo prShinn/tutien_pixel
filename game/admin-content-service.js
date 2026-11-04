@@ -4,7 +4,7 @@ const MUTABLE_COLLECTIONS = new Set(["quests", "npcs", "items", "skills"]);
 const ITEM_TYPES = new Set(["STONE", "POTION", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
 const SKILL_TYPES = new Set(["COMMON", "PHYS", "MAGIC"]);
 const SKILL_CATEGORIES = new Set(["ACTIVE", "PASSIVE"]);
-const NUMERIC_ITEM_FIELDS = ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp"];
+const NUMERIC_ITEM_FIELDS = ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp", "requiredRealmStt"];
 const NUMERIC_SKILL_FIELDS = ["tier", "mpTieuHao", "hoiChieu", "range", "satThuong", "dienRong", "effectVal", "thoiGianBuff"];
 const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
@@ -32,6 +32,10 @@ function validateRecord(collection, record) {
       if (record[field] !== undefined && (!Number.isFinite(Number(record[field])) || Number(record[field]) < 0)) {
         return `Trường ${field} phải là số không âm`;
       }
+    }
+    if (type === "EQUIPMENT" && record.requiredRealmStt === undefined) return "Trang bị cần requiredRealmStt";
+    if (record.requiredRealmStt !== undefined && (!Number.isInteger(Number(record.requiredRealmStt)) || Number(record.requiredRealmStt) < 1)) {
+      return "requiredRealmStt phải là số nguyên từ 1 trở lên";
     }
   }
 

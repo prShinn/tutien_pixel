@@ -65,6 +65,11 @@ test("server content validation protects item and skill fields and detects dupli
   assert.match(AdminContentService.validateRecord("items", { ...validItem, maDo: "OTHER" }), /trùng với mã/);
   assert.match(AdminContentService.validateRecord("items", { ...validItem, giaMua: -1 }), /số không âm/);
   assert.match(AdminContentService.validateRecord("items", { ...validItem, type: "UNKNOWN" }), /không được hỗ trợ/);
+  const validEquipment = { id: "SWORD_B", maDo: "SWORD_B", name: "Kiếm", type: "EQUIPMENT", requiredRealmStt: 1 };
+  assert.equal(AdminContentService.validateRecord("items", validEquipment), null);
+  assert.match(AdminContentService.validateRecord("items", { ...validEquipment, requiredRealmStt: 1.5 }), /số nguyên/);
+  assert.match(AdminContentService.validateRecord("items", { ...validEquipment, requiredRealmStt: 0 }), /số nguyên/);
+  assert.match(AdminContentService.validateRecord("items", { ...validEquipment, requiredRealmStt: undefined }), /cần requiredRealmStt/);
   assert.match(AdminContentService.validateRecord("skills", { id: 2, name: "Skill", linhCan: "HOA" }), /mã code/);
   assert.match(AdminContentService.validateRecord("skills", { id: 2, name: "Skill", code: "SKILL_2", linhCan: "HOA", tier: 1.5 }), /số nguyên/);
   assert.equal(AdminContentService.hasDuplicate(items, "items", { ...validItem, id: "STONE_A", maDo: "STONE_A" }), true);

@@ -18,6 +18,23 @@ const Input = {
   _initialized: false,
   _resizeHandler: null,
 
+  hasActiveKeys() {
+    for (const key in Input.keys) if (Input.keys[key]) return true;
+    return false;
+  },
+
+  stopMovement() {
+    for (const key of Object.keys(Input.keys)) delete Input.keys[key];
+    if (!S.player) return;
+    World.clearPendingNpcInteraction?.();
+    World.cancelPlayerMove(S.player);
+    S.player.combatMove = false;
+    if (S.player.isMoving) {
+      S.player.isMoving = false;
+      Net.emitMove(true);
+    }
+  },
+
   init() {
     if (Input._initialized) return;
     Input._initialized = true;
@@ -50,7 +67,8 @@ const Input = {
       if (e.code === "Escape") {
         S.target = null;
         if (S.player) {
-          S.player.targetMovePos = null;
+          World.clearPendingNpcInteraction?.();
+          World.cancelPlayerMove(S.player);
           S.player.combatMove = false;
         }
         Shop.close();
@@ -77,11 +95,7 @@ const Input = {
     });
     window.addEventListener("blur", () => {
       // Tránh nhân vật tiếp tục chạy sau khi người chơi Alt-Tab hoặc mất focus cửa sổ.
-      Input.keys = {};
-      if (S.player?.isMoving) {
-        S.player.isMoving = false;
-        Net.emitMove(true);
-      }
+      Input.stopMovement();
     });
     window.addEventListener("resize", Input._resizeHandler);
 
@@ -113,6 +127,11 @@ const Input = {
       const dx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2;
       const dy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2;
       if (dist(dx, dy, wx, wy) < 22) {
+        World.clearPendingNpcInteraction?.();
+        if (S.player) {
+          World.cancelPlayerMove(S.player);
+          S.player.combatMove = false;
+        }
         if (socket?.connected) Net.pickupLoot(drop.id);
         else UI.log("Cần kết nối máy chủ để nhặt vật phẩm.", "system");
         return;
@@ -121,11 +140,14 @@ const Input = {
     for (const m of S.monsters) {
       if (!m.dead && dist(m.px, m.py, wx, wy) < 26) {
         S.target = m;
+        World.clearPendingNpcInteraction?.();
         if (S.player) {
-          S.player.targetMovePos = null;
+          World.cancelPlayerMove(S.player);
           const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
           const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= attackRange;
           S.player.combatMove = !inRange;
+          if (inRange) World.cancelPlayerMove(S.player);
+          else World.planCombatApproach(S.player, m, Date.now());
           if (inRange) Combat.attack(m);
         }
         return;
@@ -133,10 +155,8 @@ const Input = {
     }
     for (const npc of S.npcs) {
       if (dist(npc.px, npc.py, wx, wy) < 26) {
-        if (S.player) S.player.targetMovePos = null;
-        if (npc.type === "shop") Shop.open(npc);
-        else if (npc.type === "chest") Chest.open(npc);
-        else DialogUI.open(npc);
+        World.clearPendingNpcInteraction?.();
+        if (!World.approachNpc(npc)) UI.notify("Không tìm được đường đến nhân vật này.", "warning");
         return;
       }
     }
@@ -145,9 +165,13 @@ const Input = {
       const clickTx = Math.floor(wx);
       const clickTy = Math.floor(wy);
       if (clickTx >= 0 && clickTy >= 0 && clickTx < S.mapW && clickTy < S.mapH) {
-        S.player.targetMovePos = { x: wx, y: wy };
-        S.player.combatMove = false;
+        World.clearPendingNpcInteraction?.();
         S.target = null;
+        S.player.combatMove = false;
+        if (!World.planPlayerMove(S.player, wx, wy)) {
+          UI.notify("Không tìm được đường đến vị trí này.", "warning");
+          return;
+        }
       }
     }
   },

@@ -1,4 +1,6 @@
-const MovementFeedback = {
+import { CFG } from "./config.mjs?v=1";
+
+export const MovementFeedback = {
   CORRECTION_MS: 180,
   MAX_BLEND_DISTANCE: 96,
 
@@ -24,6 +26,7 @@ const MovementFeedback = {
     player.lastEmitX = nextX;
     player.lastEmitY = nextY;
     player.targetMovePos = null;
+    player.movePath = [];
     return true;
   },
 

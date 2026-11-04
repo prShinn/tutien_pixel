@@ -2,11 +2,10 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
-    <!-- Socket.io client — tải từ server khi deploy thực. Dùng CDN cho demo -->
-    <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="./css/style.css?v=4" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=1" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -333,12 +332,12 @@
             <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
           </div>
         </div>
-        <div class="bottom-btns">
-          <button class="kpah-btn" type="button" onclick="UI.toggleKpahMenu()"><span class="pixel-icon icon-bag" aria-hidden="true"></span>Hành Trang</button>
-          <button class="kpah-btn" type="button" onclick="QuestUI.toggle()"><span class="pixel-icon icon-quest" aria-hidden="true"></span>Nhiệm Vụ <kbd>Q</kbd></button>
-          <button class="kpah-btn" type="button" onclick="UI.toggleContinent()"><span class="pixel-icon icon-map" aria-hidden="true"></span>Đại lục</button>
-          <button class="kpah-btn" type="button" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span>Chat</button>
-          <button class="kpah-btn" type="button" id="btn-auto" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span>Tự Động</button>
+        <div class="bottom-btns" role="group" aria-label="Thao tác nhanh trong game">
+          <button class="kpah-btn" type="button" aria-label="Mở nhân vật và hành trang" title="Nhân vật và hành trang" onclick="UI.toggleKpahMenu()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span class="hub-btn-label">Hành Trang</span></button>
+          <button class="kpah-btn" type="button" aria-label="Mở sổ nhiệm vụ" title="Nhiệm vụ (Q)" onclick="QuestUI.toggle()"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span class="hub-btn-label">Nhiệm Vụ</span><kbd>Q</kbd></button>
+          <button class="kpah-btn" type="button" aria-label="Mở bản đồ đại lục" title="Bản đồ đại lục" onclick="UI.toggleContinent()"><span class="pixel-icon icon-map" aria-hidden="true"></span><span class="hub-btn-label">Đại lục</span></button>
+          <button class="kpah-btn" type="button" aria-label="Mở khung chat" title="Chat" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span><span class="hub-btn-label">Chat</span></button>
+          <button class="kpah-btn" type="button" id="btn-auto" aria-label="Bật hoặc tắt tự động chiến đấu" title="Tự động chiến đấu" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span><span class="hub-btn-label">Tự Động</span></button>
           <button class="kpah-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
         </div>
       </div>
@@ -501,34 +500,6 @@
       <div class="stip-desc" id="stip-desc"></div>
     </div>
 
-    <!-- ══ JS Modules — thứ tự load quan trọng ══ -->
-    <!-- Tầng 1: Không phụ thuộc -->
-    <script src="./js/api.js?v=3"></script>
-    <script src="./js/config.js"></script>
-    <script src="./js/state.js"></script>
-    <script src="./js/auto-loot.js"></script>
-    <script src="./js/movement-feedback.js"></script>
-    <script src="./js/utils.js"></script>
-    <script src="./js/balance.js"></script>
-    <!-- Tầng 2: Cần config -->
-    <script src="./js/gamedata.js"></script>
-    <script src="./js/net.js?v=3"></script>
-    <script src="./js/auth.js"></script>
-    <!-- Tầng 3: Game systems -->
-    <script src="./js/world.js?v=2"></script>
-    <script src="./js/monster.js?v=2"></script>
-    <script src="./js/skills.js?v=2"></script>
-    <script src="./js/combat.js?v=2"></script>
-    <script src="./js/cultivation.js"></script>
-    <script src="./js/inventory.js"></script>
-    <script src="./js/shop.js"></script>
-    <script src="./js/render.js?v=2"></script>
-    <script src="./js/skill-vfx.js?v=5"></script>
-    <script src="./js/ui.js?v=2"></script>
-    <script src="./js/quest.js?v=1"></script>
-    <script src="./js/input.js"></script>
-    <!-- Tầng 4: Entry point (phụ thuộc tất cả) -->
-    <script src="./js/game.js?v=4"></script>
     <!-- Màn hình chờ nạp bản đồ -->
     <div id="loading-screen" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:monospace;">
       <div style="font-size:20px; margin-bottom:20px; color:#ffd700; letter-spacing:4px; text-shadow:0 0 10px rgba(255,215,0,0.5);">ĐANG KẾT NỐI THIÊN ĐỊA...</div>
@@ -543,5 +514,15 @@
         }
       </style>
     </div>
+    <div id="client-boot-error" hidden role="alert" aria-live="assertive">
+      <section class="client-boot-error-card">
+        <span class="client-boot-error-mark" aria-hidden="true">!</span>
+        <h1>Game chưa nạp xong</h1>
+        <p>Một phần tài nguyên không tải được. Kiểm tra kết nối rồi thử lại.</p>
+        <code id="client-boot-error-detail"></code>
+        <button type="button" onclick="window.location.reload()">Tải lại game</button>
+      </section>
+    </div>
+    <script src="./js/bootstrap.js?v=2"></script>
   </body>
 </html>

@@ -373,15 +373,6 @@ const SkillSystem = {
       Combat.dropLoot(m);
     }
     
-    if (socket?.connected) {
-      socket.emit("attack_effect", {
-        targetId: m.id,
-        damage: dmg,
-        isMonster: true,
-        mapCode: S.mapCode,
-      });
-    }
-
     this.applyStatusToMonster(m, skill);
     // Weapon proc effect
     const weapEff = S.player.equipment?.weapon?.effect;

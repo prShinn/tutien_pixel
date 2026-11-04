@@ -35,15 +35,14 @@ function update(dt) {
       (document.getElementById("kpah-menu-modal")?.style.display === "flex") ||
       (document.getElementById("quest-modal")?.style.display === "flex");
     if (!modalOpen && !isTyping) {
-      let dx = 0, dy = 0;
-      if (Input.keys["KeyA"] || Input.keys["ArrowLeft"] || Input.keys["a"]) dx = -1;
-      if (Input.keys["KeyD"] || Input.keys["ArrowRight"] || Input.keys["d"]) dx = 1;
-      if (Input.keys["KeyW"] || Input.keys["ArrowUp"] || Input.keys["w"]) dy = -1;
-      if (Input.keys["KeyS"] || Input.keys["ArrowDown"] || Input.keys["s"]) dy = 1;
+      const movementInput = World.movementVector(Input.keys);
+      let dx = movementInput.dx;
+      let dy = movementInput.dy;
 
-      const manualInput = Boolean(dx || dy);
+      const manualInput = movementInput.active;
       if (manualInput) {
-        p.targetMovePos = null;
+        World.clearPendingNpcInteraction?.();
+        World.cancelPlayerMove(p);
         p.combatMove = false;
       } else {
         // Client chỉ điều hướng; server vẫn quyết định phạm vi, hit và sát thương.
@@ -69,18 +68,40 @@ function update(dt) {
           const targetDy = combatTarget.py - p.py;
           const targetDistance = Math.hypot(targetDx, targetDy);
           if (targetDistance > stopRange) {
-            dx = targetDx / targetDistance;
-            dy = targetDy / targetDistance;
-          }
-        } else if (p.targetMovePos) {
-          const toX = p.targetMovePos.x;
-          const toY = p.targetMovePos.y;
-          const distToTarget = Math.hypot(toX - p.x, toY - p.y);
-          if (distToTarget < 0.6) {
-            p.targetMovePos = null;
+            if (World.shouldReplanCombatApproach(p, combatTarget, Date.now())) {
+              World.planCombatApproach(p, combatTarget, Date.now());
+            }
+            while (p.movePath?.length && Math.hypot(p.movePath[0].x - p.x, p.movePath[0].y - p.y) < 0.6) {
+              p.movePath.shift();
+            }
+            const waypoint = p.movePath?.[0] || p.targetMovePos;
+            if (waypoint) {
+              const waypointDx = Number(waypoint.x) - p.x;
+              const waypointDy = Number(waypoint.y) - p.y;
+              const waypointDistance = Math.hypot(waypointDx, waypointDy);
+              if (waypointDistance > 1e-6) {
+                dx = waypointDx / waypointDistance;
+                dy = waypointDy / waypointDistance;
+              }
+            }
           } else {
-            dx = (toX - p.x) / distToTarget;
-            dy = (toY - p.y) / distToTarget;
+            World.cancelPlayerMove(p);
+          }
+        } else if (p.movePath?.length || p.targetMovePos) {
+          while (p.movePath?.length && Math.hypot(p.movePath[0].x - p.x, p.movePath[0].y - p.y) < 0.6) {
+            p.movePath.shift();
+          }
+          const waypoint = p.movePath?.[0] || p.targetMovePos;
+          if (waypoint) {
+            const toX = Number(waypoint.x);
+            const toY = Number(waypoint.y);
+            const distToTarget = Math.hypot(toX - p.x, toY - p.y);
+            if (distToTarget < 0.6 && !p.movePath?.length) {
+              World.cancelPlayerMove(p);
+            } else if (distToTarget > 1e-6) {
+              dx = (toX - p.x) / distToTarget;
+              dy = (toY - p.y) / distToTarget;
+            }
           }
         }
       }
@@ -98,15 +119,20 @@ function update(dt) {
         const moveStep = moveSpeed * dt / 1000;
         const oldX = p.x;
         const oldY = p.y;
-        World.moveWithCollision(p, dirX * moveStep, dirY * moveStep);
+        const waypoint = !manualInput && (p.movePath?.[0] || p.targetMovePos);
+        if (waypoint) World.moveTowards(p, waypoint.x, waypoint.y, moveStep);
+        else World.moveWithCollision(p, dirX * moveStep, dirY * moveStep);
       
         // Cập nhật tọa độ di chuyển
-        const moved = Math.abs(p.x - oldX) > 0.0001 || Math.abs(p.y - oldY) > 0.0001;
+        const movedDistance = Math.hypot(p.x - oldX, p.y - oldY);
+        const moved = movedDistance > 0.0001;
         if (moved) {
           if (!p.isMoving) {
             p.isMoving = true;
+            p.walkDistance = 0;
             Net.emitMove(); // Gửi ngay khi bắt đầu
           }
+          p.walkDistance = Number(p.walkDistance || 0) + movedDistance;
           
           if (p.lastEmitX === undefined) p.lastEmitX = p.x;
           if (p.lastEmitY === undefined) p.lastEmitY = p.y;
@@ -117,7 +143,7 @@ function update(dt) {
             Net.emitMove();
           }
         } else {
-          if (p.targetMovePos) p.targetMovePos = null;
+          if (p.targetMovePos) World.cancelPlayerMove(p);
           if (p.isMoving) {
             p.isMoving = false;
             Net.emitMove(); // Gửi tọa độ cuối cùng khi dừng lại
@@ -129,6 +155,7 @@ function update(dt) {
       }
 
       MovementFeedback.apply(p, CFG.TS);
+      World.processPendingNpcInteraction?.();
       Net.tickAutoLoot(dt);
 
       if ((Input.keys["Space"] || p.combatMove) && S.atkCd <= 0) {
@@ -168,6 +195,8 @@ function update(dt) {
       // p.px/p.py luôn được đồng bộ từ p.x/p.y ở ngay phía trên; gọi trực tiếp
       // để portalLocked vẫn được mở khóa khi người chơi đi ra xa cổng.
       World.checkPortals();
+    } else if (p.isMoving || p.movePath?.length || p.targetMovePos || p.combatMove || Input.hasActiveKeys()) {
+      Input.stopMovement();
     }
     
     // Cập nhật vị trí cho Other Players (Interpolation)
@@ -178,8 +207,12 @@ function update(dt) {
         const d = Math.hypot(dx, dy);
         if (d > 0.1) {
           const follow = 1 - Math.exp(-Math.max(0, dt) / 100);
-          op.px += dx * follow;
-          op.py += dy * follow;
+          const movedX = dx * follow;
+          const movedY = dy * follow;
+          if (!op.isMoving) op.walkDistance = 0;
+          op.px += movedX;
+          op.py += movedY;
+          op.walkDistance = Number(op.walkDistance || 0) + Math.hypot(movedX, movedY);
         }
       }
     }

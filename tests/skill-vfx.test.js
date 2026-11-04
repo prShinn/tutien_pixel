@@ -12,6 +12,7 @@ const contentUtilsSource = fs.readFileSync(path.join(__dirname, "..", "public", 
 const contentManagerSource = fs.readFileSync(path.join(__dirname, "..", "public", "admin", "content-manager.js"), "utf8");
 const adminHtml = fs.readFileSync(path.join(__dirname, "..", "public", "admin", "index.html"), "utf8");
 const gameHtml = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
+const gameBootstrap = fs.readFileSync(path.join(__dirname, "..", "public", "js", "bootstrap.js"), "utf8");
 
 function createHarness(storage = new Map(), { API, fetch } = {}) {
   const listeners = new Map();
@@ -202,8 +203,8 @@ test("built-in profile keeps skill form, element palette, and default duration",
   assert.equal(profile.durationMs, null);
 });
 
-test("game and Admin shells request the current VFX and Admin assets", () => {
-  assert.match(gameHtml, /js\/skill-vfx\.js\?v=5/);
+test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
+  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=5/);
   assert.match(adminHtml, /js\/api\.js\?v=3/);
   assert.match(adminHtml, /admin\.css\?v=4/);
   assert.match(adminHtml, /js\/skill-vfx\.js\?v=4/);

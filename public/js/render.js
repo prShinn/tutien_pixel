@@ -78,7 +78,7 @@ const Render = {
     const lcW = cW / ds, lcH = cH / ds; // Logical Canvas Size
     
     // Giữ cùng nhịp bám camera giữa màn hình 30, 60 và 120 FPS.
-    const cameraFollow = 1 - Math.exp(-Math.max(0, Number(dt) || 0) / 130);
+    const cameraFollow = 1 - Math.exp(-Math.max(0, Number(dt) || 0) / 80);
     S.cam.x = lerp(S.cam.x, p.px - lcW / 2, cameraFollow);
     S.cam.y = lerp(S.cam.y, p.py - lcH / 2, cameraFollow);
     S.cam.x = Math.max(0, Math.min(S.mapW * ts - lcW, S.cam.x));
@@ -362,6 +362,10 @@ const Render = {
     }
   },
 
+  walkFrame(actor) {
+    return Math.floor(Math.max(0, Number(actor?.walkDistance || 0)) / 5.5) % 4;
+  },
+
   player(sx, sy, tint, actor = S.player) {
     const gender = actor?.gender === "FEMALE" ? "female" : "male";
     const defaultImg = `./assets/characters/cultivator-${gender}.png`;
@@ -379,7 +383,9 @@ const Render = {
     }
     const reduceMotion = this._prefersReducedMotion;
     const actionElapsed = Math.max(0, now - Number(actor?.animStartedAt || now));
-    const rawFrame = reduceMotion ? 0 : Math.floor(now / animation.speed) % 4;
+    const rawFrame = reduceMotion ? 0 : activeAction === "walk"
+      ? this.walkFrame(actor)
+      : Math.floor(now / animation.speed) % 4;
     // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
     const frameIndex = reduceMotion
       ? ((activeAction === "attack" || activeAction === "cast" || activeAction === "hurt") ? 2 : 0)

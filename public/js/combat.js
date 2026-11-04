@@ -167,13 +167,6 @@ const Combat = {
       Combat.dropLoot(m);
     }
 
-    if (socket?.connected)
-      socket.emit("attack_effect", {
-        targetId: m.id,
-        damage: dmg,
-        isMonster: true,
-        mapCode: S.mapCode,
-      });
   },
 
   attackTarget() {
@@ -181,7 +174,7 @@ const Combat = {
     if (!target || target.dead) return UI.log("Chưa chọn mục tiêu.", "system");
     const range = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
     if (dist(target.px, target.py, S.player.px, S.player.py) > range) {
-      S.player.targetMovePos = null;
+      World.cancelPlayerMove(S.player);
       S.player.combatMove = true;
       UI.log("Đang áp sát mục tiêu…", "system");
       return;

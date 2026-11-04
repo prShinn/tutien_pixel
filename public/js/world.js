@@ -35,8 +35,11 @@ function isSolid(tx, ty) {
 // World Module
 // ════════════════════════════════════════════════════════════
 const World = {
+  pendingNpcId: null,
+
   loadMap(def, toX, toY) {
     if (!def) return;
+    World.pendingNpcId = null;
     S.mapCode = (def.code || "").toLowerCase();
     S.mapName = def.name ?? def.tenMap ?? S.mapCode;
     S.mapVersion = Number(def.version || 0);
@@ -67,6 +70,7 @@ const World = {
       S.player.mapId = S.mapCode;
       S.player.isTeleporting = false;
       S.player.targetMovePos = null;
+      S.player.movePath = [];
     }
     S.portals = def.portals ?? [];
     S.npcs = (def.npcs ?? []).map((n) => ({
@@ -165,7 +169,22 @@ const World = {
   cancelPlayerMove(player = S.player) {
     if (!player) return;
     player.targetMovePos = null;
-    player.movePath = [];
+    if (Array.isArray(player.movePath)) player.movePath.length = 0;
+    else player.movePath = [];
+    player._combatPathTargetId = null;
+    player._combatPathPlannedAt = 0;
+  },
+
+  movementVector(keys = {}) {
+    const left = Boolean(keys.KeyA || keys.ArrowLeft || keys.a);
+    const right = Boolean(keys.KeyD || keys.ArrowRight || keys.d);
+    const up = Boolean(keys.KeyW || keys.ArrowUp || keys.w);
+    const down = Boolean(keys.KeyS || keys.ArrowDown || keys.s);
+    return {
+      dx: Number(right) - Number(left),
+      dy: Number(down) - Number(up),
+      active: left || right || up || down,
+    };
   },
 
   hasClearPath(fromX, fromY, toX, toY) {
@@ -275,18 +294,33 @@ const World = {
       reversed.push({ x: cursor % width, y: Math.floor(cursor / width) });
     }
     reversed.reverse();
+    const corners = [];
+    let previousX = sx;
+    let previousY = sy;
+    let previousDirection = null;
+    for (const point of reversed) {
+      const direction = [Math.sign(point.x - previousX), Math.sign(point.y - previousY)];
+      if (previousDirection && (direction[0] !== previousDirection[0] || direction[1] !== previousDirection[1])) {
+        corners.push({ x: previousX, y: previousY });
+      }
+      previousDirection = direction;
+      previousX = point.x;
+      previousY = point.y;
+    }
+    if (reversed.length) corners.push(reversed[reversed.length - 1]);
     const waypoints = [];
     let anchor = { x: Number(startX), y: Number(startY) };
     let cursor = 0;
-    while (cursor < reversed.length) {
+    while (cursor < corners.length) {
       let furthest = cursor;
-      for (let candidate = reversed.length - 1; candidate > cursor; candidate -= 1) {
-        if (World.hasClearPath(anchor.x, anchor.y, reversed[candidate].x, reversed[candidate].y)) {
+      const furthestCandidate = Math.min(corners.length - 1, cursor + 32);
+      for (let candidate = furthestCandidate; candidate > cursor; candidate -= 1) {
+        if (World.hasClearPath(anchor.x, anchor.y, corners[candidate].x, corners[candidate].y)) {
           furthest = candidate;
           break;
         }
       }
-      const point = reversed[furthest];
+      const point = corners[furthest];
       waypoints.push(point);
       anchor = point;
       cursor = furthest + 1;
@@ -314,6 +348,75 @@ const World = {
     player.targetMovePos = route.destination;
     player.movePath = route.waypoints;
     return true;
+  },
+
+  shouldReplanCombatApproach(player, target, now = Date.now()) {
+    const targetId = String(target?.id ?? "");
+    if (player._combatPathTargetId !== targetId) return true;
+    const targetX = Number.isFinite(Number(target?.x))
+      ? Number(target.x)
+      : (Number(target?.px) - CFG.TS / 2) / CFG.TS;
+    const targetY = Number.isFinite(Number(target?.y))
+      ? Number(target.y)
+      : (Number(target?.py) - CFG.TS / 2) / CFG.TS;
+    if (Math.hypot(targetX - Number(player._combatPathTargetX), targetY - Number(player._combatPathTargetY)) >= 0.75) return true;
+    return !player.movePath?.length && !player.targetMovePos && now - Number(player._combatPathPlannedAt || 0) >= 500;
+  },
+
+  planCombatApproach(player, target, now = Date.now()) {
+    const targetX = Number.isFinite(Number(target?.x))
+      ? Number(target.x)
+      : (Number(target?.px) - CFG.TS / 2) / CFG.TS;
+    const targetY = Number.isFinite(Number(target?.y))
+      ? Number(target.y)
+      : (Number(target?.py) - CFG.TS / 2) / CFG.TS;
+    const planned = World.planPlayerMove(player, targetX, targetY);
+    player._combatPathTargetId = String(target?.id ?? "");
+    player._combatPathTargetX = targetX;
+    player._combatPathTargetY = targetY;
+    player._combatPathPlannedAt = now;
+    return planned;
+  },
+
+  clearPendingNpcInteraction() {
+    World.pendingNpcId = null;
+  },
+
+  openNpc(npc) {
+    if (!npc || (npc.used && npc.type === "chest")) return false;
+    World.clearPendingNpcInteraction();
+    S.target = null;
+    if (S.player) {
+      S.player.combatMove = false;
+      World.cancelPlayerMove(S.player);
+    }
+    if (npc.type === "shop") Shop.open(npc);
+    else if (npc.type === "chest") Chest.open(npc);
+    else DialogUI.open(npc);
+    return true;
+  },
+
+  approachNpc(npc) {
+    const player = S.player;
+    if (!player || !npc || (npc.used && npc.type === "chest")) return false;
+    if (dist(player.px, player.py, npc.px, npc.py) < CFG.INTERACTION_RANGE) return World.openNpc(npc);
+    S.target = null;
+    player.combatMove = false;
+    World.cancelPlayerMove(player);
+    if (!World.planPlayerMove(player, npc.x, npc.y)) return false;
+    World.pendingNpcId = String(npc.id ?? "");
+    return true;
+  },
+
+  processPendingNpcInteraction() {
+    if (World.pendingNpcId === null) return false;
+    const npc = S.npcs.find((candidate) => String(candidate.id ?? "") === World.pendingNpcId);
+    if (!npc || (npc.used && npc.type === "chest")) {
+      World.clearPendingNpcInteraction();
+      return false;
+    }
+    if (dist(S.player.px, S.player.py, npc.px, npc.py) >= CFG.INTERACTION_RANGE) return false;
+    return World.openNpc(npc);
   },
 
   _open(zone) {
@@ -353,6 +456,21 @@ const World = {
     }
   },
 
+  moveTowards(entity, targetX, targetY, maxDistance) {
+    if (!entity) return { moved: 0, reached: false };
+    const dx = Number(targetX) - Number(entity.x);
+    const dy = Number(targetY) - Number(entity.y);
+    const distance = Math.hypot(dx, dy);
+    const allowed = Math.max(0, Number(maxDistance) || 0);
+    if (distance <= 1e-6) return { moved: 0, reached: true };
+    const step = Math.min(distance, allowed);
+    const fromX = Number(entity.x);
+    const fromY = Number(entity.y);
+    if (step > 0) World.moveWithCollision(entity, (dx / distance) * step, (dy / distance) * step);
+    const moved = Math.hypot(Number(entity.x) - fromX, Number(entity.y) - fromY);
+    return { moved, reached: distance <= allowed + 1e-6 && moved >= distance - 1e-3 };
+  },
+
   async checkPortals() {
     const p = S.player;
     if (!p) return;
@@ -380,12 +498,11 @@ const World = {
 
   checkNpcInteract() {
     const p = S.player;
+    if (!p) return;
     for (const npc of S.npcs) {
       if (npc.used && npc.type === "chest") continue;
       if (dist(p.px, p.py, npc.px, npc.py) < CFG.INTERACTION_RANGE) {
-        if (npc.type === "shop") Shop.open(npc);
-        else if (npc.type === "chest") Chest.open(npc);
-        else DialogUI.open(npc);
+        World.openNpc(npc);
         return;
       }
     }

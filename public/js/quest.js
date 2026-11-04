@@ -45,11 +45,7 @@ const QuestUI = {
     }
     this.returnFocus = document.activeElement;
     modal.style.display = "flex";
-    Input.keys = {};
-    if (S.player) {
-      S.player.targetMovePos = null;
-      S.player.combatMove = false;
-    }
+    Input.stopMovement();
     this.render();
     modal.querySelector(".kpah-close-btn")?.focus();
     void this.refresh();

@@ -4,17 +4,24 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { pathToFileURL } = require("node:url");
 const vm = require("node:vm");
 
 const root = path.join(__dirname, "..");
 const autoLootSource = fs.readFileSync(path.join(root, "public", "js", "auto-loot.js"), "utf8");
-const movementSource = fs.readFileSync(path.join(root, "public", "js", "movement-feedback.js"), "utf8");
+const worldSource = fs.readFileSync(path.join(root, "public", "js", "world.js"), "utf8");
+const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
+const inputSource = fs.readFileSync(path.join(root, "public", "js", "input.js"), "utf8");
 const netSource = fs.readFileSync(path.join(root, "public", "js", "net.js"), "utf8");
 const skillsSource = fs.readFileSync(path.join(root, "public", "js", "skills.js"), "utf8");
 const combatSource = fs.readFileSync(path.join(root, "public", "js", "combat.js"), "utf8");
 const monsterSource = fs.readFileSync(path.join(root, "public", "js", "monster.js"), "utf8");
 const uiSource = fs.readFileSync(path.join(root, "public", "js", "ui.js"), "utf8");
 const gameHtml = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
+const gameBootstrap = fs.readFileSync(path.join(root, "public", "js", "bootstrap.js"), "utf8");
+const gameSource = fs.readFileSync(path.join(root, "public", "js", "game.js"), "utf8");
+const updateSource = gameSource.match(/^function update\(dt\) \{[\s\S]*?^\}/m)?.[0];
+assert.ok(updateSource, "game update loop must remain directly testable");
 
 function autoLootHarness(saved) {
   const storage = new Map(saved === undefined ? [] : [["tutien.autoLoot.v1", saved]]);
@@ -28,10 +35,96 @@ function autoLootHarness(saved) {
   return { autoLoot: context.__AutoLoot, storage };
 }
 
-function movementHarness() {
-  const context = vm.createContext({ CFG: { TS: 1 } });
-  vm.runInContext(`${movementSource}\nglobalThis.__MovementFeedback = MovementFeedback;`, context, { filename: "movement-feedback.js" });
-  return context.__MovementFeedback;
+async function movementHarness() {
+  const modulePath = pathToFileURL(path.join(root, "public", "js", "core", "movement-feedback.mjs")).href;
+  const module = await import(modulePath);
+  return module.MovementFeedback;
+}
+
+function worldHarness(tiles) {
+  const context = vm.createContext({
+    S: { tiles, mapW: tiles[0].length, mapH: tiles.length, player: null },
+    CFG: { TS: 1, PLAYER_COLLISION_RADIUS: 0.45 },
+  });
+  vm.runInContext(`${worldSource}\nglobalThis.__World = World;`, context, { filename: "world.js" });
+  return context.__World;
+}
+
+function renderHarness() {
+  const context = vm.createContext({});
+  vm.runInContext(`${renderSource}\nglobalThis.__Render = Render;`, context, { filename: "render.js" });
+  return context.__Render;
+}
+
+function inputHarness(player) {
+  const emitted = [];
+  const context = vm.createContext({
+    S: { player },
+    World: {
+      cancelPlayerMove(actor) { actor.targetMovePos = null; actor.movePath = []; },
+    },
+    Net: { emitMove(force) { emitted.push(force); } },
+  });
+  vm.runInContext(`${inputSource}\nglobalThis.__Input = Input;`, context, { filename: "input.js" });
+  return { input: context.__Input, emitted };
+}
+
+async function gameplayHarness(tiles, player, { basicAttackRange = 24 } = {}) {
+  const movementPath = pathToFileURL(path.join(root, "public", "js", "core", "movement-feedback.mjs")).href;
+  const movement = (await import(movementPath)).MovementFeedback;
+  const errors = [];
+  const sentMoves = [];
+  const state = {
+    player,
+    tiles,
+    mapW: tiles[0].length,
+    mapH: tiles.length,
+    portals: [],
+    players: new Map(),
+    monsters: [],
+    npcs: [],
+    floatingTexts: [],
+    combatFx: [],
+    target: null,
+    autoFight: false,
+    animT: 0,
+    animF: 0,
+    atkCd: 0,
+    combatGcd: 0,
+    mapCode: "movement-test",
+  };
+  const context = vm.createContext({
+    S: state,
+    MovementFeedback: movement,
+    CFG: {
+      TS: 1,
+      PLAYER_COLLISION_RADIUS: 0.45,
+      PLAYER_MOVE_SPEED: 44,
+      BASIC_ATTACK_RANGE: basicAttackRange,
+      INTERACTION_RANGE: 2,
+      ATK_CD: 42,
+      REGEN_HP: 0,
+      REGEN_MP: 0,
+    },
+    document: { activeElement: null, getElementById() { return null; } },
+    Net: {
+      _isOnline: true,
+      emitMove(force) { sentMoves.push(Boolean(force)); },
+      tickAutoLoot() {},
+    },
+    SkillSystem: { tickCooldowns() {} },
+    UI: { update() {}, log() {}, notify() {} },
+    Shop: { open(npc) { opened.push({ type: "shop", id: npc.id }); } },
+    Chest: { open(npc) { opened.push({ type: "chest", id: npc.id }); } },
+    DialogUI: { open(npc) { opened.push({ type: "dialog", id: npc.id }); } },
+    Monster: { update() {} },
+    Combat: { attack() {} },
+    dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); },
+    console: { error(...args) { errors.push(args); } },
+  });
+  const opened = [];
+  vm.runInContext(`${inputSource}\n${worldSource}\n${updateSource}\nglobalThis.__Input = Input; globalThis.__World = World; globalThis.__update = update;`, context, { filename: "gameplay-movement.js" });
+  return { state, input: context.__Input, world: context.__World, update: context.__update, sentMoves, errors, opened };
 }
 
 function netHarness(drops = []) {
@@ -239,12 +332,12 @@ test("skill book drops stale, foreign-root, and passive codes from active slots"
 test("game shell exposes auto-pickup control and loads the movement and loot helpers", () => {
   assert.match(gameHtml, /id="btn-auto-loot"[^>]+aria-pressed="true"/);
   assert.match(gameHtml, /id="game-notifications"[^>]+aria-live="polite"/);
-  assert.match(gameHtml, /js\/auto-loot\.js/);
-  assert.match(gameHtml, /js\/movement-feedback\.js/);
+  assert.match(gameBootstrap, /js\/auto-loot\.js/);
+  assert.match(gameBootstrap, /movement-feedback\.mjs/);
 });
 
-test("movement correction stays visually continuous and converges to server position", () => {
-  const movement = movementHarness();
+test("movement correction stays visually continuous and converges to server position", async () => {
+  const movement = await movementHarness();
   const player = { x: 10, y: 20, px: 14, py: 20, targetMovePos: { x: 30, y: 20 } };
   assert.equal(movement.reconcile(player, 11, 20, 1, 1000), true);
   assert.equal(player.x, 11);
@@ -259,13 +352,169 @@ test("movement correction stays visually continuous and converges to server posi
   assert.equal(player.visualCorrection, null);
 });
 
-test("large position corrections snap safely instead of blending across the map", () => {
-  const movement = movementHarness();
+test("large position corrections snap safely instead of blending across the map", async () => {
+  const movement = await movementHarness();
   const player = { x: 0, y: 0, px: 400, py: 400 };
   movement.reconcile(player, 4, 5, 1, 1000);
   assert.equal(player.visualCorrection, null);
   assert.equal(player.px, 4.5);
   assert.equal(player.py, 5.5);
+});
+
+test("keyboard direction cancels opposing keys and keeps diagonal input explicit", () => {
+  const world = worldHarness([[0, 0], [0, 0]]);
+  const diagonal = world.movementVector({ KeyW: true, KeyD: true });
+  assert.equal(diagonal.dx, 1);
+  assert.equal(diagonal.dy, -1);
+  assert.equal(diagonal.active, true);
+  const cancelled = world.movementVector({ KeyA: true, KeyD: true });
+  assert.equal(cancelled.dx, 0);
+  assert.equal(cancelled.active, true);
+});
+
+test("click-to-move routes around water and each smoothed segment is collision-safe", () => {
+  const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
+  for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
+  const world = worldHarness(tiles);
+  const route = world.findPath(2, 3, 6, 3);
+  assert.ok(route);
+  assert.equal(route.reachedTarget, true);
+  assert.deepEqual(Array.from(route.waypoints, (point) => [point.x, point.y]).at(-1), [6, 3]);
+  let from = { x: 2, y: 3 };
+  for (const point of route.waypoints) {
+    assert.equal(world.hasClearPath(from.x, from.y, point.x, point.y), true);
+    from = point;
+  }
+});
+
+test("click navigation refuses diagonal corner cutting and bounds the final step", () => {
+  const cornerWorld = worldHarness([[0, 2], [2, 0]]);
+  assert.equal(cornerWorld.findPath(0, 0, 1, 1), null);
+
+  const openWorld = worldHarness(Array.from({ length: 5 }, () => Array(5).fill(0)));
+  const actor = { x: 2, y: 2 };
+  const arrival = openWorld.moveTowards(actor, 2.25, 2, 1);
+  assert.equal(arrival.reached, true);
+  assert.ok(Math.abs(actor.x - 2.25) < 1e-8);
+  const next = openWorld.moveTowards(actor, 4, 2, 0.25);
+  assert.equal(next.reached, false);
+  assert.ok(Math.abs(actor.x - 2.5) < 1e-8);
+});
+
+test("planned travel keeps making progress through a detour and settles at its destination", () => {
+  const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
+  for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
+  const world = worldHarness(tiles);
+  const route = world.findPath(2, 3, 6, 3);
+  const actor = { x: 2, y: 3 };
+  let steps = 0;
+  for (const waypoint of route.waypoints) {
+    while (Math.hypot(waypoint.x - actor.x, waypoint.y - actor.y) >= 0.6 && steps < 2000) {
+      const result = world.moveTowards(actor, waypoint.x, waypoint.y, 44 / 60);
+      assert.ok(result.moved > 0, "planned route stalled at a collision");
+      assert.equal(world.collides(actor.x, actor.y), false);
+      steps += 1;
+    }
+    assert.ok(Math.hypot(waypoint.x - actor.x, waypoint.y - actor.y) < 0.6);
+  }
+  assert.ok(Math.hypot(route.destination.x - actor.x, route.destination.y - actor.y) < 0.6);
+});
+
+test("game loop keeps keyboard travel frame-rate independent and diagonal speed normalized", async () => {
+  for (const hz of [30, 60, 120]) {
+    const tiles = Array.from({ length: 120 }, () => Array(120).fill(0));
+    const player = { x: 10, y: 10, px: 10.5, py: 10.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 10, lastEmitY: 10 };
+    const game = await gameplayHarness(tiles, player);
+    game.input.keys.KeyD = true;
+    for (let frame = 0; frame < hz; frame += 1) game.update(1000 / hz);
+    assert.ok(Math.abs(player.x - 54) < 0.1, `${hz} Hz horizontal travel drifted`);
+    assert.ok(Math.abs(player.y - 10) < 0.1);
+    assert.equal(player.isMoving, true);
+    assert.ok(Math.abs(player.walkDistance - 44) < 0.1);
+    assert.deepEqual(game.errors, []);
+  }
+
+  const tiles = Array.from({ length: 120 }, () => Array(120).fill(0));
+  const player = { x: 60, y: 60, px: 60.5, py: 60.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 60, lastEmitY: 60 };
+  const game = await gameplayHarness(tiles, player);
+  game.input.keys.KeyD = true;
+  game.input.keys.KeyW = true;
+  for (let frame = 0; frame < 60; frame += 1) game.update(1000 / 60);
+  assert.ok(Math.abs(Math.hypot(player.x - 60, player.y - 60) - 44) < 0.1);
+  assert.ok(Math.abs(player.x - 60 - (44 / Math.SQRT2)) < 0.1);
+  assert.ok(Math.abs(60 - player.y - (44 / Math.SQRT2)) < 0.1);
+});
+
+test("game loop follows a planned detour to the click destination without overshooting", async () => {
+  const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
+  for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
+  const player = { x: 2, y: 3, px: 2.5, py: 3.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 2, lastEmitY: 3 };
+  const game = await gameplayHarness(tiles, player);
+  assert.equal(game.world.planPlayerMove(player, 6, 3), true);
+  for (let frame = 0; frame < 300 && player.targetMovePos; frame += 1) game.update(1000 / 60);
+  assert.equal(player.targetMovePos, null);
+  assert.ok(Math.abs(player.x - 6) < 0.6);
+  assert.ok(Math.abs(player.y - 3) < 0.6);
+  assert.deepEqual(game.errors, []);
+});
+
+test("click-to-interact approaches a distant NPC by a collision-safe route before opening it", async () => {
+  const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
+  for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
+  const player = { x: 2, y: 3, px: 2.5, py: 3.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 2, lastEmitY: 3 };
+  const game = await gameplayHarness(tiles, player);
+  const npc = { id: "shop-1", x: 6, y: 3, px: 6.5, py: 3.5, type: "shop" };
+  game.state.npcs.push(npc);
+
+  assert.equal(game.world.approachNpc(npc), true);
+  assert.deepEqual(game.opened, []);
+  for (let frame = 0; frame < 300 && game.world.pendingNpcId !== null; frame += 1) game.update(1000 / 60);
+
+  assert.deepEqual(game.opened, [{ type: "shop", id: "shop-1" }]);
+  assert.equal(game.world.pendingNpcId, null);
+  assert.ok(Math.hypot(player.px - npc.px, player.py - npc.py) < 2);
+  assert.deepEqual(game.errors, []);
+});
+
+test("combat approach follows an A-star detour around water and stops in attack range", async () => {
+  const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
+  for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
+  const player = { x: 2, y: 3, px: 2.5, py: 3.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 2, lastEmitY: 3, combatMove: true };
+  const game = await gameplayHarness(tiles, player, { basicAttackRange: 3 });
+  const target = { id: "monster-1", x: 6, y: 3, px: 6.5, py: 3.5, dead: false };
+  game.state.target = target;
+  game.state.monsters.push(target);
+
+  for (let frame = 0; frame < 300; frame += 1) {
+    game.update(1000 / 60);
+    assert.equal(game.world.collides(player.x, player.y), false);
+    if (Math.hypot(player.px - target.px, player.py - target.py) <= 3 * 0.86) break;
+  }
+
+  assert.ok(Math.hypot(player.px - target.px, player.py - target.py) <= 3 * 0.86);
+  assert.deepEqual(game.errors, []);
+});
+
+test("losing focus clears held keys and pending click movement", () => {
+  const player = { isMoving: true, targetMovePos: { x: 8, y: 8 }, movePath: [{ x: 5, y: 5 }], combatMove: true };
+  const { input, emitted } = inputHarness(player);
+  input.keys.KeyD = true;
+  assert.equal(input.hasActiveKeys(), true);
+  input.stopMovement();
+  assert.equal(input.hasActiveKeys(), false);
+  assert.equal(player.isMoving, false);
+  assert.equal(player.targetMovePos, null);
+  assert.deepEqual(Array.from(player.movePath), []);
+  assert.equal(player.combatMove, false);
+  assert.deepEqual(Array.from(emitted), [true]);
+});
+
+test("walk sprite frames follow traveled distance rather than wall-clock phase", () => {
+  const render = renderHarness();
+  assert.equal(render.walkFrame({ walkDistance: 0 }), 0);
+  assert.equal(render.walkFrame({ walkDistance: 5.5 }), 1);
+  assert.equal(render.walkFrame({ walkDistance: 11 }), 2);
+  assert.equal(render.walkFrame({ walkDistance: 22 }), 0);
 });
 
 test("system feedback uses the visible toast lane while chat stays in chat", () => {
