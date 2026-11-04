@@ -573,6 +573,43 @@ const SkillSystem = {
         if (p.buffs[k].duration <= 0) delete p.buffs[k];
       }
     }
+    this.updateCooldownVisuals();
+  },
+
+  updateCooldownVisuals() {
+    const p = S.player;
+    if (!p?.skills || typeof document === "undefined") return;
+    this._cooldownVisuals ||= new Map();
+    const learned = new Set((p.learnedSkills || []).map(String));
+    const equipped = new Set((p.equippedSkills || []).map(String));
+    for (let index = 0; index < 4; index += 1) {
+      const candidate = p.skills[index];
+      const code = candidate ? String(candidate.code || candidate.id || "") : "";
+      const skill = candidate
+        && String(candidate.category || "ACTIVE").toUpperCase() !== "PASSIVE"
+        && (!learned.size || learned.has(code))
+        && (!equipped.size || equipped.has(code))
+        ? candidate
+        : null;
+      const slot = document.getElementById(`skbar-slot-${index}`);
+      const wrap = document.getElementById(`skbar-cd-wrap-${index}`);
+      const text = document.getElementById(`skbar-cd-text-${index}`);
+      const ring = wrap?.querySelector(".cd-ring");
+      if (!slot || !wrap || !text || !ring) continue;
+      const active = Boolean(skill && skill.cdLeft > 0);
+      const ratio = active ? Math.min(1, skill.cdLeft / Math.max(1, skill.cd || 1)) : 0;
+      const offset = active ? (113 * (1 - ratio)).toFixed(2) : "0";
+      const label = active ? `${Math.ceil(skill.cdLeft / 60)}s` : "";
+      const signature = `${active}:${offset}:${label}`;
+      if (this._cooldownVisuals.get(index) === signature) continue;
+      this._cooldownVisuals.set(index, signature);
+      wrap.style.display = active ? "flex" : "none";
+      slot.classList.toggle("on-cd", active);
+      if (active) {
+        ring.setAttribute("stroke-dashoffset", offset);
+        text.textContent = label;
+      }
+    }
   },
 
   updateMonsterStatus(m, dt) {

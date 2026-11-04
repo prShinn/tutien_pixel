@@ -40,10 +40,18 @@ function createPlayerRouter({
     let amount = 0;
     if (req.body?.itemId) {
       const inventory = readInventory(player);
-      const index = inventory.findIndex((item) => item.id === req.body.itemId);
+      const index = inventory.findIndex((item) => String(item.id) === String(req.body.itemId));
       if (index < 0) return res.status(404).json({ error: "Không tìm thấy linh thạch trong túi đồ" });
       const item = inventory[index];
-      amount = Math.max(1, Number(item.giaTriTuVi || item.value || 0));
+      const catalogItem = items.find((entry) => String(entry.id) === String(item.id));
+      const type = String(catalogItem?.type || catalogItem?.loai || "").toUpperCase();
+      if (!catalogItem || !["STONE", "ELEMSTONE"].includes(type)) {
+        return res.status(400).json({ error: "Vật phẩm không phải linh thạch hợp lệ trong danh mục" });
+      }
+      amount = Math.floor(Number(catalogItem.giaTriTuVi || 0));
+      const count = Number(item.count ?? 1);
+      if (!Number.isSafeInteger(amount) || amount <= 0) return res.status(400).json({ error: "Giá trị vật phẩm tu vi không hợp lệ" });
+      if (!Number.isSafeInteger(count) || count < 1) return res.status(400).json({ error: "Số lượng vật phẩm không hợp lệ" });
       item.count = Number(item.count || 1) - 1;
       if (item.count <= 0) inventory.splice(index, 1);
       writeInventory(player, inventory);
@@ -123,33 +131,47 @@ function createPlayerRouter({
     const index = Number.isInteger(req.body?.index) ? req.body.index : inventory.findIndex((item) => item.id === req.body?.itemId);
     const item = inventory[index];
     if (!item) return res.status(404).json({ error: "Item not found" });
-    const type = item.type || item.loai;
-    const result = { type: "item_used", itemId: item.id, hp: 0, mp: 0, stat: null };
+    const catalogItem = items.find((entry) => String(entry.id) === String(item.id));
+    if (!catalogItem) return res.status(400).json({ error: "Vật phẩm không còn trong danh mục sử dụng" });
+    const count = Number(item.count ?? 1);
+    if (!Number.isSafeInteger(count) || count < 1) return res.status(400).json({ error: "Số lượng vật phẩm không hợp lệ" });
+    const type = String(catalogItem.type || catalogItem.loai || "").toUpperCase();
+    const result = { type: "item_used", itemId: catalogItem.id, hp: 0, mp: 0, stat: null };
     if (type === "STONE" || type === "ELEMSTONE") {
-      player.tuViHienTai = Number(player.tuViHienTai || 0) + Number(item.giaTriTuVi || 0);
+      const amount = Math.floor(Number(catalogItem.giaTriTuVi || 0));
+      if (!Number.isSafeInteger(amount) || amount <= 0) return res.status(400).json({ error: "Giá trị vật phẩm tu vi không hợp lệ" });
+      player.tuViHienTai = Number(player.tuViHienTai || 0) + amount;
+      result.amount = amount;
       result.type = "cultivation_absorbed";
     } else if (type === "LINDAN") {
-      const definition = items.find((entry) => entry.id === item.id);
-      if (!definition || (definition.type || definition.loai) !== "LINDAN") return res.status(400).json({ error: "Vật phẩm linh căn không hợp lệ" });
       const cap = BALANCE.progression.linhCan.itemCap;
       const current = Math.max(0, Number(player.tuViLinhCan || 0));
-      const gain = Math.min(Math.max(0, Number(definition.tuViLinhCanVal || 0)), cap - current);
+      const gain = Math.min(Math.max(0, Number(catalogItem.tuViLinhCanVal || 0)), cap - current);
       if (gain <= 0) return res.status(400).json({ error: "Tu vi linh căn đã đạt giới hạn vật phẩm" });
       player.tuViLinhCan = current + gain;
       result.gain = gain;
       result.type = "root_cultivation";
     } else if (type === "POTION" || type === "CONSUME") {
-      result.hp = Number(item.healHp || 0);
-      result.mp = Number(item.healMp || 0);
+      const healHp = Math.floor(Number(catalogItem.healHp || 0));
+      const healMp = Math.floor(Number(catalogItem.healMp || 0));
+      const statBoost = Math.floor(Number(catalogItem.statBoost || 0));
+      const stat = String(catalogItem.statKey || "str");
+      if (![healHp, healMp, statBoost].every(Number.isSafeInteger) || healHp < 0 || healMp < 0 || statBoost < 0) {
+        return res.status(400).json({ error: "Hiệu ứng vật phẩm không hợp lệ" });
+      }
+      if (statBoost > 0 && !["str", "agi", "vit", "ene"].includes(stat)) {
+        return res.status(400).json({ error: "Hiệu ứng chỉ số của vật phẩm không hợp lệ" });
+      }
+      result.hp = healHp;
+      result.mp = healMp;
       player.hp = Math.min(Number(player.maxHp || 100), Number(player.hp || 0) + result.hp);
       player.mp = Math.min(Number(player.maxMp || 50), Number(player.mp || 0) + result.mp);
-      if (item.statBoost) {
-        const stat = item.statKey || "str";
-        player.stats = { ...(player.stats || {}), [stat]: Number(player.stats?.[stat] || 0) + Number(item.statBoost) };
-        result.stat = { key: stat, amount: Number(item.statBoost) };
+      if (statBoost > 0) {
+        player.stats = { ...(player.stats || {}), [stat]: Number(player.stats?.[stat] || 0) + statBoost };
+        result.stat = { key: stat, amount: statBoost };
       }
     } else return res.status(400).json({ error: "Item chưa có logic sử dụng" });
-    item.count = Number(item.count || 1) - 1;
+    item.count = count - 1;
     if (item.count <= 0) inventory.splice(index, 1);
     player.inventory = inventory;
     player.jsonIventory = JSON.stringify(inventory);

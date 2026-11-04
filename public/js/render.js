@@ -25,6 +25,8 @@ const TC = {
 };
 
 const Render = {
+  _remoteWalkState: new WeakMap(),
+
   buildTerrainCache() {
     if (!S.tiles?.length || !S.mapW || !S.mapH) return;
     const terrain = document.createElement("canvas");
@@ -70,7 +72,7 @@ const Render = {
     S.miniTerrainCanvas = mini;
   },
 
-  frame(dt = 1000 / 60) {
+  frame(dt = 1000 / 60, alpha = 1, timestamp = performance.now()) {
     const p = S.player;
     if (!p) return;
     
@@ -132,13 +134,52 @@ const Render = {
       ctx.restore();
     }
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
-    for (const npc of S.npcs) Render.npc(npc, cx, cy);
-    for (const drop of S.groundItems || []) Render.groundLoot(drop, cx, cy);
-    for (const [, op] of S.players) Render.otherPlayer(op, cx, cy);
-    for (const m of S.monsters) if (!m.dead) Render.monster(m, cx, cy);
-    
+
+    const renderTime = timestamp - (typeof EntitySnapshots !== "undefined" ? EntitySnapshots.delayMs : 100);
+    const interpolated = (entity) => typeof EntitySnapshots !== "undefined"
+      ? EntitySnapshots.sample(entity, renderTime)
+      : { x: entity.px, y: entity.py };
+    const previousX = Number.isFinite(p.previousPx) ? p.previousPx : p.px;
+    const previousY = Number.isFinite(p.previousPy) ? p.previousPy : p.py;
+    const renderAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
+    const localPosition = {
+      x: previousX + (p.px - previousX) * renderAlpha,
+      y: previousY + (p.py - previousY) * renderAlpha,
+    };
+    const drawables = [];
+    let drawOrder = 0;
+    for (const drop of S.groundItems || []) {
+      const x = Number(drop.x || 0) * ts + ts / 2;
+      const y = Number(drop.y || 0) * ts + ts / 2;
+      drawables.push({ y, order: 0, sequence: drawOrder++, draw: () => Render.groundLoot(drop, cx, cy) });
+    }
+    for (const npc of S.npcs) {
+      drawables.push({ y: Number(npc.py) + 10, order: 1, sequence: drawOrder++, draw: () => Render.npc(npc, cx, cy) });
+    }
+    for (const monster of S.monsters) {
+      if (monster.dead) continue;
+      const position = interpolated(monster);
+      const height = Number(monster.animation?.height || monster.size || 18);
+      const view = { ...monster, px: position?.x ?? monster.px, py: position?.y ?? monster.py };
+      drawables.push({ y: view.py + height * 0.32, order: 2, sequence: drawOrder++, draw: () => Render.monster(view, cx, cy) });
+    }
+    for (const [, other] of S.players) {
+      const position = interpolated(other);
+      const px = position?.x ?? other.px, py = position?.y ?? other.py;
+      const previous = this._remoteWalkState.get(other);
+      let walkDistance = 0;
+      if (other.isMoving) {
+        walkDistance = Number(previous?.walkDistance ?? other.walkDistance) || 0;
+        if (previous) walkDistance += Math.hypot(px - previous.x, py - previous.y);
+      }
+      this._remoteWalkState.set(other, { x: px, y: py, walkDistance });
+      const view = { ...other, px, py, walkDistance };
+      drawables.push({ y: view.py, order: 3, sequence: drawOrder++, draw: () => Render.otherPlayer(view, cx, cy) });
+    }
     const tint = p.root ? p.root.color : "#4488cc";
-    Render.player(p.px - cx, p.py - cy, tint, p);
+    drawables.push({ y: localPosition.y, order: 4, sequence: drawOrder++, draw: () => Render.player(localPosition.x - cx, localPosition.y - cy, tint, p) });
+    Render.sortDrawables(drawables);
+    for (const drawable of drawables) drawable.draw();
     Render.drawCombatFx(cx, cy);
     if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy);
 
@@ -148,15 +189,15 @@ const Render = {
     ctx.lineWidth = 1;
 
     // Vẽ tên người chơi
-    const playerLabelY = p.py - cy - CFG.ACTOR_H - 7;
-    ctx.strokeStyle = "#000"; ctx.strokeText(p.name, p.px - cx, playerLabelY);
-    ctx.fillStyle = tint; ctx.fillText(p.name, p.px - cx, playerLabelY);
+    const playerLabelY = localPosition.y - cy - CFG.ACTOR_H - 7;
+    ctx.strokeStyle = "#000"; ctx.strokeText(p.name, localPosition.x - cx, playerLabelY);
+    ctx.fillStyle = tint; ctx.fillText(p.name, localPosition.x - cx, playerLabelY);
 
     // Vẽ thanh máu mini cho người chơi
     const pw = CFG.ACTOR_W;
-    const playerBarY = p.py - cy - CFG.ACTOR_H - 4;
-    ctx.fillStyle = "#111"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw, 2);
-    ctx.fillStyle = "#cc2222"; ctx.fillRect(p.px - cx - pw/2, playerBarY, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
+    const playerBarY = localPosition.y - cy - CFG.ACTOR_H - 4;
+    ctx.fillStyle = "#111"; ctx.fillRect(localPosition.x - cx - pw/2, playerBarY, pw, 2);
+    ctx.fillStyle = "#cc2222"; ctx.fillRect(localPosition.x - cx - pw/2, playerBarY, pw * (Math.max(0, p.hp)/Math.max(1, p.maxHp)), 2);
 
     // Vẽ KPAH Floating Damage Text
     for (const ft of S.floatingTexts) {
@@ -291,6 +332,10 @@ const Render = {
       mini.stroke();
       mini.restore();
     }
+  },
+
+  sortDrawables(drawables) {
+    return drawables.sort((a, b) => (a.y - b.y) || (a.order - b.order) || (a.sequence - b.sequence));
   },
 
   tile(t, sx, sy, tx = 0, ty = 0) {

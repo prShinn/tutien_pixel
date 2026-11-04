@@ -183,6 +183,32 @@ const Combat = {
   },
 
   dropLoot(m) {
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      const tileX = Math.floor(Number(m.px) / CFG.TS);
+      const tileY = Math.floor(Number(m.py) / CFG.TS);
+      const drops = [];
+      if (Math.random() < Number(m.moneyDropChance ?? 0.65)) {
+        const from = Math.max(0, Math.floor(Number(m.moneyDropFrom ?? 2)));
+        const to = Math.max(from, Math.floor(Number(m.moneyDropTo ?? 8)));
+        const xu = randInt(from, to);
+        if (xu > 0) drops.push({ id: `mock-xu-${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, kind: "xu", xu, x: tileX, y: tileY });
+      }
+      for (const entry of (Array.isArray(m.dropTable) ? m.dropTable : [])) {
+        const chance = Math.max(0, Math.min(1, Number(entry.chance) || 0));
+        if (!entry.item || Math.random() >= chance) continue;
+        const min = Math.max(1, Math.floor(Number(entry.min) || 1));
+        const max = Math.max(min, Math.floor(Number(entry.max) || min));
+        const count = randInt(min, max);
+        drops.push({
+          id: `mock-item-${m.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          kind: "item", item: { ...entry.item }, count, x: tileX, y: tileY,
+        });
+      }
+      S.groundItems.push(...drops);
+      void MockBackend.recordQuestEvent("monster_kill", { monsterId: m.id });
+      if (drops.length) UI.notify(`Quái vật rơi ${drops.length} vật phẩm.`, "success");
+      return;
+    }
     if (Math.random() * 100 < m.tyLeRoiTien) {
       const xu = randInt(m.moneyDropFrom, m.moneyDropTo);
       S.player.xu += xu;

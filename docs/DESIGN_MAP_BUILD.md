@@ -73,6 +73,16 @@ Renderer raster hóa toàn bộ địa hình vào offscreen canvas đúng một 
 ### Hướng phát triển
 
 1. Bổ sung công cụ đặt portal, NPC, bãi quái và vùng polygon trực tiếp trên canvas.
-2. Thay primitive canvas bằng tileset atlas 16/47-mask; neighbor mask chọn sprite autotile.
-3. Chia map lớn thành chunk 32×32, version từng chunk và chỉ broadcast vùng lân cận.
-4. Thêm draft/publish để map đang sửa không thay đổi world online trước khi duyệt.
+2. Tách decoration/vật cản có chiều cao khỏi terrain cache để renderer đưa chúng vào cùng danh sách Y-sort với nhân vật.
+3. Chuẩn bị autotile atlas 16/47-mask như một lớp mỹ thuật độc lập trên micro-grid hiện tại. Bản đồ hiện có `CFG.TS = 1`, một ô dữ liệu là một world pixel; không được coi mỗi ô là một tile 16×16 hoặc đổi kích thước ô nếu chưa migrate collision, editor và tọa độ entity.
+4. Chia map lớn thành chunk 32×32, version từng chunk và chỉ broadcast vùng lân cận.
+5. Thêm draft/publish để map đang sửa không thay đổi world online trước khi duyệt.
+
+### Hoàn thiện client runtime (đã triển khai)
+
+- Gameplay chạy fixed update 60Hz; `requestAnimationFrame` chỉ render và nội suy vị trí player cục bộ. Khung hình bị treo được giới hạn tối đa 5 tick bù.
+- Player/monster từ socket được đưa vào buffer tối đa 3 snapshot và render chậm 100ms; gói cũ bị bỏ, teleport xa reset buffer.
+- HUD nhận event `player:vitals_changed`, `player:position_changed` và `target:changed`; DOM chỉ cập nhật khi giá trị đang hiển thị đổi.
+- Dynamic drawables (loot, NPC, monster, người chơi) dùng Y-sort ổn định theo điểm chân. Portal và terrain vẫn ở lớp nền.
+
+Autotile atlas và Y-sort vật cản chưa bật trong client: map chưa có atlas/decoration sprite và các cây, vách hiện được raster hóa trong terrain cache. Muốn che khuất nhân vật đúng 2.5D, cần thêm object render layer với footprint/điểm chân; chỉ đổi thứ tự vẽ entity sẽ không làm cây trong cache che nhân vật.

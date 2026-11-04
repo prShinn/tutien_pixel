@@ -7,6 +7,29 @@ const test = require("node:test");
 
 const createPlayerRouter = require("../routes/player");
 const { items } = require("../data/mock-data");
+const { BALANCE } = require("../data/balance");
+
+function callPlayerRoute(pathname, { player, body = {}, catalogItems = items }) {
+  const router = createPlayerRouter({
+    authenticate() {},
+    playerFor: () => player,
+    players: new Map(),
+    readInventory: (value) => value.inventory,
+    writeInventory: (value, inventory) => { value.inventory = inventory; },
+    combatPower: () => 1,
+    items: catalogItems,
+    BALANCE,
+  });
+  const layer = router.stack.find((entry) => entry.route?.path === pathname);
+  const handler = layer.route.stack.at(-1).handle;
+  let status = 200;
+  let payload;
+  handler({ userId: 7, body }, {
+    status(value) { status = value; return this; },
+    json(value) { payload = value; return this; },
+  });
+  return { status, payload };
+}
 
 test("player router preserves the REST methods and paths mounted by the server", () => {
   const router = createPlayerRouter({ authenticate() {} });
@@ -97,5 +120,93 @@ test("shop selling uses the server catalog price instead of inventory metadata",
   assert.equal(status, 200);
   assert.equal(payload.result.price, catalogItem.giaBan);
   assert.equal(player.xu, catalogItem.giaBan);
+  assert.equal(player.inventory[0].count, 1);
+});
+
+test("using a cultivation stone reads its value and type from the server catalog", () => {
+  const stone = items.find((item) => item.id === "STONE_LINH_NHO");
+  const player = {
+    id: 3,
+    tuViHienTai: 20,
+    inventory: [{ ...stone, type: "POTION", giaTriTuVi: 999999, count: 1 }],
+  };
+
+  const { status, payload } = callPlayerRoute("/inventory/use", { player, body: { index: 0 } });
+
+  assert.equal(status, 200);
+  assert.equal(payload.result.type, "cultivation_absorbed");
+  assert.equal(payload.result.amount, stone.giaTriTuVi);
+  assert.equal(player.tuViHienTai, 20 + stone.giaTriTuVi);
+  assert.equal(player.inventory.length, 0);
+});
+
+test("direct cultivation absorption also ignores forged inventory type and value", () => {
+  const stone = items.find((item) => item.id === "STONE_LINH_NHO");
+  const player = {
+    id: 6,
+    tuViHienTai: 15,
+    inventory: [{ ...stone, type: "POTION", giaTriTuVi: 999999, count: 1 }],
+  };
+
+  const { status, payload } = callPlayerRoute("/cultivation/absorb", {
+    player,
+    body: { itemId: stone.id, amount: 999999 },
+  });
+
+  assert.equal(status, 200);
+  assert.equal(payload.result.amount, stone.giaTriTuVi);
+  assert.equal(player.tuViHienTai, 15 + stone.giaTriTuVi);
+  assert.equal(player.inventory.length, 0);
+});
+
+test("direct cultivation absorption rejects an item absent from the catalog without mutation", () => {
+  const player = {
+    id: 7,
+    tuViHienTai: 15,
+    inventory: [{ id: "FORGED_STONE", type: "STONE", giaTriTuVi: 999999, count: 1 }],
+  };
+
+  const { status, payload } = callPlayerRoute("/cultivation/absorb", {
+    player,
+    body: { itemId: "FORGED_STONE", amount: 999999 },
+  });
+
+  assert.equal(status, 400);
+  assert.match(payload.error, /danh mục/);
+  assert.equal(player.tuViHienTai, 15);
+  assert.equal(player.inventory[0].count, 1);
+});
+
+test("using a potion ignores forged healing and stat metadata in the inventory", () => {
+  const potion = items.find((item) => item.id === "HUYET_NGOC_NHO");
+  const player = {
+    id: 4,
+    hp: 10,
+    maxHp: 100,
+    mp: 5,
+    maxMp: 50,
+    stats: { str: 5, agi: 5, vit: 5, ene: 5 },
+    inventory: [{ ...potion, type: "STONE", healHp: 99999, statBoost: 50, statKey: "str", count: 1 }],
+  };
+
+  const { status, payload } = callPlayerRoute("/inventory/use", { player, body: { index: 0 } });
+
+  assert.equal(status, 200);
+  assert.equal(payload.result.hp, potion.healHp);
+  assert.equal(payload.result.mp, 0);
+  assert.equal(player.hp, 10 + potion.healHp);
+  assert.equal(player.mp, 5);
+  assert.equal(player.stats.str, 5);
+  assert.equal(player.inventory.length, 0);
+});
+
+test("using an item without a catalog record leaves inventory and player state unchanged", () => {
+  const player = { id: 5, tuViHienTai: 20, inventory: [{ id: "FORGED_STONE", type: "STONE", giaTriTuVi: 999999, count: 1 }] };
+
+  const { status, payload } = callPlayerRoute("/inventory/use", { player, body: { index: 0 } });
+
+  assert.equal(status, 400);
+  assert.match(payload.error, /danh mục/);
+  assert.equal(player.tuViHienTai, 20);
   assert.equal(player.inventory[0].count, 1);
 });

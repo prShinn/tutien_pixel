@@ -214,8 +214,16 @@ const Auth = {
       try { return JSON.parse(playerData.jsonIventory); } catch { return []; }
     })();
     S.inventory = Array.isArray(rawInventory) ? rawInventory : [];
-    // World state will be initialized by Socket (Server Authoritative)
-    enterGame(null, S.player.x, S.player.y);
+    // In mock mode there is no world_init Socket event, so hydrate the same world
+    // DTO through the API contract before starting the local simulation.
+    let initialMap = null;
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      const mapCode = playerData.mapCode || playerData.mapId || "";
+      let worldDto = mapCode ? await Net.get(API.PATHS.worlds.byCode(mapCode)) : null;
+      if (!worldDto?.code) worldDto = await Net.get(API.PATHS.worlds.default);
+      if (worldDto?.code) initialMap = normalizeWorldDto(worldDto);
+    }
+    enterGame(initialMap, S.player.x, S.player.y);
   },
 
   playOffline() {

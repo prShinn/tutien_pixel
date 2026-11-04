@@ -132,7 +132,7 @@ const Input = {
           World.cancelPlayerMove(S.player);
           S.player.combatMove = false;
         }
-        if (socket?.connected) Net.pickupLoot(drop.id);
+        if (socket?.connected || (typeof MockBackend !== "undefined" && MockBackend?.enabled)) Net.pickupLoot(drop.id);
         else UI.log("Cần kết nối máy chủ để nhặt vật phẩm.", "system");
         return;
       }

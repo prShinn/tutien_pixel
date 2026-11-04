@@ -133,7 +133,7 @@ function netHarness(drops = []) {
     localStorage: { getItem() { return null; }, setItem() {} },
     sessionStorage: { getItem() { return null; }, removeItem() {} },
     S: { player: { px: 10, py: 10 }, groundItems: drops, combatPending: false },
-    CFG: { TS: 1 },
+    CFG: { TS: 1, PLAYER_COLLISION_RADIUS: 0.45 },
     API: { BASE: "http://game.test", PATHS: {} },
     UI: { log() {}, notify() {}, updateAutoLootToggle() {}, hideLoading() {} },
     setTimeout,
@@ -150,6 +150,47 @@ function netHarness(drops = []) {
   });
   context.__Net._isOnline = true;
   return { net: context.__Net, sent };
+}
+
+function localMockLootHarness() {
+  const events = [];
+  const notifications = [];
+  const inventory = [];
+  const state = {
+    player: { px: 5.5, py: 5.5, xu: 0 },
+    groundItems: [],
+    inventory,
+    combatPending: false,
+  };
+  const context = vm.createContext({
+    localStorage: { getItem() { return null; }, setItem() {} },
+    sessionStorage: { getItem() { return null; }, removeItem() {} },
+    S: state,
+    CFG: { TS: 1 },
+    API: { BASE: "http://game.test", PATHS: { player: { update: (id) => `/api/player/${id}` } } },
+    MockBackend: { enabled: true, async recordQuestEvent(type, details) { events.push({ type, details }); } },
+    Inventory: { add(item) { inventory.push({ ...item, count: 1 }); return true; } },
+    UI: {
+      notify(message, type) { notifications.push({ message, type }); },
+      pushLoot() {}, update() {}, log() {}, updateAutoLootToggle() {},
+    },
+    randInt(min) { return min; },
+    Date,
+    console: { warn() {}, error() {}, log() {} },
+  });
+  vm.runInContext(`${autoLootSource}\n${netSource}\n${combatSource}\nglobalThis.__Net = Net; globalThis.__Combat = Combat;`, context, { filename: "local-mock-loot.js" });
+  return { state, net: context.__Net, combat: context.__Combat, events, notifications };
+}
+
+function monsterPathHarness(tiles) {
+  const context = vm.createContext({
+    S: { tiles, mapW: tiles[0].length, mapH: tiles.length },
+    CFG: { TS: 1, PLAYER_COLLISION_RADIUS: 0.45 },
+    dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); },
+    randInt(min) { return min; },
+  });
+  vm.runInContext(`${worldSource}\n${monsterSource}\nglobalThis.__World = World; globalThis.__Monster = Monster;`, context, { filename: "monster-path-client.js" });
+  return { world: context.__World, monster: context.__Monster };
 }
 
 function skillHarness() {
@@ -281,6 +322,58 @@ test("online auto-pickup sends one authoritative command for the nearest eligibl
   assert.equal(sent.length, 1);
   assert.equal(sent[0].type, "loot.pickup");
   assert.equal(sent[0].payload.itemId, "near");
+});
+
+test("mock combat spawns catalog drops and auto-pickup grants item and currency locally", async () => {
+  const game = localMockLootHarness();
+  game.combat.dropLoot({
+    id: "wolf-1",
+    px: 5.5,
+    py: 5.5,
+    moneyDropChance: 1,
+    moneyDropFrom: 4,
+    moneyDropTo: 4,
+    dropTable: [{ item: { id: "STONE_LINH_NHO", name: "Linh thạch nhỏ" }, chance: 1, min: 1, max: 1 }],
+  });
+
+  assert.equal(game.state.groundItems.length, 2);
+  assert.ok(game.events.some((event) => event.type === "monster_kill"));
+  await game.net.tickAutoLoot(320);
+  assert.equal(game.state.groundItems.length, 1);
+  await game.net.tickAutoLoot(320);
+  assert.equal(game.state.inventory[0].id, "STONE_LINH_NHO");
+  assert.equal(game.state.groundItems.length, 0);
+  assert.equal(game.state.player.xu, 4);
+  assert.ok(game.events.some((event) => event.type === "collect_item"));
+});
+
+test("local monsters path around a river and throttle unreachable path retries", () => {
+  const tiles = Array.from({ length: 9 }, () => Array(10).fill(0));
+  for (let y = 1; y < 7; y += 1) tiles[y][5] = 2;
+  const game = monsterPathHarness(tiles);
+  const monster = { px: 2.5, py: 4.5 };
+  const waypoint = game.monster._pathTarget(monster, 8, 4, "player", 1000);
+  assert.ok(waypoint);
+  const route = game.world.findPath(2, 4, 8, 4);
+  assert.ok(route.waypoints.some((point) => point.y !== 4), "the route should go around the water wall");
+  let previous = { x: 2, y: 4 };
+  for (const point of route.waypoints) {
+    assert.ok(game.world.hasClearPath(previous.x, previous.y, point.x, point.y));
+    previous = point;
+  }
+
+  const blockedTiles = Array.from({ length: 7 }, () => Array(8).fill(0));
+  for (let y = 0; y < blockedTiles.length; y += 1) blockedTiles[y][4] = 2;
+  const blocked = monsterPathHarness(blockedTiles);
+  let pathCalls = 0;
+  const findPath = blocked.world.findPath.bind(blocked.world);
+  blocked.world.findPath = (...args) => { pathCalls += 1; return findPath(...args); };
+  const stuck = { px: 2.5, py: 3.5 };
+  assert.equal(blocked.monster._pathTarget(stuck, 6, 3, "player", 1000), null);
+  assert.equal(blocked.monster._pathTarget(stuck, 6, 3, "player", 1200), null);
+  assert.equal(pathCalls, 1);
+  blocked.monster._pathTarget(stuck, 6, 3, "player", 1500);
+  assert.equal(pathCalls, 2);
 });
 
 test("skill cast animation distinguishes physical strikes and magic or support skills", () => {

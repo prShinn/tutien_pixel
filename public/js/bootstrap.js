@@ -48,11 +48,14 @@
   }, true);
 
   function exposeCore(core) {
-    const { config, state, movement } = core;
+    const { config, state, movement, snapshots, fixedStep } = core;
     const context = state.getCanvasContext();
     const aliases = {
       CFG: { get: () => config.CFG },
       S: { get: () => state.S },
+      StateBus: { get: () => state.StateBus },
+      EntitySnapshots: { get: () => snapshots.EntitySnapshots },
+      FixedStepClock: { get: () => fixedStep },
       MovementFeedback: { get: () => movement.MovementFeedback },
       Linh_CAN: { get: () => config.getLinhCan(), set: config.setLinhCan },
       canvas: { get: () => context.canvas, set: (value) => { context.canvas = value; } },
@@ -76,8 +79,11 @@
     window.TuTien = Object.assign(window.TuTien || {}, {
       CFG: config.CFG,
       State: state.S,
+      StateBus: state.StateBus,
+      EntitySnapshots: snapshots.EntitySnapshots,
+      FixedStepClock: fixedStep,
       MovementFeedback: movement.MovementFeedback,
-      CoreModules: Object.freeze({ config, state, movement }),
+      CoreModules: Object.freeze({ config, state, movement, snapshots, fixedStep }),
     });
   }
 
@@ -111,8 +117,11 @@
   function publishClientFacade() {
     window.TuTien = Object.freeze(Object.assign(window.TuTien || {}, {
       API,
+      MockBackend: window.MockBackend,
       CFG,
       State: S,
+      StateBus,
+      EntitySnapshots,
       AutoLoot,
       Net,
       Auth,
@@ -138,13 +147,27 @@
   (async () => {
     try {
       loadingId = "core-modules";
-      const [config, state, movement, loader] = await Promise.all([
+      const [config, state, movement, snapshots, fixedStep, loader, mockBackendModule] = await Promise.all([
         import("./core/config.mjs?v=1"),
         import("./core/state.mjs?v=1"),
         import("./core/movement-feedback.mjs?v=1"),
+        import("./core/snapshot-buffer.mjs?v=1"),
+        import("./core/fixed-step.mjs?v=1"),
         import("./core/sequential-loader.mjs?v=1"),
+        import("./core/mock-backend.mjs?v=1"),
       ]);
-      exposeCore({ config, state, movement });
+      exposeCore({ config, state, movement, snapshots, fixedStep });
+      let storage = null;
+      let session = null;
+      try { storage = window.localStorage; } catch { }
+      try { session = window.sessionStorage; } catch { }
+      window.MockBackend = mockBackendModule.installMockBackend({
+        scope: window,
+        fetchImpl: window.fetch.bind(window),
+        storage,
+        session,
+      });
+      await window.MockBackend.ready;
       await loader.loadSequentially(scripts, loadScript);
       publishClientFacade();
       booting = false;

@@ -21,14 +21,17 @@ const Inventory = {
         iv.count++;
         UI.buildInv();
         UI.update();
-        return;
+        return true;
       }
     }
     if (S.inventory.length < CFG.INV_MAX) {
       S.inventory.push({ ...item, count: 1 });
       UI.buildInv();
       UI.update();
-    } else UI.log("Túi đồ đầy!", "system");
+      return true;
+    }
+    UI.log("Túi đồ đầy!", "system");
+    return false;
   },
 
   remove(idx) {

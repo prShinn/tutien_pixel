@@ -15,10 +15,14 @@
 // ════════════════════════════════════════════════════════════
 // §15 · GAME LOOP
 // ════════════════════════════════════════════════════════════
+const gameClock = FixedStepClock.createFixedStepClock({ maxFrameDeltaMs: 100, maxCatchUpSteps: 5 });
+
 function update(dt) {
   try {
     const p = S.player;
     if (!p) return;
+    p.previousPx = Number.isFinite(Number(p.px)) ? Number(p.px) : Number(p.x) * CFG.TS + CFG.TS / 2;
+    p.previousPy = Number.isFinite(Number(p.py)) ? Number(p.py) : Number(p.y) * CFG.TS + CFG.TS / 2;
     S.animT += dt;
     if (S.animT > 240) {
       S.animF ^= 1;
@@ -199,24 +203,6 @@ function update(dt) {
       Input.stopMovement();
     }
     
-    // Cập nhật vị trí cho Other Players (Interpolation)
-    for (const [, op] of S.players) {
-      if (op && op.tpx !== undefined && op.tpy !== undefined) {
-        const dx = op.tpx - op.px;
-        const dy = op.tpy - op.py;
-        const d = Math.hypot(dx, dy);
-        if (d > 0.1) {
-          const follow = 1 - Math.exp(-Math.max(0, dt) / 100);
-          const movedX = dx * follow;
-          const movedY = dy * follow;
-          if (!op.isMoving) op.walkDistance = 0;
-          op.px += movedX;
-          op.py += movedY;
-          op.walkDistance = Number(op.walkDistance || 0) + Math.hypot(movedX, movedY);
-        }
-      }
-    }
-
     for (const m of S.monsters) {
       if (m) Monster.update(m, dt);
     }
@@ -238,17 +224,21 @@ function update(dt) {
       p.hp = Math.min(p.maxHp, p.hp + CFG.REGEN_HP * dt);
       p.mp = Math.min(p.maxMp, p.mp + CFG.REGEN_MP * dt);
     }
-    UI.update();
+    if (typeof StateBus !== "undefined") {
+      StateBus.publishPlayerVitals(p);
+      StateBus.publishPlayerPosition(p, S.mapCode);
+      StateBus.publishTarget(S.target);
+    }
   } catch (e) {
     console.error("Game loop error:", e);
   }
 }
 
 function loop(ts) {
-  const dt = Math.min(ts - S.lastTs, 50);
+  const timing = gameClock.advance(ts);
   S.lastTs = ts;
-  update(dt);
-  Render.frame(dt);
+  for (let step = 0; step < timing.steps; step += 1) update(gameClock.stepMs);
+  Render.frame(timing.frameDelta, timing.alpha, ts);
   requestAnimationFrame(loop);
 }
 
@@ -471,6 +461,7 @@ function enterGame(map, x, y) {
 
   requestAnimationFrame((ts) => {
     S.lastTs = ts;
+    gameClock.reset(ts);
     requestAnimationFrame(loop);
   });
 }
@@ -521,14 +512,11 @@ function showScreen(name) {
   const ok = await Auth.tryAutoLogin().catch(() => false);
   if (!ok) showScreen("auth");
 
-  // 4. Kiểm tra trạng thái server (optional)
-  try {
-    document.getElementById("auth-status").textContent =
-      "✓ Máy chủ đang hoạt động";
-  } catch {
-    document.getElementById("auth-status").textContent =
-      "⚠ Máy chủ offline";
-  }
+  // The label must describe the active data source accurately.
+  const authStatus = document.getElementById("auth-status");
+  if (authStatus) authStatus.textContent = (typeof MockBackend !== "undefined" && MockBackend?.enabled)
+    ? "🧪 Đang dùng API mô phỏng trên trình duyệt"
+    : "✓ Máy chủ đang hoạt động";
 })();
 
 function bindGenderButtons() {

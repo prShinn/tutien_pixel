@@ -84,3 +84,32 @@ Giới hạn production: file JSON thuộc một tiến trình/máy chủ và ch
 Trạng thái: **đã có CRUD mock cho Quest, NPC, Items và Skills**. Admin có tìm kiếm, tạo/sửa bằng JSON có kiểm tra, xóa có xác nhận; API giữ ID bất biến khi sửa, so khớp ID số của skill, giữ nguyên chữ hoa trong mã catalog, kiểm tra trường thiết yếu và từ chối mã item/skill bị trùng. Tài khoản chỉ xem được.
 
 Giới hạn hiện tại: catalog Items/Skills dùng trực tiếp mảng mock server và ảnh hưởng API/runtime của tiến trình hiện tại; Quest/NPC trong Admin vẫn là dữ liệu demo riêng, chưa nối vào QuestService hoặc NPC trên world. Các thay đổi mất khi server khởi động lại. BE cần chốt schema chuẩn, nối Quest/NPC vào runtime, thêm repository/database, phân quyền admin theo vai trò và audit log trước khi phát hành.
+
+## Chế độ API mock phía trình duyệt (bỏ qua BE tạm thời)
+
+**Bật bằng:** mở `/?mockBackend=1` (hoặc thêm `?mockBackend=1` vào URL game hiện tại). Không có tham số này thì `fetch` và luồng BE hiện hành giữ nguyên. Admin API được loại khỏi bộ chặn mock.
+
+Chế độ này giữ nguyên URL, method, body và DTO mà game đang gọi qua REST; một lớp `fetch` thay phản hồi cho `/api/*` bằng dữ liệu local. File fixture được tạo lại từ catalog, balance, world structure và loot hiện có bằng `npm run mock:fixtures`; không sửa tay các file sinh ra trong `public/mock-api/`.
+
+| Nhóm | Contract FE giữ nguyên | Hành vi mock |
+| --- | --- | --- |
+| Đăng nhập | `POST /api/auth/demo`, `/login`, `/register`; `GET /api/auth/me` | Tạo phiên giả trong trình duyệt; không xác minh mật khẩu và không dùng cho môi trường thật. |
+| Dữ liệu | `GET /api/canh-gioi`, `/api/linh-can`, `/api/items`, `/api/skills`, `/api/monsters`, `/api/balance`, `/api/skill-vfx`, `/api/world-structure` | Đọc catalog fixture sinh từ `data/mock-data.js`, `data/balance.js`, `data/world-structure.js`. |
+| Thế giới | `GET /api/worlds`, `/default`, `/by-code?code=...` | Đọc map fixture; quái có bảng rơi đồ và vật phẩm rơi dùng catalog ID chuẩn. |
+| Nhân vật | `POST /api/player`; `GET /me`, `/state`, `/by-user/:userId`, `/power`; `PUT /:id` | Player lưu trong `localStorage` theo schema mock; endpoint mutation đọc catalog thay vì thuộc tính giả từ túi. |
+| Tiến trình | `POST /inventory/use`, `/shop/buy`, `/shop/sell`, `/cultivation/absorb`, `/cultivation/breakthrough`, `/stats/allocate`, `/skills/learn`, `/equipment/equip`, `/equipment/unequip`; `PUT /skills/equip` | Cập nhật player local và trả DTO cùng dạng các API hiện tại. |
+| Nhiệm vụ | `GET /api/quests`; `POST /:id/accept`, `/track`, `/claim` | Lưu tiến trình local; hạ quái và nhặt vật phẩm phát sự kiện tiến độ. |
+| Realtime | Không gửi Socket.IO khi bật mock | Di chuyển, AI quái, chiến đấu, kỹ năng, nhặt đồ/tự nhặt và chat chạy local trong tab. Quái/vật phẩm dưới đất được dựng lại khi tải lại map hoặc trang. |
+
+Các endpoint `/api/*` chưa có trong contract trả `501 MOCK_ENDPOINT_NOT_IMPLEMENTED`, để thiếu mock không biến thành phản hồi thành công giả. Static assets và `/api/admin/*` vẫn đi qua server thật. Lưu ý: account, combat, vị trí, quái và loot trong mode này chỉ để demo một người chơi; người dùng có thể sửa dữ liệu trình duyệt, không có multiplayer hay tính chống gian lận. Tắt mode bằng cách bỏ query `mockBackend=1`.
+
+**Vá xác thực vật phẩm:** `POST /api/player/inventory/use` và `POST /api/player/cultivation/absorb` phải tra `item.id` trong catalog BE để lấy loại, lượng tu vi và hiệu ứng; không dùng `type`, `giaTriTuVi`, `heal*` hoặc `stat*` trong inventory/client request làm nguồn giá trị. Test hồi quy ở `tests/player-router.test.js` bao gồm metadata giả và ID không có catalog.
+
+### Việc còn thuộc BE trước beta công khai
+
+- [ ] PostgreSQL/Prisma, transaction/ledger cho túi đồ, tiền, nhiệm vụ và quà; file JSON hiện tại vẫn serialize snapshot toàn player và chỉ an toàn cho một tiến trình.
+- [ ] Redis hoặc adapter lưu trữ chung cho world session, quái, loot, Socket room và distributed lock nếu chạy nhiều instance.
+- [ ] JWT blacklist/revoke hoặc refresh-token rotation; thu hồi phiên khi logout/đổi mật khẩu.
+- [ ] Giữ server authoritative cho combat/movement/loot; kiểm thử replay, race condition và quyền sở hữu cho mọi mutation.
+- [ ] Dời client classic script sang ESM dần; `combat.js`, `monster.js`, `shop.js` vẫn truy cập qua alias `window` trong giai đoạn chuyển tiếp.
+- [ ] Chạy migration DB, backup/restore, observability, rate limit và load test trước khi mở beta công khai.

@@ -206,6 +206,11 @@ const Net = {
   // ── Socket.io ──
   connectSocket() {
     if (!authToken) return;
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      Net._isOnline = false;
+      Net._setBadge(false);
+      return;
+    }
     if (socket?.connected || socket?.active) return;
     try {
       socket = io(API.SOCKET_URL, {
@@ -311,7 +316,9 @@ const Net = {
           S.monsters = mList.map((mData) => {
             const x = Number(mData.x ?? mData.spawnX ?? 0);
             const y = Number(mData.y ?? mData.spawnY ?? 0);
-            return Monster.make(mData, x, y, mData.id);
+            const monster = Monster.make(mData, x, y, mData.id);
+            if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(monster, monster.px, monster.py);
+            return monster;
           });
           S.groundItems = Array.isArray(data.groundItems) ? data.groundItems : [];
 
@@ -369,18 +376,13 @@ const Net = {
           clearTimeout(op._moveTimer);
           op._moveTimer = setTimeout(() => { op.isMoving = false; }, 180);
           // Lưu vị trí đích để nội suy (interpolation)
-          op.tx = data.x;
-          op.ty = data.y;
-          op.tpx = data.x * CFG.TS + CFG.TS / 2;
-          op.tpy = data.y * CFG.TS + CFG.TS / 2;
-
-          // Nếu đứng quá xa (> 4 ô), nhảy tới luôn để tránh đơ
-          const dx = op.tpx - op.px;
-          const dy = op.tpy - op.py;
-          if (Math.hypot(dx, dy) > CFG.NET_SNAP_DISTANCE) {
-            op.px = op.tpx;
-            op.py = op.tpy;
-          }
+          const tileX = Number(data.x), tileY = Number(data.y);
+          if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return;
+          op.tx = tileX;
+          op.ty = tileY;
+          op.tpx = tileX * CFG.TS + CFG.TS / 2;
+          op.tpy = tileY * CFG.TS + CFG.TS / 2;
+          if (typeof EntitySnapshots !== "undefined") EntitySnapshots.push(op, op.tpx, op.tpy);
         } catch (e) { console.error("player_move error:", e); }
       });
 
@@ -398,9 +400,14 @@ const Net = {
           if ((newMapCode || "").toLowerCase() !== (S.mapCode || "").toLowerCase()) {
             S.players.delete(pid);
           } else {
-            op.x = data.x;
-            op.y = data.y;
+            const tileX = Number(data.x), tileY = Number(data.y);
+            if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) return;
+            op.x = tileX;
+            op.y = tileY;
             op.mapCode = newMapCode;
+            op.px = tileX * CFG.TS + CFG.TS / 2;
+            op.py = tileY * CFG.TS + CFG.TS / 2;
+            if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(op, op.px, op.py);
           }
         }
       });
@@ -411,10 +418,13 @@ const Net = {
         for (const mData of monsters) {
           const m = S.monsters.find(mon => mon.id === mData.id);
           if (m) {
+            const tileX = Number(mData.x), tileY = Number(mData.y);
+            if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) continue;
             m.tx = mData.x;
             m.ty = mData.y;
-            m.tpx = mData.x * CFG.TS + CFG.TS / 2;
-            m.tpy = mData.y * CFG.TS + CFG.TS / 2;
+            m.tpx = tileX * CFG.TS + CFG.TS / 2;
+            m.tpy = tileY * CFG.TS + CFG.TS / 2;
+            if (typeof EntitySnapshots !== "undefined") EntitySnapshots.push(m, m.tpx, m.tpy);
             m.hp = Number(mData.hp) ?? m.hp;
             m.state = mData.state || m.state;
             m.dead = !!mData.dead;
@@ -427,9 +437,14 @@ const Net = {
         for (const data of monsters) {
           const m = S.monsters.find((mon) => mon.id === data.id);
           if (!m) continue;
+          const tileX = Number(data.x), tileY = Number(data.y);
+          if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) continue;
           const previousState = m.state;
-          m.tpx = Number(data.x) * CFG.TS + CFG.TS / 2;
-          m.tpy = Number(data.y) * CFG.TS + CFG.TS / 2;
+          m.tpx = tileX * CFG.TS + CFG.TS / 2;
+          m.tpy = tileY * CFG.TS + CFG.TS / 2;
+          if (Number.isFinite(m.tpx) && Number.isFinite(m.tpy) && typeof EntitySnapshots !== "undefined") {
+            EntitySnapshots.push(m, m.tpx, m.tpy);
+          }
           m.hp = Number(data.hp ?? m.hp);
           m.maxHp = Number(data.maxHp || m.maxHp);
           m.state = data.state || m.state;
@@ -490,8 +505,13 @@ const Net = {
         if (!monster?.id) return;
         const existing = S.monsters.find(m => m.id === monster.id);
         const fresh = Monster.make(monster, Number(monster.x ?? monster.spawnX ?? 0), Number(monster.y ?? monster.spawnY ?? 0), monster.id);
-        if (existing) Object.assign(existing, fresh, { dead: !!monster.dead });
-        else S.monsters.push(fresh);
+        if (existing) {
+          Object.assign(existing, fresh, { dead: !!monster.dead });
+          if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(existing, existing.px, existing.py);
+        } else {
+          if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(fresh, fresh.px, fresh.py);
+          S.monsters.push(fresh);
+        }
       });
 
       socket.on("ground_loot_spawn", ({ drops }) => {
@@ -726,25 +746,72 @@ const Net = {
   },
 
   pickupLoot(itemId, { automatic = false, claimed = false } = {}) {
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) return this._pickupMockLoot(itemId);
     if (!socket?.connected) {
       if (!automatic) UI.notify("Cần kết nối máy chủ để nhặt vật phẩm.", "warning");
       return Promise.resolve({ ok: false, error: { code: "OFFLINE" } });
     }
-    if (!claimed && !AutoLoot.claim(itemId)) return Promise.resolve({ ok: false, error: { code: "PICKUP_PENDING" } });
+    if (automatic && !claimed && !AutoLoot.claim(itemId)) return Promise.resolve({ ok: false, error: { code: "PICKUP_PENDING" } });
     return this.command("loot.pickup", { itemId }).then((response) => {
       const code = response?.error?.code;
       const retryAfter = response?.ok ? 2400
         : (code === "INVENTORY_FULL" ? 12000 : (code === "LOOT_NOT_FOUND" ? 10000 : 5000));
-      AutoLoot.settle(itemId, retryAfter);
+      if (automatic || claimed) AutoLoot.settle(itemId, retryAfter);
       return response;
     }, (error) => {
-      AutoLoot.settle(itemId, 5000);
+      if (automatic || claimed) AutoLoot.settle(itemId, 5000);
       throw error;
     });
   },
 
+  async _pickupMockLoot(itemId) {
+    const index = (S.groundItems || []).findIndex((drop) => String(drop.id) === String(itemId));
+    const drop = S.groundItems?.[index];
+    if (index < 0 || !drop || !S.player) {
+      AutoLoot.settle(itemId, 5000);
+      return { ok: false, error: { code: "LOOT_NOT_FOUND" } };
+    }
+    const x = Number(drop.x || 0) * CFG.TS + CFG.TS / 2;
+    const y = Number(drop.y || 0) * CFG.TS + CFG.TS / 2;
+    const distance = Math.hypot(Number(S.player.px ?? S.player.x) - x, Number(S.player.py ?? S.player.y) - y);
+    if (!Number.isFinite(distance) || distance > 22) {
+      AutoLoot.settle(itemId, 1800);
+      return { ok: false, error: { code: "LOOT_OUT_OF_RANGE" } };
+    }
+    if (drop.kind === "xu") {
+      S.player.xu = Number(S.player.xu || 0) + Math.max(0, Math.floor(Number(drop.xu) || 0));
+    } else {
+      const item = drop.item || drop;
+      const count = Math.max(1, Math.min(99, Math.floor(Number(drop.count || 1))));
+      let picked = 0;
+      while (picked < count && Inventory.add(item)) picked += 1;
+      if (!picked) {
+        AutoLoot.settle(itemId, 12000);
+        return { ok: false, error: { code: "INVENTORY_FULL" } };
+      }
+      if (picked < count) {
+        drop.count = count - picked;
+        AutoLoot.settle(itemId, 12000);
+      } else {
+        S.groundItems.splice(index, 1);
+        AutoLoot.complete(itemId);
+      }
+      await MockBackend.recordQuestEvent("collect_item", { itemId: item.id, count: picked });
+      UI.pushLoot({ items: [{ ...item, count: picked }] }, "Nhặt");
+    }
+    if (drop.kind === "xu") {
+      S.groundItems.splice(index, 1);
+      AutoLoot.complete(itemId);
+      UI.pushLoot({ items: [{ id: itemId, name: `${drop.xu} xu`, icon: "💰", count: 1 }] }, "Nhặt");
+    }
+    UI.update();
+    void this.saveNow({ type: "mock_loot" });
+    return { ok: true, item: drop.item || null };
+  },
+
   tickAutoLoot(dt) {
-    if (!this._autoLootEnabled || !this._isOnline || !socket?.connected || !S.player) return null;
+    const mockMode = Boolean((typeof MockBackend !== "undefined" && MockBackend?.enabled));
+    if (!this._autoLootEnabled || (!mockMode && (!this._isOnline || !socket?.connected)) || !S.player) return null;
     this._autoLootElapsed += Math.max(0, Number(dt) || 0);
     if (this._autoLootElapsed < 320) return null;
     this._autoLootElapsed = 0;
@@ -779,6 +846,29 @@ const Net = {
   emitMapChange(mapCode, x, y) {
     const px = Math.floor(x);
     const py = Math.floor(y);
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      UI.showLoading();
+      void this.get(API.PATHS.worlds.byCode(mapCode)).then((world) => {
+        if (!world?.code) throw new Error(world?.error || "Không tìm thấy bản đồ mô phỏng.");
+        World.loadMap(world, px, py);
+        if (S.player) {
+          S.player.mapCode = world.code;
+          S.player.mapId = world.code;
+          S.player.isTeleporting = false;
+          S.player.portalLocked = false;
+        }
+        UI.hideLoading();
+        void this.saveNow({ type: "mock_map_change" });
+      }).catch((error) => {
+        if (S.player) {
+          S.player.isTeleporting = false;
+          S.player.portalLocked = false;
+        }
+        UI.hideLoading();
+        UI.notify(error?.message || "Không thể chuyển bản đồ mô phỏng.", "error");
+      });
+      return;
+    }
     if (socket?.connected) {
       UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
       clearTimeout(Net._mapChangeTimer);
@@ -808,8 +898,15 @@ const Net = {
   _setBadge(online) {
     const ob = document.getElementById("online-badge");
     if (ob) {
-      ob.textContent = online ? "● Online" : "● Offline";
-      ob.style.color = online ? "var(--green)" : "#aa4444";
+      if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+        ob.textContent = "● Local Mock";
+        ob.style.color = "#e2c46f";
+        ob.title = "API đang dùng dữ liệu mô phỏng trên trình duyệt; không kết nối BE/Socket.";
+      } else {
+        ob.textContent = online ? "● Online" : "● Offline";
+        ob.style.color = online ? "var(--green)" : "#aa4444";
+        ob.title = "";
+      }
     }
   },
 
@@ -838,6 +935,10 @@ const Net = {
         updatedData.px = (p.x || 0) * CFG.TS + CFG.TS / 2;
         updatedData.py = (p.y || 0) * CFG.TS + CFG.TS / 2;
       }
+    }
+
+    if (typeof EntitySnapshots !== "undefined" && !Array.isArray(updatedData._snapshots)) {
+      EntitySnapshots.reset(updatedData, updatedData.px, updatedData.py);
     }
 
     S.players.set(pid, updatedData);

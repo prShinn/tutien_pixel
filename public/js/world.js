@@ -83,6 +83,7 @@ const World = {
       type: n.loaiNpc ? n.loaiNpc.toLowerCase() : n.type,
     }));
     S.monsters = [];
+    S.groundItems = [];
 
     const isCity = String(def.type || "").toUpperCase() === "CITY" || Boolean(def.rules?.noMonsters);
     if (!isCity) {

@@ -92,6 +92,68 @@ const UI = {
     const el = document.getElementById("loading-screen");
     if (el) el.style.display = "none";
   },
+  updateVitals(values = null) {
+    const p = values || S.player;
+    if (!p) return;
+    const hp = Math.floor(Number(p.hp) || 0);
+    const maxHp = Math.max(1, Math.floor(Number(p.maxHp) || 100));
+    const hpText = document.getElementById("ui-hp");
+    const hpBar = document.getElementById("b-hp");
+    if (hpText) hpText.textContent = `${hp}/${maxHp}`;
+    if (hpBar) hpBar.style.width = `${Math.min(100, Math.max(0, Math.floor((hp / maxHp) * 100)))}%`;
+
+    const mp = Math.floor(Number(p.mp) || 0);
+    const maxMp = Math.max(1, Math.floor(Number(p.maxMp) || 100));
+    const mpText = document.getElementById("ui-mp");
+    const mpBar = document.getElementById("b-mp");
+    if (mpText) mpText.textContent = `${mp}/${maxMp}`;
+    if (mpBar) mpBar.style.width = `${Math.min(100, Math.max(0, Math.floor((mp / maxMp) * 100)))}%`;
+
+    const cultivation = Number(p.tuViHienTai ?? p.cultivation) || 0;
+    const cultivationMax = Math.max(1, Number(p.tuViLenCap ?? p.cultivationMax) || 100);
+    const cultivationText = document.getElementById("ui-tu");
+    const cultivationBar = document.getElementById("b-tu");
+    if (cultivationText) cultivationText.textContent = `${Math.floor(cultivation)}/${Math.floor(cultivationMax)}`;
+    if (cultivationBar) cultivationBar.style.width = `${Math.min(100, Math.max(0, Math.floor((cultivation / cultivationMax) * 100)))}%`;
+    const xu = document.getElementById("ui-xu");
+    if (xu) xu.textContent = Math.floor(Number(p.xu) || 0).toLocaleString();
+  },
+  updatePosition(values = null) {
+    const p = values || S.player;
+    if (!p) return;
+    const mapName = document.getElementById("mini-map-name");
+    if (mapName) mapName.textContent = S.mapName || S.mapCode || "Bản đồ";
+    const coords = document.getElementById("map-coords");
+    if (coords) coords.textContent = `${Math.floor(Number(p.x) || 0)},${Math.floor(Number(p.y) || 0)}`;
+  },
+  updateTargetHud(target = S.target) {
+    const targetEl = document.getElementById("target-hud");
+    if (!targetEl) return;
+    if (!target || target.dead || Number(target.hp) <= 0) {
+      targetEl.style.display = "none";
+      if (target && S.target === target) S.target = null;
+      return;
+    }
+    targetEl.style.display = "block";
+    const nameEl = document.getElementById("target-name");
+    if (nameEl) nameEl.textContent = target.name || "Mục tiêu";
+    const levelEl = document.getElementById("target-level");
+    if (levelEl) levelEl.textContent = `Lv.${target.level || 1}`;
+    const elemEl = document.getElementById("target-elem");
+    if (elemEl) {
+      const elem = target.element || (Array.isArray(target.nguHanh) ? (target.nguHanh[0] || "VÔ") : (target.nguHanh || "VÔ"));
+      elemEl.textContent = elem;
+      elemEl.className = `target-badge elem elem-${String(elem).toLowerCase()}`;
+    }
+    const avatar = document.getElementById("target-avatar");
+    if (avatar) avatar.textContent = target.icon || "👾";
+    const hp = Math.max(0, Math.floor(Number(target.hp ?? target.maxHp ?? 100)));
+    const maxHp = Math.max(1, Math.floor(Number(target.maxHp) || 100));
+    const hpBar = document.getElementById("target-hp-bar");
+    if (hpBar) hpBar.style.width = `${Math.min(100, Math.max(0, Math.round((hp / maxHp) * 100)))}%`;
+    const hpText = document.getElementById("target-hp-text");
+    if (hpText) hpText.textContent = `${hp} / ${maxHp}`;
+  },
   update() {
     if (!S.player) return;
     const p = S.player;
@@ -155,32 +217,8 @@ const UI = {
     if (profileRealm) profileRealm.textContent = `${realmName} · Tầng ${p.tangTuVi || 1}`;
     document.getElementById("ui-cp").textContent = calcCombatPower(p).toLocaleString();
 
-    const hp = Math.floor(p.hp || 0);
-    const maxHp = Math.max(1, p.maxHp || 100);
-    document.getElementById("ui-hp").textContent = `${hp}/${maxHp}`;
-    document.getElementById("b-hp").style.width =
-      Math.min(100, Math.max(0, Math.floor((hp / maxHp) * 100))) + "%";
-
-    const mp = Math.floor(p.mp || 0);
-    const maxMp = Math.max(1, p.maxMp || 100);
-    document.getElementById("ui-mp").textContent = `${mp}/${maxMp}`;
-    document.getElementById("b-mp").style.width =
-      Math.min(100, Math.max(0, Math.floor((mp / maxMp) * 100))) + "%";
-
-    const tuViHienTai = Number(p.tuViHienTai) || 0;
-    const tuViLenCap = Math.max(1, Number(p.tuViLenCap) || 100);
-    const uiTu = document.getElementById("ui-tu");
-    if (uiTu) uiTu.textContent = `${Math.floor(tuViHienTai)}/${Math.floor(tuViLenCap)}`;
-    const bTu = document.getElementById("b-tu");
-    if (bTu) bTu.style.width = Math.min(100, Math.max(0, Math.floor((tuViHienTai / tuViLenCap) * 100))) + "%";
-
-    const uiXu = document.getElementById("ui-xu");
-    if (uiXu) uiXu.textContent = Math.floor(Number(p.xu) || 0).toLocaleString();
-
-    const mapName = document.getElementById("mini-map-name");
-    if (mapName) mapName.textContent = S.mapName || S.mapCode || "Bản đồ";
-    const coords = document.getElementById("map-coords");
-    if (coords) coords.textContent = `${Math.floor(p.x)},${Math.floor(p.y)}`;
+    this.updateVitals(p);
+    this.updatePosition(p);
 
     const s = p.stats;
     const _i = (v) => Math.floor(Number(v) || 0);
@@ -198,37 +236,7 @@ const UI = {
     setTxt("r-tvlc", p.tuViLinhCan || 0);
     setTxt("inv-head", `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`);
 
-    // ── Target HUD ──
-    const targetEl = document.getElementById("target-hud");
-    if (targetEl) {
-      const t = S.target;
-      if (t && !t.dead && (t.hp === undefined || t.hp > 0)) {
-        targetEl.style.display = "block";
-        const nameEl = document.getElementById("target-name");
-        if (nameEl) nameEl.textContent = t.name || "Mục tiêu";
-        const lvlEl = document.getElementById("target-level");
-        if (lvlEl) lvlEl.textContent = `Lv.${t.level || 1}`;
-        const elemEl = document.getElementById("target-elem");
-        if (elemEl) {
-          const elem = Array.isArray(t.nguHanh) ? (t.nguHanh[0] || "VÔ") : (t.nguHanh || "VÔ");
-          elemEl.textContent = elem;
-          elemEl.className = `target-badge elem elem-${String(elem).toLowerCase()}`;
-        }
-        const avEl = document.getElementById("target-avatar");
-        if (avEl) avEl.textContent = t.icon || "👾";
-
-        const curHp = Math.max(0, Math.floor(t.hp ?? t.maxHp ?? 100));
-        const maxHp = Math.max(1, Math.floor(t.maxHp ?? 100));
-        const pct = Math.min(100, Math.max(0, Math.round((curHp / maxHp) * 100)));
-        const barEl = document.getElementById("target-hp-bar");
-        if (barEl) barEl.style.width = `${pct}%`;
-        const txtEl = document.getElementById("target-hp-text");
-        if (txtEl) txtEl.textContent = `${curHp} / ${maxHp}`;
-      } else {
-        targetEl.style.display = "none";
-        if (t && (t.dead || t.hp <= 0)) S.target = null;
-      }
-    }
+    this.updateTargetHud();
 
     this.renderEquipment();
     SkillSystem.renderSkillBar();
@@ -455,3 +463,9 @@ const UI = {
     while (area.children.length > 150) area.removeChild(area.firstChild);
   },
 };
+
+if (typeof StateBus !== "undefined") {
+  StateBus.on("player:vitals_changed", (vitals) => UI.updateVitals(vitals));
+  StateBus.on("player:position_changed", (position) => UI.updatePosition(position));
+  StateBus.on("target:changed", (target) => UI.updateTargetHud(target));
+}

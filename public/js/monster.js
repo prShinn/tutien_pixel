@@ -58,7 +58,6 @@ const Monster = {
     SkillSystem.updateMonsterStatus(m, dt);
 
     if (Net._isOnline) {
-      Monster._networkUpdate(m, dt);
       return;
     }
     if (m.dead) return;
@@ -108,11 +107,17 @@ const Monster = {
     if (m.state === "chase") {
       if (dh > leashDistance * CFG.TS) {
         m.state = "return";
-        m.tpx = m.hx;
-        m.tpy = m.hy;
       } else {
-        m.tpx = p.px;
-        m.tpy = p.py;
+        const targetX = Number.isFinite(Number(p.x)) ? Number(p.x) : Number(p.px) / CFG.TS - 0.5;
+        const targetY = Number.isFinite(Number(p.y)) ? Number(p.y) : Number(p.py) / CFG.TS - 0.5;
+        const waypoint = Monster._pathTarget(m, targetX, targetY, "player", Date.now());
+        if (waypoint) {
+          m.tpx = (waypoint.x + 0.5) * CFG.TS;
+          m.tpy = (waypoint.y + 0.5) * CFG.TS;
+        } else {
+          m.tpx = m.px;
+          m.tpy = m.py;
+        }
       }
     }
 
@@ -123,12 +128,30 @@ const Monster = {
         m.tpy = m.hy;
       }
       if (dp < aggroRange * CFG.TS * 0.6) m.state = "chase";
+      if (m.state === "return") {
+        const homeX = Number(m.hx) / CFG.TS - 0.5;
+        const homeY = Number(m.hy) / CFG.TS - 0.5;
+        const waypoint = Monster._pathTarget(m, homeX, homeY, "home", Date.now());
+        if (waypoint) {
+          m.tpx = (waypoint.x + 0.5) * CFG.TS;
+          m.tpy = (waypoint.y + 0.5) * CFG.TS;
+        } else {
+          m.tpx = m.px;
+          m.tpy = m.py;
+        }
+      }
     }
 
     Monster._moveTowardsTarget(m, speed);
 
     // Monster Attack Player
-    if (dp < CFG.MON_ATTACK_RANGE && m.state === "chase" && !SkillSystem.isFrozenOrStunned(m)) {
+    const lineOfSight = World.hasClearPath(
+      Number(m.px) / CFG.TS - 0.5,
+      Number(m.py) / CFG.TS - 0.5,
+      Number.isFinite(Number(p.x)) ? Number(p.x) : Number(p.px) / CFG.TS - 0.5,
+      Number.isFinite(Number(p.y)) ? Number(p.y) : Number(p.py) / CFG.TS - 0.5,
+    );
+    if (dist(m.px, m.py, p.px, p.py) < CFG.MON_ATTACK_RANGE && lineOfSight && m.state === "chase" && !SkillSystem.isFrozenOrStunned(m)) {
       m.atkCd -= dt / 16;
       if (m.atkCd <= 0) {
         m.atkCd = 65;
@@ -137,16 +160,35 @@ const Monster = {
     }
   },
 
-  _networkUpdate(m, dt) {
-    if (m.tpx === undefined || isNaN(m.tpx)) return;
-    const dx = m.tpx - m.px;
-    const dy = m.tpy - m.py;
-    const d = Math.hypot(dx, dy);
-    if (d > 0.05) {
-      const step = Math.max(16, (m.speed || 1) * 36) * (dt / 1000);
-      m.px += (dx / d) * Math.min(d, step);
-      m.py += (dy / d) * Math.min(d, step);
+  _pathTarget(m, targetX, targetY, targetId, now = Date.now()) {
+    const sourceX = Number(m.px) / CFG.TS - 0.5;
+    const sourceY = Number(m.py) / CFG.TS - 0.5;
+    const targetTileX = Math.floor(Number(targetX));
+    const targetTileY = Math.floor(Number(targetY));
+    const elapsed = now - Number(m._localPathPlannedAt || 0);
+    const targetChanged = m._localPathTargetId !== targetId;
+    const targetMoved = m._localPathTargetX !== targetTileX || m._localPathTargetY !== targetTileY;
+    const routeExhausted = Array.isArray(m._localPath) && m._localPath.length === 0
+      && Math.hypot(Number(targetX) - sourceX, Number(targetY) - sourceY) > 1.5;
+    const shouldReplan = targetChanged
+      || m._localPath === undefined
+      || (elapsed >= 500 && (targetMoved || m._localPathFailed || routeExhausted));
+
+    if (shouldReplan) {
+      const route = World.findPath(sourceX, sourceY, targetX, targetY);
+      m._localPath = route?.waypoints || (route ? [] : null);
+      m._localPathDestination = route?.destination || null;
+      m._localPathFailed = !route;
+      m._localPathTargetId = targetId;
+      m._localPathTargetX = targetTileX;
+      m._localPathTargetY = targetTileY;
+      m._localPathPlannedAt = now;
     }
+    if (!Array.isArray(m._localPath)) return null;
+    while (m._localPath.length && Math.hypot(m._localPath[0].x - sourceX, m._localPath[0].y - sourceY) <= 0.2) {
+      m._localPath.shift();
+    }
+    return m._localPath[0] || m._localPathDestination;
   },
 
   playAttack(m, target, outcome = {}) {

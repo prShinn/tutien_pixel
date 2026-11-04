@@ -1,4 +1,4 @@
-// Quest journal UI. Progress and rewards are owned by the authenticated server.
+// Quest journal UI. Progress and rewards follow the API contract in live and mock modes.
 const QuestUI = {
   filter: "all",
   selectedId: "first-journey",
@@ -7,11 +7,14 @@ const QuestUI = {
   quests: [],
   revision: -1,
   status: "idle",
-  message: "Nhiệm vụ được máy chủ xác nhận.",
+  message: (typeof MockBackend !== "undefined" && MockBackend?.enabled) ? "Dữ liệu nhiệm vụ mô phỏng được lưu trên trình duyệt." : "Nhiệm vụ được máy chủ xác nhận.",
   busy: false,
   _loadPromise: null,
 
   init() {
+    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      window.addEventListener("mock-api:quest-state-changed", () => { void this.refresh(); });
+    }
     document.querySelectorAll("[data-quest-filter]").forEach((button) => {
       button.addEventListener("click", () => this.setFilter(button.dataset.questFilter));
     });
@@ -68,7 +71,9 @@ const QuestUI = {
         const snapshot = await Net.get(API.PATHS.quests.list);
         if (snapshot?.error) throw new Error(snapshot.error);
         this.applySnapshot(snapshot);
-        this.message = "Tiến độ nhiệm vụ được cập nhật từ máy chủ.";
+        this.message = (typeof MockBackend !== "undefined" && MockBackend?.enabled)
+          ? "Tiến độ đã cập nhật trong dữ liệu mô phỏng trên trình duyệt."
+          : "Tiến độ nhiệm vụ được cập nhật từ máy chủ.";
       } catch (error) {
         this.status = "error";
         this.message = error?.message || "Không tải được nhiệm vụ. Vui lòng thử lại.";
