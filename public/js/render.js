@@ -24,8 +24,123 @@ const TC = {
   [7]: ["#4a4030", "#5a5040"],   // PLAZA
 };
 
+const AUTOTILE_SIZE = 8;
+const AUTOTILE_VARIANTS = 4;
+const AUTOTILE_DIRECTIONS = [
+  { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
+  { bit: 4, dx: 0, dy: 1 }, { bit: 8, dx: -1, dy: 0 },
+  { bit: 16, dx: 1, dy: -1 }, { bit: 32, dx: 1, dy: 1 },
+  { bit: 64, dx: -1, dy: 1 }, { bit: 128, dx: -1, dy: -1 },
+];
+const AUTOTILE_PALETTES = {
+  0: { base: "#2a5a28", shade: "#21491f", light: "#3c7434", edge: "#84754a", detail: "#91a95a" },
+  1: { base: "#5a5a68", shade: "#454550", light: "#777786", edge: "#34343f", detail: "#a5a5ad" },
+  2: { base: "#1a3a6a", shade: "#102b53", light: "#2a5a9a", edge: "#73bfd0", detail: "#73bfd0" },
+  4: { base: "#3a3020", shade: "#2d2519", light: "#56452b", edge: "#806842", detail: "#a38a58" },
+  7: { base: "#4a4030", shade: "#3b3428", light: "#69583a", edge: "#897149", detail: "#b09a65" },
+};
+const AUTOTILE_GROUND_TYPES = Object.keys(AUTOTILE_PALETTES).map(Number);
+
+function normalizeAutotileMask(mask) {
+  const north = Boolean(mask & 1), east = Boolean(mask & 2), south = Boolean(mask & 4), west = Boolean(mask & 8);
+  if (!(north && east)) mask &= ~16;
+  if (!(east && south)) mask &= ~32;
+  if (!(south && west)) mask &= ~64;
+  if (!(west && north)) mask &= ~128;
+  return mask;
+}
+
+const AUTOTILE_MASKS = Array.from({ length: 256 }, (_, mask) => mask)
+  .filter((mask) => normalizeAutotileMask(mask) === mask);
+const AUTOTILE_MASK_INDEX = new Map(AUTOTILE_MASKS.map((mask, index) => [mask, index]));
+
+function autotileHash(x, y, seed = 0) {
+  return (Math.imul(x + 31, 73856093) ^ Math.imul(y + 17, 19349663) ^ Math.imul(seed + 7, 83492791)) >>> 0;
+}
+
 const Render = {
   _remoteWalkState: new WeakMap(),
+  _autotileAtlas: null,
+
+  buildAutotileAtlas() {
+    if (this._autotileAtlas) return this._autotileAtlas;
+    const atlas = document.createElement("canvas");
+    atlas.width = AUTOTILE_MASKS.length * AUTOTILE_VARIANTS * AUTOTILE_SIZE;
+    atlas.height = AUTOTILE_GROUND_TYPES.length * AUTOTILE_SIZE;
+    const atlasCtx = atlas.getContext("2d");
+    if (!atlasCtx) return null;
+    atlasCtx.imageSmoothingEnabled = false;
+
+    for (let row = 0; row < AUTOTILE_GROUND_TYPES.length; row += 1) {
+      const type = AUTOTILE_GROUND_TYPES[row];
+      const colors = AUTOTILE_PALETTES[type];
+      for (let maskIndex = 0; maskIndex < AUTOTILE_MASKS.length; maskIndex += 1) {
+        const mask = AUTOTILE_MASKS[maskIndex];
+        for (let variant = 0; variant < AUTOTILE_VARIANTS; variant += 1) {
+          const originX = (maskIndex * AUTOTILE_VARIANTS + variant) * AUTOTILE_SIZE;
+          const originY = row * AUTOTILE_SIZE;
+          atlasCtx.fillStyle = colors.base;
+          atlasCtx.fillRect(originX, originY, AUTOTILE_SIZE, AUTOTILE_SIZE);
+
+          for (let y = 0; y < AUTOTILE_SIZE; y += 1) {
+            for (let x = 0; x < AUTOTILE_SIZE; x += 1) {
+              const hash = autotileHash(x + variant * 11, y + maskIndex * 3, type);
+              const detail = hash % 29;
+              if (detail === 0 || detail === 1) {
+                atlasCtx.fillStyle = colors.shade;
+                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
+              } else if (detail === 2) {
+                atlasCtx.fillStyle = colors.light;
+                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
+              }
+              if (type === 2 && y === 2 + ((x + variant) % 4) && detail < 5) {
+                atlasCtx.fillStyle = colors.detail;
+                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
+              }
+            }
+          }
+
+          const edge = (side, i) => {
+            const sideBit = { north: 1, east: 2, south: 4, west: 8 }[side];
+            if (mask & sideBit) return;
+            const jitter = autotileHash(i, maskIndex, variant + type) % 3;
+            const x = side === "east" ? AUTOTILE_SIZE - 1 : side === "west" ? 0 : i;
+            const y = side === "south" ? AUTOTILE_SIZE - 1 : side === "north" ? 0 : i;
+            atlasCtx.fillStyle = colors.edge;
+            if (type === 2) {
+              if (jitter !== 0) atlasCtx.fillRect(originX + x, originY + y, 1, 1);
+            } else {
+              atlasCtx.fillRect(originX + x, originY + y, 1, 1);
+              if (jitter === 1 && i > 0 && i < AUTOTILE_SIZE - 1) {
+                const insetX = side === "east" ? -1 : side === "west" ? 1 : 0;
+                const insetY = side === "south" ? -1 : side === "north" ? 1 : 0;
+                atlasCtx.fillRect(originX + x + insetX, originY + y + insetY, 1, 1);
+              }
+            }
+          };
+          for (let i = 0; i < AUTOTILE_SIZE; i += 1) {
+            edge("north", i); edge("east", i); edge("south", i); edge("west", i);
+          }
+
+          // The 47-mask table includes rounded outer corners where a diagonal is absent.
+          const corners = [
+            { sides: 1 | 8, diagonal: 128, x: 0, y: 0 },
+            { sides: 1 | 2, diagonal: 16, x: AUTOTILE_SIZE - 1, y: 0 },
+            { sides: 2 | 4, diagonal: 32, x: AUTOTILE_SIZE - 1, y: AUTOTILE_SIZE - 1 },
+            { sides: 4 | 8, diagonal: 64, x: 0, y: AUTOTILE_SIZE - 1 },
+          ];
+          atlasCtx.fillStyle = colors.edge;
+          for (const corner of corners) {
+            if ((mask & corner.sides) === corner.sides && !(mask & corner.diagonal)) {
+              atlasCtx.fillRect(originX + corner.x, originY + corner.y, 1, 1);
+            }
+          }
+        }
+      }
+    }
+    this._autotileAtlas = atlas;
+    return atlas;
+  },
 
   buildTerrainCache() {
     if (!S.tiles?.length || !S.mapW || !S.mapH) return;
@@ -33,36 +148,120 @@ const Render = {
     terrain.width = S.mapW;
     terrain.height = S.mapH;
     const terrainCtx = terrain.getContext("2d");
-    const image = terrainCtx.createImageData(S.mapW, S.mapH);
-    const rgb = {
-      0: [42, 90, 40], 1: [90, 90, 104], 2: [26, 58, 106], 3: [38, 27, 25],
-      4: [74, 64, 40], 5: [28, 72, 31], 6: [75, 76, 88], 7: [102, 84, 52],
+    if (!terrainCtx) return;
+    terrainCtx.imageSmoothingEnabled = false;
+    terrainCtx.clearRect(0, 0, S.mapW, S.mapH);
+
+    const atlas = this.buildAutotileAtlas();
+    const cellSize = AUTOTILE_SIZE;
+    const columns = Math.ceil(S.mapW / cellSize);
+    const rows = Math.ceil(S.mapH / cellSize);
+    const kinds = Array.from({ length: rows }, () => Array(columns).fill(0));
+    const groundAt = (x, y) => {
+      const composite = Number(S.tiles?.[y]?.[x] ?? 0);
+      const value = Number(S.groundTiles?.[y]?.[x] ?? ([3, 5, 6].includes(composite) ? 0 : composite));
+      return AUTOTILE_GROUND_TYPES.includes(value) ? value : 0;
+    };
+
+    // Keep the 1px map/collision grid intact; classify 8x8 regions for rendering only.
+    for (let tileY = 0; tileY < rows; tileY += 1) {
+      for (let tileX = 0; tileX < columns; tileX += 1) {
+        const counts = Array(8).fill(0);
+        const endY = Math.min(S.mapH, (tileY + 1) * cellSize);
+        const endX = Math.min(S.mapW, (tileX + 1) * cellSize);
+        for (let y = tileY * cellSize; y < endY; y += 1) {
+          for (let x = tileX * cellSize; x < endX; x += 1) {
+            const type = groundAt(x, y);
+            counts[type] += 1;
+          }
+        }
+        let dominant = 0, dominantCount = -1;
+        for (const type of AUTOTILE_GROUND_TYPES) {
+          const count = counts[type];
+          if (count > dominantCount) { dominant = type; dominantCount = count; }
+        }
+        kinds[tileY][tileX] = dominant;
+      }
+    }
+
+    if (atlas) {
+      const typeRows = new Map(AUTOTILE_GROUND_TYPES.map((type, index) => [type, index]));
+      for (let tileY = 0; tileY < rows; tileY += 1) {
+        for (let tileX = 0; tileX < columns; tileX += 1) {
+          const type = kinds[tileY][tileX];
+          let mask = 0;
+          for (const direction of AUTOTILE_DIRECTIONS) {
+            if (kinds[tileY + direction.dy]?.[tileX + direction.dx] === type) mask |= direction.bit;
+          }
+          mask = normalizeAutotileMask(mask);
+          const maskIndex = AUTOTILE_MASK_INDEX.get(mask) ?? 0;
+          const variant = autotileHash(tileX, tileY, type) % AUTOTILE_VARIANTS;
+          const sourceX = (maskIndex * AUTOTILE_VARIANTS + variant) * cellSize;
+          const sourceY = typeRows.get(type) * cellSize;
+          terrainCtx.drawImage(atlas, sourceX, sourceY, cellSize, cellSize, tileX * cellSize, tileY * cellSize, cellSize, cellSize);
+        }
+      }
+    } else {
+      const fallbackColors = {
+        0: [42, 90, 40], 1: [90, 90, 104], 2: [26, 58, 106], 4: [74, 64, 40], 7: [102, 84, 52],
+      };
+      const fallback = terrainCtx.createImageData(S.mapW, S.mapH);
+      for (let y = 0; y < S.mapH; y += 1) {
+        for (let x = 0; x < S.mapW; x += 1) {
+          const color = fallbackColors[groundAt(x, y)] || fallbackColors[0];
+          const index = (y * S.mapW + x) * 4;
+          fallback.data[index] = color[0];
+          fallback.data[index + 1] = color[1];
+          fallback.data[index + 2] = color[2];
+          fallback.data[index + 3] = 255;
+        }
+      }
+      terrainCtx.putImageData(fallback, 0, 0);
+    }
+
+    // Reapply pixel-grid decorations over the autotiled ground so trees, walls and height data keep their map footprint.
+    const overlay = terrainCtx.createImageData(S.mapW, S.mapH);
+    const objectColors = {
+      3: [[36, 25, 23], [52, 35, 31], [83, 57, 48]],
+      5: [[24, 49, 27], [34, 77, 38], [54, 104, 46]],
+      6: [[64, 65, 76], [88, 89, 101], [124, 125, 134]],
     };
     for (let y = 0; y < S.mapH; y += 1) {
       for (let x = 0; x < S.mapW; x += 1) {
-        const composite = Number(S.tiles[y]?.[x] ?? 0);
-        const object = Number(S.objectTiles?.[y]?.[x] ?? -1);
-        const ground = Number(S.groundTiles?.[y]?.[x] ?? ([3, 5, 6].includes(composite) ? 0 : composite));
-        const tile = object >= 0 ? object : composite;
-        const base = rgb[tile] || rgb[ground] || rgb[0];
-        const hash = Math.abs(Math.imul(x + 37, 73856093) ^ Math.imul(y + 11, 19349663)) % 17;
-        const variation = (hash - 8) * (tile === 2 ? .7 : .45);
-        const lift = Number(S.elevationTiles?.[y]?.[x] || 0) * 5;
+        const composite = Number(S.tiles?.[y]?.[x] ?? 0);
+        const rawObject = Number(S.objectTiles?.[y]?.[x] ?? ([3, 5, 6].includes(composite) ? composite : -1));
+        const elevation = Math.max(0, Number(S.elevationTiles?.[y]?.[x] || 0) || 0);
         const index = (y * S.mapW + x) * 4;
-        image.data[index] = Math.max(0, Math.min(255, base[0] + variation + lift));
-        image.data[index + 1] = Math.max(0, Math.min(255, base[1] + variation + lift));
-        image.data[index + 2] = Math.max(0, Math.min(255, base[2] + variation + lift));
-        image.data[index + 3] = 255;
-        if (ground !== 2 && object < 0) {
-          const nearWater = S.groundTiles?.[y - 1]?.[x] === 2 || S.groundTiles?.[y + 1]?.[x] === 2
-            || S.groundTiles?.[y]?.[x - 1] === 2 || S.groundTiles?.[y]?.[x + 1] === 2;
-          if (nearWater) {
-            image.data[index] = 150; image.data[index + 1] = 133; image.data[index + 2] = 73;
-          }
+        if (objectColors[rawObject]) {
+          const palette = objectColors[rawObject];
+          const hash = autotileHash(x, y, rawObject) % 23;
+          const color = palette[hash < 3 ? 0 : hash < 17 ? 1 : 2];
+          const hasSameNeighbor = S.objectTiles?.[y - 1]?.[x] === rawObject
+            || S.objectTiles?.[y + 1]?.[x] === rawObject
+            || S.objectTiles?.[y]?.[x - 1] === rawObject
+            || S.objectTiles?.[y]?.[x + 1] === rawObject;
+          const shade = !hasSameNeighbor && rawObject !== 5 ? 0.76 : 1;
+          const lift = Math.min(20, elevation * 5);
+          overlay.data[index] = Math.min(255, Math.round(color[0] * shade + lift));
+          overlay.data[index + 1] = Math.min(255, Math.round(color[1] * shade + lift));
+          overlay.data[index + 2] = Math.min(255, Math.round(color[2] * shade + lift));
+          overlay.data[index + 3] = 255;
+        } else if (elevation) {
+          overlay.data[index] = 235;
+          overlay.data[index + 1] = 225;
+          overlay.data[index + 2] = 190;
+          overlay.data[index + 3] = Math.min(72, Math.round(elevation * 18));
         }
       }
     }
-    terrainCtx.putImageData(image, 0, 0);
+    const overlayCanvas = document.createElement("canvas");
+    overlayCanvas.width = S.mapW;
+    overlayCanvas.height = S.mapH;
+    const overlayCtx = overlayCanvas.getContext("2d");
+    if (overlayCtx) {
+      overlayCtx.putImageData(overlay, 0, 0);
+      terrainCtx.drawImage(overlayCanvas, 0, 0);
+    }
     S.terrainCanvas = terrain;
     const mini = document.createElement("canvas");
     mini.width = 144; mini.height = 96;

@@ -74,7 +74,7 @@ Renderer raster hóa toàn bộ địa hình vào offscreen canvas đúng một 
 
 1. Bổ sung công cụ đặt portal, NPC, bãi quái và vùng polygon trực tiếp trên canvas.
 2. Tách decoration/vật cản có chiều cao khỏi terrain cache để renderer đưa chúng vào cùng danh sách Y-sort với nhân vật.
-3. Chuẩn bị autotile atlas 16/47-mask như một lớp mỹ thuật độc lập trên micro-grid hiện tại. Bản đồ hiện có `CFG.TS = 1`, một ô dữ liệu là một world pixel; không được coi mỗi ô là một tile 16×16 hoặc đổi kích thước ô nếu chưa migrate collision, editor và tọa độ entity.
+3. Thay atlas Canvas tạo lúc chạy bằng tileset atlas pixel-art được họa theo biome; giữ nguyên lưới collision 1px và render cell 8×8.
 4. Chia map lớn thành chunk 32×32, version từng chunk và chỉ broadcast vùng lân cận.
 5. Thêm draft/publish để map đang sửa không thay đổi world online trước khi duyệt.
 
@@ -84,5 +84,7 @@ Renderer raster hóa toàn bộ địa hình vào offscreen canvas đúng một 
 - Player/monster từ socket được đưa vào buffer tối đa 3 snapshot và render chậm 100ms; gói cũ bị bỏ, teleport xa reset buffer.
 - HUD nhận event `player:vitals_changed`, `player:position_changed` và `target:changed`; DOM chỉ cập nhật khi giá trị đang hiển thị đổi.
 - Dynamic drawables (loot, NPC, monster, người chơi) dùng Y-sort ổn định theo điểm chân. Portal và terrain vẫn ở lớp nền.
+- Terrain ground/path/water dùng atlas Canvas 47-mask với 4 biến thể pixel cho mỗi loại; các vùng 8×8 world pixel được phân loại từ layer nền. `jsonMap`, collision và tọa độ entity vẫn ở lưới 1px.
+- `objects` và `elevation` được phủ lại trên atlas theo footprint 1px gốc để giữ đường viền rừng, núi và tường.
 
-Autotile atlas và Y-sort vật cản chưa bật trong client: map chưa có atlas/decoration sprite và các cây, vách hiện được raster hóa trong terrain cache. Muốn che khuất nhân vật đúng 2.5D, cần thêm object render layer với footprint/điểm chân; chỉ đổi thứ tự vẽ entity sẽ không làm cây trong cache che nhân vật.
+Atlas hiện được dựng theo palette procedural, chưa dùng tileset sprite được họa thủ công theo biome. Cây, núi và vách vẫn nằm trong terrain cache; muốn chúng che khuất nhân vật đúng 2.5D cần tách object render layer có sprite và điểm chân để Y-sort cùng entity.
