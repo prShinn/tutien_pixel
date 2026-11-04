@@ -202,9 +202,10 @@ const Monster = {
       const dmg = Math.max(1, Math.floor(((Number(m.atk || 1) * (1 + Math.max(0, threat) * 0.7) * affinity.multiplier + randInt(0, 2)) * weakenMult) * 100 / (100 + defense)));
       Monster.playAttack(m, p, { damage: dmg });
       p.hp = Math.max(0, p.hp - dmg);
-      p.hitUntil = Date.now() + 220;
+      p.animStartedAt = Date.now();
+      p.hitUntil = p.animStartedAt + 220;
       p.animState = "hurt";
-      p.animUntil = Date.now() + 260;
+      p.animUntil = p.animStartedAt + 260;
       p.hurtDirection = m.px < p.px ? 1 : -1;
       if (typeof SkillVFX === "undefined") Render.combatFx(p.px, p.py, "hurt", "#ff5268");
       S.cameraShake = { until: Date.now() + 90, power: 1.8 };

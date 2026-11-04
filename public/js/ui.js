@@ -16,6 +16,7 @@ const UI = {
   _lastEqHash: "",
   selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
+  _notifications: new Map(),
   pixelIconClass(item = {}, slotHint = "") {
     const values = [slotHint, item.slot, item.type, item.loai, item.id, item.name, item.effect, item.damageType, item.category]
       .filter(Boolean)
@@ -366,7 +367,69 @@ const UI = {
     });
   },
 
+  updateAutoLootToggle(enabled) {
+    const button = document.getElementById("btn-auto-loot");
+    const state = document.getElementById("auto-loot-state");
+    if (!button) return;
+    const isEnabled = Boolean(enabled);
+    button.setAttribute("aria-pressed", String(isEnabled));
+    button.setAttribute("aria-label", `Tự nhặt vật phẩm gần: đang ${isEnabled ? "bật" : "tắt"}`);
+    button.title = isEnabled ? "Tắt tự nhặt vật phẩm gần" : "Bật tự nhặt vật phẩm gần";
+    button.classList.toggle("active", isEnabled);
+    if (state) state.textContent = isEnabled ? "Nhặt: BẬT" : "Nhặt: TẮT";
+  },
+
+  notify(message, type = "info") {
+    const host = document.getElementById("game-notifications");
+    if (!host || message === undefined || message === null || String(message).trim() === "") return null;
+    const text = String(message).trim();
+    const kind = ["success", "warning", "error", "info"].includes(type) ? type : "info";
+    const key = `${kind}:${text}`;
+    const now = Date.now();
+    const existing = this._notifications.get(key);
+    if (existing?.node?.isConnected && now - existing.at < 2400) {
+      clearTimeout(existing.timer);
+      existing.at = now;
+      existing.timer = setTimeout(() => this._removeNotification(key, existing.node), existing.duration);
+      return existing.node;
+    }
+
+    const node = document.createElement("div");
+    node.className = `game-notification notice-${kind}`;
+    node.setAttribute("role", kind === "error" ? "alert" : "status");
+    node.textContent = text;
+    while (host.children.length >= 3) {
+      const oldest = host.firstElementChild;
+      if (!oldest) break;
+      oldest.remove();
+      for (const [oldKey, entry] of this._notifications) {
+        if (entry.node === oldest) {
+          clearTimeout(entry.timer);
+          this._notifications.delete(oldKey);
+          break;
+        }
+      }
+    }
+    host.appendChild(node);
+    const duration = kind === "error" ? 5200 : (kind === "warning" ? 4600 : (kind === "success" ? 4200 : 3600));
+    const entry = { node, at: now, duration, timer: null };
+    entry.timer = setTimeout(() => this._removeNotification(key, node), duration);
+    this._notifications.set(key, entry);
+    return node;
+  },
+
+  _removeNotification(key, node) {
+    node?.remove();
+    if (this._notifications.get(key)?.node === node) this._notifications.delete(key);
+  },
+
   log(msg, cls = "") {
+    if (cls !== "chat") {
+      const type = cls === "level" || cls === "loot" ? "success"
+        : (cls === "system" || cls === "combat" ? "warning" : "info");
+      this.notify(msg, type);
+      return;
+    }
     const area = document.getElementById("log-area");
     if (!area) return;
     const now = Date.now();

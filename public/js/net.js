@@ -30,6 +30,8 @@ const Net = {
   _pendingRequests: new Map(),
   _savePromise: null,
   _mapChangeTimer: null,
+  _autoLootElapsed: 0,
+  _autoLootEnabled: AutoLoot.isEnabled(),
   COMMAND_TIMEOUT_MS: 8000,
 
   command(type, payload = {}, onAck) {
@@ -41,7 +43,10 @@ const Net = {
         if (settled) return;
         settled = true;
         const response = { ok: false, requestId, command: type, error: { code: "COMMAND_TIMEOUT", message: "Máy chủ không phản hồi, vui lòng thử lại." } };
-        if (["combat.attack", "combat.skill"].includes(type)) S.combatPending = false;
+        if (["combat.attack", "combat.skill"].includes(type)) {
+          S.combatPending = false;
+          Net.cancelLocalCast();
+        }
         if (type === "map.change" && S.player) {
           S.player.isTeleporting = false;
           S.player.portalLocked = false;
@@ -56,7 +61,10 @@ const Net = {
         settled = true;
         clearTimeout(timeoutId);
         if (!response?.ok && response?.error?.message) {
-          if (["combat.attack", "combat.skill"].includes(type)) S.combatPending = false;
+          if (["combat.attack", "combat.skill"].includes(type)) {
+            S.combatPending = false;
+            Net.cancelLocalCast();
+          }
           if (type === "map.change" && S.player) {
             S.player.isTeleporting = false;
             S.player.portalLocked = false;
@@ -227,6 +235,7 @@ const Net = {
 
       socket.on("disconnect", () => {
         S.combatPending = false;
+        Net.cancelLocalCast();
         clearTimeout(Net._mapChangeTimer);
         Net._mapChangeTimer = null;
         if (S.player) {
@@ -376,13 +385,7 @@ const Net = {
 
       socket.on("movement_corrected", ({ x, y, reason }) => {
         if (!S.player || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return;
-        S.player.x = Number(x);
-        S.player.y = Number(y);
-        S.player.px = S.player.x * CFG.TS + CFG.TS / 2;
-        S.player.py = S.player.y * CFG.TS + CFG.TS / 2;
-        S.player.lastEmitX = S.player.x;
-        S.player.lastEmitY = S.player.y;
-        S.player.targetMovePos = null;
+        MovementFeedback.reconcile(S.player, Number(x), Number(y));
         if (reason) UI.log(`⚠ ${reason}`, "system");
       });
 
@@ -453,7 +456,8 @@ const Net = {
         if (targetActor && !miss && Number(damage) > 0) {
           targetActor.hitUntil = Date.now() + 220;
           targetActor.animState = "hurt";
-          targetActor.animUntil = Date.now() + 260;
+          targetActor.animStartedAt = Date.now();
+          targetActor.animUntil = targetActor.animStartedAt + 260;
           if (monster) targetActor.hurtDirection = monster.px < targetActor.px ? 1 : -1;
         }
         if (targetId !== socket.id || !S.player) return;
@@ -499,10 +503,17 @@ const Net = {
         }
         UI.pushLoot({ items: drops.map((drop) => ({ ...(drop.item || {}), id: drop.id, name: drop.kind === "xu" ? `${drop.xu} xu` : (drop.item?.name || drop.item?.id), icon: drop.kind === "xu" ? "💰" : drop.item?.icon, count: drop.kind === "xu" ? 1 : drop.count })) }, "Rơi");
       });
-      socket.on("ground_loot_state", ({ items }) => { S.groundItems = Array.isArray(items) ? items : []; });
-      socket.on("ground_loot_removed", ({ itemId }) => { S.groundItems = S.groundItems.filter((item) => item.id !== itemId); });
+      socket.on("ground_loot_state", ({ items }) => {
+        S.groundItems = Array.isArray(items) ? items : [];
+        AutoLoot.retain(S.groundItems.map((item) => item.id));
+      });
+      socket.on("ground_loot_removed", ({ itemId }) => {
+        S.groundItems = S.groundItems.filter((item) => item.id !== itemId);
+        AutoLoot.complete(itemId);
+      });
       socket.on("ground_loot_picked", ({ item, player, loot }) => {
         S.groundItems = S.groundItems.filter((entry) => entry.id !== item?.id);
+        if (item?.id !== undefined) AutoLoot.complete(item.id);
         if (player && S.player) {
           Object.assign(S.player, player);
           try { S.inventory = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : (player.inventory || S.inventory); } catch { }
@@ -549,13 +560,15 @@ const Net = {
           if (actor) {
             const physicalStrike = skill && SkillSystem.isOffensive(skill)
               && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
+            actor.animStartedAt = Date.now();
             actor.animState = physicalStrike ? "attack" : "cast";
-            actor.animUntil = Date.now() + (physicalStrike ? 360 : 520);
+            actor.animUntil = actor.animStartedAt + SkillSystem.animationDuration(skill || { damageType: "MAGIC" });
             Render.floatSkill(actor.px, actor.py, skillName);
           }
         } else if (actor) {
           actor.animState = "attack";
-          actor.animUntil = Date.now() + 360;
+          actor.animStartedAt = Date.now();
+          actor.animUntil = actor.animStartedAt + 360;
         }
         if (attackerId === socket.id && S.player) {
           if (typeof mp === "number") S.player.mp = mp;
@@ -587,9 +600,10 @@ const Net = {
       socket.on("player_skill_cast", ({ playerId, skillCode, skillName, effect }) => {
         const actor = S.players.get(playerId);
         if (!actor) return;
+        actor.animStartedAt = Date.now();
         actor.animState = "cast";
-        actor.animUntil = Date.now() + 520;
         const skill = typeof SkillVFX !== "undefined" ? SkillVFX.findSkill(skillCode, actor) : null;
+        actor.animUntil = actor.animStartedAt + SkillSystem.animationDuration(skill || { damageType: "MAGIC" });
         if (skill && typeof SkillVFX !== "undefined") SkillVFX.support(skill, actor);
         else Render.combatFx(actor.px, actor.py, "skill", effectColor(effect));
         if (skillName) Render.floatSkill(actor.px, actor.py, skillName, effectColor(effect));
@@ -603,8 +617,9 @@ const Net = {
         S.combatPending = false;
         S.combatGcd = Math.floor((gcdMs || 350) / 16);
         if (!S.player) return;
+        S.player.animStartedAt = Date.now();
         S.player.animState = "cast";
-        S.player.animUntil = Date.now() + 520;
+        S.player.animUntil = S.player.animStartedAt + 760;
         S.player.hp = hp;
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
@@ -649,6 +664,7 @@ const Net = {
 
       socket.on("action_error", ({ action, error }) => {
         if (action === "combat" || action === "skill") S.combatPending = false;
+        if (action === "combat" || action === "skill") Net.cancelLocalCast();
         if (action === "map_change" && S.player) {
           S.player.isTeleporting = false;
           S.player.portalLocked = false;
@@ -692,6 +708,57 @@ const Net = {
         mapCode: S.mapCode,
       });
     }
+  },
+
+  initializeAutoLoot() {
+    this._autoLootEnabled = AutoLoot.isEnabled();
+    UI.updateAutoLootToggle(this._autoLootEnabled);
+  },
+
+  cancelLocalCast() {
+    if (S.player && ["attack", "cast"].includes(S.player.animState)) {
+      S.player.animUntil = 0;
+      S.player.animStartedAt = 0;
+    }
+    if (typeof SkillVFX !== "undefined") SkillVFX.cancelCharge();
+  },
+
+  toggleAutoLoot() {
+    this._autoLootEnabled = AutoLoot.setEnabled(!AutoLoot.isEnabled());
+    this._autoLootElapsed = 0;
+    UI.updateAutoLootToggle(this._autoLootEnabled);
+    UI.notify(this._autoLootEnabled ? "Tự nhặt vật phẩm gần đã bật." : "Tự nhặt vật phẩm gần đã tắt.", this._autoLootEnabled ? "success" : "info");
+  },
+
+  pickupLoot(itemId, { automatic = false, claimed = false } = {}) {
+    if (!socket?.connected) {
+      if (!automatic) UI.notify("Cần kết nối máy chủ để nhặt vật phẩm.", "warning");
+      return Promise.resolve({ ok: false, error: { code: "OFFLINE" } });
+    }
+    if (!claimed && !AutoLoot.claim(itemId)) return Promise.resolve({ ok: false, error: { code: "PICKUP_PENDING" } });
+    return this.command("loot.pickup", { itemId }).then((response) => {
+      const code = response?.error?.code;
+      const retryAfter = response?.ok ? 2400
+        : (code === "INVENTORY_FULL" ? 12000 : (code === "LOOT_NOT_FOUND" ? 10000 : 5000));
+      AutoLoot.settle(itemId, retryAfter);
+      return response;
+    }, (error) => {
+      AutoLoot.settle(itemId, 5000);
+      throw error;
+    });
+  },
+
+  tickAutoLoot(dt) {
+    if (!this._autoLootEnabled || !this._isOnline || !socket?.connected || !S.player) return null;
+    this._autoLootElapsed += Math.max(0, Number(dt) || 0);
+    if (this._autoLootElapsed < 320) return null;
+    this._autoLootElapsed = 0;
+    const nearby = AutoLoot.nearby(S.groundItems, S.player, { radius: 22, tileSize: CFG.TS });
+    for (const drop of nearby) {
+      if (!AutoLoot.claim(drop.id)) continue;
+      return this.pickupLoot(drop.id, { automatic: true, claimed: true });
+    }
+    return null;
   },
 
   _updateHost() {

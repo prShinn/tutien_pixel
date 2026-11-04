@@ -127,7 +127,7 @@ const World = {
     ov.textContent = def.name ?? def.tenMap;
     ov.classList.add("show");
     setTimeout(() => ov.classList.remove("show"), 2200);
-    UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "system");
+    UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "chat");
     
     S.players.clear();
   },
@@ -160,6 +160,160 @@ const World = {
       }
     }
     return { tx, ty };
+  },
+
+  cancelPlayerMove(player = S.player) {
+    if (!player) return;
+    player.targetMovePos = null;
+    player.movePath = [];
+  },
+
+  hasClearPath(fromX, fromY, toX, toY) {
+    const dx = Number(toX) - Number(fromX);
+    const dy = Number(toY) - Number(fromY);
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.25));
+    for (let index = 1; index <= steps; index += 1) {
+      const progress = index / steps;
+      if (World.collides(Number(fromX) + dx * progress, Number(fromY) + dy * progress)) return false;
+    }
+    return true;
+  },
+
+  findPath(startX, startY, targetX, targetY) {
+    const width = Number(S.mapW || 0);
+    const height = Number(S.mapH || 0);
+    const sx = Math.floor(Number(startX));
+    const sy = Math.floor(Number(startY));
+    const tx = Math.floor(Number(targetX));
+    const ty = Math.floor(Number(targetY));
+    if (!width || !height || ![startX, startY, targetX, targetY].every((value) => Number.isFinite(Number(value)))) return null;
+    if (sx < 0 || sy < 0 || sx >= width || sy >= height || tx < 0 || ty < 0 || tx >= width || ty >= height) return null;
+    if (isSolid(sx, sy)) return null;
+
+    const exactTargetWalkable = !isSolid(tx, ty);
+    const goal = exactTargetWalkable ? { tx, ty } : World.nearestWalkable(tx, ty);
+    if (!goal || isSolid(goal.tx, goal.ty)) return null;
+    const goalIndex = goal.ty * width + goal.tx;
+    const startIndex = sy * width + sx;
+    const total = width * height;
+    const gScore = new Float64Array(total);
+    gScore.fill(Infinity);
+    const previous = new Int32Array(total);
+    previous.fill(-1);
+    const closed = new Uint8Array(total);
+    const heap = [];
+    const heuristic = (x, y) => {
+      const dx = Math.abs(goal.tx - x);
+      const dy = Math.abs(goal.ty - y);
+      return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+    };
+    const push = (node) => {
+      heap.push(node);
+      let index = heap.length - 1;
+      while (index > 0) {
+        const parent = Math.floor((index - 1) / 2);
+        if (heap[parent].f <= node.f) break;
+        heap[index] = heap[parent];
+        index = parent;
+      }
+      heap[index] = node;
+    };
+    const pop = () => {
+      const first = heap[0];
+      const last = heap.pop();
+      if (heap.length && last) {
+        let index = 0;
+        while (true) {
+          const left = index * 2 + 1;
+          const right = left + 1;
+          if (left >= heap.length) break;
+          const child = right < heap.length && heap[right].f < heap[left].f ? right : left;
+          if (heap[child].f >= last.f) break;
+          heap[index] = heap[child];
+          index = child;
+        }
+        heap[index] = last;
+      }
+      return first;
+    };
+    const directions = [
+      [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+      [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
+    ];
+    gScore[startIndex] = 0;
+    push({ index: startIndex, g: 0, f: heuristic(sx, sy) });
+    let expanded = 0;
+    let reached = false;
+    const maxExpanded = Math.min(total, 50000);
+
+    while (heap.length && expanded < maxExpanded) {
+      const current = pop();
+      if (!current || current.g !== gScore[current.index] || closed[current.index]) continue;
+      if (current.index === goalIndex) { reached = true; break; }
+      closed[current.index] = 1;
+      expanded += 1;
+      const x = current.index % width;
+      const y = Math.floor(current.index / width);
+      for (const [stepX, stepY, cost] of directions) {
+        const nextX = x + stepX;
+        const nextY = y + stepY;
+        if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height || isSolid(nextX, nextY)) continue;
+        if (stepX && stepY && (isSolid(x + stepX, y) || isSolid(x, y + stepY))) continue;
+        const nextIndex = nextY * width + nextX;
+        const nextG = current.g + cost;
+        if (nextG >= gScore[nextIndex]) continue;
+        gScore[nextIndex] = nextG;
+        previous[nextIndex] = current.index;
+        push({ index: nextIndex, g: nextG, f: nextG + heuristic(nextX, nextY) });
+      }
+    }
+    if (!reached) return null;
+
+    const reversed = [];
+    for (let cursor = goalIndex; cursor !== startIndex; cursor = previous[cursor]) {
+      if (cursor < 0) return null;
+      reversed.push({ x: cursor % width, y: Math.floor(cursor / width) });
+    }
+    reversed.reverse();
+    const waypoints = [];
+    let anchor = { x: Number(startX), y: Number(startY) };
+    let cursor = 0;
+    while (cursor < reversed.length) {
+      let furthest = cursor;
+      for (let candidate = reversed.length - 1; candidate > cursor; candidate -= 1) {
+        if (World.hasClearPath(anchor.x, anchor.y, reversed[candidate].x, reversed[candidate].y)) {
+          furthest = candidate;
+          break;
+        }
+      }
+      const point = reversed[furthest];
+      waypoints.push(point);
+      anchor = point;
+      cursor = furthest + 1;
+    }
+
+    let destination = { x: goal.tx, y: goal.ty };
+    if (exactTargetWalkable && World.hasClearPath(anchor.x, anchor.y, Number(targetX), Number(targetY))) {
+      destination = { x: Number(targetX), y: Number(targetY) };
+      const last = waypoints[waypoints.length - 1];
+      if (!last || Math.hypot(last.x - destination.x, last.y - destination.y) > 0.01) waypoints.push(destination);
+      else waypoints[waypoints.length - 1] = destination;
+    } else if (!waypoints.length || Math.hypot(anchor.x - destination.x, anchor.y - destination.y) > 0.01) {
+      waypoints.push(destination);
+    }
+    return { waypoints, destination, reachedTarget: exactTargetWalkable };
+  },
+
+  planPlayerMove(player, targetX, targetY) {
+    if (!player) return false;
+    const route = World.findPath(player.x, player.y, targetX, targetY);
+    if (!route) {
+      World.cancelPlayerMove(player);
+      return false;
+    }
+    player.targetMovePos = route.destination;
+    player.movePath = route.waypoints;
+    return true;
   },
 
   _open(zone) {

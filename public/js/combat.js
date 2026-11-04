@@ -122,7 +122,11 @@ const Combat = {
       UI.log("Mục tiêu ngoài tầm đánh thường.", "system");
       return;
     }
-    if (S.player) { S.player.animState = "attack"; S.player.animUntil = Date.now() + 360; }
+    if (S.player) {
+      S.player.animStartedAt = Date.now();
+      S.player.animState = "attack";
+      S.player.animUntil = S.player.animStartedAt + 360;
+    }
     if (socket?.connected) {
       S.combatPending = true;
       Net.command("combat.attack", { targetId: m.id, mapCode: S.mapCode });

@@ -244,13 +244,17 @@ const SkillVFX = {
       critical: Boolean(target?.critical),
     }));
     if (!points.length) points.push({ ...from, miss: false, critical: false });
-    const duration = mode === "charge" ? 230 : (profile.durationMs || (profile.tier >= 3 ? 760 : 580));
+    const duration = mode === "charge" ? 420 : (profile.durationMs || (profile.tier >= 3 ? 1120 : 980));
     this.active.push({ profile, from, targets: points, mode, startedAt: Date.now(), duration });
     if (this.active.length > this.maxActive) this.active.splice(0, this.active.length - this.maxActive);
   },
 
   charge(skill, source, target = null) {
     this.spawn(skill, source, target ? [target] : [], "charge");
+  },
+
+  cancelCharge() {
+    this.active = this.active.filter((entry) => entry.mode !== "charge");
   },
 
   impact(skill, source, targets) {

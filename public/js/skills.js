@@ -98,12 +98,33 @@ const SkillSystem = {
       && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
   },
 
+  animationDuration(skill) {
+    const physicalStrike = this.isOffensive(skill)
+      && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
+    return physicalStrike ? 620 : 760;
+  },
+
   async loadBook() {
     if (!S.player?.id) return;
     try {
       this._book = await Net.get(API.PATHS.data.skillCatalog);
-      this._selected = new Set((this._book.equippedSkills || (S.player.skills || []).map((skill) => skill.id))
-        .filter((code) => String((this._book.skills || []).find((skill) => skill.code === code)?.category || "ACTIVE").toUpperCase() !== "PASSIVE"));
+      const catalog = Array.isArray(this._book.skills) ? this._book.skills : [];
+      const visible = catalog.filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player.linhCan);
+      const learned = new Set((this._book.learnedSkills || []).map(String));
+      const visibleByCode = new Map(visible.map((skill) => [String(skill.code || skill.id || ""), skill]));
+      const requested = Array.isArray(this._book.equippedSkills)
+        ? this._book.equippedSkills
+        : (S.player.skills || []).map((skill) => skill.code || skill.id);
+      const selected = requested.map(String).filter((code) => {
+        const skill = visibleByCode.get(code);
+        return skill
+          && String(skill.category || "ACTIVE").toUpperCase() !== "PASSIVE"
+          && (!learned.size || learned.has(code));
+      });
+      this._selected = new Set(selected);
+      if (selected.length < requested.length) {
+        UI.notify("Có kỹ năng trang bị cũ không còn phù hợp linh căn; hãy chọn lại rồi lưu loadout.", "warning");
+      }
       this.renderSkillBook();
     } catch (error) {
       console.warn("[Skill] Không tải được sổ thần thông", error);
@@ -123,17 +144,36 @@ const SkillSystem = {
   toggleEquip(code) {
     if (this._selected.has(code)) this._selected.delete(code);
     else if (this._selected.size < 4) this._selected.add(code);
-    else return UI.log("Chỉ được trang bị tối đa 4 kỹ năng chủ động.", "system");
+    else return UI.notify("Chỉ được trang bị tối đa 4 kỹ năng chủ động.", "warning");
     this.renderSkillBook();
+    UI.notify(this._selected.has(code)
+      ? "Đã chọn kỹ năng. Bấm Lưu loadout để áp dụng."
+      : "Đã bỏ chọn kỹ năng. Bấm Lưu loadout để áp dụng.", "info");
   },
 
   async saveLoadout() {
-    const result = await Net.put(API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
-    if (result?.skills) {
-      S.player.skills = result.skills.map(mapBESkillToFE);
-      S.player.equippedSkills = result.equippedSkills;
-      UI.update();
-      UI.log("Đã thay đổi kỹ năng trang bị.", "level");
+    const button = document.querySelector(".skill-save-btn");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Đang lưu…";
+    }
+    try {
+      const result = await Net.put(API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
+      if (result?.skills) {
+        S.player.skills = result.skills.map(mapBESkillToFE);
+        S.player.equippedSkills = result.equippedSkills;
+        UI.update();
+        UI.notify("Đã lưu kỹ năng trang bị.", "success");
+      } else {
+        UI.notify(result?.error || "Chưa lưu được kỹ năng, hãy thử lại.", "error");
+      }
+    } catch {
+      UI.notify("Mất kết nối khi lưu kỹ năng. Hãy thử lại.", "error");
+    } finally {
+      if (button?.isConnected) {
+        button.disabled = false;
+        button.textContent = "Lưu loadout";
+      }
     }
   },
 
@@ -385,7 +425,8 @@ const SkillSystem = {
     const startCastAnimation = (target = null) => {
       const physicalStrike = this.isOffensive(skill) && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
       p.animState = physicalStrike ? "attack" : "cast";
-      p.animUntil = Date.now() + (physicalStrike ? 360 : 520);
+      p.animStartedAt = Date.now();
+      p.animUntil = p.animStartedAt + this.animationDuration(skill);
       if (typeof SkillVFX !== "undefined") SkillVFX.charge(skill, p, target);
     };
 

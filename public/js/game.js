@@ -128,8 +128,8 @@ function update(dt) {
         Net.emitMove();
       }
 
-      p.px = p.x * CFG.TS + CFG.TS / 2;
-      p.py = p.y * CFG.TS + CFG.TS / 2;
+      MovementFeedback.apply(p, CFG.TS);
+      Net.tickAutoLoot(dt);
 
       if ((Input.keys["Space"] || p.combatMove) && S.atkCd <= 0) {
         const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
@@ -177,9 +177,9 @@ function update(dt) {
         const dy = op.tpy - op.py;
         const d = Math.hypot(dx, dy);
         if (d > 0.1) {
-          const step = CFG.REMOTE_MOVE_SPEED * dt / 1000;
-          op.px += (dx / d) * Math.min(d, step);
-          op.py += (dy / d) * Math.min(d, step);
+          const follow = 1 - Math.exp(-Math.max(0, dt) / 100);
+          op.px += dx * follow;
+          op.py += dy * follow;
         }
       }
     }
@@ -215,7 +215,7 @@ function loop(ts) {
   const dt = Math.min(ts - S.lastTs, 50);
   S.lastTs = ts;
   update(dt);
-  Render.frame();
+  Render.frame(dt);
   requestAnimationFrame(loop);
 }
 
@@ -419,14 +419,15 @@ function enterGame(map, x, y) {
     World.loadMap(map, x, y);
     UI.hideLoading();
   } else {
-    UI.log("Đang chờ dữ liệu thế giới từ máy chủ...", "system");
+    UI.log("Đang chờ dữ liệu thế giới từ máy chủ...", "chat");
   }
   
   UI.buildInv();
   UI.update();
-  UI.log("Bắt đầu hành trình...", "system");
-  UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "system");
-  UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "system");
+  Net.initializeAutoLoot();
+  UI.log("Bắt đầu hành trình...", "chat");
+  UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "chat");
+  UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "chat");
   Net.connectSocket();
   Net.startAutoSave();
 

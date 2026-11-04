@@ -203,7 +203,7 @@ test("built-in profile keeps skill form, element palette, and default duration",
 });
 
 test("game and Admin shells request the current VFX and Admin assets", () => {
-  assert.match(gameHtml, /js\/skill-vfx\.js\?v=4/);
+  assert.match(gameHtml, /js\/skill-vfx\.js\?v=5/);
   assert.match(adminHtml, /js\/api\.js\?v=3/);
   assert.match(adminHtml, /admin\.css\?v=4/);
   assert.match(adminHtml, /js\/skill-vfx\.js\?v=4/);
@@ -340,6 +340,18 @@ test("impact duration uses the saved profile and renderer emits distinct pixel p
   assert.ok(slash.length > 0);
   assert.ok(fireball.length > 0);
   assert.notEqual(slash, fireball);
+});
+
+test("cast-up and default impact timings leave time to read the skill animation", () => {
+  const { vfx } = createHarness();
+  vfx.charge(fireSkill, { px: 20, py: 30 }, { px: 60, py: 30 });
+  assert.equal(vfx.active.at(-1).mode, "charge");
+  assert.equal(vfx.active.at(-1).duration, 420);
+
+  vfx.impact(fireSkill, { px: 20, py: 30 }, [{ px: 60, py: 30 }]);
+  assert.equal(vfx.active.at(-1).duration, 980);
+  vfx.impact({ ...fireSkill, tier: 3 }, { px: 20, py: 30 }, [{ px: 60, py: 30 }]);
+  assert.equal(vfx.active.at(-1).duration, 1120);
 });
 
 test("Admin HTML bindings load catalog and complete create, update, and delete", async () => {

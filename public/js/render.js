@@ -70,16 +70,17 @@ const Render = {
     S.miniTerrainCanvas = mini;
   },
 
-  frame() {
+  frame(dt = 1000 / 60) {
     const p = S.player;
     if (!p) return;
     
     const ts = CFG.TS, ds = CFG.DS;
     const lcW = cW / ds, lcH = cH / ds; // Logical Canvas Size
     
-    // Giảm lerp xuống 0.12 để camera mượt hơn, tránh giật khi nhân vật di chuyển nhanh
-    S.cam.x = lerp(S.cam.x, p.px - lcW / 2, 0.12);
-    S.cam.y = lerp(S.cam.y, p.py - lcH / 2, 0.12);
+    // Giữ cùng nhịp bám camera giữa màn hình 30, 60 và 120 FPS.
+    const cameraFollow = 1 - Math.exp(-Math.max(0, Number(dt) || 0) / 130);
+    S.cam.x = lerp(S.cam.x, p.px - lcW / 2, cameraFollow);
+    S.cam.y = lerp(S.cam.y, p.py - lcH / 2, cameraFollow);
     S.cam.x = Math.max(0, Math.min(S.mapW * ts - lcW, S.cam.x));
     S.cam.y = Math.max(0, Math.min(S.mapH * ts - lcH, S.cam.y));
     
@@ -377,11 +378,14 @@ const Render = {
       this._prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
     }
     const reduceMotion = this._prefersReducedMotion;
+    const actionElapsed = Math.max(0, now - Number(actor?.animStartedAt || now));
     const rawFrame = reduceMotion ? 0 : Math.floor(now / animation.speed) % 4;
     // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
     const frameIndex = reduceMotion
       ? ((activeAction === "attack" || activeAction === "cast" || activeAction === "hurt") ? 2 : 0)
-      : (activeAction === "idle" ? [0, 1, 2, 1][rawFrame] : rawFrame);
+      : (activeAction === "idle"
+        ? [0, 1, 2, 1][rawFrame]
+        : (activeAction === "walk" ? rawFrame : Math.min(3, Math.floor(actionElapsed / animation.speed))));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
       : 0;

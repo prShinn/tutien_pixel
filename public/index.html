@@ -6,7 +6,7 @@
     <title>Vạn Cổ Đế Tôn</title>
     <!-- Socket.io client — tải từ server khi deploy thực. Dùng CDN cho demo -->
     <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/style.css?v=4" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -290,6 +290,7 @@
         <small id="quest-tracker-count"></small>
       </aside>
       <div id="loot-feed" aria-live="polite"></div>
+      <div id="game-notifications" aria-live="polite" aria-relevant="additions text" aria-label="Thông báo trong game"></div>
 
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
@@ -338,6 +339,7 @@
           <button class="kpah-btn" type="button" onclick="UI.toggleContinent()"><span class="pixel-icon icon-map" aria-hidden="true"></span>Đại lục</button>
           <button class="kpah-btn" type="button" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span>Chat</button>
           <button class="kpah-btn" type="button" id="btn-auto" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span>Tự Động</button>
+          <button class="kpah-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
         </div>
       </div>
 
@@ -504,27 +506,29 @@
     <script src="./js/api.js?v=3"></script>
     <script src="./js/config.js"></script>
     <script src="./js/state.js"></script>
+    <script src="./js/auto-loot.js"></script>
+    <script src="./js/movement-feedback.js"></script>
     <script src="./js/utils.js"></script>
     <script src="./js/balance.js"></script>
     <!-- Tầng 2: Cần config -->
     <script src="./js/gamedata.js"></script>
-    <script src="./js/net.js?v=1"></script>
+    <script src="./js/net.js?v=3"></script>
     <script src="./js/auth.js"></script>
     <!-- Tầng 3: Game systems -->
-    <script src="./js/world.js"></script>
-    <script src="./js/monster.js"></script>
-    <script src="./js/skills.js"></script>
-    <script src="./js/combat.js"></script>
+    <script src="./js/world.js?v=2"></script>
+    <script src="./js/monster.js?v=2"></script>
+    <script src="./js/skills.js?v=2"></script>
+    <script src="./js/combat.js?v=2"></script>
     <script src="./js/cultivation.js"></script>
     <script src="./js/inventory.js"></script>
     <script src="./js/shop.js"></script>
-    <script src="./js/render.js"></script>
-    <script src="./js/skill-vfx.js?v=4"></script>
-    <script src="./js/ui.js"></script>
+    <script src="./js/render.js?v=2"></script>
+    <script src="./js/skill-vfx.js?v=5"></script>
+    <script src="./js/ui.js?v=2"></script>
     <script src="./js/quest.js?v=1"></script>
     <script src="./js/input.js"></script>
     <!-- Tầng 4: Entry point (phụ thuộc tất cả) -->
-    <script src="./js/game.js"></script>
+    <script src="./js/game.js?v=4"></script>
     <!-- Màn hình chờ nạp bản đồ -->
     <div id="loading-screen" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10000; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:monospace;">
       <div style="font-size:20px; margin-bottom:20px; color:#ffd700; letter-spacing:4px; text-shadow:0 0 10px rgba(255,215,0,0.5);">ĐANG KẾT NỐI THIÊN ĐỊA...</div>
