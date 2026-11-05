@@ -90,7 +90,7 @@ const World = {
       if (Array.isArray(def.monsterSpawns) && def.monsterSpawns.length > 0) {
         for (const pack of def.monsterSpawns) {
           const tmpl = (def.monsters || []).find((m) => m.id === pack.templateId || m.code === pack.templateId) || def.monsters?.[0] || pack;
-          const count = Math.max(3, Math.min(5, Number(pack.count || 4)));
+          const count = Math.max(String(tmpl.type || "").toUpperCase() === "BOSS" ? 1 : 3, Math.min(5, Number(pack.count || 4)));
           const radius = Number(pack.radius || 24);
           for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;

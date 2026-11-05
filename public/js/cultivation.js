@@ -141,21 +141,27 @@ const Cultivation = {
 
   async absorbStone() {
     const p = S.player;
+    if (!p || this._absorbPending) return;
     const idx = S.inventory.findIndex(
       (i) => i.type === "STONE" || i.type === "ELEMSTONE",
     );
     if (idx < 0) {
-      UI.log("Không có linh thạch!", "system");
+      UI.notify("Không có linh thạch!", "warning");
       return;
     }
     const item = S.inventory[idx];
     if (authToken) {
-      const result = await Net.mutate("POST", API.PATHS.player.absorb, { itemCode: item.itemCode || item.id });
-      if (!result?.player) return UI.log(result?.error || "Không thể hấp thụ tu vi.", "system");
-      Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(`${item.icon} Hấp thu ${item.name} → Tu Vi +${result.result.amount}`, "level");
-      UI.buildInv();
-      UI.update();
+      this._absorbPending = true;
+      try {
+        const result = await Net.mutate("POST", API.PATHS.player.absorb, { itemCode: item.itemCode || item.id });
+        if (!result?.player) return UI.notify(result?.error || "Không thể hấp thụ tu vi.", "error");
+        Net.applyPlayerSnapshot(result.player, { render: false });
+        UI.notify(`Hấp thu ${item.name} → Tu vi +${result.result.amount}`, "success");
+        UI.buildInv();
+        UI.update();
+      } catch (error) {
+        UI.notify(error.message || "Không kết nối được máy chủ để hấp thụ tu vi.", "error");
+      } finally { this._absorbPending = false; }
       return;
     }
     this.normalizePlayerStats(p);
@@ -190,22 +196,37 @@ const Cultivation = {
 
   async tryBreakthrough() {
     const p = S.player;
+    if (!p || this._breakthroughPending) return;
+    if (p.dead) return UI.notify("Không thể đột phá khi đang trọng thương.", "warning");
+    const stage = p.canhGioi?.tangTuVi?.find((entry) => Number(entry.stt) === Number(p.tangTuVi));
+    if (stage?.toiCao) return UI.notify("Đã đạt cảnh giới tối cao hiện tại.", "info");
     if (p.tuViHienTai < p.tuViLenCap) {
-      UI.log(
+      UI.notify(
         `Tu vi chưa đủ! Cần ${Math.floor(p.tuViLenCap)}, có ${Math.floor(p.tuViHienTai)}`,
-        "system",
+        "warning",
       );
       return;
     }
 
     if (authToken) {
-      const result = await Net.mutate("POST", API.PATHS.player.breakthrough, {});
-      if (!result?.player) return UI.log(result?.error || "Không thể đột phá.", "system");
-      Net.applyPlayerSnapshot(result.player, { render: false });
-      const major = Boolean(result.major ?? result.result?.major);
-      UI.log(major ? "🌟 Thăng cảnh giới!" : `⚡ Đột phá tầng ${p.tangTuVi}!`, "level");
-      this.showBreakthroughEffect(major);
-      UI.update();
+      const majorAttempt = Number(p.tangTuVi) >= Number(p.canhGioi?.soTang || 9);
+      const pillCode = majorAttempt ? p.canhGioi?.danPhaCanh : null;
+      if (pillCode && !(S.inventory || []).some((item) => (item.itemCode || item.id) === pillCode && Number(item.count ?? item.quantity ?? 0) > 0)) {
+        const pillName = CFG.ITEMS?.[pillCode]?.name || pillCode;
+        return UI.notify(`Cần 1 ${pillName} trong túi để phá đại cảnh giới. Đan được tự tiêu hao khi đột phá thành công.`, "warning");
+      }
+      this._breakthroughPending = true;
+      try {
+        const result = await Net.mutate("POST", API.PATHS.player.breakthrough, {});
+        if (!result?.player) return UI.notify(result?.error || "Không thể đột phá.", "error");
+        Net.applyPlayerSnapshot(result.player, { render: false });
+        const major = Boolean(result.major ?? result.result?.major);
+        UI.notify(major ? "Thăng cảnh giới thành công!" : `Đột phá tầng ${S.player.tangTuVi} thành công!`, "success");
+        this.showBreakthroughEffect(major);
+        UI.update();
+      } catch (error) {
+        UI.notify(error.message || "Không kết nối được máy chủ để đột phá.", "error");
+      } finally { this._breakthroughPending = false; }
       return;
     }
 

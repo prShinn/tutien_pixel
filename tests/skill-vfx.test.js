@@ -324,7 +324,7 @@ test("active thunder shield persists visually when a skill response omits buff s
 });
 
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
-  assert.match(gameHtml, /js\/bootstrap\.js\?v=17/);
+  assert.match(gameHtml, /js\/bootstrap\.js\?v=18/);
   assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=16/);
   assert.match(adminHtml, /js\/api\.js\?v=5/);
   assert.match(adminHtml, /admin\.css\?v=5/);

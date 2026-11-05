@@ -1,0 +1,151 @@
+{
+  "before": {
+    "skills": 102,
+    "nonBossMonsters": 45,
+    "worlds": 7,
+    "pills": [
+      {
+        "realm": "LUYEN_THE",
+        "item": "DAN_PHI_THANG",
+        "buyPrice": 650
+      },
+      {
+        "realm": "KHI_DONG",
+        "item": "DAN_KHI_NGUNG",
+        "buyPrice": 2200
+      },
+      {
+        "realm": "LY_HOP",
+        "item": "DAN_LY_HOP",
+        "buyPrice": 0
+      },
+      {
+        "realm": "CHAN_NGUYEN",
+        "item": "DAN_CHAN_NGUYEN",
+        "buyPrice": 0
+      },
+      {
+        "realm": "THAN_DU",
+        "item": "DAN_THAN_HANH",
+        "buyPrice": 0
+      },
+      {
+        "realm": "SIEU_PHAM",
+        "item": "DAN_SIEU_PHAM",
+        "buyPrice": 0
+      },
+      {
+        "realm": "NHAP_THANH",
+        "item": "DAN_THANH_VI",
+        "buyPrice": 0
+      },
+      {
+        "realm": "THANH_VUONG",
+        "item": "DAN_HU_KHONG",
+        "buyPrice": 0
+      },
+      {
+        "realm": "DONG_HU",
+        "item": "DAN_HU_VUONG",
+        "buyPrice": 0
+      },
+      {
+        "realm": "HU_VUONG",
+        "item": "DAN_DAI_DAO",
+        "buyPrice": 0
+      },
+      {
+        "realm": "DAO_NGUYEN",
+        "item": "DAN_DE_NGUYEN",
+        "buyPrice": 0
+      },
+      {
+        "realm": "DE_TON",
+        "item": "DAN_DAI_DE",
+        "buyPrice": 0
+      }
+    ]
+  },
+  "route": [
+    {
+      "code": "alpha_thanh_moc_lam",
+      "name": "Thanh Mộc Lâm",
+      "npcs": 3,
+      "monsters": [
+        "THANH_DIEP_YEU",
+        "THIET_NHA_LANG",
+        "SA_DIA_TRU"
+      ],
+      "packs": 3
+    },
+    {
+      "code": "alpha_han_thuy_khe",
+      "name": "Hàn Thủy Khê",
+      "npcs": 3,
+      "monsters": [
+        "THUY_LINH_THAO",
+        "BANG_NHA_LANG",
+        "DOC_NHA_LANG"
+      ],
+      "packs": 3
+    },
+    {
+      "code": "alpha_xich_diem_son",
+      "name": "Xích Diệm Sơn",
+      "npcs": 3,
+      "monsters": [
+        "XICH_MAO_TRU",
+        "DUNG_NHAM_LANG",
+        "HOA_TINH_THAO"
+      ],
+      "packs": 3
+    },
+    {
+      "code": "alpha_loi_van_coc",
+      "name": "Lôi Vân Cốc",
+      "npcs": 3,
+      "monsters": [
+        "DIEN_NHA_LANG",
+        "LOI_LINH_THAO",
+        "THACH_BI_LANG"
+      ],
+      "packs": 3
+    }
+  ],
+  "anchor": "thanh_van_tran",
+  "items": [
+    {
+      "id": "DAN_PHI_THANG",
+      "price": 650
+    },
+    {
+      "id": "DAN_KHI_NGUNG",
+      "price": 2200
+    },
+    {
+      "id": "STONE_LINH_TRUNG",
+      "price": 100
+    },
+    {
+      "id": "STONE_LINH_LON",
+      "price": 300
+    }
+  ],
+  "catalogHealth": {
+    "skillImagesMissing": [],
+    "monsterImagesMissing": [],
+    "monsterLootMissing": [],
+    "activeSkills": 93,
+    "passiveSkills": 9
+  },
+  "documentBytes": {
+    "anchor": 2133859,
+    "maps": [
+      175987,
+      176005,
+      175997,
+      175835
+    ],
+    "mysqlPacket": 16777216
+  }
+}

@@ -46,6 +46,9 @@ const Inventory = {
   async use(idx) {
     const item = S.inventory[idx];
     if (!item) return;
+    if ((item.type || item.loai) === "BREAKTHROUGH_PILL") {
+      return UI.notify("Giữ đan trong túi và bấm Đột phá khi đủ tu vi, OVR và tầng cuối. Máy chủ tự tiêu hao 1 viên khi phá đại cảnh giới.", "info");
+    }
     if (authToken && (item.type || item.loai) === "EQUIPMENT") {
       const targetSlot = item.slot === "helmet" ? "hat" : (item.slot || "weapon");
       const result = await Net.mutate("POST", API.PATHS.player.equipItem, { itemCode: item.itemCode || item.id, slot: targetSlot });
