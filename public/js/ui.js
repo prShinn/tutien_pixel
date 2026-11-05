@@ -50,6 +50,10 @@ const UI = {
     const itemArtClass = slotHint === "skill" ? "" : " item-art-icon";
     icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
     icon.setAttribute("aria-hidden", "true");
+    if (slotHint === "skill") {
+      this.applySkillIcon(icon, item);
+      return icon;
+    }
     const customImg = item && (item.img || item.icon);
     if (customImg && typeof customImg === "string") {
       icon.style.backgroundImage = `url("${customImg}")`;
@@ -58,6 +62,15 @@ const UI = {
       icon.style.backgroundRepeat = "no-repeat";
     }
     return icon;
+  },
+  applySkillIcon(element, skill) {
+    // Skill artwork is served from the game's local asset tree.
+    const img = typeof skill?.img === "string" && /^(?:\.\/|\/)?assets\/[a-zA-Z0-9_/-]+\.png$/.test(skill.img) ? skill.img : "";
+    element.classList.toggle("skill-art-icon", Boolean(img));
+    element.style.backgroundImage = img ? `url("${img}")` : "";
+    element.style.backgroundPosition = img ? "center" : "";
+    element.style.backgroundSize = img ? "contain" : "";
+    element.style.backgroundRepeat = img ? "no-repeat" : "";
   },
   toggleKpahMenu() {
     const el = document.getElementById("kpah-menu-modal");
@@ -501,6 +514,7 @@ const UI = {
       const icon = document.createElement("span");
       icon.className = "hud-skill-effect-icon";
       icon.setAttribute("aria-hidden", "true");
+      this.applySkillIcon(icon, skill);
       const label = document.createElement("span");
       label.className = "hud-skill-effect-name";
       label.textContent = name;

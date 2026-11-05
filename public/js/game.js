@@ -186,7 +186,7 @@ function update(dt) {
       Net.tickAutoLoot(dt);
 
       let combatActionThisTick = false;
-      if ((Input.keys["Space"] || p.combatMove || p._spaceApproachTargetId) && S.atkCd <= 0) {
+      if ((Input.keys["Space"] || p._spaceApproachTargetId) && S.atkCd <= 0) {
         const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
         let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
         if (!best && !p._spaceApproachTargetId) {

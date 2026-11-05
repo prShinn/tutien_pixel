@@ -185,6 +185,8 @@ const GameData = {
 				id: sk.code || sk.maNangLuc || String(sk.id),
 				name: sk.name || sk.tenNangLuc,
 				icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
+				img: sk.img || "",
+				vfxForm: sk.vfxForm || "",
 				linhCan: lc,
 				tier,
 				category: isPassive ? "PASSIVE" : "ACTIVE",

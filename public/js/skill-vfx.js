@@ -87,6 +87,26 @@ const SkillVFX = {
     COMMON: { main: "#91c9ba", light: "#e0f8d9", dark: "#456b73", accent: "#f3e4a4" },
   },
 
+  passiveGroundMarks: [
+    [-10, 2, 1], [-8, 4, 0.78], [-6, 5, 0.58],
+    [6, 5, 0.58], [8, 4, 0.78], [10, 2, 1],
+  ],
+
+  passiveGlyphs: {
+    COMMON: [[0, -3, 2, "accent"], [-2, 0, 3, "main"], [0, 0, 2, "light"], [2, 0, 3, "main"], [0, 3, 2, "accent"]],
+    KIM: [[0, -4, 2, "light"], [2, -1, 3, "main"], [0, 2, 3, "accent"], [-2, 5, 2, "light"]],
+    MOC: [[0, 4, 2, "dark"], [2, 2, 3, "main"], [4, -1, 3, "light"], [2, -4, 2, "accent"]],
+    THUY: [[0, -4, 2, "light"], [1, -1, 3, "accent"], [0, 2, 4, "main"], [0, 5, 2, "light"]],
+    HOA: [[0, 4, 3, "dark"], [1, 1, 4, "main"], [-1, -2, 3, "light"], [1, -5, 2, "accent"]],
+    THO: [[0, 3, 4, "dark"], [2, 0, 4, "main"], [-1, -3, 3, "light"], [2, -5, 2, "accent"]],
+    QUANG: [[0, -5, 2, "light"], [0, -2, 3, "accent"], [0, 1, 4, "main"], [0, 5, 2, "light"], [3, -1, 2, "light"], [-3, 1, 2, "light"]],
+    AM: [[0, 4, 3, "dark"], [2, 1, 4, "dark"], [0, -2, 3, "main"], [3, -4, 2, "accent"]],
+    PHONG: [[0, 4, 2, "main"], [2, 1, 3, "light"], [4, -2, 3, "accent"], [6, -4, 2, "main"]],
+    LOI: [[0, -5, 2, "light"], [2, -2, 2, "main"], [-1, 1, 3, "accent"], [2, 4, 2, "main"], [0, 7, 2, "light"]],
+  },
+
+  lightningBolt: [[0, -8], [2, -5], [-1, -2], [2, 1], [0, 5]],
+
   labels: {
     slash: "Kiếm quang pixel",
     shield: "Khiên hộ thể",
@@ -191,7 +211,7 @@ const SkillVFX = {
     if (!this.allowedForms) this.allowedForms = new Set(Object.values(this.forms));
     const form = this.allowedForms.has(custom.form)
       ? custom.form
-      : (this.forms[code] || (isLightningShield ? "thunder-shield" : this.fallbackForm(normalized)));
+      : (this.allowedForms.has(normalized?.vfxForm) ? normalized.vfxForm : (this.forms[code] || (isLightningShield ? "thunder-shield" : this.fallbackForm(normalized))));
     const tier = Math.max(1, Number(normalized?.tier || 1));
     const basePalette = this.palette[customRoot] || this.palette.COMMON;
     const colors = custom.colors && typeof custom.colors === "object" ? custom.colors : {};
@@ -1078,85 +1098,71 @@ const SkillVFX = {
     const cycle = ((Number(phase) || 0) % 1 + 1) % 1;
     const pulseAt = (center) => {
       const distance = Math.min(Math.abs(cycle - center), 1 - Math.abs(cycle - center));
-      return Math.max(0, 1 - distance / 0.22);
+      return Math.max(0, 1 - distance / 0.12);
     };
     const envelope = Number.isFinite(lifecycle)
       ? Math.max(0, Math.min(1, Math.min(lifecycle * 5, (1 - lifecycle) * 5)))
       : 1;
     const pulse = Math.max(pulseAt(0.12), pulseAt(0.62));
-    const rotation = cycle * Math.PI * 2 * 0.22;
-    const radius = 12 + Math.sin(cycle * Math.PI * 2) * 1.1;
+    const side = cycle < 0.5 ? -1 : 1;
+    const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 6);
     if (layer !== "front") {
-      for (let index = 0; index < 8; index += 1) {
-        const angle = (index / 8) * Math.PI * 2 + rotation;
-        const shimmer = (Math.sin(cycle * Math.PI * 4 + index * 1.7) + 1) * 0.5;
-        const orbitRadius = radius + Math.sin(cycle * Math.PI * 2 + index) * 0.7;
-        const color = index % 3 === 0 ? palette.light : palette.accent;
-        const alpha = 0.12 + shimmer * 0.36 + pulse * 0.2;
-        this.colorStamp(point.x + Math.cos(angle) * orbitRadius, point.y + 1.2 + Math.sin(angle) * orbitRadius * 0.38, shimmer > 0.82 ? 3 : 2, color, alpha);
-      }
+      this.drawPassiveGroundMark(point, palette, cycle, 0.16 + pulse * 0.42);
     }
 
-    if (layer !== "behind") {
-      const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 4);
-      for (let bolt = 0; bolt < 2; bolt += 1) {
-        const flash = pulseAt(bolt === 0 ? 0.12 : 0.62) * envelope;
-        const side = bolt === 0 ? -1 : 1;
-        const x = point.x + side * halfWidth;
-        const y = point.y - 9 + Math.sin((cycle + bolt * 0.5) * Math.PI * 2) * 1.5;
-        const zig = [[0, -8], [side * 2, -4], [-side, 0], [side * 2, 4], [0, 8]];
-        const alpha = 0.08 + flash * 0.92;
-        for (let i = 0; i < zig.length; i += 1) {
-          const [dx, dy] = zig[i];
-          this.colorStamp(x + dx, y + dy, i % 2 ? 2 : 3, i % 2 ? palette.light : palette.main, alpha * envelope);
-        }
-        this.colorStamp(x + side * 3, y + 3, 3, palette.accent, (0.06 + flash * 0.9) * envelope);
-      }
+    if (layer === "behind" || pulse <= 0.01) return;
+    const localPulse = cycle < 0.5 ? pulseAt(0.12) : pulseAt(0.62);
+    const x = point.x + side * halfWidth;
+    const y = point.y - 6 + Math.sin(cycle * Math.PI * 2) * 1.5;
+    const bolt = this.lightningBolt;
+    for (let index = 0; index < bolt.length; index += 1) {
+      const [baseX, dy] = bolt[index];
+      const dx = baseX * side;
+      const color = index === 0 || index === bolt.length - 1 ? palette.light : (index % 2 ? palette.main : palette.accent);
+      this.colorStamp(x + dx, y + dy, index === 2 ? 3 : 2, color, (0.16 + localPulse * 0.84) * envelope);
     }
+    this.colorStamp(x + side * 3, y - 7, 2, palette.accent, localPulse * envelope);
+    this.colorStamp(x + side * 2, y + 7, 2, palette.light, localPulse * envelope);
   },
 
   drawPassive(point, profile, palette, progress, layer = "all") {
-    const phase = Math.max(0, Math.min(1, Number(progress) || 0)) * Math.PI * 2;
-    const y = point.y + 1.2;
+    const cycle = ((Number(progress) || 0) % 1 + 1) % 1;
+    const phase = cycle * Math.PI * 2;
     if (["passive-lightning", "thunder-shield"].includes(profile.form)) {
-      this.drawLightningAura(point, palette, (Number(progress) || 0) % 1, null, layer);
+      this.drawLightningAura(point, palette, cycle, null, layer);
       return;
     }
-    const rotation = phase * 0.4;
-    if (layer === "front") {
-      // A few short-lived glints sit at the outer edges of the sprite so the
-      // character stays readable while the passive still feels active.
-      for (let index = 0; index < 2; index += 1) {
-        const angle = rotation + index * Math.PI;
-        const twinkle = (Math.sin(phase * 2 + index * Math.PI) + 1) * 0.5;
-        if (twinkle < 0.32) continue;
-        const x = point.x + Math.cos(angle) * 10.5;
-        const sparkleY = point.y - 8 + Math.sin(angle) * 3;
-        this.colorStamp(x, sparkleY, twinkle > 0.78 ? 3 : 2, palette.light, 0.12 + twinkle * 0.42);
-      }
-      return;
+    if (layer !== "front") this.drawPassiveGroundMark(point, palette, cycle, 0.2 + (Math.sin(phase * 2) + 1) * 0.12);
+    if (layer === "behind") return;
+
+    const side = cycle < 0.5 ? -1 : 1;
+    const motion = cycle < 0.5 ? cycle * 2 : (cycle - 0.5) * 2;
+    const pulse = Math.sin(motion * Math.PI);
+    if (pulse <= 0.04) return;
+    const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 6);
+    const x = point.x + side * halfWidth;
+    const y = point.y - 2 - motion * 15;
+    const root = String(profile.root || "COMMON").toUpperCase();
+    this.drawElementalGlyph(x, y, root, palette, side, pulse);
+    this.colorStamp(x + side * 3, y + 5, 2, palette.dark, pulse * 0.36);
+    this.colorStamp(x + side * 2, y + 9, 2, palette.light, pulse * 0.2);
+  },
+
+  drawPassiveGroundMark(point, palette, phase, alpha) {
+    const drift = Math.sin(Number(phase || 0) * Math.PI * 2) * 0.8;
+    for (const [offsetX, offsetY, strength] of this.passiveGroundMarks) {
+      this.colorStamp(point.x + offsetX, point.y + offsetY + drift, 2, strength > 0.9 ? palette.light : palette.main, alpha * strength);
     }
-    const radius = 9.5 + (Math.sin(phase) + 1) * 0.7;
-    for (let index = 0; index < 8; index += 1) {
-      const angle = (index / 8) * Math.PI * 2 + rotation;
-      const shimmer = (Math.sin(phase * 2 + index * 1.45) + 1) * 0.5;
-      const orbitRadius = radius + Math.sin(phase + index * 0.8) * 0.6;
-      const color = index % 3 === 0 ? palette.light : palette.main;
-      this.colorStamp(point.x + Math.cos(angle) * orbitRadius, y + Math.sin(angle) * orbitRadius * 0.42, shimmer > 0.8 ? 3 : 2, color, 0.14 + shimmer * 0.34);
-    }
-    if (["passive-leaf", "passive-wind"].includes(profile.form)) {
-      const drift = Math.cos(phase) * 2;
-      this.colorStamp(point.x - 7 + drift, point.y - 6, 2, palette.light, 0.34);
-      this.colorStamp(point.x + 7 - drift, point.y - 9, 2, palette.main, 0.28);
-    } else if (["passive-flame", "passive-sun"].includes(profile.form)) {
-      const lift = Math.sin(phase) * 1.5;
-      this.colorStamp(point.x - 7, point.y - 8 - lift, 2, palette.main, 0.38);
-      this.colorStamp(point.x + 7, point.y - 10 + lift, 2, palette.light, 0.34);
-    } else if (profile.form === "passive-shadow") {
-      this.colorStamp(point.x - 8, point.y - 4, 2, palette.dark, 0.4);
-      this.colorStamp(point.x + 8, point.y - 8, 2, palette.accent, 0.34);
-    } else {
-      this.colorStamp(point.x + Math.cos(phase) * 7, y, 2, palette.light, 0.2);
+    this.colorStamp(point.x - 12, point.y + 1, 2, palette.accent, alpha * 0.55);
+    this.colorStamp(point.x + 12, point.y + 1, 2, palette.accent, alpha * 0.55);
+  },
+
+  drawElementalGlyph(x, y, root, palette, side, intensity) {
+    const stamp = (dx, dy, size, color, strength = 1) => {
+      this.colorStamp(x + dx * side, y + dy, size, color, Math.max(0, Math.min(1, intensity * strength)));
+    };
+    for (const [dx, dy, size, colorKey] of this.passiveGlyphs[root] || this.passiveGlyphs.COMMON) {
+      stamp(dx, dy, size, palette[colorKey] || palette.main, colorKey === "light" ? 0.92 : 0.82);
     }
   },
 

@@ -179,7 +179,6 @@ const Input = {
           S.player.combatMove = !inRange;
           if (inRange) World.cancelPlayerMove(S.player);
           else World.planCombatApproach(S.player, m, Date.now());
-          if (inRange) Combat.attack(m);
         }
         return;
       }

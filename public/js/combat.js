@@ -175,7 +175,8 @@ const Combat = {
     const range = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
     if (dist(target.px, target.py, S.player.px, S.player.py) > range) {
       World.cancelPlayerMove(S.player);
-      S.player.combatMove = true;
+      S.player.combatMove = false;
+      S.player._spaceApproachTargetId = target.id;
       UI.log("Đang áp sát mục tiêu…", "system");
       return;
     }

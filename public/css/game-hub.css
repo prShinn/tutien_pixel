@@ -68,6 +68,7 @@
 .hud-skill-effect-passive { border-color: #6e9b8e; color: #bce7d5; }
 .hud-skill-effect-icon { width: 8px; height: 10px; flex: 0 0 auto; background: currentColor; clip-path: polygon(45% 0, 88% 0, 67% 37%, 100% 37%, 28% 100%, 43% 57%, 8% 57%); }
 .hud-skill-effect-passive .hud-skill-effect-icon { width: 8px; height: 8px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.hud-skill-effect-icon.skill-art-icon { width: 16px; height: 16px; clip-path: none; background-color: transparent; image-rendering: pixelated; }
 .hud-skill-effect-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 #kpah-hud-topright {

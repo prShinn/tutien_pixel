@@ -43,6 +43,8 @@ function mapBESkillToFE(sk) {
     code: sk.code || String(sk.id),
     name: sk.name || sk.tenNangLuc || "Kỹ năng",
     icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
+    img: sk.img || "",
+    vfxForm: sk.vfxForm || "",
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
     category: isPassive ? "PASSIVE" : "ACTIVE",
@@ -73,6 +75,8 @@ function mapFESkillToBE(sk) {
     code: sk.id,
     name: sk.name,
     icon: sk.icon,
+    img: sk.img || "",
+    vfxForm: sk.vfxForm || "",
     linhCan: sk.linhCan,
     tier: sk.tier,
     type: sk.damageType || "PHYS",      // BE field
@@ -244,7 +248,7 @@ const SkillSystem = {
       const info = document.createElement("div");
       info.className = "skill-book-info";
       const title = document.createElement("strong");
-      const icon = UI.createPixelIcon({ effect: skill.effect, damageType: skill.damageType, category: skill.category, name: skill.name }, "skill", "skill-book-icon");
+      const icon = UI.createPixelIcon(skill, "skill", "skill-book-icon");
       title.append(icon, document.createTextNode(` ${skill.name || skill.code || "Kỹ năng"} `));
       const category = document.createElement("span");
       category.className = `skill-category ${passive ? "passive" : "active"}`;
@@ -772,6 +776,7 @@ const SkillSystem = {
         slotEl.title = passive ? `${sk.name} · Bị động (tự động)` : `${sk.name} · Chủ động · phím ${i + 1}`;
         iconEl.className = `skbar-icon pixel-icon ${UI.pixelIconClass(sk, "skill")}`;
         iconEl.replaceChildren();
+        UI.applySkillIcon(iconEl, sk);
         nameEl.textContent = sk.name;
 
         // MP cost
@@ -798,6 +803,7 @@ const SkillSystem = {
         slotEl.classList.toggle('skill-physical', sk.damageType !== 'MAGIC');
       } else {
         iconEl.className = 'skbar-icon';
+        UI.applySkillIcon(iconEl, null);
         iconEl.textContent = '—';
         nameEl.textContent = 'Chưa có';
         mpEl.textContent   = '';

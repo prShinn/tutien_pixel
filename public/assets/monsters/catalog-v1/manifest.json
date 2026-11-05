@@ -1,0 +1,696 @@
+{
+  "version": 1,
+  "tool": "image_gen built-in",
+  "frameLayout": {
+    "cols": 4,
+    "rows": 4,
+    "actions": [
+      "idle",
+      "walk",
+      "attack",
+      "hit"
+    ]
+  },
+  "assets": [
+    {
+      "code": "THIET_NHA_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-04f5a2bc-e989-43f2-bfa7-14e254b23f29.png",
+      "prompt": "Iron Fang Wolf; pixel 4x4 idle/walk/attack/hurt",
+      "name": "Thiết Nha Lang",
+      "root": "KIM",
+      "img": "./assets/monsters/catalog-v1/thiet_nha_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "KIM_MAO_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-92e6bd8b-41bc-47af-8b7c-dc1d4193949c.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Kim Mao Trư (KIM_MAO_TRU), golden-bristled stout wild boar with bronze forehead crest, short curved tusks. Element KIM. No background aura. Full creature in every cell.",
+      "name": "Kim Mao Trư",
+      "root": "KIM",
+      "img": "./assets/monsters/catalog-v1/kim_mao_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "NGAN_DIEP_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-bbe20eba-bd75-403d-b6cf-7e7d75c0d2a5.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Ngân Diệp Yêu (NGAN_DIEP_YEU), walking silver-leaf carnivorous shrub with serrated metallic leaves, two twig legs. Element KIM. No background aura. Full creature in every cell.",
+      "name": "Ngân Diệp Yêu",
+      "root": "KIM",
+      "img": "./assets/monsters/catalog-v1/ngan_diep_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "BACH_NHAN_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-3129099d-6aee-420b-b651-b51fa8cf21ec.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Bạch Nhận Lang (BACH_NHAN_LANG), sleek white razor wolf with blade-shaped ears, narrow muzzle, silver mane. Element KIM. No background aura. Full creature in every cell.",
+      "name": "Bạch Nhận Lang",
+      "root": "KIM",
+      "img": "./assets/monsters/catalog-v1/bach_nhan_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THIET_GIAP_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-7e94852d-40f6-49f5-96bc-a6ef6afbac09.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thiết Giáp Trư (THIET_GIAP_TRU), heavy iron-armored boar with broad layered steel back plates and squared tusks. Element KIM. No background aura. Full creature in every cell.",
+      "name": "Thiết Giáp Trư",
+      "root": "KIM",
+      "img": "./assets/monsters/catalog-v1/thiet_giap_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THANH_DIEP_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-4bfc4577-bf28-48fc-80db-571aea73d6fc.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thanh Diệp Yêu (THANH_DIEP_YEU), small jade-leaf sprout creature, round leafy head and root feet. Element MOC. No background aura. Full creature in every cell.",
+      "name": "Thanh Diệp Yêu",
+      "root": "MOC",
+      "img": "./assets/monsters/catalog-v1/thanh_diep_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "DOC_NHA_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-ad194893-4d0a-465e-a6fc-d572d14cf1ae.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Độc Nha Lang (DOC_NHA_LANG), thin mossy wolf, long poisonous green fangs, thorn collar and vine tail. Element MOC. No background aura. Full creature in every cell.",
+      "name": "Độc Nha Lang",
+      "root": "MOC",
+      "img": "./assets/monsters/catalog-v1/doc_nha_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "CO_DANG_QUAI",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-918b591f-9a43-4beb-b19f-5318b2823371.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Cổ Đằng Quái (CO_DANG_QUAI), gnarled upright vine monster with hollow wooden face and whipping vine arms. Element MOC. No background aura. Full creature in every cell.",
+      "name": "Cổ Đằng Quái",
+      "root": "MOC",
+      "img": "./assets/monsters/catalog-v1/co_dang_quai_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THANH_MAO_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-bc7f2df1-a676-4a88-80c9-eaa9d4d6eddf.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thanh Mao Trư (THANH_MAO_TRU), stocky green moss-bristled forest boar with leaf tufts and ivory tusks. Element MOC. No background aura. Full creature in every cell.",
+      "name": "Thanh Mao Trư",
+      "root": "MOC",
+      "img": "./assets/monsters/catalog-v1/thanh_mao_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HUYEN_CAN_MOC_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-7995aafd-a620-4bd2-9d9e-a887a6312b2d.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Huyền Căn Mộc Yêu (HUYEN_CAN_MOC_YEU): tall ancient root creature, tangled root antlers, emerald heart, massive root fists. Element MOC. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Huyền Căn Mộc Yêu",
+      "root": "MOC",
+      "img": "./assets/monsters/catalog-v1/huyen_can_moc_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THUY_LINH_THAO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-52b187ca-5adf-42dd-b3e5-7056e53caa45.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thủy Linh Thảo (THUY_LINH_THAO): small turquoise water lily monster, cupped leaves holding water, root feet. Element THUY. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Thủy Linh Thảo",
+      "root": "THUY",
+      "img": "./assets/monsters/catalog-v1/thuy_linh_thao_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "BANG_NHA_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-2f907cfb-4710-4692-add3-3dbe2ab1183b.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Băng Nha Lang (BANG_NHA_LANG): pale blue wolf with icy cheek spikes and long ice fangs, fluffy frost tail. Element THUY. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Băng Nha Lang",
+      "root": "THUY",
+      "img": "./assets/monsters/catalog-v1/bang_nha_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HAN_BANG_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-78f09e64-1695-4682-b249-807f84ede80e.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Hàn Băng Trư (HAN_BANG_TRU): round arctic boar, pale fur, ice crystal tusks and frozen back ridge. Element THUY. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Hàn Băng Trư",
+      "root": "THUY",
+      "img": "./assets/monsters/catalog-v1/han_bang_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "SUONG_DIEP_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-e3f7373c-478d-4a09-9c1b-c097f9e64bbe.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Sương Diệp Yêu (SUONG_DIEP_YEU): slender fog fern spirit with frosted drooping silver leaves and tiny branch hands. Element THUY. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Sương Diệp Yêu",
+      "root": "THUY",
+      "img": "./assets/monsters/catalog-v1/suong_diep_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HUYEN_THUY_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-41001dfa-1008-4781-852c-66a67f8daf4f.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Huyền Thủy Lang (HUYEN_THUY_LANG): dark navy river wolf, fin-like mane, turquoise gills and curled flowing tail. Element THUY. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Huyền Thủy Lang",
+      "root": "THUY",
+      "img": "./assets/monsters/catalog-v1/huyen_thuy_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HOA_TINH_THAO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-30b7f821-f486-408b-8b22-31ca8d9646e4.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Hỏa Tinh Thảo (HOA_TINH_THAO): red ember flower monster, charcoal stem legs, compact glowing orange flower head. Element HOA. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Hỏa Tinh Thảo",
+      "root": "HOA",
+      "img": "./assets/monsters/catalog-v1/hoa_tinh_thao_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "XICH_MAO_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-0f991486-38a2-41b3-b673-0eedc21a62b0.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Xích Mao Trư (XICH_MAO_TRU): red-bristled boar, swept-back flame mane, black hooves and copper tusks. Element HOA. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Xích Mao Trư",
+      "root": "HOA",
+      "img": "./assets/monsters/catalog-v1/xich_mao_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "DUNG_NHAM_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-37a9ee32-74b0-444a-9429-aaaea34d421f.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Dung Nham Lang (DUNG_NHAM_LANG): bulky black lava wolf, angular charcoal armor and narrow orange fissures. Element HOA. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Dung Nham Lang",
+      "root": "HOA",
+      "img": "./assets/monsters/catalog-v1/dung_nham_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "PHAN_DIEP_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-d7c70a4b-84ee-43c0-ac92-5dc76a1e3046.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Phần Diệp Yêu (PHAN_DIEP_YEU): burning maple-leaf monster, crisp red leaves, burnt bark body, leaf-blade arms. Element HOA. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Phần Diệp Yêu",
+      "root": "HOA",
+      "img": "./assets/monsters/catalog-v1/phan_diep_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "VIEM_NHA_THU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-c29b1027-9ec7-4963-88ae-6b195a53434e.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Viêm Nha Thú (VIEM_NHA_THU): low broad fire boar beast, huge curved ember tusks, red beard and dark spiny back. Element HOA. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Viêm Nha Thú",
+      "root": "HOA",
+      "img": "./assets/monsters/catalog-v1/viem_nha_thu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "SA_DIA_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-8b916d35-d7ea-4da0-9460-3eecf93c8f33.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Sa Địa Trư (SA_DIA_TRU): small sandy tan desert boar, short ears, dune-shaped mane and blunt tusks. Element THO. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Sa Địa Trư",
+      "root": "THO",
+      "img": "./assets/monsters/catalog-v1/sa_dia_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THACH_BI_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-aa3db15f-6846-45d7-8839-aca686584297.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thạch Bì Lang (THACH_BI_LANG): granite-gray wolf with stone plates on flanks, square rocky paws and amber eyes. Element THO. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Thạch Bì Lang",
+      "root": "THO",
+      "img": "./assets/monsters/catalog-v1/thach_bi_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HOANG_SA_MOC_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-463612ea-5f28-4580-bf86-7a3a91c73ed4.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Hoàng Sa Mộc Yêu (HOANG_SA_MOC_YEU): desert thorn bush monster with yellow fronds, dry roots and cactus-like branches. Element THO. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Hoàng Sa Mộc Yêu",
+      "root": "THO",
+      "img": "./assets/monsters/catalog-v1/hoang_sa_moc_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "NHAM_GIAP_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-6b288f29-c09d-4c88-b93d-8d19870ad1d9.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Nham Giáp Trư (NHAM_GIAP_TRU): massive ochre rock-armored boar, jagged slate plates and stone horn brow. Element THO. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Nham Giáp Trư",
+      "root": "THO",
+      "img": "./assets/monsters/catalog-v1/nham_giap_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "DIA_MACH_THU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-5e8270d9-c298-4aa3-9965-560856b938a9.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Địa Mạch Thú (DIA_MACH_THU): earth boar with thick crystal-studded back, broad tusks and rune-marked rock feet. Element THO. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Địa Mạch Thú",
+      "root": "THO",
+      "img": "./assets/monsters/catalog-v1/dia_mach_thu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "AM_ANH_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-d6fd8e22-5abc-4bf2-b5e9-8286ee073e2c.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Ám Ảnh Lang (AM_ANH_LANG): slender purple-black shadow wolf with crescent ear tips and violet eyes, long tail. Element AM. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Ám Ảnh Lang",
+      "root": "AM",
+      "img": "./assets/monsters/catalog-v1/am_anh_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "U_HON_THAO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-859d2fd4-c7d1-49fb-8b5b-2b58eb021767.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: U Hồn Thảo (U_HON_THAO): haunted violet orchid monster, drooping petal hood and skeletal root fingers. Element AM. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "U Hồn Thảo",
+      "root": "AM",
+      "img": "./assets/monsters/catalog-v1/u_hon_thao_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "DA_HANH_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-a69edd32-f33a-414a-bf35-38cf1b5d6dfd.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Dạ Hành Trư (DA_HANH_TRU): nocturnal indigo boar with large alert ears, pale face markings and swept silver tusks. Element AM. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Dạ Hành Trư",
+      "root": "AM",
+      "img": "./assets/monsters/catalog-v1/da_hanh_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "TU_DANG_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-153d1a45-56ea-4c58-8b78-01aee1b88149.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Tử Đằng Yêu (TU_DANG_YEU): twisted purple wisteria vine monster with hanging flower tassels and vine whip arms. Element AM. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Tử Đằng Yêu",
+      "root": "AM",
+      "img": "./assets/monsters/catalog-v1/tu_dang_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "HUYEN_DA_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-77d151d4-08c7-4fcb-8678-095c584c1a77.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Huyền Dạ Lang (HUYEN_DA_LANG): tall midnight wolf, layered black-violet mane, silver crescent forehead and large claws. Element AM. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Huyền Dạ Lang",
+      "root": "AM",
+      "img": "./assets/monsters/catalog-v1/huyen_da_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "TAT_PHONG_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-8ac5bdb5-e437-480e-b842-2162f22e28fa.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Tật Phong Lang (TAT_PHONG_LANG): lean turquoise swift wolf, swept ears, feather-like mane and slim racing legs. Element PHONG. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Tật Phong Lang",
+      "root": "PHONG",
+      "img": "./assets/monsters/catalog-v1/tat_phong_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "PHONG_LINH_THAO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-b2d882a8-7324-473f-be89-fb1016be7d2b.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Phong Linh Thảo (PHONG_LINH_THAO): mint-green reed monster with long curling leaf blades and airy seed tuft head. Element PHONG. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Phong Linh Thảo",
+      "root": "PHONG",
+      "img": "./assets/monsters/catalog-v1/phong_linh_thao_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "VAN_MAO_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-9b660b13-901b-4bb6-842d-c91c5b9afd91.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Vân Mao Trư (VAN_MAO_TRU): pale cloud-bristled boar, white curled mane, teal stripes and small pearl tusks. Element PHONG. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Vân Mao Trư",
+      "root": "PHONG",
+      "img": "./assets/monsters/catalog-v1/van_mao_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "BAO_PHONG_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-ecfa81fe-2751-4f04-a5fd-b94bb92963c7.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Bạo Phong Lang (BAO_PHONG_LANG): large storm-green wolf, jagged wind-swept mane, dark teal paws and long feather tail. Element PHONG. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Bạo Phong Lang",
+      "root": "PHONG",
+      "img": "./assets/monsters/catalog-v1/bao_phong_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THIEN_PHONG_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-e6a93658-c243-40d5-928c-9f3fde6b802a.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thiên Phong Yêu (THIEN_PHONG_YEU): tall wind willow monster with spiral crown of leaves and long ribbon-leaf arms. Element PHONG. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Thiên Phong Yêu",
+      "root": "PHONG",
+      "img": "./assets/monsters/catalog-v1/thien_phong_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "DIEN_NHA_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-d26cdffb-132d-4cd1-81bf-762c145f0acb.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Điện Nha Lang (DIEN_NHA_LANG): golden charcoal wolf, zigzag electric mane, bright yellow fangs and pointed ears. Element LOI. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Điện Nha Lang",
+      "root": "LOI",
+      "img": "./assets/monsters/catalog-v1/dien_nha_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "LOI_LINH_THAO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-dc6e92bd-9203-481b-b443-a1c381c1cdf7.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Lôi Linh Thảo (LOI_LINH_THAO): small violet thunder flower monster, five pointed electric-yellow petals, black root feet. Element LOI. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Lôi Linh Thảo",
+      "root": "LOI",
+      "img": "./assets/monsters/catalog-v1/loi_linh_thao_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "TU_DIEN_TRU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-346a707c-a474-40cd-9f9a-7e62c4d2802b.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Tử Điện Trư (TU_DIEN_TRU): purple electric boar, bright yellow lightning shaped tusks and upright spiky back bristles. Element LOI. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Tử Điện Trư",
+      "root": "LOI",
+      "img": "./assets/monsters/catalog-v1/tu_dien_tru_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "KINH_LOI_LANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-0e111468-5085-4e62-a0f0-9d7806b00026.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Kinh Lôi Lang (KINH_LOI_LANG): dark blue thunder wolf with towering yellow mane spikes and heavy clawed paws. Element LOI. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Kinh Lôi Lang",
+      "root": "LOI",
+      "img": "./assets/monsters/catalog-v1/kinh_loi_lang_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    },
+    {
+      "code": "THIEN_DIEN_MOC_YEU",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-f77af485-854d-4f81-8103-d06d2e98af64.png",
+      "prompt": "Create ONE production sprite sheet for a 2D top-down Vietnamese cultivation webgame. Strict crisp low-resolution pixel art, limited palette, dark pixel outline, chunky readable silhouette, no smooth painted illustration. Genuinely transparent background. EXACT 4 columns x 4 rows, 16 equal square cells on square image, no text/borders/gridlines. SAME creature across every cell, stable body size, consistent three-quarter facing down-right view, feet same baseline, padding so nothing crosses cell boundaries. Row1 four idle breathing poses; Row2 four WALK frames with genuinely alternating feet/legs, body stride; Row3 four ATTACK frames anticipation/lunge/contact/recovery; Row4 four HURT frames recoil/compression/stumble/recovery. Distinct visible poses, anatomy consistent. Subject: Thiên Điện Mộc Yêu (THIEN_DIEN_MOC_YEU): ancient lightning-scarred tree monster, black bark, violet crystal crown and yellow branch claws. Element LOI. No background aura. Full creature in every cell. Crisp hand-authored RPG pixel-sprite aesthetic.",
+      "name": "Thiên Điện Mộc Yêu",
+      "root": "LOI",
+      "img": "./assets/monsters/catalog-v1/thien_dien_moc_yeu_sheet.png",
+      "animation": {
+        "kind": "grid",
+        "cols": 4,
+        "rows": 4,
+        "width": 22,
+        "height": 22
+      },
+      "sheetWidth": 256,
+      "sheetHeight": 256
+    }
+  ]
+}

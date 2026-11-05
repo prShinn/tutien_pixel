@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "tool": "image_gen built-in",
+  "atlases": [
+    {
+      "root": "COMMON",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-d4e40029-f816-449c-9022-550dbecd9f97.png",
+      "cols": 2,
+      "rows": 2,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 2 columns by 2 rows in a square image, equal square cells. Element theme COMMON: muted jade, pearl and gold. Required first 3 cells: 1: Thiền Cảnh, restore_mp (THIEN_CANH); 2: Ngũ Hành Kích, elemental strike (NGU_HANH_KICH); 3: Thanh Tâm, cleanse (THANH_TAM). Fill remaining cells with unique spare COMMON talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "THIEN_CANH",
+        "NGU_HANH_KICH",
+        "THANH_TAM"
+      ]
+    },
+    {
+      "root": "KIM",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-685193df-2e31-411c-aea2-a3a36b332251.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme KIM: gold and silver metallic. Required first 11 cells: 1: Kim Kích, elemental strike (KIM_KICH); 2: Thiết Hộ, shield (THIET_HO); 3: Phá Giáp, armor_break (PHA_GIAP); 4: Kim Luân, buff_atk (KIM_LUAN); 5: Vạn Kim Trảm, stun (VAN_KIM_TRAM); 6: Kim Sát Thành, armor_break (KIM_SAT_THANH); 7: Kim Thể Chi Pháp, passive (KIM_TAM_PHAP); 8: Kim Tiễn Liên Xạ, slash (KIM_TIEN_LIEN_XA); 9: Bách Kiếm Trận, blade-rain (BACH_KIEM_TRAN); 10: Kim Cương Chiến Ý, shield (KIM_CUONG_CHIEN_Y); 11: Thiên Nhận Phá Không, crescent (THIEN_NHAN_PHA_KHONG). Fill remaining cells with unique spare KIM talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "KIM_KICH",
+        "THIET_HO",
+        "PHA_GIAP",
+        "KIM_LUAN",
+        "VAN_KIM_TRAM",
+        "KIM_SAT_THANH",
+        "KIM_TAM_PHAP",
+        "KIM_TIEN_LIEN_XA",
+        "BACH_KIEM_TRAN",
+        "KIM_CUONG_CHIEN_Y",
+        "THIEN_NHAN_PHA_KHONG"
+      ]
+    },
+    {
+      "root": "MOC",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-b9b009fe-2087-4e14-bf09-0c6af4e39753.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme MOC: jade green and leafy lime. Required first 11 cells: 1: Mộc Dưỡng, heal (MOC_DUONG); 2: Rễ Mộc, root (RE_MOC); 3: Sinh Trưởng, buff_hp_regen (SINH_TRUONG); 4: Mộc Lao, root (MOC_LAO); 5: Vạn Mộc Thành, root (VAN_MOC_THANH); 6: Mộc Hồn Độn, root (MOC_HON_DON); 7: Mộc Linh Sinh Pháp, passive (MOC_TAM_PHAP); 8: Thanh Đằng Thích, branch (THANH_DANG_THICH); 9: Bách Hoa Lao, forest (BACH_HOA_LAO); 10: Cam Lộ Hồi Sinh, heal (CAM_LO_HOI_SINH); 11: Cổ Mộc Long Nha, wood-spirit (CO_MOC_LONG_NHA). Fill remaining cells with unique spare MOC talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "MOC_DUONG",
+        "RE_MOC",
+        "SINH_TRUONG",
+        "MOC_LAO",
+        "VAN_MOC_THANH",
+        "MOC_HON_DON",
+        "MOC_TAM_PHAP",
+        "THANH_DANG_THICH",
+        "BACH_HOA_LAO",
+        "CAM_LO_HOI_SINH",
+        "CO_MOC_LONG_NHA"
+      ]
+    },
+    {
+      "root": "THUY",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-87687596-34b1-413a-b682-04c715b60939.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme THUY: icy blue and cyan. Required first 11 cells: 1: Băng Tiễn, slow (BANG_TIEN); 2: Thủy Khiên, buff_vitals (THUY_KHIEN); 3: Hàn Trì, slow (HAN_TRI); 4: Thủy Lưu, root (THUY_LUU); 5: Cửu Thiên Băng, slow (CUU_THIEN_BANG); 6: Tuyết Hải, slow (THUYET_HAI); 7: Thủy Đức Hộ Thể, passive (THUY_TAM_PHAP); 8: Hàn Tinh Thích, ice-arrow (HAN_TINH_THICH); 9: Băng Liên Trận, snowfall (BANG_LIEN_TRAN); 10: Huyền Thủy Hộ Mạch, water-shield (HUYEN_THUY_HO_MACH); 11: Bắc Hải Triều Sinh, tide (BAC_HAI_TRIEU_SINH). Fill remaining cells with unique spare THUY talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "BANG_TIEN",
+        "THUY_KHIEN",
+        "HAN_TRI",
+        "THUY_LUU",
+        "CUU_THIEN_BANG",
+        "THUYET_HAI",
+        "THUY_TAM_PHAP",
+        "HAN_TINH_THICH",
+        "BANG_LIEN_TRAN",
+        "HUYEN_THUY_HO_MACH",
+        "BAC_HAI_TRIEU_SINH"
+      ]
+    },
+    {
+      "root": "HOA",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-7fd86f58-c7fa-4879-86bb-fae4852821d7.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme HOA: crimson red, orange and ember gold. Required first 11 cells: 1: Hỏa Cầu, elemental strike (HOA_CAU); 2: Hỏa Yểm, burn (HOA_YEM); 3: Liên Hoa Hỏa, burn (LIEN_HOA); 4: Phần Thiên, buff_crit (PHAN_THIEN); 5: Thiên Hỏa Liên, burn (THIEN_HOA_LIEN); 6: Hỏa Vực, burn (HOA_VUC); 7: Hỏa Tâm Liệt Ý, passive (HOA_TAM_PHAP); 8: Xích Diệm Chỉ, fireball (XICH_DIEM_CHI); 9: Hỏa Vũ Lưu Tinh, flame-field (HOA_VU_LUU_TINH); 10: Chân Hỏa Chiến Tâm, solar-mark (CHAN_HOA_CHIEN_TAM); 11: Cửu Diệm Phần Không, volcanic-lotus (CUU_DIEM_PHAN_KHONG). Fill remaining cells with unique spare HOA talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "HOA_CAU",
+        "HOA_YEM",
+        "LIEN_HOA",
+        "PHAN_THIEN",
+        "THIEN_HOA_LIEN",
+        "HOA_VUC",
+        "HOA_TAM_PHAP",
+        "XICH_DIEM_CHI",
+        "HOA_VU_LUU_TINH",
+        "CHAN_HOA_CHIEN_TAM",
+        "CUU_DIEM_PHAN_KHONG"
+      ]
+    },
+    {
+      "root": "THO",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-cf1a9d49-ab09-4057-b6ab-032b82c332c6.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme THO: ochre stone, brown and amber. Required first 11 cells: 1: Thổ Kích, elemental strike (THO_KICH); 2: Thổ Giáp, buff_def (THO_GIAP); 3: Sơn Chấn, stun (SON_CHAN); 4: Địa Mạch, buff_vitals (DIA_MACH); 5: Sơn Hà Đại Thân, stun (SON_HA_DAI_THAN); 6: Thạch Luyện, stun (THACH_LUYEN); 7: Hậu Thổ Chân Thân, passive (THO_TAM_PHAP); 8: Nham Thạch Quyền, stone-strike (NHAM_THACH_QUYEN); 9: Địa Chấn Liên Hoàn, quake (DIA_CHAN_LIEN_HOAN); 10: Huyền Nham Hộ Thể, stone-armor (HUYEN_NHAM_HO_THE); 11: Thiên Sơn Trấn Ngục, mountain-slam (THIEN_SON_TRAN_NGUC). Fill remaining cells with unique spare THO talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "THO_KICH",
+        "THO_GIAP",
+        "SON_CHAN",
+        "DIA_MACH",
+        "SON_HA_DAI_THAN",
+        "THACH_LUYEN",
+        "THO_TAM_PHAP",
+        "NHAM_THACH_QUYEN",
+        "DIA_CHAN_LIEN_HOAN",
+        "HUYEN_NHAM_HO_THE",
+        "THIEN_SON_TRAN_NGUC"
+      ]
+    },
+    {
+      "root": "QUANG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-084cd58c-c266-4114-bfeb-2820c4999b23.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme QUANG: ivory white and warm gold. Required first 11 cells: 1: Quang Đao, elemental strike (QUANG_DAO); 2: Tinh Lộc, heal (TINH_LOC); 3: Thanh Tẩy, cleanse (THANH_TAY); 4: Quang Tốc, buff_spd (QUANG_TOC); 5: Thiên Quang Phổ Chiếu, elemental strike (THIEN_QUANG); 6: Nhất Diện Quang, cleanse (NHAT_DIEM); 7: Quang Minh Tịnh Tâm, passive (QUANG_TAM_PHAP); 8: Tinh Quang Thích, light-blade (TINH_QUANG_THICH); 9: Thánh Quang Trận, sun-column (THANH_QUANG_TRAN); 10: Nhật Quang Hồi Mệnh, star-heal (NHAT_QUANG_HOI_MENH); 11: Thiên Tinh Giáng Thế, starburst (THIEN_TINH_GIANG_THE). Fill remaining cells with unique spare QUANG talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "QUANG_DAO",
+        "TINH_LOC",
+        "THANH_TAY",
+        "QUANG_TOC",
+        "THIEN_QUANG",
+        "NHAT_DIEM",
+        "QUANG_TAM_PHAP",
+        "TINH_QUANG_THICH",
+        "THANH_QUANG_TRAN",
+        "NHAT_QUANG_HOI_MENH",
+        "THIEN_TINH_GIANG_THE"
+      ]
+    },
+    {
+      "root": "AM",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-f3a0c7b5-3f4f-4f0b-ac2b-820fcc5ba680.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme AM: deep purple and violet. Required first 11 cells: 1: Ám Thích, elemental strike (AM_THICH); 2: Ám Chú, curse (AM_CHU); 3: Thực Hồn, buff_cast (THUC_HON); 4: U Minh, curse (U_MINH); 5: Cửu U Ám Giới, curse (CỬU_U_AM_GIOI); 6: Ám Thực, curse (AM_THUC); 7: U Ám Liễm Tức, passive (AM_TAM_PHAP); 8: Dạ Ảnh Trảm, shadow-needles (DA_ANH_TRAM); 9: U Hồn Kết Giới, void-field (U_HON_KET_GIOI); 10: Huyền Âm Ngưng Thần, dark-eye (HUYEN_AM_NGUNG_THAN); 11: Vạn Hồn Phệ Tâm, soul-drain (VAN_HON_PHE_TAM). Fill remaining cells with unique spare AM talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "AM_THICH",
+        "AM_CHU",
+        "THUC_HON",
+        "U_MINH",
+        "CỬU_U_AM_GIOI",
+        "AM_THUC",
+        "AM_TAM_PHAP",
+        "DA_ANH_TRAM",
+        "U_HON_KET_GIOI",
+        "HUYEN_AM_NGUNG_THAN",
+        "VAN_HON_PHE_TAM"
+      ]
+    },
+    {
+      "root": "PHONG",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-858b4e89-c79e-4fa5-8a59-f3b2030accbf.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme PHONG: mint teal and pale green. Required first 11 cells: 1: Phong Nhẫn, elemental strike (PHONG_NHAN); 2: Thanh Phong, buff_spd (THANH_PHONG); 3: Phong Bộ, slow (PHONG_BO); 4: Loạn Phong, root (LOAN_PHONG); 5: Cửu Tầng Phong, stun (CUU_TANG_PHONG); 6: Phong Liêu, slow (PHONG_LIEU); 7: Phong Hành Vô Ảnh, passive (PHONG_TAM_PHAP); 8: Phong Liệt Trảm, wind-blade (PHONG_LIET_TRAM); 9: Thiên Phong Triền, nine-gales (THIEN_PHONG_TRUYEN); 10: Lưu Vân Khinh Bộ, leaf-speed (LUU_VAN_KHINH_BO); 11: Bạo Phong Tuyệt Vực, cyclone-cage (BAO_PHONG_TUYET_VUC). Fill remaining cells with unique spare PHONG talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "PHONG_NHAN",
+        "THANH_PHONG",
+        "PHONG_BO",
+        "LOAN_PHONG",
+        "CUU_TANG_PHONG",
+        "PHONG_LIEU",
+        "PHONG_TAM_PHAP",
+        "PHONG_LIET_TRAM",
+        "THIEN_PHONG_TRUYEN",
+        "LUU_VAN_KHINH_BO",
+        "BAO_PHONG_TUYET_VUC"
+      ]
+    },
+    {
+      "root": "LOI",
+      "source": "C:\\Users\\nguye\\.codex\\generated_images\\01a1a0a5-2f27-7400-a1b9-dd6066decf2d\\exec-8236583d-dbbc-4256-8238-d5c83a1ee11a.png",
+      "cols": 4,
+      "rows": 4,
+      "prompt": "Create a production pixel-art RPG SKILL ICON ATLAS for a 2D Vietnamese cultivation webgame. Crisp hand-drawn pixel art, limited per-icon palette, no smooth painting, no typography, no numbers. Each icon square is a dark charcoal tile with a thin muted gold pixel border and ONE large recognizable centered skill symbol. Same framing and contrast throughout. No subject crosses a cell boundary. No gutters between tiles. Icon order is row-major left to right top to bottom. Distinct silhouettes for every listed skill, never the same symbol simply recolored. Motifs must communicate the action (blades/slashes, barriers/shields, roots/vines, healing, storm/burst, or passive inner cultivation). EXACT 4 columns by 4 rows in a square image, equal square cells. Element theme LOI: electric yellow and violet. Required first 11 cells: 1: Lôi Kích, elemental strike (LOI_KICH); 2: Lôi Hộ, shield (LOI_HO); 3: Điện Liên, stun (DIEN_LIEN); 4: Thiên Lôi, stun (THIEN_LOI); 5: Vạn Lôi Thiên Phạt, stun (VAN_LOI_THIEN_PHAT); 6: Lôi Vực, slow (LOI_VUC); 7: Lôi Thể Chi Pháp, passive (LOI_TAM_PHAP); 8: Tử Điện Xuyên Tâm, thunder-strike (TU_DIEN_XUYEN_TAM); 9: Lôi Đình Kết Trận, storm-field (LOI_DINH_KET_TRAN); 10: Thiên Lôi Kim Giáp, thunder-shield (THIEN_LOI_KIM_GIAP); 11: Cửu Tiêu Lôi Kiếp, lightning-rain (CUU_TIEU_LOI_KIEP). Fill remaining cells with unique spare LOI talismans; no text anywhere. Chunky pixels remain legible at 32x32.",
+      "codes": [
+        "LOI_KICH",
+        "LOI_HO",
+        "DIEN_LIEN",
+        "THIEN_LOI",
+        "VAN_LOI_THIEN_PHAT",
+        "LOI_VUC",
+        "LOI_TAM_PHAP",
+        "TU_DIEN_XUYEN_TAM",
+        "LOI_DINH_KET_TRAN",
+        "THIEN_LOI_KIM_GIAP",
+        "CUU_TIEU_LOI_KIEP"
+      ]
+    }
+  ]
+}

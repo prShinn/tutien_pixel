@@ -92,6 +92,9 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
   const movement = (await import(movementPath)).MovementFeedback;
   const errors = [];
   const sentMoves = [];
+  const attacks = [];
+  const autoSkillAttempts = [];
+  const canvas = { getBoundingClientRect() { return { left: 0, top: 0 }; } };
   const state = {
     player,
     tiles,
@@ -100,9 +103,11 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
     portals: [],
     players: new Map(),
     monsters: [],
+    groundItems: [],
     npcs: [],
     floatingTexts: [],
     combatFx: [],
+    cam: { x: 0, y: 0 },
     target: null,
     autoFight: false,
     animT: 0,
@@ -116,6 +121,7 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
     MovementFeedback: movement,
     CFG: {
       TS: tileSize,
+      DS: 1,
       PLAYER_COLLISION_RADIUS: 0.45,
       PLAYER_MOVE_SPEED: 44,
       BASIC_ATTACK_RANGE: basicAttackRange,
@@ -124,25 +130,29 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
       REGEN_HP: 0,
       REGEN_MP: 0,
     },
-    document: { activeElement: null, getElementById() { return null; } },
+    document: { activeElement: null, getElementById(id) { return id === "game-canvas" ? canvas : null; } },
+    canvas,
     Net: {
       _isOnline: true,
       emitMove(force) { sentMoves.push(Boolean(force)); },
       tickAutoLoot() {},
     },
-    SkillSystem: { tickCooldowns() {} },
+    SkillSystem: {
+      tickCooldowns() {},
+      tryAutoSkill(target) { autoSkillAttempts.push(target?.id); return false; },
+    },
     UI: { update() {}, log() {}, notify() {} },
     Shop: { open(npc) { opened.push({ type: "shop", id: npc.id }); } },
     Chest: { open(npc) { opened.push({ type: "chest", id: npc.id }); } },
     DialogUI: { open(npc) { opened.push({ type: "dialog", id: npc.id }); } },
     Monster: { update() {} },
-    Combat: { attack() {} },
+    Combat: { attack(target) { attacks.push(target?.id); } },
     dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); },
     console: { error(...args) { errors.push(args); } },
   });
   const opened = [];
   vm.runInContext(`${inputSource}\n${worldSource}\n${updateSource}\nglobalThis.__Input = Input; globalThis.__World = World; globalThis.__update = update;`, context, { filename: "gameplay-movement.js" });
-  return { state, input: context.__Input, world: context.__World, update: context.__update, sentMoves, errors, opened };
+  return { state, input: context.__Input, world: context.__World, update: context.__update, sentMoves, attacks, autoSkillAttempts, errors, opened };
 }
 
 function netHarness(drops = []) {
@@ -647,7 +657,46 @@ test("combat approach follows an A-star detour around water and stops in attack 
   }
 
   assert.ok(Math.hypot(player.px - target.px, player.py - target.py) <= 3 * 0.86);
+  assert.deepEqual(game.attacks, [], "approaching by target lock must not attack while Auto Fight is off");
   assert.deepEqual(game.errors, []);
+});
+
+test("clicking a nearby monster only locks the target while Auto Fight is off", async () => {
+  const tiles = Array.from({ length: 8 }, () => Array(8).fill(0));
+  const player = { x: 2, y: 2, px: 2.5, py: 2.5, stats: { agi: 0 }, buffs: {}, movePath: [] };
+  const game = await gameplayHarness(tiles, player, { basicAttackRange: 3 });
+  const target = { id: "monster-1", x: 4, y: 2, px: 4.5, py: 2.5, dead: false };
+  game.state.monsters.push(target);
+
+  game.input.onClick({ clientX: target.px, clientY: target.py });
+
+  assert.equal(game.state.target, target);
+  assert.equal(game.state.autoFight, false);
+  assert.deepEqual(game.attacks, []);
+});
+
+test("Auto Fight enables automatic basic attacks, while Space remains a manual attack", async () => {
+  const tiles = Array.from({ length: 8 }, () => Array(8).fill(0));
+  const makeGame = async () => {
+    const player = { x: 2, y: 2, px: 2.5, py: 2.5, stats: { agi: 0 }, buffs: {}, movePath: [] };
+    const game = await gameplayHarness(tiles, player, { basicAttackRange: 3 });
+    const target = { id: "monster-1", x: 4, y: 2, px: 4.5, py: 2.5, dead: false };
+    game.state.target = target;
+    game.state.monsters.push(target);
+    return game;
+  };
+
+  const autoGame = await makeGame();
+  autoGame.state.autoFight = true;
+  autoGame.update(1000 / 60);
+  assert.deepEqual(autoGame.attacks, ["monster-1"]);
+  assert.deepEqual(autoGame.autoSkillAttempts, ["monster-1"]);
+
+  const manualGame = await makeGame();
+  manualGame.input.keys.Space = true;
+  manualGame.update(1000 / 60);
+  assert.deepEqual(manualGame.attacks, ["monster-1"]);
+  assert.deepEqual(manualGame.autoSkillAttempts, []);
 });
 
 test("losing focus clears held keys and pending click movement", () => {
