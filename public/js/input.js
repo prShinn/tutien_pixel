@@ -29,6 +29,7 @@ const Input = {
     World.clearPendingNpcInteraction?.();
     World.cancelPlayerMove(S.player);
     S.player.combatMove = false;
+    S.player._spaceApproachTargetId = null;
     if (S.player.isMoving) {
       S.player.isMoving = false;
       Net.emitMove(true);
@@ -55,6 +56,12 @@ const Input = {
       const active = document.activeElement;
       const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.id === "chat-inp" && active.offsetParent !== null;
       const isFormControl = active?.matches?.("input, textarea, select, [contenteditable='true']");
+      if (e.code === "Escape" && isInput) {
+        e.preventDefault();
+        active.blur();
+        Input.stopMovement();
+        return;
+      }
       if (!isInput && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
         e.preventDefault();
       }
@@ -64,6 +71,27 @@ const Input = {
         QuestUI.toggle();
       }
       if (e.code === "KeyF" || e.key === "f" || e.key === "F") World.checkNpcInteract();
+      if (!e.repeat && !isFormControl && ["KeyB", "KeyC"].includes(e.code)) {
+        e.preventDefault();
+        UI.toggleKpahMenu();
+      }
+      if (!e.repeat && e.code === "Tab" && !isFormControl) {
+        e.preventDefault();
+        const player = S.player;
+        if (!player) return;
+        const targets = (S.monsters || [])
+          .filter((monster) => monster && !monster.dead && Number(monster.hp) > 0)
+          .sort((a, b) => dist(a.px, a.py, player.px, player.py) - dist(b.px, b.py, player.px, player.py));
+        if (targets.length) {
+          const currentIndex = targets.indexOf(S.target);
+          S.target = targets[(currentIndex + 1) % targets.length];
+          if (player) {
+            player._spaceApproachTargetId = null;
+            player.combatMove = false;
+          }
+          UI.updateTargetHud(S.target);
+        }
+      }
       if (e.code === "Escape") {
         S.target = null;
         if (S.player) {
@@ -107,6 +135,8 @@ const Input = {
       if (e.code === "Enter") {
         Net.sendChat();
         e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget.blur();
       }
     });
   },
@@ -142,6 +172,7 @@ const Input = {
         S.target = m;
         World.clearPendingNpcInteraction?.();
         if (S.player) {
+          S.player._spaceApproachTargetId = null;
           World.cancelPlayerMove(S.player);
           const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
           const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= attackRange;
@@ -168,6 +199,7 @@ const Input = {
         World.clearPendingNpcInteraction?.();
         S.target = null;
         S.player.combatMove = false;
+        S.player._spaceApproachTargetId = null;
         if (!World.planPlayerMove(S.player, wx, wy)) {
           UI.notify("Không tìm được đường đến vị trí này.", "warning");
           return;

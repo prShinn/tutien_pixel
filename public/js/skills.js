@@ -101,6 +101,44 @@ const SkillSystem = {
       && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
   },
 
+  tryAutoSkill(target) {
+    const player = S.player;
+    if (!player || player.dead || !target || target.dead || S.combatPending || S.combatGcd > 0) return false;
+    const now = Date.now();
+    for (let slot = 0; slot < (player.skills || []).length; slot += 1) {
+      const skill = player.skills[slot];
+      if (!skill || String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") continue;
+      if (Number(skill.cdLeft || 0) > 0 || Number(player.mp || 0) < Number(skill.mpCost || 0)) continue;
+
+      const effect = String(skill.effect || "");
+      let shouldCast = false;
+      if (this.isOffensive(skill)) {
+        const range = Math.max(1, Number(skill.range || 5)) * CFG.SKILL_RANGE_SCALE;
+        shouldCast = dist(target.px, target.py, player.px, player.py) <= range;
+      } else if (effect === "heal") {
+        shouldCast = Number(player.hp || 0) < Number(player.maxHp || 1) * 0.55;
+      } else if (effect === "restore_mp") {
+        shouldCast = Number(player.mp || 0) < Number(player.maxMp || 1) * 0.4;
+      } else if (["shield", "speed"].includes(effect)) {
+        const buff = player.buffs?.[effect] || player.buffs?.[`buff_${effect}`];
+        shouldCast = !buff || (buff.expiresAt && Number(buff.expiresAt) <= now);
+      } else if (effect === "cleanse") {
+        shouldCast = Object.keys(player.debuffs || {}).length > 0;
+      } else if (effect.startsWith("buff_")) {
+        const buff = player.buffs?.[effect];
+        shouldCast = !buff || (buff.expiresAt && Number(buff.expiresAt) <= now);
+      }
+      if (!shouldCast) continue;
+
+      const previousCooldown = Number(skill.cdLeft || 0);
+      const previousCastAt = Number(player.animStartedAt || 0);
+      if (this.isOffensive(skill)) S.target = target;
+      this.useSkill(slot);
+      if (S.combatPending || Number(skill.cdLeft || 0) > previousCooldown || Number(player.animStartedAt || 0) !== previousCastAt) return true;
+    }
+    return false;
+  },
+
   animationDuration(skill) {
     const physicalStrike = this.isOffensive(skill)
       && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
@@ -412,6 +450,7 @@ const SkillSystem = {
       expiresAt: Date.now() + duration * 16,
     };
     if (typeof SkillVFX !== "undefined") SkillVFX.activateBuff(skill, duration * 16);
+    UI.renderSkillEffects?.();
     const names = { atk: "damage tay", def: "phòng thủ", spd: "tốc độ", cast: "tốc độ ra chiêu", crit: "chí mạng", hp_regen: "HP/giây", mp_regen: "MP/giây", vitals: "HP/MP tối đa" };
     UI.log(
       `${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`,
@@ -421,7 +460,7 @@ const SkillSystem = {
 
   useSkill(slotIdx) {
     const p = S.player;
-    if (!p?.skills?.[slotIdx]) return;
+    if (!p?.skills?.[slotIdx] || p.dead) return;
     if (S.combatGcd > 0 || S.combatPending) return;
     if (document.getElementById("shop-modal").classList.contains("open")) return;
     if (document.getElementById("dialog-modal").classList.contains("open")) return;

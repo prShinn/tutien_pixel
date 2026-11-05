@@ -21,6 +21,14 @@ function update(dt) {
   try {
     const p = S.player;
     if (!p) return;
+    if (!p.dead && Number(p.hp) <= 0) {
+      p.hp = 0;
+      p.dead = true;
+      p.combatMove = false;
+      p._spaceApproachTargetId = null;
+      Input.stopMovement?.();
+      UI.showDeathModal?.();
+    }
     p.previousPx = Number.isFinite(Number(p.px)) ? Number(p.px) : Number(p.x) * CFG.TS + CFG.TS / 2;
     p.previousPy = Number.isFinite(Number(p.py)) ? Number(p.py) : Number(p.y) * CFG.TS + CFG.TS / 2;
     S.animT += dt;
@@ -38,7 +46,7 @@ function update(dt) {
       Boolean(document.getElementById("dialog-modal")?.classList.contains("open")) ||
       (document.getElementById("kpah-menu-modal")?.style.display === "flex") ||
       (document.getElementById("quest-modal")?.style.display === "flex");
-    if (!modalOpen && !isTyping) {
+    if (!p.dead && !modalOpen && !isTyping) {
       const movementInput = World.movementVector(Input.keys);
       let dx = movementInput.dx;
       let dy = movementInput.dy;
@@ -48,6 +56,7 @@ function update(dt) {
         World.clearPendingNpcInteraction?.();
         World.cancelPlayerMove(p);
         p.combatMove = false;
+        p._spaceApproachTargetId = null;
       } else {
         // Client chỉ điều hướng; server vẫn quyết định phạm vi, hit và sát thương.
         if (p.combatMove && (!S.target || S.target.dead)) p.combatMove = false;
@@ -57,7 +66,7 @@ function update(dt) {
           for (const m of S.monsters) {
             if (!m || m.dead) continue;
             const d = dist(m.px, m.py, p.px, p.py);
-            if (d < nearestDistance && d <= 160) {
+            if (d < nearestDistance && d <= 384) {
               nearest = m;
               nearestDistance = d;
             }
@@ -65,7 +74,19 @@ function update(dt) {
           S.target = nearest;
         }
 
-        const combatTarget = S.target && !S.target.dead && (S.autoFight || p.combatMove) ? S.target : null;
+        if (S.target?.dead || !S.target) p._spaceApproachTargetId = null;
+        if (Input.keys["Space"] && S.target && !S.target.dead) {
+          const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+          if (dist(S.target.px, S.target.py, p.px, p.py) > attackRange) {
+            p._spaceApproachTargetId = S.target.id;
+            if (World.shouldReplanCombatApproach(p, S.target, Date.now())) {
+              World.planCombatApproach(p, S.target, Date.now());
+            }
+          }
+        }
+
+        const spaceApproachTarget = S.target && p._spaceApproachTargetId === S.target.id ? S.target : null;
+        const combatTarget = S.target && !S.target.dead && (S.autoFight || p.combatMove || spaceApproachTarget) ? S.target : null;
         const stopRange = CFG.BASIC_ATTACK_RANGE * CFG.TS * 0.86;
         if (combatTarget) {
           const targetDx = combatTarget.px - p.px;
@@ -136,7 +157,9 @@ function update(dt) {
             p.walkDistance = 0;
             Net.emitMove(); // Gửi ngay khi bắt đầu
           }
-          p.walkDistance = Number(p.walkDistance || 0) + movedDistance;
+          // Movement coordinates are measured in tiles; the renderer's gait
+          // cycle is measured in canvas pixels, so convert at the boundary.
+          p.walkDistance = Number(p.walkDistance || 0) + movedDistance * Math.max(1, Number(CFG.TS) || 1);
           
           if (p.lastEmitX === undefined) p.lastEmitX = p.x;
           if (p.lastEmitY === undefined) p.lastEmitY = p.y;
@@ -162,10 +185,11 @@ function update(dt) {
       World.processPendingNpcInteraction?.();
       Net.tickAutoLoot(dt);
 
-      if ((Input.keys["Space"] || p.combatMove) && S.atkCd <= 0) {
+      let combatActionThisTick = false;
+      if ((Input.keys["Space"] || p.combatMove || p._spaceApproachTargetId) && S.atkCd <= 0) {
         const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
         let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
-        if (!best) {
+        if (!best && !p._spaceApproachTargetId) {
           let bd = attackRange;
           for (const m of S.monsters) {
             if (!m.dead) {
@@ -176,10 +200,13 @@ function update(dt) {
         }
         if (best) {
           S.target = best;
+          const pendingBeforeAttack = S.combatPending;
           Combat.attack(best);
+          combatActionThisTick = S.atkCd > 0 || (!pendingBeforeAttack && S.combatPending);
+          if (p._spaceApproachTargetId === best.id && (S.combatPending || S.atkCd > 0)) p._spaceApproachTargetId = null;
         }
       }
-      if (S.autoFight && S.atkCd <= 0) {
+      if (S.autoFight) {
         const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
         let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
         if (!best) {
@@ -191,9 +218,10 @@ function update(dt) {
             }
           }
         }
-        if (best) {
+        if (best && !combatActionThisTick) {
           S.target = best;
-          Combat.attack(best);
+          const castSkill = SkillSystem.tryAutoSkill?.(best) || false;
+          if (!castSkill && S.atkCd <= 0) Combat.attack(best);
         }
       }
       // p.px/p.py luôn được đồng bộ từ p.x/p.y ở ngay phía trên; gọi trực tiếp

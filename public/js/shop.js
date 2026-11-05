@@ -7,8 +7,8 @@
 //    - CFG.SHOP_ITEMS, CFG.INV_MAX.
 //    - Phụ thuộc: State (S), UI, Net, Inventory.
 // 3. XỬ LÝ VẤN ĐỀ NÀO:
-//    - Kiểm tra số lượng Xu trước khi mua đồ, trừ Xu và tự động thêm vật phẩm vào túi đồ
-//      (gọi API /api/shop/buy khi online hoặc xử lý local khi offline).
+//    - Kiểm tra số lượng Xu và stack trước khi mua/bán; gọi mutation API có quantity
+//      (/api/player/shop/buy, /api/player/shop/sell) hoặc xử lý local khi offline.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 const Shop = {
@@ -20,6 +20,33 @@ const Shop = {
 
   close() {
     document.getElementById("shop-modal").classList.remove("open");
+  },
+
+  quantityControl(max = 99) {
+    const label = document.createElement("label");
+    label.className = "shop-qty";
+    label.append(document.createTextNode("SL"));
+    const input = document.createElement("input");
+    input.className = "shop-quantity";
+    input.type = "number";
+    input.min = "1";
+    input.max = String(max);
+    input.step = "1";
+    input.value = "1";
+    input.inputMode = "numeric";
+    input.setAttribute("aria-label", `Số lượng, tối đa ${max}`);
+    label.appendChild(input);
+    return input;
+  },
+
+  readQuantity(input, max = 99) {
+    const quantity = Number(input?.value);
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > max) {
+      UI.notify(`Số lượng phải từ 1 đến ${max}.`, "warning");
+      input?.focus();
+      return null;
+    }
+    return quantity;
   },
 
   render() {
@@ -48,10 +75,17 @@ const Shop = {
       price.className = "si-price";
       price.textContent = `${item.giaMua} xu`;
       div.append(icon, info, price);
+      const quantity = this.quantityControl(99);
+      div.appendChild(quantity.parentElement);
       const btn = document.createElement("button");
       btn.className = "sbtn";
       btn.textContent = "Mua";
-      btn.onclick = () => Shop.buy(id);
+      btn.onclick = async () => {
+        const amount = Shop.readQuantity(quantity, 99);
+        if (amount == null) return;
+        btn.disabled = true;
+        try { await Shop.buy(id, amount); } finally { btn.disabled = false; }
+      };
       div.appendChild(btn);
       buy.appendChild(div);
     }
@@ -79,55 +113,74 @@ const Shop = {
       price.className = "si-sell";
       price.textContent = `${item.giaBan || 0} xu/cái`;
       div.append(icon, info, price);
+      const quantity = this.quantityControl(Math.max(1, Number(item.count || 1)));
+      div.appendChild(quantity.parentElement);
       const btn = document.createElement("button");
       btn.className = "sbtn ssell";
       btn.textContent = "Bán";
-      btn.onclick = () => {
-        Shop.sell(idx);
+      btn.onclick = async () => {
+        const amount = Shop.readQuantity(quantity, Math.max(1, Number(item.count || 1)));
+        if (amount == null) return;
+        btn.disabled = true;
+        try { await Shop.sell(idx, amount); } finally { btn.disabled = false; }
       };
       div.appendChild(btn);
       sell.appendChild(div);
     });
   },
 
-  async buy(id) {
+  async buy(id, quantity = 1) {
     const item = CFG.ITEMS[id];
     if (!item) return;
+    const amount = Number(quantity);
+    if (!Number.isSafeInteger(amount) || amount < 1 || amount > 99) return UI.notify("Số lượng mua phải từ 1 đến 99.", "warning");
     if (authToken) {
-      const result = await Net.mutate("POST", API.PATHS.player.buy, { itemCode: id, quantity: 1 });
+      const result = await Net.mutate("POST", API.PATHS.player.buy, { itemCode: id, quantity: amount });
       if (!result?.player) return UI.log(result?.error || "Không thể mua vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(`Mua: ${item.icon} ${item.name} (-${result.result?.price ?? item.giaMua}xu)`, "loot");
+      UI.log(`Mua: ${item.icon} ${item.name} x${amount} (-${result.result?.price ?? item.giaMua * amount} xu)`, "loot");
       UI.buildInv(); UI.update(); this.render();
       return;
     }
-    if (S.player.xu < item.giaMua) {
+    const unitPrice = Math.max(0, Number(item.giaMua) || 0);
+    const totalPrice = unitPrice * amount;
+    if (S.player.xu < totalPrice) {
       UI.log("Không đủ xu!", "system");
       return;
     }
-    S.player.xu -= item.giaMua;
-    Inventory.add(item);
-    UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
+    const stack = S.inventory.find((entry) => String(entry.itemCode || entry.id) === String(item.id));
+    if (stack && Number(stack.count || 1) + amount > 99) return UI.log("Số lượng vượt giới hạn một chồng đồ.", "system");
+    if (!stack && S.inventory.length >= CFG.INV_MAX) return UI.log("Túi đồ đầy!", "system");
+    S.player.xu -= totalPrice;
+    if (stack) stack.count = Number(stack.count || 1) + amount;
+    else S.inventory.push({ ...item, count: amount });
+    UI.log(`Mua: ${item.icon} ${item.name} x${amount} (-${totalPrice} xu)`, "loot");
+    UI.buildInv(); UI.update();
     this.render();
   },
 
-  async sell(idx) {
+  async sell(idx, quantity = 1) {
     const item = S.inventory[idx];
     if (!item) return;
+    const amount = Number(quantity);
+    const available = Math.max(1, Number(item.count || 1));
+    if (!Number.isSafeInteger(amount) || amount < 1 || amount > available) return UI.notify(`Số lượng bán phải từ 1 đến ${available}.`, "warning");
     if (authToken) {
-      const result = await Net.mutate("POST", API.PATHS.player.sell, { itemCode: item.itemCode || item.id, quantity: 1 });
+      const result = await Net.mutate("POST", API.PATHS.player.sell, { itemCode: item.itemCode || item.id, quantity: amount });
       if (!result?.player) return UI.log(result?.error || "Không thể bán vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(`Bán: ${item.name} (+${result.result?.price || 0}xu)`, "loot");
+      UI.log(`Bán: ${item.name} x${amount} (+${result.result?.price || 0} xu)`, "loot");
       UI.buildInv(); UI.update(); this.render();
       return;
     }
-    S.player.xu += item.giaBan || 0;
-    UI.log(
-      `Bán: ${item.name} (+${item.giaBan || 0}xu)`,
-      "loot",
-    );
-    Inventory.remove(idx);
+    const unitPrice = Math.max(0, Number(item.giaBan) || 0);
+    if (unitPrice <= 0) return UI.log("Vật phẩm này không thể bán.", "system");
+    const totalPrice = unitPrice * amount;
+    S.player.xu += totalPrice;
+    item.count = available - amount;
+    if (item.count <= 0) S.inventory.splice(idx, 1);
+    UI.log(`Bán: ${item.name} x${amount} (+${totalPrice} xu)`, "loot");
+    UI.buildInv(); UI.update();
     this.render();
   },
 };

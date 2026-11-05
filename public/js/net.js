@@ -617,6 +617,7 @@ const Net = {
         if (targetId !== socket.id || !S.player) return;
         S.player.hp = Number(hp ?? S.player.hp);
         if (maxHp) S.player.maxHp = Number(maxHp);
+        UI.updateVitals?.(S.player);
         if (typeof SkillVFX === "undefined") {
           Render.combatFx(S.player.px, S.player.py, miss ? "miss" : "hurt", miss ? "#a8ff8a" : "#ff5268", miss ? 0.7 : 1);
         }
@@ -624,7 +625,18 @@ const Net = {
           S.cameraShake = { until: Date.now() + 90, power: 1.8 };
         }
         Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
-        if (S.player.hp <= 0) S.player.hp = Math.floor(S.player.maxHp * 0.25);
+        if (S.player.hp <= 0) {
+          const newlyDead = !S.player.dead;
+          S.player.hp = 0;
+          S.player.dead = true;
+          S.player.combatMove = false;
+          S.player._spaceApproachTargetId = null;
+          if (newlyDead) {
+            Input.stopMovement?.();
+            UI.showDeathModal?.();
+          }
+          UI.updateVitals?.(S.player);
+        }
       });
 
       socket.on("monster_death", ({ id }) => {
@@ -1026,14 +1038,51 @@ const Net = {
 
   sendChat() {
     const inp = document.getElementById("chat-inp");
+    if (!inp) return;
     const msg = inp.value.trim();
-    if (!msg) return;
+    if (!msg) {
+      inp.blur();
+      return;
+    }
     if (socket?.connected) {
       Net.command("chat.send", { message: msg });
     } else {
       UI.log(`[Tôi]: ${msg}`, "chat");
     }
     inp.value = "";
+    inp.blur();
+  },
+
+  async respawnPlayer() {
+    if (!S.player?.dead) return;
+    const button = document.getElementById("death-respawn-btn");
+    if (button) button.disabled = true;
+    UI.setDeathMessage?.("Đang gọi hồi sinh…");
+    try {
+      const response = await Net.mutate("POST", API.PATHS.player.respawn, {});
+      if (!response?.player) throw new Error(response?.error || "Máy chủ chưa hỗ trợ hồi sinh.");
+      Net.applyPlayerSnapshot(response.player, { render: false });
+      const player = S.player;
+      player.dead = false;
+      player.px = Number(player.x || 0) * CFG.TS + CFG.TS / 2;
+      player.py = Number(player.y || 0) * CFG.TS + CFG.TS / 2;
+      player.isMoving = false;
+      player.combatMove = false;
+      player.movePath = [];
+      player.targetMovePos = null;
+      player._spaceApproachTargetId = null;
+      S.target = null;
+      S.combatPending = false;
+      World.clearPendingNpcInteraction?.();
+      World.cancelPlayerMove(player);
+      UI.hideDeathModal?.();
+      UI.update();
+      UI.notify("Đã hồi sinh tại điểm xuất phát.", "success");
+    } catch (error) {
+      UI.setDeathMessage?.(error.message || "Không thể hồi sinh. Vui lòng thử lại.");
+    } finally {
+      if (button) button.disabled = !S.player || !S.player.dead;
+    }
   },
 
   _setBadge(online) {

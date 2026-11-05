@@ -114,7 +114,7 @@ const Combat = {
   },
 
   attack(m) {
-    if (S.atkCd > 0 || S.combatGcd > 0 || S.combatPending || m.dead) return;
+    if (!S.player || S.player.dead || S.atkCd > 0 || S.combatGcd > 0 || S.combatPending || m.dead) return;
     const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
     // Online: không dùng vị trí nội suy client để chặn request. Server kiểm tra
     // khoảng cách authoritative; nếu không hợp lệ sẽ trả action_error.

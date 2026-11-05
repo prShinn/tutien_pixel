@@ -432,7 +432,7 @@ export function installMockBackend({
     return jsonResponse({ ok: true, ...questSnapshot(player, catalog) });
   }
 
-  function handlePlayerRoute(pathname, method, body, user, state, catalog) {
+  async function handlePlayerRoute(pathname, method, body, user, state, catalog) {
     if (pathname === "/api/player" && method === "POST") {
       if (!user) return error("Thiếu hoặc sai phiên đăng nhập mock", 401);
       // Bind ownership to the authenticated mock session, matching the real API contract.
@@ -461,10 +461,26 @@ export function installMockBackend({
     }
     if (!player) return error("Player not found", 404);
 
-    const itemById = (id) => catalog.items.find((entry) => String(entry.id) === String(id));
+    const itemById = (id) => catalog.items.find((entry) => String(entry.id || entry.code) === String(id) || String(entry.code || "") === String(id));
     const save = () => { player.combatPower = combatPower(player); savePlayer(state, player); };
     const resultPlayer = (result) => jsonResponse({ player: jsonClone(player), result });
     let match;
+
+    if (pathname === "/api/player/respawn" && method === "POST") {
+      const world = await loadWorld(player.mapCode || player.mapId);
+      const spawnX = Number(world?.spawnX);
+      const spawnY = Number(world?.spawnY);
+      player.x = Number.isFinite(spawnX) ? spawnX : Number(player.x || 0);
+      player.y = Number.isFinite(spawnY) ? spawnY : Number(player.y || 0);
+      player.mapCode = world?.code || player.mapCode || player.mapId;
+      player.mapId = player.mapCode;
+      player.hp = Math.max(1, Math.floor(Number(player.maxHp || player.derivedStats?.maxHp || 1) * 0.5));
+      player.mp = Math.max(0, Math.floor(Number(player.maxMp || player.derivedStats?.maxMp || 0) * 0.5));
+      player.dead = false;
+      player.combatPower = combatPower(player);
+      savePlayer(state, player);
+      return resultPlayer({ type: "respawned", mapCode: player.mapCode, x: player.x, y: player.y, hp: player.hp, mp: player.mp });
+    }
 
     if ((match = /^\/api\/player\/(\d+)$/.exec(pathname)) && method === "PUT") {
       if (Number(match[1]) !== Number(player.id)) return error("Không được phép", 403);
@@ -520,38 +536,46 @@ export function installMockBackend({
     }
 
     if (pathname === "/api/player/shop/buy" && method === "POST") {
-      const item = itemById(body.itemId);
+      const item = itemById(body.itemCode);
       if (!item) return error("Item not found", 404);
-      const price = Math.max(0, Math.floor(Number(item.giaMua) || 0));
+      const quantity = Number(body.quantity);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) return error("Số lượng phải là số nguyên từ 1 đến 99", 400, "INVALID_QUANTITY");
+      const unitPrice = Math.max(0, Math.floor(Number(item.giaMua) || 0));
+      const price = unitPrice * quantity;
       if (Number(player.xu || 0) < price) return error("Không đủ xu", 400);
       const inventory = getInventory(player);
-      const existing = inventory.find((entry) => entry.id === item.id);
+      const existing = inventory.find((entry) => String(entry.itemCode || entry.id) === String(item.id || item.code));
       if (existing) {
-        if (Number(existing.count || 0) >= 99) return error("Số lượng vật phẩm đã đạt giới hạn", 400);
-        existing.count = Number(existing.count || 0) + 1;
-      } else if (inventory.length < 40) inventory.push({ ...item, count: 1, equipped: false });
+        const count = Number(existing.count ?? 1);
+        if (count + quantity > 99) return error("Số lượng vật phẩm đã đạt giới hạn", 400);
+        existing.count = count + quantity;
+      } else if (inventory.length < 40) inventory.push({ ...item, itemCode: item.id || item.code, count: quantity, equipped: false });
       else return error("Túi đồ đầy", 400);
       player.xu = Number(player.xu || 0) - price;
       setInventory(player, inventory);
       save();
-      return resultPlayer({ type: "bought", itemId: item.id });
+      return resultPlayer({ type: "bought", itemId: item.id, itemCode: item.id || item.code, quantity, price });
     }
 
     if (pathname === "/api/player/shop/sell" && method === "POST") {
       const inventory = getInventory(player);
-      const index = Number(body.index);
-      if (!Number.isInteger(index) || index < 0 || index >= inventory.length) return error("Vị trí vật phẩm không hợp lệ", 400);
+      const itemCode = String(body.itemCode || "");
+      const index = inventory.findIndex((entry) => String(entry.itemCode || entry.id) === itemCode);
+      if (index < 0) return error("Vật phẩm không còn trong túi đồ", 400);
       const item = inventory[index];
-      const definition = itemById(item.id);
+      const definition = itemById(itemCode);
       if (!definition) return error("Vật phẩm không còn trong danh mục bán", 400);
-      const price = Math.max(0, Math.floor(Number(definition.giaBan) || 0));
+      const quantity = Number(body.quantity);
+      const count = Number(item.count ?? 1);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99 || quantity > count) return error("Số lượng bán không hợp lệ", 400, "INVALID_QUANTITY");
+      const price = Math.max(0, Math.floor(Number(definition.giaBan) || 0)) * quantity;
       if (price <= 0) return error("Vật phẩm này không thể bán", 400);
       player.xu = Number(player.xu || 0) + price;
-      item.count = Math.max(0, Number(item.count ?? 1) - 1);
+      item.count = Math.max(0, count - quantity);
       if (item.count <= 0) inventory.splice(index, 1);
       setInventory(player, inventory);
       save();
-      return resultPlayer({ type: "sold", itemId: definition.id, price });
+      return resultPlayer({ type: "sold", itemId: definition.id, itemCode: definition.id || definition.code, quantity, price });
     }
 
     if (pathname === "/api/player/cultivation/absorb" && method === "POST") {
@@ -611,14 +635,19 @@ export function installMockBackend({
 
     if (pathname === "/api/player/stats/allocate" && method === "POST") {
       const stat = String(body.stat || "");
-      const amount = Math.max(1, Math.floor(Number(body.amount) || 1));
+      const amount = body.amount == null ? 1 : Number(body.amount);
       if (!STAT_KEYS.includes(stat)) return error("Stat không hợp lệ", 400);
+      if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000) return error("Số điểm phải là số nguyên từ 1 đến 1000", 400, "INVALID_AMOUNT");
       if (Number(player.unspentStatPoints || 0) < amount) return error("Không đủ điểm thuộc tính", 400);
       player.stats[stat] = Number(player.stats?.[stat] || 0) + amount;
       player.unspentStatPoints -= amount;
       player.derivedStats = deriveStats(player.stats, player.equipment);
+      player.maxHp = player.derivedStats.maxHp;
+      player.maxMp = player.derivedStats.maxMp;
+      player.hp = Math.min(Number(player.hp || 0), player.maxHp);
+      player.mp = Math.min(Number(player.mp || 0), player.maxMp);
       save();
-      return jsonResponse({ stats: player.stats, unspentStatPoints: player.unspentStatPoints, derivedStats: player.derivedStats });
+      return jsonResponse({ stats: player.stats, unspentStatPoints: player.unspentStatPoints, derivedStats: player.derivedStats, player: jsonClone(player) });
     }
 
     if (pathname === "/api/player/skills/learn" && method === "POST") {

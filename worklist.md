@@ -1,7 +1,8 @@
 # BE Worklist — API và service tích hợp FE
 
 **Trạng thái:** Sẵn sàng giao BE estimate và triển khai  
-**Rà soát source:** 2026-11-04  
+**Rà soát source:** 2026-11-05
+
 **Ưu tiên chung:** P0 cho contract và luồng đăng nhập/chơi cơ bản; P1 cho gameplay/realtime/admin; P2 cho beta nhiều instance  
 **Phạm vi:** Backend cung cấp API và application/domain service để FE hiện tại sử dụng. Giữ URL/payload đang chạy trong giai đoạn tích hợp; không để FE gửi state có thể tự tăng xu, vật phẩm hoặc tiến trình.
 
@@ -91,7 +92,8 @@
 | Use case | Endpoint + request | Response FE đọc |
 |---|---|---|
 | Dùng vật phẩm | `POST /api/player/inventory/use` `{ index, itemId }` | `{ player: PlayerDTO, result }` |
-| Mua/bán | `POST /api/player/shop/buy` `{ itemId }`; `/shop/sell` `{ index }` | `{ player, result: { type, itemId, price? } }`; FE hiển thị `result.price` khi bán |
+| Mua/bán | `POST /api/player/shop/buy` và `/shop/sell` `{ requestId, itemCode, quantity }`; FE gửi `itemCode` + `quantity`, `Net.mutate` tự gắn idempotency `requestId` | `{ ok, player: PlayerDTO, result: { type, itemId, itemCode, quantity, price } }`; `price` là tổng giá theo số lượng |
+| Cộng điểm | `POST /api/player/stats/allocate` `{ requestId, stat, amount }`; FE gửi `stat` trong `str/agi/vit/ene`, `amount: 1` | `{ stats, unspentStatPoints, derivedStats, player: PlayerDTO }` |
 | Hấp thụ/đột phá | `POST /api/player/cultivation/absorb` `{ itemId, amount? }`; `/breakthrough` `{}` | `{ player, result: { amount? , major?, gain? } }` |
 | Trang bị | `POST /api/player/equipment/equip` `{ index, itemId, slot }`; `/unequip` `{ slot }` | `{ player, result: { type, slot, itemId } }` |
 | Học skill | `POST /api/player/skills/learn` `{ skillCode, source }` | `{ learnedSkills, skill, combatPower }` |
@@ -172,3 +174,43 @@ Mỗi work item chỉ được đóng khi có: code/service, API contract cập 
 ## 5. Giới hạn kiểm tra hiện tại
 
 Đây là worklist dựa trên rà soát source FE/BE và roadmap hiện có. Lần tạo tài liệu này không chạy build, test hoặc server; trạng thái runtime và kết quả test hiện tại chưa được xác minh.
+
+## 6. Bổ sung từ danh sách lỗi thao tác/gameplay ngày 2026-11-05
+
+### FE batch đang xử lý
+
+Các thay đổi FE trong nhánh hiện tại: phím B/C mở/đóng KPAH, Tab chọn quái theo vòng gần nhất, Escape/Enter thoát focus chat, Space tự áp sát mục tiêu xa, auto-fight quét 384px và ưu tiên skill hợp lệ, UI phân bổ điểm qua API, mua/bán theo số lượng, nhãn đồ rơi, NPC dùng sprite, hiệu ứng đột phá, và trạng thái chết khóa điều khiển. Mock API được chỉnh theo payload shop/stats hiện có của BE.
+
+**Đã kiểm tra trên tab demo cô lập (`?mockBackend=1`)**: nạp game, KPAH B/C, chat Enter/Escape, Tab chọn mục tiêu, Space áp sát, auto-fight dùng skill, modal khi HP bằng 0 và hồi sinh mock về spawn với 50% HP/MP. `npm test`: 130/130 đạt, gồm hai unit test mới cho đòn chí tử/quái ngừng đánh. Chưa xác minh các luồng này với BE thật.
+
+### BE-09 — Hồi sinh nhân vật `[P0 trước alpha online]`
+
+**Hiện trạng**: Đã bỏ nhánh local demo tự đặt HP thành 25% sau đòn chí tử. Khi HP về 0, FE khóa di chuyển/đánh, tắt auto-fight, mở modal và chặn quái tiếp tục đánh. Mock API có luồng hồi sinh về spawn với 50% HP/MP để demo; BE thật vẫn chưa có endpoint/service theo source đã rà soát.
+
+**Endpoint cần cung cấp**: `POST /api/player/respawn` với Bearer JWT và `{ requestId }` (FE `Net.mutate` tự gắn ID). Server xác định điểm hồi sinh từ map/world config, đưa nhân vật về tile spawn hợp lệ, đặt HP/MP bằng 50% mức tối đa authoritative, xóa trạng thái chết/combat/path, và lưu mutation nguyên tử/idempotent.
+
+**Response FE cần**: `{ ok: true, player: PlayerDTO, result: { type: "respawned", mapCode, x, y, hp, mp } }`; player phải chứa tọa độ và vitals canonical. Lỗi trả JSON `{ error, code? }` và giữ nhân vật ở trạng thái chết.
+
+**Acceptance**: owner check; không nhận tọa độ/HP/MP do client yêu cầu; điểm spawn walkable; retry cùng requestId không hồi sinh/phát thưởng hai lần; FE nhận snapshot rồi mở khóa điều khiển. **Chưa thấy endpoint/service này trong BE source được rà soát.**
+
+### BE-10 — Hồi phục HP/MP ngoài giao tranh `[P1]`
+
+**Yêu cầu gameplay**: sau 5 giây không chịu sát thương, mỗi 3 giây hồi 2% max HP và 3% max MP; dừng hoặc trì hoãn hồi khi bị đánh/giao tranh theo server state. Server clamp vào max vitals, không tin client.
+
+**Service/event**: quản lý timer theo player session trong gameplay service; không ghi DB theo từng tick. Đồng bộ bằng event `player_state_update`/snapshot có `hp`, `maxHp`, `mp`, `maxMp` (hoặc chốt event riêng có schema). Persist theo cơ chế checkpoint hiện tại.
+
+**Acceptance**: test timer theo thời gian, vừa bị đánh thì reset 5 giây, không vượt max, player rời room/disconnect thì dọn timer, không phát hồi phục hai lần khi nhiều instance cùng sở hữu session.
+
+### BE-11 — Mở rộng catalog trang bị, shop và drop `[P1]`
+
+**Hiện trạng**: FE mock catalog hiện có một vật phẩm `EQUIPMENT` là `SWORD_BAO_KHI_1`; slot trang bị còn lại chưa có lựa chọn trong catalog. Item/giá/điều kiện mua và drop phải do BE catalog làm nguồn chuẩn; FE không tự thêm gear riêng để tránh lệch dữ liệu authoritative.
+
+**Deliverables**: bổ sung áo/giáp, quần, giày, nón, nhẫn, vòng hộ thân; dùng đúng enum slot và schema stats mà equipment service/FE đang hỗ trợ; chốt DEF/HP/SPD và realm requirement; cấu hình giá shop và drop table của quái; trả item catalog nhất quán cho `/api/items`, `/api/shop/catalog/items`, inventory và mutation response.
+
+**Acceptance**: test catalog validation cho slot/stat/realm; mua đúng giá và đúng lượng; drop chỉ cấp item có trong catalog; trang bị/tháo ra giữ nguyên stat; catalog FE mock được cập nhật cùng mã item sau khi BE chốt.
+
+### BE-12 — Đồng bộ HP/MP chết và hồi sinh qua Socket `[P1]`
+
+Đảm bảo mọi luồng combat kết thúc HP/MP canonical (kể cả HP bằng 0) đều phát đủ snapshot cho FE. FE cần nhận `hp <= 0` thật để mở dead modal; không gửi fake HP và không tự hồi sinh. Khi respawn thành công, event/snapshot phải đồng bộ cùng tọa độ, mapCode và vitals để client không bị trạng thái chết sót lại.
+
+**Next BE order**: BE-09 trước khi cho alpha online có death; BE-10 cùng batch realtime; BE-11 catalog sau khi chốt schema item/equipment. FE batch hiện tại chỉ dùng mock cho respawn cho đến khi BE-09 có API thật.

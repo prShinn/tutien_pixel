@@ -87,7 +87,7 @@ function inputHarness(player) {
   return { input: context.__Input, emitted };
 }
 
-async function gameplayHarness(tiles, player, { basicAttackRange = 24 } = {}) {
+async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize = 1 } = {}) {
   const movementPath = pathToFileURL(path.join(root, "public", "js", "core", "movement-feedback.mjs")).href;
   const movement = (await import(movementPath)).MovementFeedback;
   const errors = [];
@@ -115,7 +115,7 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24 } = {}) {
     S: state,
     MovementFeedback: movement,
     CFG: {
-      TS: 1,
+      TS: tileSize,
       PLAYER_COLLISION_RADIUS: 0.45,
       PLAYER_MOVE_SPEED: 44,
       BASIC_ATTACK_RANGE: basicAttackRange,
@@ -589,6 +589,17 @@ test("game loop keeps keyboard travel frame-rate independent and diagonal speed 
   assert.ok(Math.abs(60 - player.y - (44 / Math.SQRT2)) < 0.1);
 });
 
+test("game loop stores walked distance in canvas pixels for sprite gait", async () => {
+  const tiles = Array.from({ length: 120 }, () => Array(120).fill(0));
+  const player = { x: 10, y: 10, px: 10.5, py: 10.5, stats: { agi: 0 }, buffs: {}, movePath: [], lastEmitX: 10, lastEmitY: 10 };
+  const game = await gameplayHarness(tiles, player, { tileSize: 32 });
+  game.input.keys.KeyD = true;
+  for (let frame = 0; frame < 60; frame += 1) game.update(1000 / 60);
+
+  assert.ok(Math.abs(player.x - 54) < 0.1);
+  assert.ok(Math.abs(player.walkDistance - 44 * 32) < 0.1);
+});
+
 test("game loop follows a planned detour to the click destination without overshooting", async () => {
   const tiles = Array.from({ length: 8 }, () => Array(9).fill(0));
   for (let y = 0; y < 7; y += 1) tiles[y][4] = 2;
@@ -656,9 +667,9 @@ test("losing focus clears held keys and pending click movement", () => {
 test("walk sprite frames follow traveled distance rather than wall-clock phase", () => {
   const render = renderHarness();
   assert.equal(render.walkFrame({ walkDistance: 0 }), 0);
-  assert.equal(render.walkFrame({ walkDistance: 5.5 }), 1);
-  assert.equal(render.walkFrame({ walkDistance: 11 }), 2);
-  assert.equal(render.walkFrame({ walkDistance: 22 }), 0);
+  assert.equal(render.walkFrame({ walkDistance: 13 }), 1);
+  assert.equal(render.walkFrame({ walkDistance: 26 }), 2);
+  assert.equal(render.walkFrame({ walkDistance: 52 }), 0);
 });
 
 test("render camera follows the same interpolated player position as the sprite", () => {

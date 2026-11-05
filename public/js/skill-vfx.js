@@ -7,6 +7,7 @@ const SkillVFX = {
   storageKey: "tutien.skillVfxProfiles.v1",
   allowedForms: null,
   ownedBuffAuras: [],
+  elementalImpactAtlas: "./assets/effects/elemental-impact-atlas-v3.png",
 
   loadCustomProfiles() {
     try {
@@ -369,21 +370,23 @@ const SkillVFX = {
     try {
       for (const entry of this.active) {
         const staysBehindActors = entry.mode === "charge" || entry.mode === "support" || entry.mode === "preview-support" || entry.profile.category === "PASSIVE";
-        if (layer === "behind" && !staysBehindActors) continue;
-        if (layer === "front" && staysBehindActors) continue;
+        const splitLightning = ["thunder-shield", "passive-lightning"].includes(entry.profile.form)
+          && (entry.mode === "support" || entry.mode === "preview-support" || entry.profile.category === "PASSIVE");
+        if (layer === "behind" && !staysBehindActors && !splitLightning) continue;
+        if (layer === "front" && staysBehindActors && !splitLightning) continue;
         const elapsed = now - entry.startedAt;
         const progress = reduceMotion ? 0.55 : Math.max(0, Math.min(1, elapsed / entry.duration));
         const palette = entry.profile.palette || this.palette[entry.profile.root] || this.palette.COMMON;
         const origin = { x: entry.from.x - cameraX, y: entry.from.y - cameraY };
         if (entry.mode === "charge") this.drawCharge(origin, entry.profile, palette, progress);
         else if (entry.mode === "support" || entry.mode === "preview-support") {
-          this.drawSupport(origin, entry.profile, palette, progress);
-          if (entry.mode === "preview-support") this.drawPixelRing(origin.x, origin.y - 4, 23, palette.light, 0.45, 1);
+          this.drawSupport(origin, entry.profile, palette, progress, layer);
+          if (entry.mode === "preview-support" && layer !== "front") this.drawPixelRing(origin.x, origin.y - 4, 23, palette.light, 0.45, 1);
         }
         else if (entry.mode === "monster-attack") {
           const target = entry.targets[0];
           if (target) this.drawMonsterAttack(origin, { x: target.x - cameraX, y: target.y - cameraY }, entry.profile, palette, progress, target);
-        } else if (entry.profile.category === "PASSIVE") this.drawPassive(origin, entry.profile, palette, progress);
+        } else if (entry.profile.category === "PASSIVE") this.drawPassive(origin, entry.profile, palette, progress, layer);
         else {
           for (const target of entry.targets) {
             const point = { x: target.x - cameraX, y: target.y - cameraY };
@@ -392,9 +395,9 @@ const SkillVFX = {
           }
         }
       }
-      if (layer !== "front" && typeof VisualEffects !== "undefined" && VisualEffects.arePersistentEffectsEnabled()) {
-        this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion);
-        this.drawOwnedBuffs(cameraX, cameraY, now);
+      if (typeof VisualEffects !== "undefined" && VisualEffects.arePersistentEffectsEnabled()) {
+        this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion, layer);
+        this.drawOwnedBuffs(cameraX, cameraY, now, layer);
       }
     } finally {
       ctx.restore();
@@ -493,8 +496,34 @@ const SkillVFX = {
       this.colorStamp(target.x + 7, target.y - 8, 3, palette.accent, 0.86);
       this.colorStamp(target.x + 12, target.y - 12, 2, palette.light, 0.76);
     }
+    this.drawElementalImpact(point, profile, progress, outcome, preview);
     if (preview) this.drawPixelRing(target.x, target.y, 10 + progress * 4, palette.light, 0.45, 1);
     if (outcome.critical && progress > 0.55) this.drawBurst(point, { ...palette, main: palette.light }, progress, profile.tier + 1, profile.aoeR);
+  },
+
+  drawElementalImpact(point, profile, progress, outcome = {}, preview = false) {
+    if (outcome.miss || typeof Render === "undefined" || !ctx) return;
+    const rows = { LOI: 0, HOA: 1, THUY: 2, THO: 3, MOC: 4 };
+    const row = rows[String(profile.root || "").toUpperCase()];
+    if (row === undefined) return;
+    const tier = Math.max(1, Number(profile.tier || 1));
+    const frame = Math.min(3, Math.max(0, Math.floor(progress * 4)));
+    const size = Math.min(58, 42 + (tier - 1) * 5);
+    const previousSmoothing = ctx.imageSmoothingEnabled;
+    const previousAlpha = ctx.globalAlpha;
+    ctx.imageSmoothingEnabled = false;
+    if (preview) ctx.globalAlpha *= 0.76;
+    try {
+      Render.drawSprite(this.elementalImpactAtlas, point.x, point.y - 2, size, size, {
+        col: frame,
+        row,
+        cols: 4,
+        rows: 5,
+      });
+    } finally {
+      ctx.imageSmoothingEnabled = previousSmoothing;
+      ctx.globalAlpha = previousAlpha;
+    }
   },
 
   drawMonsterAttack(origin, target, profile, palette, progress, outcome) {
@@ -932,12 +961,12 @@ const SkillVFX = {
     if (form === "flame-field" || form === "volcanic-lotus") this.drawBurst(point, palette, progress, profile.tier, profile.aoeR);
   },
 
-  drawSupport(point, profile, palette, progress) {
+  drawSupport(point, profile, palette, progress, layer = "all") {
     const form = profile.form;
     const progressValue = Math.max(0, Math.min(1, Number(progress) || 0));
     const pulse = 0.06 + Math.sin(progressValue * Math.PI) * 0.18;
     if (form === "thunder-shield") {
-      this.drawLightningAura(point, palette, (Date.now() % 840) / 840, progressValue);
+      this.drawLightningAura(point, palette, (Date.now() % 840) / 840, progressValue, layer);
       return;
     }
     if (["shield", "water-shield", "stone-armor"].includes(form)) {
@@ -1045,7 +1074,7 @@ const SkillVFX = {
     }
   },
 
-  drawLightningAura(point, palette, phase, lifecycle = null) {
+  drawLightningAura(point, palette, phase, lifecycle = null, layer = "all") {
     const cycle = ((Number(phase) || 0) % 1 + 1) % 1;
     const pulseAt = (center) => {
       const distance = Math.min(Math.abs(cycle - center), 1 - Math.abs(cycle - center));
@@ -1055,35 +1084,50 @@ const SkillVFX = {
       ? Math.max(0, Math.min(1, Math.min(lifecycle * 5, (1 - lifecycle) * 5)))
       : 1;
     const pulse = Math.max(pulseAt(0.12), pulseAt(0.62));
-    const radius = 11 + Math.sin(cycle * Math.PI * 2) * 1.2;
-    this.drawPixelRing(point.x, point.y + 1.2, radius, palette.accent, 0.22 + pulse * 0.24, 2);
-
-    for (let bolt = 0; bolt < 2; bolt += 1) {
-      const flash = pulseAt(bolt === 0 ? 0.12 : 0.62) * envelope;
-      if (flash < 0.08) continue;
-      const side = bolt === 0 ? -1 : 1;
-      const x = point.x + side * 10;
-      const y = point.y - 8 + Math.sin((cycle + bolt * 0.5) * Math.PI * 2) * 1.5;
-      const zig = [[0, -5], [side * 2, -2], [-side, 1], [side * 2, 4], [0, 7]];
-      for (let i = 0; i < zig.length; i += 1) {
-        const [dx, dy] = zig[i];
-        this.colorStamp(x + dx, y + dy, i % 2 ? 2 : 3, i % 2 ? palette.light : palette.main, (0.2 + flash * 0.72) * envelope);
+    const radius = 13.5 + Math.sin(cycle * Math.PI * 2) * 1.2;
+    if (layer !== "front") {
+      for (let index = 0; index < 12; index += 1) {
+        const angle = (index / 12) * Math.PI * 2;
+        const color = index % 3 === 0 ? palette.light : palette.accent;
+        this.colorStamp(point.x + Math.cos(angle) * radius, point.y + 1.2 + Math.sin(angle) * radius * 0.38, 3, color, 0.42 + pulse * 0.34);
       }
-      this.colorStamp(x + side * 3, y + 3, 2, palette.accent, 0.32 + flash * 0.62);
+    }
+
+    if (layer !== "behind") {
+      const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 4);
+      for (let bolt = 0; bolt < 2; bolt += 1) {
+        const flash = pulseAt(bolt === 0 ? 0.12 : 0.62) * envelope;
+        const side = bolt === 0 ? -1 : 1;
+        const x = point.x + side * halfWidth;
+        const y = point.y - 9 + Math.sin((cycle + bolt * 0.5) * Math.PI * 2) * 1.5;
+        const zig = [[0, -8], [side * 2, -4], [-side, 0], [side * 2, 4], [0, 8]];
+        const alpha = 0.08 + flash * 0.92;
+        for (let i = 0; i < zig.length; i += 1) {
+          const [dx, dy] = zig[i];
+          this.colorStamp(x + dx, y + dy, i % 2 ? 2 : 3, i % 2 ? palette.light : palette.main, alpha * envelope);
+        }
+        this.colorStamp(x + side * 3, y + 3, 3, palette.accent, (0.06 + flash * 0.9) * envelope);
+      }
     }
   },
 
-  drawPassive(point, profile, palette, progress) {
+  drawPassive(point, profile, palette, progress, layer = "all") {
     const phase = Math.max(0, Math.min(1, Number(progress) || 0)) * Math.PI * 2;
     const y = point.y + 1.2;
-    const radius = 5.5 + (Math.sin(phase) + 1) * 0.45;
-    const alpha = 0.08 + (Math.sin(phase) + 1) * 0.035;
     if (["passive-lightning", "thunder-shield"].includes(profile.form)) {
-      this.drawLightningAura(point, palette, (Number(progress) || 0) % 1);
+      this.drawLightningAura(point, palette, (Number(progress) || 0) % 1, null, layer);
       return;
     }
-    // Passive previews and persistent auras stay small and beneath the character sprite.
-    this.drawPixelRing(point.x, y, radius, palette.main, alpha, 1);
+    // Keep non-lightning passives below the sprite; the front pass is reserved
+    // for effects designed to frame the character rather than cover it.
+    if (layer === "front") return;
+    const radius = 10.5 + (Math.sin(phase) + 1) * 0.8;
+    const alpha = 0.16 + (Math.sin(phase) + 1) * 0.08;
+    for (let index = 0; index < 12; index += 1) {
+      const angle = (index / 12) * Math.PI * 2;
+      const color = index % 3 === 0 ? palette.light : palette.main;
+      this.colorStamp(point.x + Math.cos(angle) * radius, y + Math.sin(angle) * radius * 0.42, index % 3 === 0 ? 3 : 2, color, alpha);
+    }
     if (["passive-leaf", "passive-wind"].includes(profile.form)) {
       const drift = Math.cos(phase) * 2;
       this.colorStamp(point.x - 7 + drift, point.y - 6, 2, palette.light, 0.34);
@@ -1100,7 +1144,7 @@ const SkillVFX = {
     }
   },
 
-  drawOwnedBuffs(cameraX, cameraY, now) {
+  drawOwnedBuffs(cameraX, cameraY, now, layer = "all") {
     const player = S.player;
     if (!player) return;
     const x = player.px - cameraX;
@@ -1111,8 +1155,8 @@ const SkillVFX = {
     const drawAura = (skill, key) => {
       const profile = this.profile(skill);
       const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-      if (profile.form === "thunder-shield") this.drawLightningAura({ x, y }, palette, phase);
-      else this.drawPassive({ x, y }, profile, palette, phase);
+      if (profile.form === "thunder-shield") this.drawLightningAura({ x, y }, palette, phase, null, layer);
+      else this.drawPassive({ x, y }, profile, palette, phase, layer);
       drawn.add(String(skill.code || skill.id || key));
     };
     for (const entry of this.ownedBuffAuras) drawAura(entry.skill, entry.effect);
@@ -1127,7 +1171,7 @@ const SkillVFX = {
     }
   },
 
-  drawOwnedPassive(cameraX, cameraY, now, reduceMotion) {
+  drawOwnedPassive(cameraX, cameraY, now, reduceMotion, layer = "all") {
     const player = S.player;
     if (!player) return;
     const root = String(player.linhCan || player.root?.id || "").toUpperCase();
@@ -1146,10 +1190,10 @@ const SkillVFX = {
     if (!skill) return;
     const profile = this.profile(skill);
     const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-    const phase = reduceMotion ? 0 : (now % 1500) / 1500;
+    const phase = reduceMotion ? 0.12 : (now % 1500) / 1500;
     const x = player.px - cameraX;
     const y = player.py - cameraY;
-    this.drawPassive({ x, y }, profile, palette, phase);
+    this.drawPassive({ x, y }, profile, palette, phase, layer);
   },
 };
 

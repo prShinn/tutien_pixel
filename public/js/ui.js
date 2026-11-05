@@ -24,14 +24,20 @@ const UI = {
       .toLocaleLowerCase("vi")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
+    if (/coin|money|currency|(^|\W)xu(\W|$)/.test(values)) return "icon-coins";
     if (/mpd|restore.?mp|heal.?mp|mana|(^|\W)mp(\W|$)|linh khi/.test(values)) return "icon-potion-mp";
     if (/hpd|restore.?hp|heal.?hp|(^|\W)heal(\W|$)|(^|\W)hp(\W|$)|sinh luc|hoi mau|dan duoc/.test(values)) return "icon-potion-hp";
+    if (/herb|thao duoc|duoc thao/.test(values)) return "icon-herb";
+    if (/pill|linh dan|vien dan/.test(values)) return "icon-pill";
     if (/consume|potion|thuoc|elixir|(^|\W)dan(\W|$)/.test(values)) return "icon-potion-hp";
     if (/weapon|sword|kiem|vu khi/.test(values)) return "icon-sword";
     if (/helmet|hat|mu|non/.test(values)) return "icon-helmet";
     if (/armor|robe|pants|giap|quan|ao/.test(values)) return "icon-armor";
     if (/boot|giay/.test(values)) return "icon-boots";
     if (/ring|nhan/.test(values)) return "icon-ring";
+    if (/lightning.?gem|gem.?lightning|loi thach|loi tinh/.test(values)) return "icon-lightning-gem";
+    if (/spear|thong/.test(values)) return "icon-spear";
+    if (/stone|linh thach|spirit stone/.test(values)) return "icon-spirit-stone";
     if (/amulet|belt|gem|stone|tal|vong|dai|linh thach|nguyen to/.test(values)) return "icon-talisman";
     if (/shield|def|phong thu|the luc/.test(values)) return "icon-shield";
     if (/physical|melee|vat ly/.test(values)) return "icon-sword";
@@ -41,7 +47,8 @@ const UI = {
   },
   createPixelIcon(item, slotHint = "", extraClass = "") {
     const icon = document.createElement("span");
-    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${extraClass ? ` ${extraClass}` : ""}`;
+    const itemArtClass = slotHint === "skill" ? "" : " item-art-icon";
+    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
     icon.setAttribute("aria-hidden", "true");
     return icon;
   },
@@ -52,6 +59,25 @@ const UI = {
       SkillSystem.loadBook();
       UI.renderEquipment(true);
     }
+  },
+  showDeathModal() {
+    const modal = document.getElementById("death-modal");
+    if (!modal) return;
+    modal.style.display = "flex";
+    const button = document.getElementById("death-respawn-btn");
+    if (button) {
+      button.disabled = false;
+      button.focus();
+    }
+    this.setDeathMessage("Ngươi đã trọng thương. Hồi sinh tại điểm xuất phát với 50% HP và MP.");
+  },
+  hideDeathModal() {
+    const modal = document.getElementById("death-modal");
+    if (modal) modal.style.display = "none";
+  },
+  setDeathMessage(message) {
+    const text = document.getElementById("death-message");
+    if (text) text.textContent = String(message || "");
   },
   toggleChat() {
     const el = document.getElementById("chat-bar");
@@ -219,6 +245,7 @@ const UI = {
 
     this.updateVitals(p);
     this.updatePosition(p);
+    this.renderSkillEffects();
 
     const s = p.stats;
     const _i = (v) => Math.floor(Number(v) || 0);
@@ -228,6 +255,13 @@ const UI = {
     setTxt("r-agi", _i(s.agi));
     setTxt("r-vit", _i(s.vit));
     setTxt("r-ene", _i(s.ene));
+    const unspentPoints = Math.max(0, _i(p.unspentStatPoints));
+    setTxt("ui-unspent-points", unspentPoints);
+    const allocationPending = Boolean(Cultivation?._pendingStatAllocations?.size);
+    for (const button of document.querySelectorAll("[data-allocate-stat]")) {
+      button.disabled = unspentPoints < 1 || allocationPending;
+      button.title = allocationPending ? "Đang cộng điểm…" : (unspentPoints < 1 ? "Không còn điểm tiềm năng" : "Cộng 1 điểm");
+    }
     setTxt("r-patk", _i(Combat.pAtk()));
     setTxt("r-matk", _i(Combat.mAtk()));
     setTxt("r-def", _i(Combat.pDef()));
@@ -407,6 +441,71 @@ const UI = {
     button.title = isEnabled ? "Ẩn hiệu ứng duy trì quanh nhân vật" : "Bật hiệu ứng duy trì quanh nhân vật";
     button.classList.toggle("active", isEnabled);
     if (state) state.textContent = isEnabled ? "FX: HIỆN" : "FX: ẨN";
+  },
+
+  renderSkillEffects() {
+    const host = document.getElementById("hud-skill-effects");
+    if (!host) return;
+    const player = S.player;
+    const skillVfx = typeof SkillVFX !== "undefined" ? SkillVFX : null;
+    if (!player) {
+      host.replaceChildren();
+      host.hidden = true;
+      return;
+    }
+
+    const now = Date.now();
+    const effects = new Map();
+    const addEffect = (skillData, kind, expiresAt = 0) => {
+      const skill = skillVfx?.normalize?.(skillData) || skillData;
+      if (!skill) return;
+      const code = String(skill.code || skill.id || skillData.skillCode || "");
+      const name = String(skill.name || skill.tenNangLuc || code || "Hiệu ứng");
+      const endAt = Number(expiresAt) || 0;
+      if (endAt > 0 && endAt <= now) return;
+      const key = code || name;
+      const current = effects.get(key);
+      if (!current || kind === "buff") effects.set(key, { skill, kind, name, endAt });
+    };
+
+    for (const [buffKey, buff] of Object.entries(player.buffs || {})) {
+      if (!buff || (Number(buff.expiresAt) > 0 && Number(buff.expiresAt) <= now)) continue;
+      const skillCode = String(buff.skillCode || buff.code || "");
+      const skill = (skillCode && skillVfx?.findSkill?.(skillCode, player))
+        || (player.skills || []).find((entry) => String(entry.effect || "") === buffKey);
+      if (skill) addEffect(skill, "buff", buff.expiresAt);
+    }
+    for (const entry of skillVfx?.ownedBuffAuras || []) addEffect(entry.skill, "buff", entry.expiresAt);
+
+    const learnedCodes = (player.learnedSkills || []).map((entry) => String(entry?.code || entry?.id || entry?.skillCode || entry));
+    const passiveCodes = new Set(learnedCodes);
+    for (const code of passiveCodes) {
+      const skill = skillVfx?.findSkill?.(code, player);
+      if (skill && String(skill.category || "").toUpperCase() === "PASSIVE") addEffect(skill, "passive");
+    }
+    for (const skill of player.skills || []) {
+      if (String(skill.category || "").toUpperCase() === "PASSIVE") addEffect(skill, "passive");
+    }
+
+    const entries = [...effects.values()].slice(0, 3);
+    const badges = entries.map(({ skill, kind, name, endAt }) => {
+      const badge = document.createElement("span");
+      badge.className = `hud-skill-effect hud-skill-effect-${kind}`;
+      const icon = document.createElement("span");
+      icon.className = "hud-skill-effect-icon";
+      icon.setAttribute("aria-hidden", "true");
+      const label = document.createElement("span");
+      label.className = "hud-skill-effect-name";
+      label.textContent = name;
+      badge.append(icon, label);
+      const typeLabel = kind === "passive" ? "Kỹ năng bị động" : "Hiệu ứng đang duy trì";
+      if (endAt > now) badge.title = `${name} · còn ${Math.ceil((endAt - now) / 1000)} giây`;
+      else badge.title = `${typeLabel}: ${name}`;
+      badge.setAttribute("aria-label", badge.title);
+      return badge;
+    });
+    host.replaceChildren(...badges);
+    host.hidden = entries.length === 0;
   },
 
   initializeHudLayout() {

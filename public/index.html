@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
-    <link rel="stylesheet" href="./css/style.css?v=4" />
-    <link rel="stylesheet" href="./css/game-hub.css?v=3" />
+    <link rel="stylesheet" href="./css/style.css?v=5" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=5" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -310,6 +310,7 @@
             <div class="hud-bar-bg"><div class="hud-bar-fill bar-mp" id="b-mp" style="width:100%"></div></div>
             <div class="hud-bar-text" id="ui-mp">0/0</div>
           </div>
+          <div id="hud-skill-effects" class="hud-skill-effects" role="status" aria-label="Hiệu ứng kỹ năng đang có" aria-live="polite" hidden></div>
         </div>
       </div>
 
@@ -371,12 +372,13 @@
                 <div class="profile-ovr"><small>OVR</small><b id="ui-profile-ovr">0</b></div>
               </div>
               <div class="phead">THUỘC TÍNH</div>
+              <div class="stat-points">Điểm tiềm năng <strong id="ui-unspent-points">0</strong></div>
               <div class="stat-line"><span class="slbl">Chiến Lực</span><span class="sv" id="ui-cp" style="color:var(--gold)">0</span></div>
               <div class="stat-line"><span class="slbl">Tu Vi Linh Căn</span><span class="sv" id="ui-tu">0/0</span></div>
-              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-sword" aria-hidden="true"></span>Sức Mạnh</span><span class="sv" id="r-str">5</span></div>
-              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-auto" aria-hidden="true"></span>Nhanh Nhẹn</span><span class="sv" id="r-agi">5</span></div>
-              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-shield" aria-hidden="true"></span>Thể Lực</span><span class="sv" id="r-vit">5</span></div>
-              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-lotus" aria-hidden="true"></span>Năng Lượng</span><span class="sv" id="r-ene">5</span></div>
+              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-sword" aria-hidden="true"></span>Sức Mạnh</span><span class="sv" id="r-str">5</span><button type="button" class="stat-allocate" data-allocate-stat="str" onclick="Cultivation.allocateStat('str')" aria-label="Cộng 1 điểm Sức Mạnh">+</button></div>
+              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-auto" aria-hidden="true"></span>Nhanh Nhẹn</span><span class="sv" id="r-agi">5</span><button type="button" class="stat-allocate" data-allocate-stat="agi" onclick="Cultivation.allocateStat('agi')" aria-label="Cộng 1 điểm Nhanh Nhẹn">+</button></div>
+              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-shield" aria-hidden="true"></span>Thể Lực</span><span class="sv" id="r-vit">5</span><button type="button" class="stat-allocate" data-allocate-stat="vit" onclick="Cultivation.allocateStat('vit')" aria-label="Cộng 1 điểm Thể Lực">+</button></div>
+              <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-lotus" aria-hidden="true"></span>Năng Lượng</span><span class="sv" id="r-ene">5</span><button type="button" class="stat-allocate" data-allocate-stat="ene" onclick="Cultivation.allocateStat('ene')" aria-label="Cộng 1 điểm Năng Lượng">+</button></div>
               <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-sword" aria-hidden="true"></span>Vật Lý ATK</span><span class="sv" id="r-patk">0</span></div>
               <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-talisman" aria-hidden="true"></span>Pháp ATK</span><span class="sv" id="r-matk">0</span></div>
               <div class="stat-line"><span class="slbl stat-label"><span class="pixel-icon icon-shield" aria-hidden="true"></span>Phòng Thủ</span><span class="sv" id="r-def">0</span></div>
@@ -486,6 +488,17 @@
       </div>
     </div>
 
+    <div id="death-modal" class="kpah-modal death-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="death-title">
+      <section class="kpah-modal-box death-modal-box">
+        <header class="kpah-modal-header"><span id="death-title">TRỌNG THƯƠNG</span></header>
+        <div class="death-modal-content">
+          <p>Ngươi đã gục ngã trên chiến trường.</p>
+          <p id="death-message" role="status" aria-live="polite">Đang chờ hồi sinh…</p>
+          <button id="death-respawn-btn" type="button" class="sbtn" onclick="Net.respawnPlayer()">Hồi Sinh Về Làng</button>
+        </div>
+      </section>
+    </div>
+
     <div id="tip">
       <div class="tip-name" id="tip-name"></div>
       <div class="tip-type" id="tip-type"></div>
@@ -526,6 +539,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=10"></script>
+    <script src="./js/bootstrap.js?v=14"></script>
   </body>
 </html>

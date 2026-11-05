@@ -60,7 +60,7 @@ const API = Object.freeze({
     player: {
       create: "/api/player", me: "/api/player/me", state: "/api/player/state", byUser: (id) => `/api/player/by-user/${encodeURIComponent(id)}`,
       power: "/api/player/power", update: (id) => `/api/player/${encodeURIComponent(id)}`,
-      allocateStats: "/api/player/stats/allocate", absorb: "/api/player/cultivation/absorb", breakthrough: "/api/player/cultivation/breakthrough",
+      allocateStats: "/api/player/stats/allocate", respawn: "/api/player/respawn", absorb: "/api/player/cultivation/absorb", breakthrough: "/api/player/cultivation/breakthrough",
       useItem: "/api/player/inventory/use", buy: "/api/player/shop/buy", sell: "/api/player/shop/sell",
       learnSkill: "/api/player/skills/learn", equipSkills: "/api/player/skills/equip", equipItem: "/api/player/equipment/equip", unequipItem: "/api/player/equipment/unequip",
     },

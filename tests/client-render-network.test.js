@@ -136,10 +136,10 @@ test("walk sprite frame and body step phase advance together from traveled dista
 
   assert.equal(context.__Render.walkFrame(actor), 0);
   assert.equal(context.__Render.walkPhase(actor), 0);
-  actor.walkDistance = 5.5;
+  actor.walkDistance = 13;
   assert.equal(context.__Render.walkFrame(actor), 1);
   assert.equal(context.__Render.walkPhase(actor), Math.PI / 2);
-  actor.walkDistance = 22;
+  actor.walkDistance = 52;
   assert.equal(context.__Render.walkFrame(actor), 0);
   assert.equal(context.__Render.walkPhase(actor), 0);
 });

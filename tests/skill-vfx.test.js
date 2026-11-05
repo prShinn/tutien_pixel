@@ -278,6 +278,29 @@ test("learned lightning passive and active thunder shield keep their distinct au
   assert.equal(lightningCalls, 1);
 });
 
+test("lightning aura separates its ground ring from foreground bolts", () => {
+  const { vfx, draws } = createHarness();
+  const palette = { light: "#fff5a8", main: "#f6d447", accent: "#9feaff" };
+  vfx.drawLightningAura({ x: 50, y: 50 }, palette, 0.12, null, "behind");
+  assert.ok(draws.length >= 12, "ground ring should be visible under the actor");
+
+  draws.length = 0;
+  vfx.drawLightningAura({ x: 50, y: 50 }, palette, 0.12, null, "front");
+  assert.ok(draws.length >= 10, "foreground lightning bolts should render");
+  assert.ok(draws.every(([x]) => Math.abs(x - 50) >= 8), "foreground bolts must stay outside the actor's center");
+});
+
+test("non-lightning passive stays visible around the feet without drawing over the sprite", () => {
+  const { vfx, draws } = createHarness();
+  const profile = { form: "passive-flame" };
+  const palette = { light: "#ffe6a2", main: "#e56a3e", accent: "#fff0b2", dark: "#573144" };
+
+  vfx.drawPassive({ x: 50, y: 50 }, profile, palette, 0.25, "front");
+  assert.equal(draws.length, 0);
+  vfx.drawPassive({ x: 50, y: 50 }, profile, palette, 0.25, "behind");
+  assert.ok(draws.length >= 14, "passive ring and sparks should be visible beneath the character");
+});
+
 test("named lightning shield keeps its lightning form when the BE code differs", () => {
   const { vfx } = createHarness();
   const profile = vfx.profile({ code: "SERVER_SKILL_181", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield" });
@@ -299,10 +322,10 @@ test("active thunder shield persists visually when a skill response omits buff s
 });
 
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
-  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=11/);
+  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=12/);
   assert.match(adminHtml, /js\/api\.js\?v=4/);
   assert.match(adminHtml, /admin\.css\?v=4/);
-  assert.match(adminHtml, /js\/skill-vfx\.js\?v=4/);
+  assert.match(adminHtml, /js\/skill-vfx\.js\?v=8/);
   assert.match(adminHtml, /admin\/content-utils\.js\?v=1/);
   assert.match(adminHtml, /admin\/content-manager\.js\?v=1/);
   assert.match(adminHtml, /admin\/admin-auth\.js\?v=1/);

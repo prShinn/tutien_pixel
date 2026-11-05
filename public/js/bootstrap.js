@@ -2,27 +2,27 @@
 (() => {
   const scripts = [
     { id: "socket-client", src: "/socket.io/socket.io.js", dependsOn: [] },
-    { id: "api", src: "./js/api.js?v=4", dependsOn: [] },
+    { id: "api", src: "./js/api.js?v=5", dependsOn: [] },
     { id: "auto-loot", src: "./js/auto-loot.js", dependsOn: [] },
     { id: "visual-effects", src: "./js/visual-effects.js?v=2", dependsOn: [] },
     { id: "utils", src: "./js/utils.js", dependsOn: [] },
     { id: "balance", src: "./js/balance.js", dependsOn: [] },
     { id: "game-data", src: "./js/gamedata.js?v=3", dependsOn: ["balance"] },
-    { id: "network", src: "./js/net.js?v=6", dependsOn: ["socket-client", "api", "auto-loot"] },
+    { id: "network", src: "./js/net.js?v=7", dependsOn: ["socket-client", "api", "auto-loot"] },
     { id: "auth", src: "./js/auth.js?v=2", dependsOn: ["network"] },
     { id: "world", src: "./js/world.js?v=3", dependsOn: ["network"] },
-    { id: "monster", src: "./js/monster.js?v=2", dependsOn: ["world"] },
-    { id: "skills", src: "./js/skills.js?v=5", dependsOn: ["world", "network"] },
+    { id: "monster", src: "./js/monster.js?v=3", dependsOn: ["world"] },
+    { id: "skills", src: "./js/skills.js?v=7", dependsOn: ["world", "network"] },
     { id: "combat", src: "./js/combat.js?v=3", dependsOn: ["world", "network"] },
-    { id: "cultivation", src: "./js/cultivation.js?v=2", dependsOn: ["network"] },
+    { id: "cultivation", src: "./js/cultivation.js?v=3", dependsOn: ["network"] },
     { id: "inventory", src: "./js/inventory.js?v=2", dependsOn: ["network"] },
-    { id: "shop", src: "./js/shop.js?v=2", dependsOn: ["inventory"] },
-    { id: "render", src: "./js/render.js?v=8", dependsOn: ["visual-effects"] },
-    { id: "skill-vfx", src: "./js/skill-vfx.js?v=11", dependsOn: ["visual-effects"] },
-    { id: "ui", src: "./js/ui.js?v=4", dependsOn: ["render", "visual-effects"] },
+    { id: "shop", src: "./js/shop.js?v=3", dependsOn: ["inventory"] },
+    { id: "render", src: "./js/render.js?v=11", dependsOn: ["visual-effects"] },
+    { id: "skill-vfx", src: "./js/skill-vfx.js?v=13", dependsOn: ["visual-effects"] },
+    { id: "ui", src: "./js/ui.js?v=7", dependsOn: ["render", "visual-effects"] },
     { id: "quest", src: "./js/quest.js?v=3", dependsOn: ["network", "ui"] },
-    { id: "input", src: "./js/input.js?v=2", dependsOn: ["world", "network"] },
-    { id: "game-entry", src: "./js/game.js?v=9", dependsOn: ["socket-client", "api", "auto-loot", "visual-effects", "utils", "balance", "game-data", "network", "auth", "world", "monster", "skills", "combat", "cultivation", "inventory", "shop", "render", "skill-vfx", "ui", "quest", "input"] },
+    { id: "input", src: "./js/input.js?v=3", dependsOn: ["world", "network"] },
+    { id: "game-entry", src: "./js/game.js?v=11", dependsOn: ["socket-client", "api", "auto-loot", "visual-effects", "utils", "balance", "game-data", "network", "auth", "world", "monster", "skills", "combat", "cultivation", "inventory", "shop", "render", "skill-vfx", "ui", "quest", "input"] },
   ];
   const timeoutMs = 20000;
   const errorPanel = document.getElementById("client-boot-error");
@@ -155,7 +155,7 @@
         import("./core/snapshot-buffer.mjs?v=1"),
         import("./core/fixed-step.mjs?v=1"),
         import("./core/sequential-loader.mjs?v=1"),
-        import("./core/mock-backend.mjs?v=1"),
+        import("./core/mock-backend.mjs?v=3"),
       ]);
       exposeCore({ config, state, movement, snapshots, fixedStep });
       let storage = null;

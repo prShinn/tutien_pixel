@@ -2102,6 +2102,23 @@ body {
 .icon-armor { background-position: 33.333% 100%; }
 .icon-boots { background-position: 66.667% 100%; }
 .icon-ring { background-position: 100% 100%; }
+.item-art-icon { background-image: url("../assets/items/item-icons-v2.png"); }
+.item-art-icon.icon-sword { background-position: 0 0; }
+.item-art-icon.icon-armor { background-position: 33.333% 0; }
+.item-art-icon.icon-helmet { background-position: 66.667% 0; }
+.item-art-icon.icon-boots { background-position: 100% 0; }
+.item-art-icon.icon-ring { background-position: 0 33.333%; }
+.item-art-icon.icon-spirit-stone { background-position: 33.333% 33.333%; }
+.item-art-icon.icon-talisman { background-position: 66.667% 33.333%; }
+.item-art-icon.icon-shield { background-position: 100% 33.333%; }
+.item-art-icon.icon-potion-hp { background-position: 0 66.667%; }
+.item-art-icon.icon-potion-mp { background-position: 33.333% 66.667%; }
+.item-art-icon.icon-herb { background-position: 66.667% 66.667%; }
+.item-art-icon.icon-pill { background-position: 100% 66.667%; }
+.item-art-icon.icon-coins { background-position: 0 100%; }
+.item-art-icon.icon-bag { background-position: 33.333% 100%; }
+.item-art-icon.icon-spear { background-position: 66.667% 100%; }
+.item-art-icon.icon-lightning-gem { background-position: 100% 100%; }
 
 #kpah-hud-topleft,
 #kpah-hud-topright,

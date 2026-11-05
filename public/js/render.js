@@ -27,6 +27,11 @@ const TC = {
 const AUTOTILE_SIZE = 8;
 const AUTOTILE_VARIANTS = 4;
 const AUTOTILE_ATLAS_URL = "/assets/tilesets/temperate-47.svg";
+const ITEM_ATLAS_URL = "./assets/items/item-icons-v2.png";
+const NPC_SPRITE_BY_ID = Object.freeze({
+  npc_huong_dan: "./assets/characters/npc-elder-guide-v2.png",
+  npc_shop: "./assets/characters/npc-town-merchant-v2.png",
+});
 const AUTOTILE_DIRECTIONS = [
   { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
   { bit: 4, dx: 0, dy: 1 }, { bit: 8, dx: -1, dy: 0 },
@@ -353,12 +358,19 @@ const Render = {
       const alpha = Math.max(0, ft.life / ft.maxLife);
       ctx.save();
       ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-      if (ft.isCrit) {
+      if (ft.kind === "breakthrough") {
+        ctx.font = "bold 13px monospace";
+        ctx.lineWidth = 2.5;
+        ctx.textAlign = "center";
+      } else if (ft.isCrit) {
         ctx.font = "bold 9px monospace";
+        ctx.lineWidth = 2;
       } else if (ft.kind === "skill") {
         ctx.font = "bold 7px monospace";
+        ctx.lineWidth = 2;
       } else {
         ctx.font = "bold 8px monospace";
+        ctx.lineWidth = 2;
       }
       ctx.strokeText(ft.text, ft.x - cx, ft.y - cy);
       ctx.fillStyle = ft.color.replace(')', `,${alpha})`).replace('rgb', 'rgba').replace(/#([0-9a-fA-F]{6})/, (m, c) => `rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},${alpha})`);
@@ -557,7 +569,9 @@ const Render = {
   },
 
   walkCycle(actor) {
-    return Math.max(0, Number(actor?.walkDistance || 0)) / 5.5;
+    // Advance each pose about once per 13px, giving a full four-frame step
+    // cycle a natural ~52px stride instead of an overly fast run.
+    return Math.max(0, Number(actor?.walkDistance || 0)) / 13;
   },
 
   walkFrame(actor) {
@@ -602,14 +616,15 @@ const Render = {
     const walkPhase = this.walkPhase(actor);
     const stride = walking ? Math.sin(walkPhase) : Math.sin(now * 0.0012);
     const idle = activeAction === "idle";
-    // Nhịp chân đồng bộ với frame bước; nhún vừa đủ nhìn thấy nhưng chân vẫn bám mặt đất.
+    // Continuous body movement bridges the discrete sprite poses and makes
+    // the feet feel planted between frame changes.
     const idlePhase = now * 0.0032;
     const bob = reduceMotion ? 0 : (walking
-      ? 0.12 + Math.abs(stride) * 0.88
+      ? 0.25 + (1 - Math.cos(walkPhase * 2)) * 0.88
       : (idle ? Math.sin(idlePhase) * 0.08 : 0));
     const sway = reduceMotion ? 0 : idle
       ? Math.sin(idlePhase * 0.7) * 0.008
-      : (walking ? Math.sin(walkPhase) * 0.028 : 0);
+      : (walking ? Math.sin(walkPhase) * 0.05 : 0);
     const footfall = walking ? Math.max(0, Math.sin(walkPhase * 2)) : 0;
     const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
@@ -617,10 +632,21 @@ const Render = {
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
+      if (walking && !reduceMotion && footfall > 0.04) {
+        const footSide = stride >= 0 ? -1 : 1;
+        const dustX = Math.round((sx + footSide * 5) / 2) * 2;
+        const dustY = Math.round((sy + 2) / 2) * 2;
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.32, footfall * 0.32);
+        ctx.fillStyle = "#d8cba8";
+        ctx.fillRect(dustX, dustY, 2, 2);
+        ctx.fillRect(dustX - footSide * 3, dustY - 2, 2, 2);
+        ctx.restore();
+      }
       // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
       ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 0.8, walking ? 5.2 + footfall * 0.8 : 5.8, walking ? 1.05 + footfall * 0.25 : 1.25, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 0.8, walking ? 5.1 + footfall * 1.3 : 5.8, walking ? 1.05 + footfall * 0.3 : 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
@@ -823,10 +849,41 @@ const Render = {
     }
   },
 
+  itemAtlasCell(item = {}) {
+    const values = [item.slot, item.type, item.loai, item.id, item.itemCode, item.name, item.effect, item.category]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase("vi")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (/mpd|restore.?mp|mana|(^|\W)mp(\W|$)|linh khi/.test(values)) return { col: 1, row: 2 };
+    if (/hpd|restore.?hp|heal|(^|\W)hp(\W|$)|sinh luc|hoi mau|potion|thuoc/.test(values)) return { col: 0, row: 2 };
+    if (/herb|thao duoc|duoc thao/.test(values)) return { col: 2, row: 2 };
+    if (/pill|linh dan|vien dan/.test(values)) return { col: 3, row: 2 };
+    if (/coin|money|currency|(^|\W)xu(\W|$)/.test(values)) return { col: 0, row: 3 };
+    if (/lightning.?gem|gem.?lightning|loi thach|loi tinh/.test(values)) return { col: 3, row: 3 };
+    if (/spear|thong/.test(values)) return { col: 2, row: 3 };
+    if (/pouch|bag|tui|hom/.test(values)) return { col: 1, row: 3 };
+    if (/weapon|sword|kiem|vu khi/.test(values)) return { col: 0, row: 0 };
+    if (/helmet|hat|mu|non/.test(values)) return { col: 2, row: 0 };
+    if (/armor|robe|pants|giap|quan|ao/.test(values)) return { col: 1, row: 0 };
+    if (/boot|giay/.test(values)) return { col: 3, row: 0 };
+    if (/ring|nhan/.test(values)) return { col: 0, row: 1 };
+    if (/stone|linh thach|spirit stone/.test(values)) return { col: 1, row: 1 };
+    if (/shield|def|phong thu/.test(values)) return { col: 3, row: 1 };
+    if (/amulet|talisman|belt|gem|tal|vong|dai|nguyen to/.test(values)) return { col: 2, row: 1 };
+    return { col: 1, row: 3 };
+  },
+
   groundLoot(drop, cx, cy) {
     const sx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2 - cx;
     const sy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2 - cy;
     if (sx < -24 || sy < -24 || sx > cW / CFG.DS + 24 || sy > cH / CFG.DS + 24) return;
+    const item = drop.item || drop.itemData || {
+      id: drop.itemId || drop.itemCode,
+      name: drop.itemName || drop.name,
+      type: drop.type || drop.loai,
+    };
     const pulse = 0.7 + Math.sin(S.animT * 0.006 + sx) * 0.2;
     ctx.save();
     ctx.globalAlpha = pulse;
@@ -836,20 +893,63 @@ const Render = {
     ctx.beginPath();
     ctx.arc(sx, sy, 5, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#071018";
-    ctx.font = "bold 7px sans-serif";
+    const frame = drop.kind === "xu" ? { col: 0, row: 3 } : this.itemAtlasCell(item);
+    if (!this.drawSprite(ITEM_ATLAS_URL, sx, sy - 1, 15, 15, { ...frame, cols: 4, rows: 4 })) {
+      ctx.fillStyle = "#071018";
+      ctx.font = "bold 7px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
+    }
+    const rawLabel = drop.kind === "xu"
+      ? `${Math.max(0, Number(drop.xu || drop.amount || 0))} xu`
+      : (item.name || drop.itemName || drop.name || item.itemCode || drop.itemCode || "Vật phẩm");
+    const count = Number(drop.count || drop.quantity || 1);
+    const suffix = drop.kind === "xu" || count <= 1 ? "" : ` x${count}`;
+    const label = `${String(rawLabel).slice(0, 16)}${suffix}`;
+    const rarity = String(item.rarity || drop.rarity || "").toLowerCase();
+    const rarityColors = { common: "#d9d5c9", uncommon: "#8edc9a", rare: "#77c9ff", epic: "#d39cff", legendary: "#ffd46e" };
+    const labelColor = drop.kind === "xu" ? "#f4d982" : (rarityColors[rarity] || "#d8eee6");
+    ctx.font = "bold 6px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
+    ctx.textBaseline = "middle";
+    const labelWidth = Math.ceil(ctx.measureText(label).width) + 4;
+    ctx.fillStyle = "rgba(8,12,15,.84)";
+    ctx.fillRect(Math.round(sx - labelWidth / 2), Math.round(sy + 8), labelWidth, 8);
+    ctx.strokeStyle = "rgba(0,0,0,.9)";
+    ctx.lineWidth = 2;
+    ctx.strokeText(label, sx, sy + 12);
+    ctx.fillStyle = labelColor;
+    ctx.fillText(label, sx, sy + 12);
     ctx.restore();
   },
 
   npc(npc, cx, cy) {
     const sx = npc.px - cx, sy = npc.py - cy;
     if (sx < -50 || sx > (cW/CFG.DS) + 50 || sy < -50 || sy > (cH/CFG.DS) + 50) return;
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(sx - 8, sy + 9, 16, 3);
-    ctx.fillStyle = npc.color || "#88aacc"; ctx.fillRect(sx - 8, sy - 10, 16, 20);
-    ctx.fillStyle = "#fff"; ctx.font = "7px monospace"; ctx.textAlign = "center";
-    ctx.fillText(npc.name, sx, sy - 16);
+    ctx.fillStyle = "rgba(0,0,0,.32)";
+    ctx.beginPath();
+    ctx.ellipse(Math.round(sx), Math.round(sy + 7), 8, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const identity = `${npc.role || ""} ${npc.type || ""} ${npc.name || ""}`.toLowerCase();
+    const female = String(npc.gender || "").toUpperCase() === "FEMALE" || /nữ|tiên nữ|cô nương|dược sư/.test(identity);
+    const atlas = typeof npc.img === "string" && npc.img.startsWith("./assets/characters/")
+      ? npc.img
+      : NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()]
+        || `./assets/characters/cultivator-${female ? "female" : "male"}.png`;
+    const frame = Math.floor(Date.now() / 620) % 4;
+    const drawn = this.drawSprite(atlas, sx, sy - 5, 20, 28, { col: frame, row: 0, cols: 4, rows: 4 });
+    if (!drawn) {
+      ctx.fillStyle = npc.color || "#88aacc";
+      ctx.fillRect(Math.round(sx - 7), Math.round(sy - 13), 14, 20);
+    }
+    const label = String(npc.name || "NPC");
+    ctx.font = "bold 7px monospace";
+    ctx.textAlign = "center";
+    const labelWidth = Math.ceil(ctx.measureText(label).width) + 4;
+    ctx.fillStyle = "rgba(7,10,14,.78)";
+    ctx.fillRect(Math.round(sx - labelWidth / 2), Math.round(sy - 33), labelWidth, 9);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, sx, sy - 26);
   },
 
   portal(portal, cx, cy) {
@@ -976,6 +1076,7 @@ const Render = {
       hurt: { count: 6, life: 260, radius: 6, spread: 1.8 },
       miss: { count: 3, life: 220, radius: 4, spread: 1.2 },
       skill: { count: 8, life: 300, radius: 7, spread: 2.1 },
+      breakthrough: { count: 18, life: 560, radius: 11, spread: 2.8 },
     }[type] || { count: 5, life: 230, radius: 5, spread: 1.7 };
     for (let i = 0; i < cfg.count; i += 1) {
       const angle = (Math.PI * 2 * i) / cfg.count + Math.random() * 0.35;
@@ -987,6 +1088,21 @@ const Render = {
       });
     }
     S.combatFx.push({ x: wx, y: wy, life: cfg.life, maxLife: cfg.life, radius: cfg.radius, color, type, ring: true });
+  },
+
+  breakthroughEffect(wx, wy, label) {
+    if (!Number.isFinite(Number(wx)) || !Number.isFinite(Number(wy))) return;
+    this.combatFx(wx, wy, "breakthrough", "#ffdc72", 1.2);
+    if (!S.floatingTexts) S.floatingTexts = [];
+    S.floatingTexts.push({
+      text: `✦ ${String(label || "ĐỘT PHÁ THÀNH CÔNG")} ✦`,
+      color: "#ffe58a",
+      x: Number(wx),
+      y: Number(wy) - 30,
+      life: 1600,
+      maxLife: 1600,
+      kind: "breakthrough",
+    });
   },
 
   drawCombatFx(cx, cy) {

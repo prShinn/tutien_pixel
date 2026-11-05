@@ -55,6 +55,9 @@ const Monster = {
       return;
     }
 
+    const player = S.player;
+    if (!player || player.dead || Number(player.hp) <= 0) return;
+
     SkillSystem.updateMonsterStatus(m, dt);
 
     if (Net._isOnline) {
@@ -229,6 +232,7 @@ const Monster = {
   },
 
   _performAttack(m, p) {
+    if (!p || p.dead || Number(p.hp) <= 0) return;
     const weakenEff = m.statusEffects?.find((e) => e.type === "weaken");
     const weakenMult = weakenEff ? weakenEff.value : 1;
     const derived = deriveCombatStats(p.stats, p.equipment);
@@ -253,8 +257,18 @@ const Monster = {
       S.cameraShake = { until: Date.now() + 90, power: 1.8 };
       Render.floatDmg(p.px, p.py, -36, "-" + dmg, "#ffaa44");
       if (p.hp <= 0) {
-        p.hp = Math.floor(p.maxHp * 0.25);
-        UI.log("⚠ Trọng thương! Hồi phục khẩn cấp...", "system");
+        p.hp = 0;
+        p.dead = true;
+        p.combatMove = false;
+        p._spaceApproachTargetId = null;
+        p.movePath = [];
+        p.targetMovePos = null;
+        p.isMoving = false;
+        S.autoFight = false;
+        S.combatPending = false;
+        Input.stopMovement?.();
+        UI.showDeathModal?.();
+        UI.updateVitals?.(p);
       }
     }
   },

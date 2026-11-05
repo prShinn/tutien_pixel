@@ -13,6 +13,51 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 const Cultivation = {
+  _pendingStatAllocations: new Set(),
+
+  async allocateStat(stat) {
+    const player = S.player;
+    const statKey = String(stat || "").toLowerCase();
+    if (!player || !["str", "agi", "vit", "ene"].includes(statKey)) return;
+    if (player.dead) return UI.notify("Không thể phân bổ thuộc tính khi đang trọng thương.", "warning");
+    if (Number(player.unspentStatPoints || 0) < 1) return UI.notify("Bạn không còn điểm tiềm năng.", "warning");
+    if (this._pendingStatAllocations.size) return;
+
+    this._pendingStatAllocations.add(statKey);
+    UI.update();
+    try {
+      if (authToken) {
+        const response = await Net.mutate("POST", API.PATHS.player.allocateStats, { stat: statKey, amount: 1 });
+        if (!response?.player) throw new Error(response?.error || "Máy chủ không trả về nhân vật mới.");
+        Net.applyPlayerSnapshot(response.player, { render: false });
+      } else {
+        this.normalizePlayerStats(player);
+        player.stats[statKey] += 1;
+        player.unspentStatPoints = Math.max(0, Number(player.unspentStatPoints || 0) - 1);
+        player.maxHp = GAME_BALANCE.base.hp + player.stats.vit * GAME_BALANCE.stats.vit.maxHp;
+        player.maxMp = GAME_BALANCE.base.mp + player.stats.ene * GAME_BALANCE.stats.ene.maxMp;
+        player.hp = Math.min(Number(player.hp || 0), player.maxHp);
+        player.mp = Math.min(Number(player.mp || 0), player.maxMp);
+      }
+      UI.update();
+      UI.notify(`Đã cộng 1 điểm ${statKey.toUpperCase()}.`, "success");
+    } catch (error) {
+      UI.notify(error.message || "Không thể phân bổ điểm thuộc tính.", "error");
+    } finally {
+      this._pendingStatAllocations.delete(statKey);
+      UI.update();
+    }
+  },
+
+  showBreakthroughEffect(major) {
+    const player = S.player;
+    if (!player) return;
+    const realm = player.tenCanhGioi || player.canhGioi?.tenCanhGioi || "Cảnh Giới Mới";
+    const label = major ? `THĂNG CẢNH GIỚI · ${realm}` : `ĐỘT PHÁ TẦNG ${player.tangTuVi}`;
+    Render.breakthroughEffect?.(player.px, player.py, label);
+    S.cameraShake = { until: Date.now() + 200, power: 3 };
+  },
+
   normalizePlayerStats(player) {
     if (!player.stats) player.stats = { str: 0, agi: 0, vit: 0, ene: 0 };
     if (player.stats.int != null && player.stats.ene == null) {
@@ -157,17 +202,21 @@ const Cultivation = {
       const result = await Net.mutate("POST", API.PATHS.player.breakthrough, {});
       if (!result?.player) return UI.log(result?.error || "Không thể đột phá.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(result.result?.major ? "🌟 Thăng cảnh giới!" : `⚡ Đột phá tầng ${p.tangTuVi}!`, "level");
+      const major = Boolean(result.major ?? result.result?.major);
+      UI.log(major ? "🌟 Thăng cảnh giới!" : `⚡ Đột phá tầng ${p.tangTuVi}!`, "level");
+      this.showBreakthroughEffect(major);
       UI.update();
       return;
     }
 
     p.tuViHienTai -= p.tuViLenCap;
+    let major = false;
     if (p.tangTuVi < 9) {
       p.tangTuVi++;
       this.applyBreakthroughStats(p, false);
       UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
     } else {
+      major = true;
       const res = await Net.get(`${API.PATHS.data.realms}/stt/${p.canhGioi.stt + 1}`);
       p.canhGioi = res;
       p.realm = res.stt || p.realm + 1;
@@ -182,6 +231,7 @@ const Cultivation = {
       type: "breakthrough",
       data: { realm: p.realm, tangTuVi: p.tangTuVi },
     });
+    this.showBreakthroughEffect(major);
     UI.update();
   },
 };
