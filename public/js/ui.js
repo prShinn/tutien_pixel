@@ -387,6 +387,63 @@ const UI = {
     if (state) state.textContent = isEnabled ? "Nhặt: BẬT" : "Nhặt: TẮT";
   },
 
+  initializeBuffEffectsToggle() {
+    this.updateBuffEffectsToggle(VisualEffects.arePersistentEffectsEnabled());
+  },
+
+  toggleBuffEffects() {
+    const enabled = VisualEffects.setPersistentEffectsEnabled(!VisualEffects.arePersistentEffectsEnabled());
+    this.updateBuffEffectsToggle(enabled);
+    return enabled;
+  },
+
+  updateBuffEffectsToggle(enabled) {
+    const button = document.getElementById("btn-buff-effects");
+    const state = document.getElementById("buff-effects-state");
+    if (!button) return;
+    const isEnabled = Boolean(enabled);
+    button.setAttribute("aria-pressed", String(isEnabled));
+    button.setAttribute("aria-label", `Hiệu ứng duy trì quanh nhân vật: đang ${isEnabled ? "hiện" : "ẩn"}`);
+    button.title = isEnabled ? "Ẩn hiệu ứng duy trì quanh nhân vật" : "Bật hiệu ứng duy trì quanh nhân vật";
+    button.classList.toggle("active", isEnabled);
+    if (state) state.textContent = isEnabled ? "FX: HIỆN" : "FX: ẨN";
+  },
+
+  initializeHudLayout() {
+    let saved = null;
+    try { saved = localStorage.getItem("tutien.hud-layout.v1"); } catch { }
+    const compact = saved === null
+      ? window.matchMedia?.("(orientation: landscape) and (max-height: 520px)")?.matches === true
+      : saved === "compact";
+    this.setHudLayout(compact, false);
+    return compact;
+  },
+
+  toggleHudLayout() {
+    const screen = document.getElementById("screen-game");
+    const compact = !screen?.classList.contains("hud-compact");
+    this.setHudLayout(compact);
+    return compact;
+  },
+
+  setHudLayout(compact, persist = true) {
+    const screen = document.getElementById("screen-game");
+    if (!screen) return false;
+    const isCompact = Boolean(compact);
+    screen.classList.toggle("hud-compact", isCompact);
+    const button = document.getElementById("btn-hud-layout");
+    if (button) {
+      button.setAttribute("aria-expanded", String(!isCompact));
+      button.setAttribute("aria-label", isCompact ? "Mở rộng giao diện" : "Thu gọn giao diện");
+      button.title = isCompact ? "Mở rộng giao diện" : "Thu gọn giao diện";
+      button.textContent = isCompact ? "HUD +" : "HUD −";
+    }
+    if (persist) {
+      try { localStorage.setItem("tutien.hud-layout.v1", isCompact ? "compact" : "expanded"); } catch { }
+    }
+    return isCompact;
+  },
+
   notify(message, type = "info") {
     const host = document.getElementById("game-notifications");
     if (!host || message === undefined || message === null || String(message).trim() === "") return null;

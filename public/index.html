@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
     <link rel="stylesheet" href="./css/style.css?v=4" />
-    <link rel="stylesheet" href="./css/game-hub.css?v=1" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=3" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -323,6 +323,8 @@
         <div class="hud-xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
       </div>
 
+      <button id="btn-hud-layout" class="hud-layout-toggle" type="button" aria-expanded="true" aria-controls="kpah-chat-log map-widget quest-tracker game-controls-hint" aria-label="Thu gọn giao diện" title="Thu gọn giao diện" onclick="UI.toggleHudLayout()">HUD −</button>
+
       <!-- 4. KPAH HUD: BOTTOM LEFT (Menu / Chat) -->
       <div id="kpah-hud-bottomleft">
         <div id="kpah-chat-log">
@@ -339,6 +341,7 @@
           <button class="kpah-btn" type="button" aria-label="Mở khung chat" title="Chat" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span><span class="hub-btn-label">Chat</span></button>
           <button class="kpah-btn" type="button" id="btn-auto" aria-label="Bật hoặc tắt tự động chiến đấu" title="Tự động chiến đấu" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span><span class="hub-btn-label">Tự Động</span></button>
           <button class="kpah-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
+          <button class="kpah-btn persistent-effects-toggle active" type="button" id="btn-buff-effects" aria-pressed="true" aria-label="Hiệu ứng duy trì quanh nhân vật: đang hiện" title="Ẩn hiệu ứng duy trì quanh nhân vật" onclick="UI.toggleBuffEffects()"><span class="buff-effects-icon" aria-hidden="true">FX</span><span id="buff-effects-state">FX: HIỆN</span></button>
         </div>
       </div>
 
@@ -523,6 +526,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=3"></script>
+    <script src="./js/bootstrap.js?v=10"></script>
   </body>
 </html>

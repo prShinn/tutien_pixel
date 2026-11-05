@@ -45,7 +45,7 @@
 | `POST /api/auth/register`, `/api/auth/login` | `{ username, password }` | `{ token, user: { id, username } }` |
 | `POST /api/auth/demo` | `{}` | `{ token, user: { id, username } }`; chỉ bật trong demo/dev |
 | `GET /api/auth/me` | Bearer JWT | `{ user: { id, username } }` |
-| `POST /api/player` | `{ userId, name, gender, linhCan, stats, mapCode/mapId, ... }` | `PlayerDTO` trực tiếp có `id`, map/spawn hợp lệ |
+| `POST /api/player` | `{ name, gender, linhCan, stats }` | `PlayerDTO` trực tiếp có `id`, map/spawn hợp lệ; owner lấy từ Bearer token |
 | `GET /api/player/by-user/:userId` | Bearer JWT | `PlayerDTO` trực tiếp; 404 JSON nếu chưa tạo nhân vật |
 | `PUT /api/player/:id` | FE đang gửi snapshot định kỳ | Chốt checkpoint an toàn và trả player canonical có `id` sau commit |
 

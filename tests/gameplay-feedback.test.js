@@ -9,6 +9,7 @@ const vm = require("node:vm");
 
 const root = path.join(__dirname, "..");
 const autoLootSource = fs.readFileSync(path.join(root, "public", "js", "auto-loot.js"), "utf8");
+const visualEffectsSource = fs.readFileSync(path.join(root, "public", "js", "visual-effects.js"), "utf8");
 const worldSource = fs.readFileSync(path.join(root, "public", "js", "world.js"), "utf8");
 const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
 const inputSource = fs.readFileSync(path.join(root, "public", "js", "input.js"), "utf8");
@@ -51,8 +52,25 @@ function worldHarness(tiles) {
 }
 
 function renderHarness() {
-  const context = vm.createContext({});
+  const calls = [];
+  const context = vm.createContext({
+    CFG: { TS: 1, DS: 3 },
+    S: { cam: { x: 0, y: 0 }, mapW: 1000, mapH: 1000, tiles: [] },
+    cW: 300,
+    cH: 300,
+    lerp(a, b, t) { return a + (b - a) * t; },
+    VisualEffects: { arePersistentEffectsEnabled() { return context.__buffEffectsEnabled; } },
+    ctx: {
+      save() {}, restore() {}, beginPath() {}, stroke() {},
+      ellipse(...args) { calls.push(args); },
+      clearRect() {}, fillText() {},
+    },
+  });
+  context.__buffEffectsEnabled = false;
+  context.__calls = calls;
   vm.runInContext(`${renderSource}\nglobalThis.__Render = Render;`, context, { filename: "render.js" });
+  context.__Render.__calls = calls;
+  context.__Render.__context = context;
   return context.__Render;
 }
 
@@ -262,9 +280,23 @@ function uiHarness() {
     ["log-area", new FakeElement("log-area")],
     ["btn-auto-loot", new FakeElement("btn-auto-loot")],
     ["auto-loot-state", new FakeElement("auto-loot-state")],
+    ["screen-game", new FakeElement("screen-game")],
+    ["btn-hud-layout", new FakeElement("btn-hud-layout")],
   ]);
+  const hudPreferences = new Map();
+  let buffEffectsEnabled = false;
+  const visualEffects = {
+    arePersistentEffectsEnabled() { return buffEffectsEnabled; },
+    setPersistentEffectsEnabled(value) { buffEffectsEnabled = Boolean(value); return buffEffectsEnabled; },
+  };
   let nextTimer = 1;
   const context = vm.createContext({
+    VisualEffects: visualEffects,
+    localStorage: {
+      getItem(key) { return hudPreferences.has(key) ? hudPreferences.get(key) : null; },
+      setItem(key, value) { hudPreferences.set(key, String(value)); },
+    },
+    window: { matchMedia: () => ({ matches: true }) },
     document: {
       getElementById(id) { return elements.get(id) || null; },
       createElement(tag) { return new FakeElement(tag); },
@@ -275,7 +307,7 @@ function uiHarness() {
     console,
   });
   vm.runInContext(`${uiSource}\nglobalThis.__UI = UI;`, context, { filename: "ui.js" });
-  return { ui: context.__UI, elements };
+  return { ui: context.__UI, elements, visualEffects, hudPreferences };
 }
 
 test("auto-pickup defaults on and persists the user toggle", () => {
@@ -286,6 +318,22 @@ test("auto-pickup defaults on and persists the user toggle", () => {
   assert.equal(autoLoot.setEnabled(true), true);
   assert.equal(storage.get("tutien.autoLoot.v1"), "true");
   assert.equal(autoLootHarness("false").autoLoot.isEnabled(), false);
+});
+
+test("persistent buff visuals default visible and remember the player's choice", () => {
+  const storage = new Map();
+  const context = vm.createContext({
+    localStorage: {
+      getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+      setItem(key, value) { storage.set(key, String(value)); },
+    },
+  });
+  vm.runInContext(`${visualEffectsSource}\nglobalThis.__VisualEffects = VisualEffects;`, context);
+  assert.equal(context.__VisualEffects.arePersistentEffectsEnabled(), true);
+  assert.equal(context.__VisualEffects.setPersistentEffectsEnabled(true), true);
+  assert.equal(storage.get("tutien.persistentEffects.v3"), "true");
+  assert.equal(context.__VisualEffects.setPersistentEffectsEnabled(false), false);
+  assert.equal(storage.get("tutien.persistentEffects.v3"), "false");
 });
 
 test("auto-pickup selects only nearby drops, nearest first, and stops when disabled", () => {
@@ -424,8 +472,11 @@ test("skill book drops stale, foreign-root, and passive codes from active slots"
 
 test("game shell exposes auto-pickup control and loads the movement and loot helpers", () => {
   assert.match(gameHtml, /id="btn-auto-loot"[^>]+aria-pressed="true"/);
+  assert.match(gameHtml, /id="btn-buff-effects"[^>]+aria-pressed="true"/);
+  assert.match(gameHtml, /id="btn-hud-layout"[^>]+aria-expanded="true"/);
   assert.match(gameHtml, /id="game-notifications"[^>]+aria-live="polite"/);
   assert.match(gameBootstrap, /js\/auto-loot\.js/);
+  assert.match(gameBootstrap, /js\/visual-effects\.js\?v=2/);
   assert.match(gameBootstrap, /movement-feedback\.mjs/);
 });
 
@@ -610,6 +661,30 @@ test("walk sprite frames follow traveled distance rather than wall-clock phase",
   assert.equal(render.walkFrame({ walkDistance: 22 }), 0);
 });
 
+test("render camera follows the same interpolated player position as the sprite", () => {
+  const render = renderHarness();
+  const position = render.interpolatePlayerPosition({ previousPx: 90, previousPy: 80, px: 100, py: 100 }, 0.5);
+  assert.equal(position.x, 95);
+  assert.equal(position.y, 90);
+
+  render.__context.S.player = { previousPx: 90, previousPy: 80, px: 100, py: 100 };
+  render.frame(80, 0.5, 100);
+  const expectedCameraX = (95 - 50) * (1 - Math.exp(-1));
+  assert.ok(Math.abs(render.__context.S.cam.x - expectedCameraX) < 1e-8);
+});
+
+test("persistent buff visuals stay hidden by default and, when enabled, stay at the feet", () => {
+  const render = renderHarness();
+  const actor = { buffs: { shield: { expiresAt: Date.now() + 5000 }, buff_atk: { expiresAt: Date.now() + 5000 }, buff_spd: { expiresAt: Date.now() + 5000 } } };
+  render.drawBuffEffects(12, 20, actor, 14, 18);
+  assert.equal(render.__calls.length, 0);
+
+  render.__context.__buffEffectsEnabled = true;
+  render.drawBuffEffects(12, 20, actor, 14, 18);
+  assert.equal(render.__calls.length, 3);
+  assert.ok(render.__calls.every(([, y, , ry]) => Math.abs(y - 21.2) < 1e-9 && ry <= 2.8));
+});
+
 test("system feedback uses the visible toast lane while chat stays in chat", () => {
   const { ui, elements } = uiHarness();
   ui.log("Đứng gần vật phẩm để nhặt", "system");
@@ -637,4 +712,38 @@ test("auto-loot toggle exposes its current state to assistive technology", () =>
   assert.equal(elements.get("btn-auto-loot").getAttribute("aria-pressed"), "false");
   assert.equal(elements.get("btn-auto-loot").getAttribute("aria-label"), "Tự nhặt vật phẩm gần: đang tắt");
   assert.equal(elements.get("auto-loot-state").textContent, "Nhặt: TẮT");
+});
+
+test("buff-effect toggle exposes hidden and visible state to the HUD", () => {
+  const { ui, elements, visualEffects } = uiHarness();
+  const button = new FakeElement("btn-buff-effects");
+  const state = new FakeElement("buff-effects-state");
+  elements.set("btn-buff-effects", button);
+  elements.set("buff-effects-state", state);
+  ui.initializeBuffEffectsToggle();
+  assert.equal(button.getAttribute("aria-pressed"), "false");
+  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng duy trì quanh nhân vật: đang ẩn");
+  assert.equal(state.textContent, "FX: ẨN");
+  assert.equal(ui.toggleBuffEffects(), true);
+  assert.equal(button.getAttribute("aria-pressed"), "true");
+  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng duy trì quanh nhân vật: đang hiện");
+  assert.equal(state.textContent, "FX: HIỆN");
+  assert.equal(ui.toggleBuffEffects(), false);
+  assert.equal(visualEffects.arePersistentEffectsEnabled(), false);
+  assert.equal(button.getAttribute("aria-pressed"), "false");
+});
+
+test("short landscape starts with compact HUD and the toggle restores all panels", () => {
+  const { ui, elements, hudPreferences } = uiHarness();
+  const screen = elements.get("screen-game");
+  const button = elements.get("btn-hud-layout");
+
+  assert.equal(ui.initializeHudLayout(), true);
+  assert.equal(screen.classList.contains("hud-compact"), true);
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(button.textContent, "HUD +");
+  assert.equal(ui.toggleHudLayout(), false);
+  assert.equal(screen.classList.contains("hud-compact"), false);
+  assert.equal(button.getAttribute("aria-expanded"), "true");
+  assert.equal(hudPreferences.get("tutien.hud-layout.v1"), "expanded");
 });

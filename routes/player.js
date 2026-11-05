@@ -222,7 +222,7 @@ function createPlayerRouter({
   });
 
   router.post("/", authenticate, async (req, res) => {
-    if (Number(req.body?.userId) !== req.userId) return res.status(403).json({ error: "Player không thuộc tài khoản" });
+    // Owner is derived from the authenticated session; never require or trust a body userId.
     const existing = playerFor(req.userId);
     if (existing) return res.status(409).json(existing);
     const inputStats = req.body?.stats || {};

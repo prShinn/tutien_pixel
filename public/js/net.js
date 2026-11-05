@@ -786,10 +786,13 @@ const Net = {
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
         if (typeof maxMp === "number") S.player.maxMp = maxMp;
-        S.player.buffs = buffs || {};
+        if (buffs && typeof buffs === "object" && !Array.isArray(buffs)) S.player.buffs = buffs;
         const skill = (typeof SkillVFX !== "undefined" && SkillVFX.findSkill(skillCode, S.player))
           || S.player.skills?.find(item => String(item.id) === String(skillCode) || String(item.code) === String(skillCode));
-        if (typeof SkillVFX !== "undefined" && skill) SkillVFX.support(skill, S.player);
+        if (typeof SkillVFX !== "undefined" && skill) {
+          SkillVFX.support(skill, S.player);
+          SkillVFX.activateBuff(skill, effectDurationMs);
+        }
         else Render.combatFx(S.player.px, S.player.py, "skill", effectColor(effect));
         if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
         if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName, effectColor(effect));

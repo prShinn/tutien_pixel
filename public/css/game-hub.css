@@ -191,6 +191,9 @@
 .kpah-btn .pixel-icon { width: 18px; height: 18px; }
 #btn-auto-loot.active { border-color: #8bb48c !important; color: #d8e9ad !important; }
 #btn-auto-loot[aria-pressed="false"] { border-color: #77727d !important; color: #c0b8a8 !important; }
+#btn-buff-effects.active { border-color: #79bdc4 !important; color: #c5f0e8 !important; }
+#btn-buff-effects[aria-pressed="false"] { border-color: #77727d !important; color: #c0b8a8 !important; }
+.buff-effects-icon { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border: 1px solid currentColor; color: inherit; font: 700 7px/1 monospace; }
 
 #kpah-hud-bottomright {
   bottom: calc(14px + env(safe-area-inset-bottom));
@@ -238,6 +241,32 @@
   font-size: 10px;
 }
 #game-controls-hint span { color: var(--hub-gold); }
+#btn-hud-layout {
+  position: fixed;
+  z-index: 90;
+  top: 50%;
+  right: calc(8px + env(safe-area-inset-right));
+  min-width: 48px;
+  min-height: 34px;
+  padding: 4px 6px;
+  transform: translateY(-50%);
+  border: 2px solid var(--hub-trim);
+  border-radius: 0;
+  background: var(--hub-panel);
+  box-shadow: 2px 2px 0 var(--hub-ink);
+  color: var(--hub-gold);
+  font: 700 9px/1 "Courier New", monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#btn-hud-layout:hover { border-color: var(--hub-gold); background: var(--hub-raised); }
+#btn-hud-layout:focus-visible { outline: 2px solid var(--hub-mint); outline-offset: 3px; }
+.hud-compact #kpah-chat-log,
+.hud-compact #map-widget,
+.hud-compact #quest-tracker,
+.hud-compact #game-controls-hint,
+.hud-compact #kpah-hud-topright .hub-actions,
+.hud-compact #kpah-hud-bottomleft .bottom-btns { display: none !important; }
 #game-notifications { top: calc(62px + env(safe-area-inset-top)); z-index: 80; }
 .game-notification {
   border-color: #796b51;
@@ -284,6 +313,7 @@
 }
 
 @media (max-width: 760px) {
+  #btn-hud-layout { top: auto; right: calc(8px + env(safe-area-inset-right)); bottom: calc(114px + env(safe-area-inset-bottom)); transform: none; }
   #kpah-hud-topleft {
     top: calc(8px + env(safe-area-inset-top));
     left: calc(8px + env(safe-area-inset-left));
@@ -375,7 +405,8 @@
   .kpah-btn .pixel-icon { width: 19px; height: 19px; }
   .kpah-btn .hub-btn-label,
   .kpah-btn kbd,
-  #auto-loot-state { display: none; }
+  #auto-loot-state,
+  #buff-effects-state { display: none; }
   #btn-auto-loot.active { box-shadow: inset 0 0 0 2px #526e4f, 2px 2px 0 var(--hub-ink) !important; }
 
   #kpah-hud-bottomright {

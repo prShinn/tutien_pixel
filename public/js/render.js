@@ -59,6 +59,18 @@ const Render = {
   _autotileAtlasLoading: false,
   _autotileAtlasFailed: false,
 
+  interpolatePlayerPosition(player, alpha = 1) {
+    const currentX = Number(player?.px) || 0;
+    const currentY = Number(player?.py) || 0;
+    const previousX = Number.isFinite(player?.previousPx) ? player.previousPx : currentX;
+    const previousY = Number.isFinite(player?.previousPy) ? player.previousPy : currentY;
+    const amount = Math.max(0, Math.min(1, Number(alpha) || 0));
+    return {
+      x: previousX + (currentX - previousX) * amount,
+      y: previousY + (currentY - previousY) * amount,
+    };
+  },
+
   buildAutotileAtlas() {
     if (this._autotileAtlas) return this._autotileAtlas;
     if (!this._autotileAtlasLoading && !this._autotileAtlasFailed && typeof Image !== "undefined") {
@@ -218,11 +230,13 @@ const Render = {
     
     const ts = CFG.TS, ds = CFG.DS;
     const lcW = cW / ds, lcH = cH / ds; // Logical Canvas Size
+    const localPosition = this.interpolatePlayerPosition(p, alpha);
     
     // Giữ cùng nhịp bám camera giữa màn hình 30, 60 và 120 FPS.
     const cameraFollow = 1 - Math.exp(-Math.max(0, Number(dt) || 0) / 80);
-    S.cam.x = lerp(S.cam.x, p.px - lcW / 2, cameraFollow);
-    S.cam.y = lerp(S.cam.y, p.py - lcH / 2, cameraFollow);
+    // Camera bám cùng mẫu vị trí đang vẽ để không đuổi trước nhân vật một fixed tick.
+    S.cam.x = lerp(S.cam.x, localPosition.x - lcW / 2, cameraFollow);
+    S.cam.y = lerp(S.cam.y, localPosition.y - lcH / 2, cameraFollow);
     S.cam.x = Math.max(0, Math.min(S.mapW * ts - lcW, S.cam.x));
     S.cam.y = Math.max(0, Math.min(S.mapH * ts - lcH, S.cam.y));
     
@@ -274,18 +288,13 @@ const Render = {
       ctx.restore();
     }
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
+    // Self support and persistent aura effects render beneath actors so they never hide sprites.
+    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "behind");
 
     const renderTime = timestamp - (typeof EntitySnapshots !== "undefined" ? EntitySnapshots.delayMs : 100);
     const interpolated = (entity) => typeof EntitySnapshots !== "undefined"
       ? EntitySnapshots.sample(entity, renderTime)
       : { x: entity.px, y: entity.py };
-    const previousX = Number.isFinite(p.previousPx) ? p.previousPx : p.px;
-    const previousY = Number.isFinite(p.previousPy) ? p.previousPy : p.py;
-    const renderAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
-    const localPosition = {
-      x: previousX + (p.px - previousX) * renderAlpha,
-      y: previousY + (p.py - previousY) * renderAlpha,
-    };
     const drawables = [];
     let drawOrder = 0;
     for (const drop of S.groundItems || []) {
@@ -321,7 +330,7 @@ const Render = {
     Render.sortDrawables(drawables);
     for (const drawable of drawables) drawable.draw();
     Render.drawCombatFx(cx, cy);
-    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy);
+    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "front");
 
     // KPAH Name Tags & HP Bar
     ctx.font = "bold 6px monospace";
@@ -547,8 +556,16 @@ const Render = {
     }
   },
 
+  walkCycle(actor) {
+    return Math.max(0, Number(actor?.walkDistance || 0)) / 5.5;
+  },
+
   walkFrame(actor) {
-    return Math.floor(Math.max(0, Number(actor?.walkDistance || 0)) / 5.5) % 4;
+    return Math.floor(this.walkCycle(actor)) % 4;
+  },
+
+  walkPhase(actor) {
+    return (this.walkCycle(actor) % 4) * (Math.PI / 2);
   },
 
   player(sx, sy, tint, actor = S.player) {
@@ -581,15 +598,19 @@ const Render = {
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
       : 0;
     const hurtShift = reduceMotion ? 0 : Math.sin(hurtProgress * Math.PI) * 3 * Number(actor?.hurtDirection || -1);
-    const phase = now * (moving ? 0.0065 : 0.0012);
-    const stride = Math.sin(phase);
+    const walking = activeAction === "walk" && moving;
+    const walkPhase = this.walkPhase(actor);
+    const stride = walking ? Math.sin(walkPhase) : Math.sin(now * 0.0012);
     const idle = activeAction === "idle";
-    // Nhịp thở chỉ dịch thân rất ít; điểm neo vẫn là chân nên nhân vật không bị cảm giác bay.
+    // Nhịp chân đồng bộ với frame bước; nhún vừa đủ nhìn thấy nhưng chân vẫn bám mặt đất.
     const idlePhase = now * 0.0032;
-    const bob = reduceMotion ? 0 : (idle ? Math.sin(idlePhase) * 0.08 : Math.abs(stride) * 0.12);
+    const bob = reduceMotion ? 0 : (walking
+      ? 0.12 + Math.abs(stride) * 0.88
+      : (idle ? Math.sin(idlePhase) * 0.08 : 0));
     const sway = reduceMotion ? 0 : idle
       ? Math.sin(idlePhase * 0.7) * 0.008
-      : (activeAction === "walk" ? Math.sin(phase * 0.5) * 0.018 : 0);
+      : (walking ? Math.sin(walkPhase) * 0.028 : 0);
+    const footfall = walking ? Math.max(0, Math.sin(walkPhase * 2)) : 0;
     const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
     const actorH = Number(actor?.animation?.height || CFG.ACTOR_H);
@@ -599,7 +620,7 @@ const Render = {
       // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
       ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
-      ctx.ellipse(sx, sy + 0.8, moving ? 5.8 + Math.abs(stride) * 0.4 : 5.8, 1.25, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + 0.8, walking ? 5.2 + footfall * 0.8 : 5.8, walking ? 1.05 + footfall * 0.25 : 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
@@ -607,7 +628,7 @@ const Render = {
       ctx.translate(sx, sy - bob + (CFG.ACTOR_FOOT_OFFSET || 0));
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
-      ctx.scale(1 + (moving && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (moving && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
+      ctx.scale(1 + (walking && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (walking && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
       const facingScale = actor?.direction === "left" ? -1 : 1;
       ctx.scale(facingScale, 1);
       const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
@@ -617,7 +638,7 @@ const Render = {
       const drawn = this.drawSprite(imgToDraw, hurtShift * facingScale, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
-        this.drawBuffEffects(sx, sy, actor, actorW, actorH);
+        this.drawBuffEffects(sx, sy, actor, actorW);
         if (actor?.hitUntil > Date.now()) {
           ctx.save();
           const pulse = 0.58 + Math.sin(Date.now() * 0.045) * 0.18;
@@ -637,7 +658,7 @@ const Render = {
     const fallbackActionShift = activeAction === "hurt"
       ? hurtShift
       : (activeAction === "attack" ? Math.sin((frameIndex / 3) * Math.PI) * 2 : 0);
-    const x = sx - 4 + fallbackActionShift, y = sy - 9;
+    const x = sx - 4 + fallbackActionShift, y = sy - 9 - bob;
     // Bóng đổ
     ctx.fillStyle = "rgba(0,0,0,.2)";
     ctx.beginPath(); ctx.ellipse(sx, sy + 1, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
@@ -997,7 +1018,8 @@ const Render = {
     }
   },
 
-  drawBuffEffects(sx, sy, actor, actorW, actorH) {
+  drawBuffEffects(sx, sy, actor, actorW) {
+    if (typeof VisualEffects === "undefined" || !VisualEffects.arePersistentEffectsEnabled()) return;
     const buffs = actor?.buffs || {};
     const now = Date.now();
     const active = (key) => buffs[key] && (!buffs[key].expiresAt || Number(buffs[key].expiresAt) > now);
@@ -1005,35 +1027,29 @@ const Render = {
     const attack = active("buff_atk") || active("buff_crit");
     const speed = active("buff_spd") || active("buff_cast");
     if (!shield && !attack && !speed) return;
-    const pulse = 0.58 + Math.sin(now * 0.006) * 0.18;
+    const pulse = 0.2 + Math.sin(now * 0.004) * 0.06;
     ctx.save();
-    ctx.lineWidth = 1.1;
+    ctx.lineWidth = 0.7;
     ctx.globalAlpha = pulse;
+    // Buff lâu dài chỉ hiện thành dấu nhỏ sát mặt đất, không bao quanh thân nhân vật.
+    const radiusX = Math.max(4.5, Math.min(7, actorW * 0.38));
+    const footY = sy + 1.2;
     if (shield) {
       ctx.strokeStyle = active("shield") ? "#72d7ff" : "#8fa8ff";
       ctx.beginPath();
-      ctx.ellipse(sx, sy - actorH * 0.48, actorW * 0.68, actorH * 0.58, 0, Math.PI * 0.08, Math.PI * 0.92);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(sx, sy - actorH * 0.46, actorW * 0.72, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.ellipse(sx, footY, radiusX, 1.5, 0, Math.PI * 1.05, Math.PI * 1.95);
       ctx.stroke();
     }
     if (attack) {
       ctx.strokeStyle = active("buff_crit") ? "#ffd166" : "#ff8b55";
-      for (const side of [-1, 1]) {
-        ctx.beginPath();
-        ctx.moveTo(sx + side * actorW * 0.58, sy - actorH * 0.62);
-        ctx.lineTo(sx + side * actorW * 0.9, sy - actorH * 0.78);
-        ctx.stroke();
-      }
+      ctx.beginPath();
+      ctx.ellipse(sx, footY, radiusX + 1.5, 2.1, 0, Math.PI * 0.08, Math.PI * 0.42);
+      ctx.stroke();
     }
     if (speed) {
       ctx.strokeStyle = active("buff_cast") ? "#c79bff" : "#8ff0ff";
       ctx.beginPath();
-      ctx.moveTo(sx - actorW * 0.75, sy - actorH * 0.22);
-      ctx.lineTo(sx - actorW * 1.12, sy - actorH * 0.22);
-      ctx.moveTo(sx + actorW * 0.75, sy - actorH * 0.1);
-      ctx.lineTo(sx + actorW * 1.08, sy - actorH * 0.1);
+      ctx.ellipse(sx, footY, radiusX + 2.5, 2.8, 0, Math.PI * 0.58, Math.PI * 0.92);
       ctx.stroke();
     }
     ctx.restore();

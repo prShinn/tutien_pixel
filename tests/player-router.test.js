@@ -60,6 +60,58 @@ test("player router preserves the REST methods and paths mounted by the server",
   assert.match(serverSource, /app\.use\(["']\/api\/player["'], createPlayerRouter\(/);
 });
 
+test("character ownership comes only from the authenticated session", async () => {
+  async function createForSession(userId, requestBody) {
+    const players = new Map();
+    const playersByUserId = new Map();
+    const worlds = [{ code: "starter", isDefault: true, status: "PUBLISHED", w: 20, h: 20, spawnX: 4, spawnY: 5 }];
+    const router = createPlayerRouter({
+      authenticate() {},
+      playerFor: (ownerId) => playersByUserId.get(Number(ownerId)),
+      players,
+      playersByUserId,
+      createPlayerId: () => userId + 100,
+      combatPower: () => 100,
+      realms: [{ stt: 1, code: "LUYEN_KHI", tenCanhGioi: "Luyện Khí" }],
+      breakthroughThreshold: () => 100,
+      breakthroughGain: () => ({}),
+      items,
+      BALANCE,
+      roots: [{ id: "KIM", code: "KIM" }],
+      worlds,
+      isWorldPublished: () => true,
+      nearestWalkablePoint: (_world, x, y) => ({ x, y }),
+      deriveStats: () => ({ maxHp: 160, maxMp: 90 }),
+      calcTuViNeeded: () => 100,
+      skills: [],
+      emptyEquipment: () => ({ weapon: null }),
+      gameStateStore: { async flush() {} },
+      storePlayer(player) {
+        players.set(player.id, player);
+        playersByUserId.set(Number(player.userId), player);
+      },
+      users: new Map([[userId, { isDemo: userId === 7 }]]),
+    });
+    const layer = router.stack.find((entry) => entry.route?.path === "/");
+    let status = 200;
+    let payload;
+    await layer.route.stack.at(-1).handle({ userId, body: requestBody }, {
+      status(value) { status = value; return this; },
+      json(value) { payload = value; return this; },
+    });
+    return { status, payload };
+  }
+
+  const validInput = { name: "Tân Tu Sĩ", gender: "MALE", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 5, ene: 8 } };
+  const demo = await createForSession(7, validInput);
+  const registered = await createForSession(8, { ...validInput, userId: 7 });
+
+  assert.equal(demo.status, 200);
+  assert.equal(demo.payload.userId, 7, "demo character owner must come from its authenticated token");
+  assert.equal(registered.status, 200);
+  assert.equal(registered.payload.userId, 8, "forged request userId must not replace the registered account owner");
+});
+
 test("equipment equip enforces the catalog realm even when inventory metadata is spoofed", () => {
   const player = {
     id: "player-1",

@@ -65,9 +65,15 @@ test("mock API flag leaves normal requests untouched when disabled", async () =>
   assert.deepEqual(calls.map((entry) => entry.pathname), ["/api/items"]);
 });
 
-test("mock API preserves REST paths, persists a local player, and supplies local map loot", async () => {
+test("mock API creates characters from the authenticated owner and preserves local gameplay", async () => {
   const { backend, scope, calls, origin } = await harness();
   await backend.ready;
+
+  const unauthenticated = await call(scope, origin, "/api/player", {
+    method: "POST",
+    body: { name: "Không phiên", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
+  });
+  assert.equal(unauthenticated.status, 401, "character creation still requires an authenticated owner");
 
   const auth = await call(scope, origin, "/api/auth/demo", { method: "POST", body: {} });
   assert.equal(auth.status, 200);
@@ -75,10 +81,24 @@ test("mock API preserves REST paths, persists a local player, and supplies local
   const created = await call(scope, origin, "/api/player", {
     method: "POST",
     token,
-    body: { userId: auth.body.user.id, name: "Tu sĩ test", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
+    body: { name: "Tu sĩ demo", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
   });
   assert.equal(created.status, 200);
+  assert.equal(created.body.userId, auth.body.user.id);
   assert.equal(created.body.mapCode, "thanh_van_tran");
+
+  const registered = await call(scope, origin, "/api/auth/register", {
+    method: "POST",
+    body: { username: "NguoiChoiMoi", password: "passphrase-test" },
+  });
+  assert.equal(registered.status, 200);
+  const registeredCharacter = await call(scope, origin, "/api/player", {
+    method: "POST",
+    token: registered.body.token,
+    body: { userId: auth.body.user.id, name: "Tu sĩ đăng ký", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
+  });
+  assert.equal(registeredCharacter.status, 200);
+  assert.equal(registeredCharacter.body.userId, registered.body.user.id, "a forged body owner must be ignored in favor of the token");
 
   const saved = await call(scope, origin, `/api/player/${created.body.id}`, {
     method: "PUT",

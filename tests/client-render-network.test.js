@@ -128,6 +128,22 @@ test("renderer uses stable global Y order for drawable entities", () => {
   assert.deepEqual(Array.from(sorted, (entry) => entry.id), ["loot", "npc", "monster", "near-player"]);
 });
 
+test("walk sprite frame and body step phase advance together from traveled distance", () => {
+  const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
+  const context = vm.createContext({});
+  vm.runInContext(`${renderSource}\nglobalThis.__Render = Render;`, context);
+  const actor = { walkDistance: 0 };
+
+  assert.equal(context.__Render.walkFrame(actor), 0);
+  assert.equal(context.__Render.walkPhase(actor), 0);
+  actor.walkDistance = 5.5;
+  assert.equal(context.__Render.walkFrame(actor), 1);
+  assert.equal(context.__Render.walkPhase(actor), Math.PI / 2);
+  actor.walkDistance = 22;
+  assert.equal(context.__Render.walkFrame(actor), 0);
+  assert.equal(context.__Render.walkPhase(actor), 0);
+});
+
 test("terrain renderer loads the 47-mask sprite atlas and rasterizes 8px ground cells", async () => {
   const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
   const atlasSource = fs.readFileSync(path.join(root, "public", "assets", "tilesets", "temperate-47.svg"), "utf8");

@@ -30,6 +30,9 @@ function mapBESkillToFE(sk) {
   const effectCode = sk.sfx_code && sk.sfx_code !== "string"
     ? sk.sfx_code
     : (sk.effect && sk.effect !== "PHYS" && sk.effect !== "MAGIC" ? sk.effect : null);
+  const categoryCode = String(sk.category || sk.loai || sk.loaiNangLuc || "").trim().toUpperCase();
+  const isPassive = categoryCode === "PASSIVE" || categoryCode === "BI_DONG"
+    || /_TAM_PHAP$/i.test(String(sk.code || sk.maNangLuc || ""));
 
   // cd: BE gửi giây → FE dùng ticks (×60)
   const cdTicks = ((sk.hoiChieu ?? sk.cd ?? 10)) * 60;
@@ -42,7 +45,7 @@ function mapBESkillToFE(sk) {
     icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
-    category: String(sk.category || sk.loai || "ACTIVE").toUpperCase() === "PASSIVE" ? "PASSIVE" : "ACTIVE",
+    category: isPassive ? "PASSIVE" : "ACTIVE",
     targetType: sk.targetType || (Number(sk.satThuong || 0) > 0 ? "ENEMY" : "SELF"),
     scalingStat: sk.scalingStat || (damageType === "MAGIC" ? "ene" : "str"),
     damageType,                         // "PHYS" | "MAGIC"
@@ -408,6 +411,7 @@ const SkillSystem = {
       duration,
       expiresAt: Date.now() + duration * 16,
     };
+    if (typeof SkillVFX !== "undefined") SkillVFX.activateBuff(skill, duration * 16);
     const names = { atk: "damage tay", def: "phòng thủ", spd: "tốc độ", cast: "tốc độ ra chiêu", crit: "chí mạng", hp_regen: "HP/giây", mp_regen: "MP/giây", vitals: "HP/MP tối đa" };
     UI.log(
       `${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`,

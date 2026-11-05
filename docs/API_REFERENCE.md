@@ -27,7 +27,7 @@ BE cấp access token 15 phút và refresh token 30 ngày; mỗi lần refresh x
 | GET | `/api/player/me` | — | PlayerData | ✅ |
 | GET | `/api/player/state` | — | PlayerData (tương thích cũ) | ✅ |
 | GET | `/api/player/by-user/:userId` | — | PlayerData | ✅ |
-| POST | `/api/player` | `{userId, name, gender, linhCan, stats, mapCode?}` | PlayerData do server khởi tạo | ✅ |
+| POST | `/api/player` | `{name, gender, linhCan, stats}` | PlayerData do server khởi tạo; owner lấy từ Bearer token | ✅ |
 | PUT | `/api/player/:id` | `{name?, gender?, img?}` | PlayerData | ✅ |
 
 Server tự cấp inventory/equipment ban đầu và tự chọn điểm sinh từ map khởi đầu đã xuất bản.

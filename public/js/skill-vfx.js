@@ -6,6 +6,7 @@ const SkillVFX = {
   customProfiles: {},
   storageKey: "tutien.skillVfxProfiles.v1",
   allowedForms: null,
+  ownedBuffAuras: [],
 
   loadCustomProfiles() {
     try {
@@ -182,10 +183,14 @@ const SkillVFX = {
     const custom = this.customProfiles[code] || {};
     const baseRoot = this.palette[root] ? root : "COMMON";
     const customRoot = this.palette[String(custom.root || "").toUpperCase()] ? String(custom.root).toUpperCase() : baseRoot;
+    const effect = String(normalized?.effect || "").toLowerCase();
+    const skillName = String(normalized?.name || normalized?.tenNangLuc || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const isLightningShield = (root === "LOI" && ["shield", "buff_def", "buff_vitals"].includes(effect))
+      || /than loi ho the|loi ho/.test(skillName);
     if (!this.allowedForms) this.allowedForms = new Set(Object.values(this.forms));
     const form = this.allowedForms.has(custom.form)
       ? custom.form
-      : (this.forms[code] || this.fallbackForm(normalized));
+      : (this.forms[code] || (isLightningShield ? "thunder-shield" : this.fallbackForm(normalized)));
     const tier = Math.max(1, Number(normalized?.tier || 1));
     const basePalette = this.palette[customRoot] || this.palette.COMMON;
     const colors = custom.colors && typeof custom.colors === "object" ? custom.colors : {};
@@ -194,7 +199,7 @@ const SkillVFX = {
       code,
       root: customRoot,
       form,
-      effect: String(normalized?.effect || ""),
+      effect,
       tier,
       aoe: Boolean(normalized?.aoe || Number(normalized?.aoeR || 0) > 0),
       aoeR: Number(normalized?.aoeR || 0),
@@ -263,6 +268,22 @@ const SkillVFX = {
 
   support(skill, source) {
     this.spawn(skill, source, [source], "support");
+  },
+
+  activateBuff(skillData, durationMs) {
+    const skill = this.normalize(skillData);
+    if (!skill) return false;
+    const effect = String(skill.effect || "").toLowerCase();
+    if (!["shield", "speed", "buff_atk", "buff_def", "buff_crit", "buff_spd", "buff_cast", "buff_hp_regen", "buff_mp_regen", "buff_vitals"].includes(effect)) return false;
+    const duration = Number(durationMs) > 0
+      ? Number(durationMs)
+      : Number(skill.effectDur || 0) * (1000 / 60);
+    if (!(duration > 0)) return false;
+    const code = String(skill.code || skill.id || effect);
+    const now = Date.now();
+    this.ownedBuffAuras = this.ownedBuffAuras.filter((entry) => entry.code !== code && entry.expiresAt > now);
+    this.ownedBuffAuras.push({ skill, code, effect, expiresAt: now + duration });
+    return true;
   },
 
   basicAttack(source, target, outcome = {}) {
@@ -339,7 +360,7 @@ const SkillVFX = {
     this.spawn(skill, source, [previewTarget], "preview");
   },
 
-  draw(cameraX, cameraY) {
+  draw(cameraX, cameraY, layer = "all") {
     if (!ctx) return;
     const now = Date.now();
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -347,6 +368,9 @@ const SkillVFX = {
     ctx.save();
     try {
       for (const entry of this.active) {
+        const staysBehindActors = entry.mode === "charge" || entry.mode === "support" || entry.mode === "preview-support" || entry.profile.category === "PASSIVE";
+        if (layer === "behind" && !staysBehindActors) continue;
+        if (layer === "front" && staysBehindActors) continue;
         const elapsed = now - entry.startedAt;
         const progress = reduceMotion ? 0.55 : Math.max(0, Math.min(1, elapsed / entry.duration));
         const palette = entry.profile.palette || this.palette[entry.profile.root] || this.palette.COMMON;
@@ -368,7 +392,10 @@ const SkillVFX = {
           }
         }
       }
-      this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion);
+      if (layer !== "front" && typeof VisualEffects !== "undefined" && VisualEffects.arePersistentEffectsEnabled()) {
+        this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion);
+        this.drawOwnedBuffs(cameraX, cameraY, now);
+      }
     } finally {
       ctx.restore();
     }
@@ -907,16 +934,27 @@ const SkillVFX = {
 
   drawSupport(point, profile, palette, progress) {
     const form = profile.form;
-    const pulse = Math.max(0.3, 1 - progress * 0.6);
+    const progressValue = Math.max(0, Math.min(1, Number(progress) || 0));
+    const pulse = 0.06 + Math.sin(progressValue * Math.PI) * 0.18;
+    if (form === "thunder-shield") {
+      this.drawLightningAura(point, palette, (Date.now() % 840) / 840, progressValue);
+      return;
+    }
+    if (["shield", "water-shield", "stone-armor"].includes(form)) {
+      const radius = 5.5 + progressValue * 4;
+      this.drawPixelRing(point.x, point.y + 1.2, radius, palette.main, pulse, 1);
+      if (progressValue > 0.2 && progressValue < 0.8) {
+        const angle = progressValue * Math.PI * 2;
+        this.colorStamp(point.x + Math.cos(angle) * radius, point.y + 1.2, 2, palette.light, pulse);
+      }
+      return;
+    }
     if (form === "growth") this.drawGrowth(point, palette, progress, form, profile.tier);
     if (form === "orbit") this.drawOrbit(point, palette, progress, form, profile.tier);
     if (form === "dark-eye") this.drawDarkEye(point, palette, progress, profile.tier);
     if (form === "starburst") this.drawStarburst(point, palette, progress, profile.tier);
-    this.drawPixelRing(point.x, point.y - 3, 6 + progress * 10, palette.main, pulse, 2);
-    this.drawPixelRing(point.x, point.y - 3, 11 + progress * 5, palette.accent, pulse * 0.65, 1);
-    if (["shield", "water-shield", "stone-armor", "thunder-shield"].includes(form)) {
-      this.drawShield(point, palette, progress, profile.tier, form);
-    }
+    this.drawPixelRing(point.x, point.y + 1.2, 6 + progress * 8, palette.main, pulse, 1);
+    this.drawPixelRing(point.x, point.y + 1.2, 9 + progress * 4, palette.accent, pulse * 0.55, 1);
     if (form === "five-elements") {
       const colors = ["#f0d35a", "#70c47b", "#58b9e6", "#ee704c", "#bd9460"];
       for (let i = 0; i < colors.length; i += 1) {
@@ -1007,40 +1045,111 @@ const SkillVFX = {
     }
   },
 
-  drawPassive(point, profile, palette, progress) {
-    const pulse = 0.28 + Math.sin(progress * Math.PI * 2) * 0.1;
-    this.drawPixelRing(point.x, point.y - 5, 12, palette.main, pulse, 1);
-    const form = profile.form;
-    if (form === "passive-metal") this.drawSlash(point, { x: point.x + 1, y: point.y - 3 }, palette, progress, 1);
-    else if (form === "passive-leaf" || form === "passive-wind") this.drawOrbit(point, palette, progress, form, 1);
-    else if (form === "passive-water" || form === "passive-stone") this.drawShield(point, palette, progress, 1);
-    else if (form === "passive-flame") {
-      this.colorStamp(point.x - 4, point.y - 9, 3, palette.main, pulse);
-      this.colorStamp(point.x, point.y - 13, 3, palette.light, pulse);
-      this.colorStamp(point.x + 4, point.y - 8, 2, palette.accent, pulse);
-    } else if (form === "passive-sun") {
-      for (let i = 0; i < 4; i += 1) {
-        const side = i % 2 ? 1 : -1;
-        this.colorStamp(point.x + side * (7 + i * 2), point.y - 9 + i * 3, 2, palette.light, pulse);
+  drawLightningAura(point, palette, phase, lifecycle = null) {
+    const cycle = ((Number(phase) || 0) % 1 + 1) % 1;
+    const pulseAt = (center) => {
+      const distance = Math.min(Math.abs(cycle - center), 1 - Math.abs(cycle - center));
+      return Math.max(0, 1 - distance / 0.22);
+    };
+    const envelope = Number.isFinite(lifecycle)
+      ? Math.max(0, Math.min(1, Math.min(lifecycle * 5, (1 - lifecycle) * 5)))
+      : 1;
+    const pulse = Math.max(pulseAt(0.12), pulseAt(0.62));
+    const radius = 11 + Math.sin(cycle * Math.PI * 2) * 1.2;
+    this.drawPixelRing(point.x, point.y + 1.2, radius, palette.accent, 0.22 + pulse * 0.24, 2);
+
+    for (let bolt = 0; bolt < 2; bolt += 1) {
+      const flash = pulseAt(bolt === 0 ? 0.12 : 0.62) * envelope;
+      if (flash < 0.08) continue;
+      const side = bolt === 0 ? -1 : 1;
+      const x = point.x + side * 10;
+      const y = point.y - 8 + Math.sin((cycle + bolt * 0.5) * Math.PI * 2) * 1.5;
+      const zig = [[0, -5], [side * 2, -2], [-side, 1], [side * 2, 4], [0, 7]];
+      for (let i = 0; i < zig.length; i += 1) {
+        const [dx, dy] = zig[i];
+        this.colorStamp(x + dx, y + dy, i % 2 ? 2 : 3, i % 2 ? palette.light : palette.main, (0.2 + flash * 0.72) * envelope);
       }
-      this.colorStamp(point.x, point.y - 13, 3, palette.accent, pulse);
+      this.colorStamp(x + side * 3, y + 3, 2, palette.accent, 0.32 + flash * 0.62);
     }
-    else if (form === "passive-shadow") this.drawCurse(point, palette, progress, form, 1);
-    else if (form === "passive-lightning") this.drawLightning(point, { x: point.x, y: point.y - 8 }, palette, progress, "thunder-strike", 1);
+  },
+
+  drawPassive(point, profile, palette, progress) {
+    const phase = Math.max(0, Math.min(1, Number(progress) || 0)) * Math.PI * 2;
+    const y = point.y + 1.2;
+    const radius = 5.5 + (Math.sin(phase) + 1) * 0.45;
+    const alpha = 0.08 + (Math.sin(phase) + 1) * 0.035;
+    if (["passive-lightning", "thunder-shield"].includes(profile.form)) {
+      this.drawLightningAura(point, palette, (Number(progress) || 0) % 1);
+      return;
+    }
+    // Passive previews and persistent auras stay small and beneath the character sprite.
+    this.drawPixelRing(point.x, y, radius, palette.main, alpha, 1);
+    if (["passive-leaf", "passive-wind"].includes(profile.form)) {
+      const drift = Math.cos(phase) * 2;
+      this.colorStamp(point.x - 7 + drift, point.y - 6, 2, palette.light, 0.34);
+      this.colorStamp(point.x + 7 - drift, point.y - 9, 2, palette.main, 0.28);
+    } else if (["passive-flame", "passive-sun"].includes(profile.form)) {
+      const lift = Math.sin(phase) * 1.5;
+      this.colorStamp(point.x - 7, point.y - 8 - lift, 2, palette.main, 0.38);
+      this.colorStamp(point.x + 7, point.y - 10 + lift, 2, palette.light, 0.34);
+    } else if (profile.form === "passive-shadow") {
+      this.colorStamp(point.x - 8, point.y - 4, 2, palette.dark, 0.4);
+      this.colorStamp(point.x + 8, point.y - 8, 2, palette.accent, 0.34);
+    } else {
+      this.colorStamp(point.x + Math.cos(phase) * 7, y, 2, palette.light, 0.2);
+    }
+  },
+
+  drawOwnedBuffs(cameraX, cameraY, now) {
+    const player = S.player;
+    if (!player) return;
+    const x = player.px - cameraX;
+    const y = player.py - cameraY;
+    const phase = (now % 840) / 840;
+    this.ownedBuffAuras = this.ownedBuffAuras.filter((entry) => entry.expiresAt > now);
+    const drawn = new Set();
+    const drawAura = (skill, key) => {
+      const profile = this.profile(skill);
+      const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
+      if (profile.form === "thunder-shield") this.drawLightningAura({ x, y }, palette, phase);
+      else this.drawPassive({ x, y }, profile, palette, phase);
+      drawn.add(String(skill.code || skill.id || key));
+    };
+    for (const entry of this.ownedBuffAuras) drawAura(entry.skill, entry.effect);
+    for (const [buffKey, buff] of Object.entries(player.buffs || {})) {
+      if (!buff || (Number(buff.expiresAt) > 0 && Number(buff.expiresAt) <= now)) continue;
+      const skillCode = String(buff.skillCode || buff.code || "");
+      const skill = (skillCode && this.findSkill(skillCode, player))
+        || (player.skills || []).find((entry) => String(entry.effect || "") === buffKey);
+      if (!skill) continue;
+      const code = String(skill.code || skill.id || buffKey);
+      if (!drawn.has(code)) drawAura(skill, buffKey);
+    }
   },
 
   drawOwnedPassive(cameraX, cameraY, now, reduceMotion) {
     const player = S.player;
-    const root = String(player?.linhCan || "").toUpperCase();
-    if (!player || !root) return;
-    const code = `${root}_TAM_PHAP`;
-    const learned = (player.learnedSkills || []).map(String).includes(code);
-    if (!learned) return;
-    const skill = this.findSkill(code, player) || { code, linhCan: root, category: "PASSIVE", tier: 1 };
+    if (!player) return;
+    const root = String(player.linhCan || player.root?.id || "").toUpperCase();
+    const learnedCodes = new Set((player.learnedSkills || []).map((entry) => String(entry?.code || entry?.id || entry?.skillCode || entry)));
+    const candidates = [...learnedCodes]
+      .map((code) => this.findSkill(code, player))
+      .filter((skill) => skill && String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE");
+    for (const skill of player.skills || []) {
+      if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE"
+        && !candidates.some((candidate) => candidate.code === skill.code)) candidates.push(this.normalize(skill));
+    }
+    const legacyCode = `${root}_TAM_PHAP`;
+    const skill = candidates.find((candidate) => String(candidate.linhCan || "").toUpperCase() === root)
+      || candidates[0]
+      || (learnedCodes.has(legacyCode) ? this.findSkill(legacyCode, player) || { code: legacyCode, linhCan: root, category: "PASSIVE", tier: 1 } : null);
+    if (!skill) return;
     const profile = this.profile(skill);
     const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-    const phase = reduceMotion ? 0.2 : (now % 1900) / 1900;
-    this.drawPassive({ x: player.px - cameraX, y: player.py - cameraY }, profile, palette, phase);
+    const phase = reduceMotion ? 0 : (now % 1500) / 1500;
+    const x = player.px - cameraX;
+    const y = player.py - cameraY;
+    this.drawPassive({ x, y }, profile, palette, phase);
   },
 };
 

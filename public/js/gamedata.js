@@ -173,6 +173,9 @@ const GameData = {
 			const effectCode = sk.sfx_code && sk.sfx_code !== "string"
 				? sk.sfx_code
 				: (sk.effect && sk.effect !== "PHYS" && sk.effect !== "MAGIC" ? sk.effect : null);
+			const categoryCode = String(sk.category || sk.loai || sk.loaiNangLuc || "").trim().toUpperCase();
+			const isPassive = categoryCode === "PASSIVE" || categoryCode === "BI_DONG"
+				|| /_TAM_PHAP$/i.test(String(sk.code || sk.maNangLuc || ""));
 
 			grouped[lc][tier].push({
 				id: sk.code || sk.maNangLuc || String(sk.id),
@@ -180,6 +183,7 @@ const GameData = {
 				icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
 				linhCan: lc,
 				tier,
+				category: isPassive ? "PASSIVE" : "ACTIVE",
 				damageType,                          // "PHYS" | "MAGIC"
 				satThuong: sk.satThuong ?? 1,        // hệ số nhân sát thương
 				mpCost: sk.mpTieuHao ?? sk.mpCost ?? 0,
@@ -190,6 +194,7 @@ const GameData = {
 				effect: effectCode,                  // debuff/buff code
 				effectDur: (sk.thoiGianBuff ?? sk.effectDur ?? 0) * 60, // giây → ticks
 				effectVal: sk.effectVal ?? 0,        // giá trị effect (không phải satThuong)
+				passiveModifiers: sk.passiveModifiers || {},
 				desc: sk.description ?? sk.moTa ?? sk.desc ?? "",
 				_beId: sk.id || null,
 			});

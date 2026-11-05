@@ -14,7 +14,7 @@ const adminHtml = fs.readFileSync(path.join(__dirname, "..", "public", "admin", 
 const gameHtml = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
 const gameBootstrap = fs.readFileSync(path.join(__dirname, "..", "public", "js", "bootstrap.js"), "utf8");
 
-function createHarness(storage = new Map(), { API, fetch } = {}) {
+function createHarness(storage = new Map(), { API, fetch, VisualEffects, CFG } = {}) {
   const listeners = new Map();
   const draws = [];
   const canvasContext = {
@@ -34,15 +34,16 @@ function createHarness(storage = new Map(), { API, fetch } = {}) {
     addEventListener(name, listener) { listeners.set(name, listener); },
     matchMedia() { return { matches: false }; },
     S: { player: null },
-    CFG: { SKILLS: {}, SKILL_RANGE_SCALE: 1 },
+    CFG: CFG || { SKILLS: {}, SKILL_RANGE_SCALE: 1 },
     ctx: canvasContext,
     console: { warn() {} },
     API,
     fetch,
+    VisualEffects,
   });
   context.window = context;
   vm.runInContext(`${source}\nglobalThis.__SkillVFX = SkillVFX;`, context, { filename: "skill-vfx.js" });
-  return { vfx: context.__SkillVFX, draws, storage, listeners };
+  return { vfx: context.__SkillVFX, draws, storage, listeners, context };
 }
 
 function createAdminHarness({ authorized = true, failMutations = false } = {}) {
@@ -211,8 +212,94 @@ test("built-in profile keeps skill form, element palette, and default duration",
   assert.equal(profile.durationMs, null);
 });
 
+test("self-bound charge and support effects render behind actors while impacts stay in front", () => {
+  const { vfx } = createHarness();
+  const layers = [];
+  vfx.drawCharge = () => layers.push("charge");
+  vfx.drawSupport = () => layers.push("support");
+  vfx.drawImpact = () => layers.push("impact");
+  const startedAt = Date.now();
+  const base = { root: "HOA", tier: 1, palette: {}, durationMs: 1000 };
+  vfx.active = [
+    { profile: { ...base, form: "fireball", category: "ACTIVE" }, from: { x: 0, y: 0 }, targets: [], mode: "charge", startedAt, duration: 1000 },
+    { profile: { ...base, form: "shield", category: "ACTIVE" }, from: { x: 0, y: 0 }, targets: [{ x: 0, y: 0 }], mode: "support", startedAt, duration: 1000 },
+    { profile: { ...base, form: "fireball", category: "ACTIVE" }, from: { x: 0, y: 0 }, targets: [{ x: 4, y: 0 }], mode: "impact", startedAt, duration: 1000 },
+  ];
+
+  vfx.draw(0, 0, "behind");
+  assert.deepEqual(layers, ["charge", "support"]);
+
+  layers.length = 0;
+  vfx.draw(0, 0, "front");
+  assert.deepEqual(layers, ["impact"]);
+});
+
+test("persistent passive aura obeys the player visibility toggle", () => {
+  let enabled = false;
+  let passiveDraws = 0;
+  const { vfx } = createHarness(new Map(), {
+    VisualEffects: { arePersistentEffectsEnabled: () => enabled },
+  });
+  vfx.drawOwnedPassive = () => { passiveDraws += 1; };
+
+  vfx.draw(0, 0, "behind");
+  assert.equal(passiveDraws, 0);
+  enabled = true;
+  vfx.draw(0, 0, "behind");
+  assert.equal(passiveDraws, 1);
+});
+
+test("learned lightning passive and active thunder shield keep their distinct aura", () => {
+  const passive = { code: "LOI_TAM_PHAP", name: "Lôi thể", linhCan: "LOI", category: "PASSIVE", tier: 1 };
+  const shield = { code: "LOI_HO", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield", damageType: "MAGIC", tier: 1 };
+  const { vfx, context } = createHarness(new Map(), {
+    VisualEffects: { arePersistentEffectsEnabled: () => true },
+    CFG: { SKILLS: { LOI: [passive, shield] }, SKILL_RANGE_SCALE: 1 },
+  });
+  let passiveForm = null;
+  let lightningCalls = 0;
+  vfx.drawPassive = (_point, profile) => { passiveForm = profile.form; };
+  vfx.drawLightningAura = () => { lightningCalls += 1; };
+  context.S.player = {
+    linhCan: "LOI",
+    px: 24,
+    py: 32,
+    learnedSkills: ["LOI_TAM_PHAP"],
+    skills: [],
+  };
+
+  vfx.draw(0, 0, "behind");
+  assert.equal(passiveForm, "passive-lightning");
+
+  context.S.player.learnedSkills = [];
+  context.S.player.skills = [shield];
+  context.S.player.buffs = { shield: { expiresAt: Date.now() + 4000 } };
+  vfx.draw(0, 0, "behind");
+  assert.equal(lightningCalls, 1);
+});
+
+test("named lightning shield keeps its lightning form when the BE code differs", () => {
+  const { vfx } = createHarness();
+  const profile = vfx.profile({ code: "SERVER_SKILL_181", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield" });
+  assert.equal(profile.form, "thunder-shield");
+});
+
+test("active thunder shield persists visually when a skill response omits buff state", () => {
+  const shield = { code: "LOI_HO", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield", damageType: "MAGIC", effectDur: 240, tier: 1 };
+  const { vfx, context } = createHarness(new Map(), {
+    VisualEffects: { arePersistentEffectsEnabled: () => true },
+  });
+  let lightningCalls = 0;
+  vfx.drawLightningAura = () => { lightningCalls += 1; };
+  context.S.player = { px: 24, py: 32, linhCan: "LOI", skills: [shield], buffs: {} };
+
+  assert.equal(vfx.activateBuff(shield, 4000), true);
+  vfx.drawOwnedBuffs(0, 0, Date.now());
+  assert.equal(lightningCalls, 1);
+});
+
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
-  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=5/);
+  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=11/);
   assert.match(adminHtml, /js\/api\.js\?v=4/);
   assert.match(adminHtml, /admin\.css\?v=4/);
   assert.match(adminHtml, /js\/skill-vfx\.js\?v=4/);

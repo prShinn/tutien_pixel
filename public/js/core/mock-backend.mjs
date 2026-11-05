@@ -435,7 +435,7 @@ export function installMockBackend({
   function handlePlayerRoute(pathname, method, body, user, state, catalog) {
     if (pathname === "/api/player" && method === "POST") {
       if (!user) return error("Thiếu hoặc sai phiên đăng nhập mock", 401);
-      if (Number(body.userId) !== Number(user.id)) return error("Player không thuộc tài khoản", 403);
+      // Bind ownership to the authenticated mock session, matching the real API contract.
       if (playerFor(state, user.id)) return error("Player already exists", 409);
       const created = createPlayer(user, body, catalog);
       if (created.error) return error(created.error, created.status);
