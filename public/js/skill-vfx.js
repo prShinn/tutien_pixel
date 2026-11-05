@@ -397,7 +397,7 @@ const SkillVFX = {
       }
       if (typeof VisualEffects !== "undefined" && VisualEffects.arePersistentEffectsEnabled()) {
         this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion, layer);
-        this.drawOwnedBuffs(cameraX, cameraY, now, layer);
+        this.drawOwnedBuffs(cameraX, cameraY, now, layer, reduceMotion);
       }
     } finally {
       ctx.restore();
@@ -1084,12 +1084,16 @@ const SkillVFX = {
       ? Math.max(0, Math.min(1, Math.min(lifecycle * 5, (1 - lifecycle) * 5)))
       : 1;
     const pulse = Math.max(pulseAt(0.12), pulseAt(0.62));
-    const radius = 13.5 + Math.sin(cycle * Math.PI * 2) * 1.2;
+    const rotation = cycle * Math.PI * 2 * 0.22;
+    const radius = 12 + Math.sin(cycle * Math.PI * 2) * 1.1;
     if (layer !== "front") {
-      for (let index = 0; index < 12; index += 1) {
-        const angle = (index / 12) * Math.PI * 2;
+      for (let index = 0; index < 8; index += 1) {
+        const angle = (index / 8) * Math.PI * 2 + rotation;
+        const shimmer = (Math.sin(cycle * Math.PI * 4 + index * 1.7) + 1) * 0.5;
+        const orbitRadius = radius + Math.sin(cycle * Math.PI * 2 + index) * 0.7;
         const color = index % 3 === 0 ? palette.light : palette.accent;
-        this.colorStamp(point.x + Math.cos(angle) * radius, point.y + 1.2 + Math.sin(angle) * radius * 0.38, 3, color, 0.42 + pulse * 0.34);
+        const alpha = 0.12 + shimmer * 0.36 + pulse * 0.2;
+        this.colorStamp(point.x + Math.cos(angle) * orbitRadius, point.y + 1.2 + Math.sin(angle) * orbitRadius * 0.38, shimmer > 0.82 ? 3 : 2, color, alpha);
       }
     }
 
@@ -1118,15 +1122,27 @@ const SkillVFX = {
       this.drawLightningAura(point, palette, (Number(progress) || 0) % 1, null, layer);
       return;
     }
-    // Keep non-lightning passives below the sprite; the front pass is reserved
-    // for effects designed to frame the character rather than cover it.
-    if (layer === "front") return;
-    const radius = 10.5 + (Math.sin(phase) + 1) * 0.8;
-    const alpha = 0.16 + (Math.sin(phase) + 1) * 0.08;
-    for (let index = 0; index < 12; index += 1) {
-      const angle = (index / 12) * Math.PI * 2;
+    const rotation = phase * 0.4;
+    if (layer === "front") {
+      // A few short-lived glints sit at the outer edges of the sprite so the
+      // character stays readable while the passive still feels active.
+      for (let index = 0; index < 2; index += 1) {
+        const angle = rotation + index * Math.PI;
+        const twinkle = (Math.sin(phase * 2 + index * Math.PI) + 1) * 0.5;
+        if (twinkle < 0.32) continue;
+        const x = point.x + Math.cos(angle) * 10.5;
+        const sparkleY = point.y - 8 + Math.sin(angle) * 3;
+        this.colorStamp(x, sparkleY, twinkle > 0.78 ? 3 : 2, palette.light, 0.12 + twinkle * 0.42);
+      }
+      return;
+    }
+    const radius = 9.5 + (Math.sin(phase) + 1) * 0.7;
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (index / 8) * Math.PI * 2 + rotation;
+      const shimmer = (Math.sin(phase * 2 + index * 1.45) + 1) * 0.5;
+      const orbitRadius = radius + Math.sin(phase + index * 0.8) * 0.6;
       const color = index % 3 === 0 ? palette.light : palette.main;
-      this.colorStamp(point.x + Math.cos(angle) * radius, y + Math.sin(angle) * radius * 0.42, index % 3 === 0 ? 3 : 2, color, alpha);
+      this.colorStamp(point.x + Math.cos(angle) * orbitRadius, y + Math.sin(angle) * orbitRadius * 0.42, shimmer > 0.8 ? 3 : 2, color, 0.14 + shimmer * 0.34);
     }
     if (["passive-leaf", "passive-wind"].includes(profile.form)) {
       const drift = Math.cos(phase) * 2;
@@ -1144,12 +1160,12 @@ const SkillVFX = {
     }
   },
 
-  drawOwnedBuffs(cameraX, cameraY, now, layer = "all") {
+  drawOwnedBuffs(cameraX, cameraY, now, layer = "all", reduceMotion = false) {
     const player = S.player;
     if (!player) return;
     const x = player.px - cameraX;
     const y = player.py - cameraY;
-    const phase = (now % 840) / 840;
+    const phase = reduceMotion ? 0.35 : (now % 1200) / 1200;
     this.ownedBuffAuras = this.ownedBuffAuras.filter((entry) => entry.expiresAt > now);
     const drawn = new Set();
     const drawAura = (skill, key) => {
@@ -1190,7 +1206,7 @@ const SkillVFX = {
     if (!skill) return;
     const profile = this.profile(skill);
     const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-    const phase = reduceMotion ? 0.12 : (now % 1500) / 1500;
+    const phase = reduceMotion ? 0.35 : (now % 1500) / 1500;
     const x = player.px - cameraX;
     const y = player.py - cameraY;
     this.drawPassive({ x, y }, profile, palette, phase, layer);

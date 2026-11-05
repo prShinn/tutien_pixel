@@ -47,7 +47,8 @@ const Inventory = {
     const item = S.inventory[idx];
     if (!item) return;
     if (authToken && (item.type || item.loai) === "EQUIPMENT") {
-      const result = await Net.mutate("POST", API.PATHS.player.equipItem, { itemCode: item.itemCode || item.id, slot: item.slot || "weapon" });
+      const targetSlot = item.slot === "helmet" ? "hat" : (item.slot || "weapon");
+      const result = await Net.mutate("POST", API.PATHS.player.equipItem, { itemCode: item.itemCode || item.id, slot: targetSlot });
       if (!result?.player) return UI.log(result?.error || "KhÃ´ng thá»ƒ trang bá»‹ váº­t pháº©m.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "âš”ï¸"} ÄÃ£ trang bá»‹ ${item.name}`, "loot");

@@ -50,6 +50,13 @@ const UI = {
     const itemArtClass = slotHint === "skill" ? "" : " item-art-icon";
     icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
     icon.setAttribute("aria-hidden", "true");
+    const customImg = item && (item.img || item.icon);
+    if (customImg && typeof customImg === "string") {
+      icon.style.backgroundImage = `url("${customImg}")`;
+      icon.style.backgroundPosition = "center";
+      icon.style.backgroundSize = "contain";
+      icon.style.backgroundRepeat = "no-repeat";
+    }
     return icon;
   },
   toggleKpahMenu() {

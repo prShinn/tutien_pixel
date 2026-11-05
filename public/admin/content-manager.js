@@ -25,6 +25,13 @@
       return { ...adminHeaders(), "content-type": "application/json" };
     }
 
+    function requirePersistentResult(result, action) {
+      if (result?.persisted !== true || result?.demo === true) {
+        throw new Error(`Backend chưa xác nhận ${action} vào MySQL. Không xem dữ liệu là đã lưu.`);
+      }
+      return result;
+    }
+
     return {
       async list(collection) {
         return getJson(api.BASE + api.PATHS.admin.content(collection), { headers: adminHeaders() });
@@ -37,19 +44,21 @@
         const url = isUpdate
           ? api.BASE + api.PATHS.admin.contentItem(collection, existingId)
           : api.BASE + api.PATHS.admin.content(collection);
-        return getJson(url, {
+        const result = await getJson(url, {
           method: isUpdate ? "PUT" : "POST",
           headers: jsonHeaders(),
           body: JSON.stringify(record),
         });
+        return requirePersistentResult(result, "ghi dữ liệu");
       },
 
       async remove(collection, id) {
         ensureEditable(collection);
-        return getJson(api.BASE + api.PATHS.admin.contentItem(collection, id), {
+        const result = await getJson(api.BASE + api.PATHS.admin.contentItem(collection, id), {
           method: "DELETE",
           headers: adminHeaders(),
         });
+        return requirePersistentResult(result, "xóa dữ liệu");
       },
     };
   }

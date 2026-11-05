@@ -31,6 +31,13 @@ const ITEM_ATLAS_URL = "./assets/items/item-icons-v2.png";
 const NPC_SPRITE_BY_ID = Object.freeze({
   npc_huong_dan: "./assets/characters/npc-elder-guide-v2.png",
   npc_shop: "./assets/characters/npc-town-merchant-v2.png",
+  npc_truong_thon: "./assets/characters/npc-elder-guide-v2.png",
+  npc_tho_ren: "./assets/characters/cultivator-male.png",
+  npc_duoc_su: "./assets/characters/cultivator-female.png",
+  npc_thuong_nhan: "./assets/characters/npc-town-merchant-v2.png",
+  npc_giao_dau: "./assets/characters/cultivator-male.png",
+  npc_tien_tram: "./assets/characters/cultivator-male.png",
+  npc_an_cu: "./assets/characters/npc-elder-guide-v2.png",
 });
 const AUTOTILE_DIRECTIONS = [
   { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
@@ -629,18 +636,32 @@ const Render = {
     const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
     const actorW = Number(actor?.animation?.width || CFG.ACTOR_W);
     const actorH = Number(actor?.animation?.height || CFG.ACTOR_H);
+    const facingScale = actor?.direction === "left" ? -1 : 1;
     
     // Nếu đạo hữu muốn dùng ảnh và tải thành công:
     if (imgToDraw) {
       if (walking && !reduceMotion && footfall > 0.04) {
         const footSide = stride >= 0 ? -1 : 1;
-        const dustX = Math.round((sx + footSide * 5) / 2) * 2;
-        const dustY = Math.round((sy + 2) / 2) * 2;
+        const moveX = actor?.direction === "left" ? -1 : actor?.direction === "right" ? 1 : 0;
+        const moveY = actor?.direction === "up" ? -1 : actor?.direction === "down" ? 1 : 0;
+        const sideX = -moveY;
+        const sideY = moveX;
+        const trail = 4 + (1 - footfall) * 2;
+        const dustX = Math.round((sx - moveX * trail + sideX * footSide * 2) / 2) * 2;
+        const dustY = Math.round((sy - moveY * trail + sideY * footSide * 2 + 1 - footfall * 2) / 2) * 2;
+        const shimmer = 0.55 + Math.sin(Number(S.animT || 0) * 0.035 + footSide) * 0.2;
         ctx.save();
-        ctx.globalAlpha = Math.min(0.32, footfall * 0.32);
+        ctx.globalAlpha = footfall * 0.42;
         ctx.fillStyle = "#d8cba8";
         ctx.fillRect(dustX, dustY, 2, 2);
-        ctx.fillRect(dustX - footSide * 3, dustY - 2, 2, 2);
+        ctx.globalAlpha = footfall * shimmer * 0.5;
+        ctx.fillStyle = tint || "#b7e8df";
+        ctx.fillRect(dustX + sideX * 3, dustY + sideY * 3 - 2, 2, 2);
+        if (footfall > 0.62) {
+          ctx.globalAlpha = (footfall - 0.5) * 0.62;
+          ctx.fillStyle = "#f2e9b4";
+          ctx.fillRect(dustX + sideX * 2 - moveX * 2, dustY + sideY * 2 - moveY * 2, 2, 2);
+        }
         ctx.restore();
       }
       // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
@@ -655,7 +676,6 @@ const Render = {
       ctx.rotate(sway - attackPulse * 0.035);
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (walking && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (walking && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
-      const facingScale = actor?.direction === "left" ? -1 : 1;
       ctx.scale(facingScale, 1);
       const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
       const spriteFrame = actor?.animation?.kind === "grid"
@@ -893,12 +913,19 @@ const Render = {
     ctx.beginPath();
     ctx.arc(sx, sy, 5, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
-    const frame = drop.kind === "xu" ? { col: 0, row: 3 } : this.itemAtlasCell(item);
-    if (!this.drawSprite(ITEM_ATLAS_URL, sx, sy - 1, 15, 15, { ...frame, cols: 4, rows: 4 })) {
-      ctx.fillStyle = "#071018";
-      ctx.font = "bold 7px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
+    const itemImg = item.img || drop.img;
+    let drawn = false;
+    if (itemImg && typeof itemImg === "string") {
+      drawn = this.drawSprite(itemImg, sx, sy - 1, 15, 15);
+    }
+    if (!drawn) {
+      const frame = drop.kind === "xu" ? { col: 0, row: 3 } : this.itemAtlasCell(item);
+      if (!this.drawSprite(ITEM_ATLAS_URL, sx, sy - 1, 15, 15, { ...frame, cols: 4, rows: 4 })) {
+        ctx.fillStyle = "#071018";
+        ctx.font = "bold 7px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
+      }
     }
     const rawLabel = drop.kind === "xu"
       ? `${Math.max(0, Number(drop.xu || drop.amount || 0))} xu`
@@ -932,7 +959,7 @@ const Render = {
     ctx.fill();
     const identity = `${npc.role || ""} ${npc.type || ""} ${npc.name || ""}`.toLowerCase();
     const female = String(npc.gender || "").toUpperCase() === "FEMALE" || /nữ|tiên nữ|cô nương|dược sư/.test(identity);
-    const atlas = typeof npc.img === "string" && npc.img.startsWith("./assets/characters/")
+    const atlas = typeof npc.img === "string" && npc.img.trim().length > 0
       ? npc.img
       : NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()]
         || `./assets/characters/cultivator-${female ? "female" : "male"}.png`;

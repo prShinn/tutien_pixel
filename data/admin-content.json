@@ -1,0 +1,47 @@
+{
+  "quests": [],
+  "npcs": [],
+  "items": [
+    {
+      "id": "ITEM_HUYET_LONG_DAO",
+      "maDo": "ITEM_HUYET_LONG_DAO",
+      "name": "Huyết Long Đao",
+      "type": "EQUIPMENT",
+      "slot": "weapon",
+      "rarity": "rare",
+      "giaMua": 150,
+      "giaBan": 50,
+      "requiredRealmStt": 1,
+      "img": "./assets/characters/ui-icons.png",
+      "stats": {
+        "atk": 38,
+        "critRate": 6
+      },
+      "desc": "Đao rèn từ tinh huyết long xà, uy lực kinh nhân.",
+      "managedBy": "ADMIN",
+      "updatedAt": "2026-11-05T08:35:22.485Z"
+    }
+  ],
+  "skills": [
+    {
+      "id": 300,
+      "code": "THIEN_CANH",
+      "name": "Thiền Cảnh",
+      "icon": "🧘",
+      "linhCan": "COMMON",
+      "category": "ACTIVE",
+      "tier": 1,
+      "mpTieuHao": 4,
+      "hoiChieu": 3,
+      "range": 4,
+      "type": "COMMON",
+      "satThuong": 0,
+      "effect": "restore_mp",
+      "effectVal": 18,
+      "thoiGianBuff": 4,
+      "moTa": "Thần thông cơ bản, mọi tu sĩ đều có thể học.",
+      "managedBy": "ADMIN",
+      "updatedAt": "2026-11-05T08:36:10.109Z"
+    }
+  ]
+}

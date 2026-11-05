@@ -30,7 +30,7 @@ const continent = {
       description: "Đồng bằng, sông ngòi và quan đạo nối các khu dân cư với vùng tu luyện.",
       maps: [
         { code: "binh_nguyen", name: "Bình Nguyên Hoang Dã", type: "PLAIN", status: "ACTIVE", tier: 2, level: "2-8", role: "farm", connections: ["thanh_van_tran", "thanh_van_son_coc", "man_hoang_bien"] },
-        { code: "thanh_van_son_coc", name: "Sơn Cốc Thanh Vân", type: "MOUNTAIN_FOOTHILL", status: "PLANNED", tier: 3, level: "6-15", role: "foothill", connections: ["binh_nguyen", "bach_van_son"] },
+        { code: "thanh_van_son_coc", name: "Sơn Cốc Thanh Vân", type: "MOUNTAIN_FOOTHILL", status: "ACTIVE", tier: 3, level: "4-8", role: "foothill", connections: ["binh_nguyen", "thanh_van_tran", "bach_van_son"] },
         { code: "man_hoang_bien", name: "Biên Hoang", type: "WILDERNESS", status: "PLANNED", tier: 5, level: "18-30", role: "frontier", connections: ["binh_nguyen", "van_yeu_dai_son"] },
       ],
     },

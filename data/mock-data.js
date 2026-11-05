@@ -244,10 +244,31 @@ const breakthroughPills = [
 const items = [
   { id: "STONE_LINH_NHO", maDo: "STONE_LINH_NHO", tenDo: "Linh Thạch Nhỏ", name: "Linh Thạch Nhỏ", icon: "💎", loai: "STONE", type: "STONE", giaTriTuVi: 120, giaMua: 20, giaBan: 10, moTa: "Một viên linh thạch chứa linh khí non trẻ." },
   { id: "HUYET_NGOC_NHO", maDo: "HUYET_NGOC_NHO", tenDo: "Huyết Ngọc Nhỏ", name: "Huyết Ngọc Nhỏ", icon: "🧪", loai: "POTION", type: "POTION", healHp: 60, giaMua: 30, giaBan: 15, moTa: "Hồi phục một lượng HP." },
+  { id: "POTION_TIEU_HOAN", maDo: "POTION_TIEU_HOAN", tenDo: "Tiểu Hoàn Đan", name: "Tiểu Hoàn Đan", icon: "💊", loai: "POTION", type: "POTION", healHp: 120, giaMua: 25, giaBan: 12, moTa: "Đan dược sơ cấp hồi phục nhanh 120 điểm Khí Huyết (HP)." },
+  { id: "POTION_TU_KHI", maDo: "POTION_TU_KHI", tenDo: "Tụ Khí Đan", name: "Tụ Khí Đan", icon: "🧪", loai: "POTION", type: "POTION", healMp: 70, giaMua: 30, giaBan: 15, moTa: "Đan dược ngưng tụ linh khí, hồi phục 70 điểm Pháp Lực (MP)." },
+  { id: "POTION_TAY_TUY", maDo: "POTION_TAY_TUY", tenDo: "Tẩy Tủy Đan", name: "Tẩy Tủy Đan", icon: "🌟", loai: "CONSUME", type: "CONSUME", statBoost: 1, giaMua: 350, giaBan: 175, moTa: "Thần dược hoán cốt tẩy tủy, tăng ngẫu nhiên 1 điểm Tiềm Năng vĩnh viễn." },
   { id: "LINH_CAN_NGOC_TUY", maDo: "LINH_CAN_NGOC_TUY", tenDo: "Linh Căn Ngọc Tủy", name: "Linh Căn Ngọc Tủy", icon: "🔷", loai: "LINDAN", type: "LINDAN", tuViLinhCanVal: 80, giaMua: 180, giaBan: 90, moTa: "Thiên tài địa bảo tăng nhẹ tu vi linh căn." },
   { id: "THIEN_TAI_DIA_BAO", maDo: "THIEN_TAI_DIA_BAO", tenDo: "Thiên Tài Địa Bảo", name: "Thiên Tài Địa Bảo", icon: "💠", loai: "LINDAN", type: "LINDAN", tuViLinhCanVal: 220, giaMua: 520, giaBan: 260, moTa: "Tài nguyên hiếm, tăng tu vi linh căn có giới hạn." },
-  { id: "MAT_LANG_NANH", maDo: "MAT_LANG_NANH", tenDo: "Nanh Hoang Sói", name: "Nanh Hoang Sói", icon: "🦴", loai: "MATERIAL", type: "MATERIAL", giaMua: 0, giaBan: 8, moTa: "Chiến lợi phẩm từ Hoang Sói." },
-  { id: "SWORD_BAO_KHI_1", maDo: "SWORD_BAO_KHI_1", tenDo: "Kiếm Bảo Khí", name: "Kiếm Bảo Khí", icon: "⚔️", loai: "EQUIPMENT", type: "EQUIPMENT", requiredRealmStt: 1, giaMua: 120, giaBan: 60, stats: { pAtk: 8 }, moTa: "Thanh kiếm nhập môn của tu sĩ." },
+  { id: "MAT_LANG_NANH", maDo: "MAT_LANG_NANH", tenDo: "Nanh Hoang Sói", name: "Nanh Hoang Sói", icon: "🦴", loai: "MATERIAL", type: "MATERIAL", giaMua: 16, giaBan: 8, moTa: "Nanh vuốt sắc nhọn thu được từ Hoang Sói." },
+  { id: "MAT_QUANG_SAT", maDo: "MAT_QUANG_SAT", tenDo: "Quặng Sắt Thô", name: "Quặng Sắt Thô", icon: "⛏️", loai: "MATERIAL", type: "MATERIAL", giaMua: 15, giaBan: 8, moTa: "Quặng sắt sơ cấp khai thác từ vách đá, dùng cho thợ rèn." },
+  { id: "MAT_THAO_DUOC", maDo: "MAT_THAO_DUOC", tenDo: "Bạch Linh Thảo", name: "Bạch Linh Thảo", icon: "🌿", loai: "MATERIAL", type: "MATERIAL", giaMua: 12, giaBan: 6, moTa: "Thảo dược mọc ven sông rãnh, nguyên liệu luyện đan dược." },
+  { id: "MAT_DA_THU", maDo: "MAT_DA_THU", tenDo: "Da Thú Dày", name: "Da Thú Dày", icon: "📜", loai: "MATERIAL", type: "MATERIAL", giaMua: 18, giaBan: 9, moTa: "Tấm da dày của heo rừng và hoang dã thú, dùng may trang bị." },
+  { id: "WEAPON_KIEM_GO", maDo: "WEAPON_KIEM_GO", tenDo: "Kiếm Gỗ Tân Thủ", name: "Kiếm Gỗ Tân Thủ", icon: "🗡️", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "weapon", requiredRealmStt: 1, giaMua: 30, giaBan: 15, stats: { pAtk: 5 }, moTa: "Kiếm gỗ đào sơ cấp cho tu sĩ mới nhập môn." },
+  { id: "WEAPON_DAO_SAT", maDo: "WEAPON_DAO_SAT", tenDo: "Thiết Đao Thợ Rèn", name: "Thiết Đao Thợ Rèn", icon: "⚔️", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "weapon", requiredRealmStt: 1, giaMua: 90, giaBan: 45, stats: { pAtk: 12 }, moTa: "Đao được rèn từ quặng sắt thô, sắc bén cứng cáp." },
+  { id: "WEAPON_TRUC_KIEM", maDo: "WEAPON_TRUC_KIEM", tenDo: "Thanh Trúc Linh Kiếm", name: "Thanh Trúc Linh Kiếm", icon: "🌿", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "weapon", requiredRealmStt: 2, giaMua: 260, giaBan: 130, stats: { pAtk: 20, mAtk: 14 }, moTa: "Kiếm trúc khắc phù chú linh lực, uy lực bất phàm." },
+  { id: "SWORD_BAO_KHI_1", maDo: "SWORD_BAO_KHI_1", tenDo: "Kiếm Bảo Khí", name: "Kiếm Bảo Khí", icon: "⚔️", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "weapon", requiredRealmStt: 1, giaMua: 120, giaBan: 60, stats: { pAtk: 8 }, moTa: "Thanh kiếm nhập môn của tu sĩ." },
+  { id: "HAT_NON_LA", maDo: "HAT_NON_LA", tenDo: "Nón Lá Tân Thủ", name: "Nón Lá Tân Thủ", icon: "👒", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "hat", requiredRealmStt: 1, giaMua: 25, giaBan: 12, stats: { pDef: 3, maxHp: 20 }, moTa: "Nón lá đan từ cỏ tranh che mưa che nắng, tăng nhẹ sinh lực." },
+  { id: "HAT_KHAN_COT_DA", maDo: "HAT_KHAN_COT_DA", tenDo: "Khăn Cột Da Sói", name: "Khăn Cột Da Sói", icon: "🐺", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "hat", requiredRealmStt: 1, giaMua: 85, giaBan: 40, stats: { pDef: 6, agi: 2 }, moTa: "Khăn buộc đầu may từ da sói hoang, giúp thân pháp thêm linh hoạt." },
+  { id: "ARMOR_AO_VAI", maDo: "ARMOR_AO_VAI", tenDo: "Áo Vải Thô Sơ", name: "Áo Vải Thô Sơ", icon: "🥋", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "armor", requiredRealmStt: 1, giaMua: 40, giaBan: 20, stats: { pDef: 5, maxHp: 35 }, moTa: "Y phục may bằng vải thô mộc mạc của tu sĩ phàm nhân." },
+  { id: "ARMOR_DAO_BAO_THANH_VAN", maDo: "ARMOR_DAO_BAO_THANH_VAN", tenDo: "Đạo Bào Thanh Vân", name: "Đạo Bào Thanh Vân", icon: "🎽", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "armor", requiredRealmStt: 1, giaMua: 140, giaBan: 70, stats: { pDef: 10, mDef: 8, maxMp: 30 }, moTa: "Đạo bào đệ tử Thanh Vân Môn dệt từ tơ tằm linh khí." },
+  { id: "PANTS_QUAN_VAI", maDo: "PANTS_QUAN_VAI", tenDo: "Quần Vải Tân Thủ", name: "Quần Vải Tân Thủ", icon: "👖", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "pants", requiredRealmStt: 1, giaMua: 30, giaBan: 15, stats: { pDef: 4, maxHp: 20 }, moTa: "Quần vải đơn sơ, dễ dàng vận động." },
+  { id: "PANTS_QUAN_DA_THU", maDo: "PANTS_QUAN_DA_THU", tenDo: "Quần Da Heo Rừng", name: "Quần Da Heo Rừng", icon: "🐗", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "pants", requiredRealmStt: 1, giaMua: 95, giaBan: 45, stats: { pDef: 8, vit: 2 }, moTa: "Quần thuộc da heo rừng dày dặn, phòng ngự vững chắc." },
+  { id: "BOOTS_GIAY_CO", maDo: "BOOTS_GIAY_CO", tenDo: "Giày Cỏ Sơ Nhập", name: "Giày Cỏ Sơ Nhập", icon: "👡", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "boots", requiredRealmStt: 1, giaMua: 25, giaBan: 12, stats: { spd: 4, pDef: 2 }, moTa: "Đôi giày cỏ dệt thủ công, nhẹ nhàng thanh thoát." },
+  { id: "BOOTS_GIAY_DA_SOI", maDo: "BOOTS_GIAY_DA_SOI", tenDo: "Hành Vân Thú Hài", name: "Hành Vân Thú Hài", icon: "👞", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "boots", requiredRealmStt: 1, giaMua: 90, giaBan: 45, stats: { spd: 8, pDef: 4, agi: 1 }, moTa: "Đôi hài may bằng da thú, lướt nhanh tựa mây." },
+  { id: "RING_DONG_TRAM", maDo: "RING_DONG_TRAM", tenDo: "Nhẫn Đồng Cổ", name: "Nhẫn Đồng Cổ", icon: "💍", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "ring", requiredRealmStt: 1, giaMua: 65, giaBan: 30, stats: { pAtk: 4, pDef: 3 }, moTa: "Nhẫn đồng xanh khắc hoa văn tăng uy lực đòn đánh." },
+  { id: "RING_THACH_ANH", maDo: "RING_THACH_ANH", tenDo: "Thạch Anh Giới Chỉ", name: "Thạch Anh Giới Chỉ", icon: "💎", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "ring", requiredRealmStt: 2, giaMua: 170, giaBan: 85, stats: { mAtk: 8, maxMp: 40 }, moTa: "Nhẫn nạm đá thạch anh tự nhiên bồi dưỡng linh thức." },
+  { id: "AMULET_NGOC_BOI", maDo: "AMULET_NGOC_BOI", tenDo: "Ngọc Bội Bình An", name: "Ngọc Bội Bình An", icon: "📿", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "amulet", requiredRealmStt: 1, giaMua: 80, giaBan: 40, stats: { maxHp: 50, maxMp: 25 }, moTa: "Mảnh ngọc bội trừ tà hộ thể, chúc phúc bình an." },
+  { id: "BELT_DA_THO", maDo: "BELT_DA_THO", tenDo: "Đai Da Thô", name: "Đai Da Thô", icon: "🥋", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "belt", requiredRealmStt: 1, giaMua: 35, giaBan: 18, stats: { pDef: 3, maxHp: 30 }, moTa: "Thắt lưng da thú chắc chắn, nẹp chặt đan điền khí hải." },
   ...breakthroughPills,
 ];
 
@@ -348,26 +369,40 @@ const monsterDefs = [
 const lootTables = {
   MOC_NHAN_LOOT: [
     { itemId: "STONE_LINH_NHO", chance: 0.8, min: 1, max: 2 },
+    { itemId: "WEAPON_KIEM_GO", chance: 0.2, min: 1, max: 1 },
+    { itemId: "HAT_NON_LA", chance: 0.15, min: 1, max: 1 },
   ],
   SOI_LOOT: [
     { itemId: "MAT_LANG_NANH", chance: 0.6, min: 1, max: 2 },
-    { itemId: "STONE_LINH_NHO", chance: 0.25, min: 1, max: 1 },
+    { itemId: "MAT_DA_THU", chance: 0.5, min: 1, max: 2 },
+    { itemId: "STONE_LINH_NHO", chance: 0.35, min: 1, max: 2 },
+    { itemId: "HAT_KHAN_COT_DA", chance: 0.12, min: 1, max: 1 },
+    { itemId: "BOOTS_GIAY_DA_SOI", chance: 0.1, min: 1, max: 1 },
   ],
   HEO_LOOT: [
-    { itemId: "STONE_LINH_NHO", chance: 0.55, min: 1, max: 2 },
-    { itemId: "HUYET_NGOC_NHO", chance: 0.18, min: 1, max: 1 },
+    { itemId: "STONE_LINH_NHO", chance: 0.6, min: 1, max: 2 },
+    { itemId: "MAT_DA_THU", chance: 0.55, min: 1, max: 2 },
+    { itemId: "POTION_TIEU_HOAN", chance: 0.35, min: 1, max: 1 },
+    { itemId: "PANTS_QUAN_DA_THU", chance: 0.1, min: 1, max: 1 },
+    { itemId: "BELT_DA_THO", chance: 0.12, min: 1, max: 1 },
   ],
   THAO_LOOT: [
-    { itemId: "MAT_LANG_NANH", chance: 0.8, min: 1, max: 3 },
-    { itemId: "SWORD_BAO_KHI_1", chance: 0.08, min: 1, max: 1 },
+    { itemId: "MAT_THAO_DUOC", chance: 0.75, min: 1, max: 3 },
+    { itemId: "POTION_TU_KHI", chance: 0.4, min: 1, max: 2 },
+    { itemId: "WEAPON_DAO_SAT", chance: 0.1, min: 1, max: 1 },
+    { itemId: "RING_DONG_TRAM", chance: 0.1, min: 1, max: 1 },
   ],
   HO_LUYEN_LOOT: [
-    { itemId: "STONE_LINH_NHO", chance: 0.8, min: 2, max: 4 },
-    { itemId: "LINH_CAN_NGOC_TUY", chance: 0.22, min: 1, max: 1 },
+    { itemId: "STONE_LINH_NHO", chance: 0.85, min: 2, max: 5 },
+    { itemId: "LINH_CAN_NGOC_TUY", chance: 0.3, min: 1, max: 1 },
+    { itemId: "ARMOR_DAO_BAO_THANH_VAN", chance: 0.15, min: 1, max: 1 },
+    { itemId: "AMULET_NGOC_BOI", chance: 0.12, min: 1, max: 1 },
   ],
   HUYET_LANG_LOOT: [
-    { itemId: "THIEN_TAI_DIA_BAO", chance: 0.35, min: 1, max: 1 },
-    { itemId: "SWORD_BAO_KHI_1", chance: 0.2, min: 1, max: 1 },
+    { itemId: "THIEN_TAI_DIA_BAO", chance: 0.5, min: 1, max: 1 },
+    { itemId: "POTION_TAY_TUY", chance: 0.25, min: 1, max: 1 },
+    { itemId: "WEAPON_TRUC_KIEM", chance: 0.25, min: 1, max: 1 },
+    { itemId: "RING_THACH_ANH", chance: 0.2, min: 1, max: 1 },
   ],
 };
 
@@ -382,29 +417,62 @@ const monsterSpawns = [
 
 const cityTerrain = makeTerrain("thanh_van_tran");
 const plainTerrain = makeTerrain("binh_nguyen");
+const valleyTerrain = makeTerrain("thanh_van_son_coc");
 
 const worlds = [
   {
-    id: "thanh_van_tran", code: "thanh_van_tran", tenMap: "Thanh Vân Trấn", type: "CITY", biome: "CITY", version: 2, w: TILE_W, h: TILE_H, isDefault: true, spawnX: 300, spawnY: 200,
+    id: "thanh_van_tran", code: "thanh_van_tran", tenMap: "Thanh Vân Trấn", type: "CITY", biome: "CITY", version: 3, w: TILE_W, h: TILE_H, isDefault: true, spawnX: 300, spawnY: 200,
     jsonMap: cityTerrain.collision,
     layers: { ground: cityTerrain.ground, objects: cityTerrain.objects, elevation: cityTerrain.elevation },
-    portals: [{ id: "portal_binh_nguyen", x: 590, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 36, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" }],
+    portals: [
+      { id: "portal_binh_nguyen", x: 590, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 36, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" },
+      { id: "portal_son_coc", x: 300, y: 15, toMap: "thanh_van_son_coc", denMap: "thanh_van_son_coc", toX: 300, toY: 375, tenMapDen: "Sơn Cốc Thanh Vân" },
+    ],
     monsters: [
       { id: "MOC_NHAN", code: "MOC_NHAN", name: "Mộc Nhân Thung", icon: "🪵", img: "./assets/monsters/doc_thao_sheet.png", animation: { kind: "grid", cols: 4, rows: 4, width: 16, height: 16 }, type: "NORMAL", level: 1, nguHanh: ["MOC"], color: "#b3895d", hp: 60, maxHp: 60, atk: 2, def: 1, speed: 0.6, spawnX: 315, spawnY: 215, lootTableId: "MOC_NHAN_LOOT" }
     ],
     monsterSpawns: [
       { packId: "PACK_MOC_NHAN", templateId: "MOC_NHAN", centerX: 315, centerY: 215, count: 2, radius: 10, aggroRange: 24, leashDistance: 35, chaseDurationMs: 4000 }
     ],
-    npcs: [{ id: "npc_huong_dan", name: "Lão Tu Sĩ", x: 275, y: 190, color: "#e8c878", dialog: "Chào mừng tu sĩ đến Thanh Vân Trấn! Hãy ra ngoài tìm cơ duyên." }, { id: "npc_shop", name: "Chủ Tiệm", x: 330, y: 190, color: "#88aacc", dialog: "Ta có linh thạch và huyết ngọc cho người cần." }],
+    npcs: [
+      { id: "npc_truong_thon", name: "Trưởng Thôn Lý Huyền", x: 275, y: 190, color: "#f39c12", dialog: "Chào mừng đạo hữu đến Thanh Vân Trấn! Đạo đồ gian nan, nghịch thiên nhi hành. Hãy rèn luyện từ Mộc Nhân Thung cạnh đây rồi ra Bình Nguyên trừ yêu thú!" },
+      { id: "npc_tho_ren", name: "Thợ Rèn Thiết Trảm", x: 285, y: 220, color: "#e74c3c", dialog: "Lão phu là Thiết Trảm, thợ rèn đệ nhất trấn! Ta có đủ kiếm gỗ, đao sắt, nón trúc, giáp da sơ cấp cho người mới nhập môn. Đao kiếm sắc bén thì trừ yêu mới vững tâm!" },
+      { id: "npc_duoc_su", name: "Dược Sư Bạch Hạc", x: 325, y: 220, color: "#2ecc71", dialog: "Lão hủ Bạch Hạc chuyên luyện đan trị thương. Ta có Tiểu Hoàn Đan hồi phục khí huyết và Tụ Khí Đan bồi bổ chân nguyên. Đi xa chớ quên mang theo phòng thân!" },
+      { id: "npc_thuong_nhan", name: "Thương Nhân Tiền Vạn Hưng", x: 345, y: 190, color: "#3498db", dialog: "Bản tiệm Vạn Hưng thu mua mọi chiến lợi phẩm: Nanh sói, da thú, quặng sắt, linh thạch... Cần mua linh thạch tu luyện cứ tìm ta!" },
+      { id: "npc_giao_dau", name: "Giáo Đầu Tần Chấn", x: 300, y: 175, color: "#9b59b6", dialog: "Muốn đặt chân lên con đường tu tiên, căn cơ phải vững! Đạo hữu nhớ kiểm tra bảng Tu Vi (phím C), khi đột phá cảnh giới sẽ nhận được điểm tiềm năng để tăng cường thực lực!" },
+    ],
   },
   {
-    id: "binh_nguyen", code: "binh_nguyen", tenMap: "Bình Nguyên Hoang Dã", type: "PLAIN", biome: "RIVER_VALLEY", version: 2, w: TILE_W, h: TILE_H, isDefault: false, spawnX: 20, spawnY: 200,
+    id: "binh_nguyen", code: "binh_nguyen", tenMap: "Bình Nguyên Hoang Dã", type: "PLAIN", biome: "RIVER_VALLEY", version: 3, w: TILE_W, h: TILE_H, isDefault: false, spawnX: 20, spawnY: 200,
     jsonMap: plainTerrain.collision,
     layers: { ground: plainTerrain.ground, objects: plainTerrain.objects, elevation: plainTerrain.elevation },
-    portals: [{ id: "portal_thanh_van", x: 12, y: 200, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 565, toY: 200, tenMapDen: "Thanh Vân Trấn" }],
-    monsters: monsterDefs.filter((m) => m.code !== "MOC_NHAN"),
-    monsterSpawns: monsterSpawns.filter((s) => s.packId !== "PACK_MOC_NHAN"),
-    npcs: [],
+    portals: [
+      { id: "portal_thanh_van", x: 12, y: 200, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 565, toY: 200, tenMapDen: "Thanh Vân Trấn" },
+      { id: "portal_son_coc", x: 590, y: 200, toMap: "thanh_van_son_coc", denMap: "thanh_van_son_coc", toX: 36, toY: 200, tenMapDen: "Sơn Cốc Thanh Vân" },
+    ],
+    monsters: monsterDefs.filter((m) => ["HOANG_SOI", "THO_HEO", "DOC_THAO"].includes(m.code)),
+    monsterSpawns: monsterSpawns.filter((s) => ["PACK_HOANG_SOI", "PACK_THO_HEO", "PACK_DOC_THAO"].includes(s.packId)),
+    npcs: [
+      { id: "npc_tien_tram", name: "Vệ Sĩ Tiền Trạm", x: 40, y: 195, color: "#1abc9c", dialog: "Phía trước là đồng hoang đầy rẫy Hoang Sói và Thổ Heo Rừng hung hãn. Đạo hữu nhớ trang bị đầy đủ đao giáp trước khi xông vào!" },
+    ],
+  },
+  {
+    id: "thanh_van_son_coc", code: "thanh_van_son_coc", tenMap: "Sơn Cốc Thanh Vân", type: "MOUNTAIN_FOOTHILL", biome: "MOUNTAIN_FOOTHILL", version: 3, w: TILE_W, h: TILE_H, isDefault: false, spawnX: 300, spawnY: 375,
+    jsonMap: valleyTerrain.collision,
+    layers: { ground: valleyTerrain.ground, objects: valleyTerrain.objects, elevation: valleyTerrain.elevation },
+    portals: [
+      { id: "portal_ve_thanh_van", x: 300, y: 388, toMap: "thanh_van_tran", denMap: "thanh_van_tran", toX: 300, toY: 35, tenMapDen: "Thanh Vân Trấn" },
+      { id: "portal_ve_binh_nguyen", x: 12, y: 200, toMap: "binh_nguyen", denMap: "binh_nguyen", toX: 565, toY: 200, tenMapDen: "Bình Nguyên Hoang Dã" },
+    ],
+    monsters: monsterDefs.filter((m) => ["DOC_THAO", "XICH_LUYEN_HO", "HUYET_NGUYET_LANG"].includes(m.code)),
+    monsterSpawns: [
+      { packId: "PACK_COC_DOC_THAO", templateId: "DOC_THAO", centerX: 180, centerY: 200, count: 4, radius: 20, aggroRange: 42, leashDistance: 88, chaseDurationMs: 9000 },
+      { packId: "PACK_COC_XICH_HO", templateId: "XICH_LUYEN_HO", centerX: 350, centerY: 180, count: 3, radius: 22, aggroRange: 38, leashDistance: 80, chaseDurationMs: 7500 },
+      { packId: "PACK_COC_BOSS_LANG", templateId: "HUYET_NGUYET_LANG", centerX: 480, centerY: 220, count: 1, radius: 6, aggroRange: 50, leashDistance: 120, chaseDurationMs: 12000 },
+    ],
+    npcs: [
+      { id: "npc_an_cu", name: "Tu Sĩ Ẩn Cư", x: 310, y: 190, color: "#ecf0f1", dialog: "Sơn cốc này linh khí u ám, sâu trong rừng có Xích Luyện Hổ và Huyết Nguyệt Lang vương cực kỳ nguy hiểm. Chưa đạt Khí Động kỳ chớ dại dột khiêu chiến!" },
+    ],
   },
 ];
 

@@ -233,6 +233,15 @@ const AdminAuth = (() => {
       return jsonResponse(401, "Cần đăng nhập bằng tài khoản GM/ADMIN.");
     }
 
+    const method = String(options.method || "GET").toUpperCase();
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      try {
+        await API.assertPersistentStorage();
+      } catch (error) {
+        return jsonResponse(503, error?.message || "MySQL chưa sẵn sàng; thao tác ghi đã bị chặn.");
+      }
+    }
+
     const send = (token) => {
       const headers = new Headers(options.headers || {});
       headers.set("Authorization", `Bearer ${token}`);

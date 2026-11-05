@@ -287,7 +287,13 @@ function createPlayerRouter({
       equippedSkills: initialSkills.map((skill) => skill.code),
       skills: initialSkills,
       equipment: emptyEquipment(),
-      inventory: [],
+      inventory: [
+        { id: "WEAPON_KIEM_GO", maDo: "WEAPON_KIEM_GO", name: "Kiếm Gỗ Tân Thủ", tenDo: "Kiếm Gỗ Tân Thủ", icon: "🗡️", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "weapon", requiredRealmStt: 1, count: 1, stats: { pAtk: 5 }, giaMua: 30, giaBan: 15 },
+        { id: "ARMOR_AO_VAI", maDo: "ARMOR_AO_VAI", name: "Áo Vải Thô Sơ", tenDo: "Áo Vải Thô Sơ", icon: "🥋", loai: "EQUIPMENT", type: "EQUIPMENT", slot: "armor", requiredRealmStt: 1, count: 1, stats: { pDef: 5, maxHp: 35 }, giaMua: 40, giaBan: 20 },
+        { id: "POTION_TIEU_HOAN", maDo: "POTION_TIEU_HOAN", name: "Tiểu Hoàn Đan", tenDo: "Tiểu Hoàn Đan", icon: "💊", loai: "POTION", type: "POTION", healHp: 120, count: 5, giaMua: 25, giaBan: 12 },
+        { id: "POTION_TU_KHI", maDo: "POTION_TU_KHI", name: "Tụ Khí Đan", tenDo: "Tụ Khí Đan", icon: "🧪", loai: "POTION", type: "POTION", healMp: 70, count: 5, giaMua: 30, giaBan: 15 },
+        { id: "STONE_LINH_NHO", maDo: "STONE_LINH_NHO", name: "Linh Thạch Nhỏ", tenDo: "Linh Thạch Nhỏ", icon: "💎", loai: "STONE", type: "STONE", giaTriTuVi: 120, count: 3, giaMua: 20, giaBan: 10 },
+      ],
       unspentStatPoints: 0,
     };
     player.jsonIventory = JSON.stringify(player.inventory);

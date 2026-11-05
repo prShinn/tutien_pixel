@@ -36,8 +36,37 @@ function resolveApiBase() {
 }
 
 const API_BASE = resolveApiBase();
+
+async function assertPersistentStorage() {
+  let health;
+  let readiness;
+  try {
+    const healthResponse = await fetch(`${API_BASE}/api/health`, { cache: "no-store" });
+    health = await healthResponse.json();
+    if (!healthResponse.ok || health?.service !== "tu-tien-pixel-be") {
+      throw new Error("Admin chỉ ghi dữ liệu qua Backend chính thức; API hiện tại không xác nhận đúng dịch vụ.");
+    }
+
+    const readinessResponse = await fetch(`${API_BASE}/api/health/ready`, { cache: "no-store" });
+    readiness = await readinessResponse.json();
+    if (!readinessResponse.ok || readiness?.dependencies?.mysql !== "ready") {
+      throw new Error("MySQL chưa sẵn sàng. Dữ liệu chưa được ghi; hãy khởi động Backend và kiểm tra kết nối cơ sở dữ liệu.");
+    }
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Không kết nối được Backend/MySQL. Dữ liệu chưa được ghi và sẽ không chuyển sang lưu RAM.");
+    }
+    if (error instanceof SyntaxError) {
+      throw new Error("Backend trả phản hồi không hợp lệ. Thao tác ghi bị chặn để tránh lưu ngoài MySQL.");
+    }
+    throw error;
+  }
+  return true;
+}
+
 const API = Object.freeze({
   BASE: API_BASE,
+  assertPersistentStorage,
   SOCKET_URL: API_BASE,
   AUTO_SAVE_MS: 30000,
   HEALTH: "/api/health",

@@ -41,6 +41,30 @@ const editor = {
   npcs: [],
   rules: {},
 };
+const SAMPLE_MAP_TEMPLATES = [
+  { code: "sample_dao_hoa_thon", name: "Đào Hoa Thôn", type: "VILLAGE", biome: "CITY", tier: 1, realmMin: 1, realmMax: 3, safeZone: true, noMonsters: true, tags: "mẫu, thôn làng, khu an toàn" },
+  { code: "sample_bich_lam_linh_coc", name: "Bích Lâm Linh Cốc", type: "PLAIN", biome: "FOREST", tier: 1, realmMin: 1, realmMax: 5, tags: "mẫu, rừng, tân thủ" },
+  { code: "sample_luu_thuy_co_dao", name: "Lưu Thủy Cổ Đạo", type: "PLAIN", biome: "RIVER_VALLEY", tier: 2, realmMin: 2, realmMax: 7, tags: "mẫu, sông, đường cổ" },
+  { code: "sample_tinh_sa_nguyen", name: "Tinh Sa Nguyên", type: "PLAIN", biome: "PLAINS", tier: 2, realmMin: 2, realmMax: 8, tags: "mẫu, thảo nguyên" },
+  { code: "sample_van_moc_yen", name: "Vạn Mộc Uyên", type: "VILLAGE", biome: "FOREST", tier: 3, realmMin: 3, realmMax: 10, tags: "mẫu, rừng cổ, linh dược" },
+  { code: "sample_bach_van_son", name: "Bạch Vân Sơn", type: "PLATEAU", biome: "MOUNTAINS", tier: 3, realmMin: 4, realmMax: 12, tags: "mẫu, núi, tu luyện" },
+  { code: "sample_han_phong_tuyet_linh", name: "Hàn Phong Tuyết Lĩnh", type: "ICE_MOUNTAIN", biome: "MOUNTAINS", tier: 4, realmMin: 5, realmMax: 13, tags: "mẫu, núi tuyết, hiểm địa" },
+  { code: "sample_xich_viem_hoa_coc", name: "Xích Viêm Hỏa Cốc", type: "VOLCANO", biome: "MOUNTAINS", tier: 5, realmMin: 6, realmMax: 13, tags: "mẫu, núi lửa, hỏa linh" },
+  { code: "sample_huyen_linh_thanh", name: "Huyền Linh Thành", type: "CITY", biome: "CITY", tier: 3, realmMin: 3, realmMax: 9, safeZone: true, noMonsters: true, tags: "mẫu, thành trì, khu an toàn" },
+  { code: "sample_tham_u_co_canh", name: "Thâm U Cổ Cảnh", type: "DUNGEON", biome: "RIVER_VALLEY", tier: 6, realmMin: 7, realmMax: 13, tags: "mẫu, bí cảnh, thám hiểm" },
+];
+const SAMPLE_NPC_ROSTER = [
+  { name: "Trưởng Thôn", role: "GUIDE", type: "dialog", gender: "MALE", color: "#d7bd78", dialog: "Đường tu tiên dài rộng. Hãy chuẩn bị hành trang trước khi rời làng." },
+  { name: "Chủ Tiệm", role: "MERCHANT", type: "shop", gender: "FEMALE", color: "#8fc7bd", dialog: "Cửa tiệm có linh vật và vật dụng cần thiết cho chuyến đi." },
+  { name: "Dược Sư", role: "HEALER", type: "dialog", gender: "FEMALE", color: "#87b981", dialog: "Thu thập linh thảo quanh vùng, ta sẽ chỉ cách dùng chúng." },
+  { name: "Chấp Sự", role: "QUEST_GIVER", type: "dialog", gender: "MALE", color: "#9daed0", dialog: "Khu vực này có nhiều cơ duyên. Hãy xem nhiệm vụ trước khi lên đường." },
+  { name: "Thợ Rèn", role: "CRAFTSMAN", type: "dialog", gender: "MALE", color: "#c58a65", dialog: "Trang bị tốt giúp tu sĩ vững bước. Quặng và gỗ đều có thể hữu dụng." },
+  { name: "Lữ Khách", role: "TRAVELER", type: "dialog", gender: "FEMALE", color: "#b399d0", dialog: "Ta vừa đi qua con đường phía trước. Hãy cẩn thận với địa hình hiểm trở." },
+  { name: "Đệ Tử Tuần Sơn", role: "SCOUT", type: "dialog", gender: "MALE", color: "#8bbaa8", dialog: "Ta đang canh giữ lối vào. Quái vật thường xuất hiện xa điểm sinh." },
+  { name: "Cổ Tu Sĩ", role: "ELDER", type: "dialog", gender: "FEMALE", color: "#d6a66d", dialog: "Linh căn mỗi người một khác. Hãy chọn con đường hợp với mình." },
+];
+const mapPackState = { configs: [], busy: false, previewing: false, needsPreview: false, outcome: "", completed: 0, total: 0, savedCodes: new Set(), failedCodes: new Set(), conflictedCodes: new Set() };
+const mapPackControlState = new Map();
 
 function makeGrid(width, height, fill) {
   return Array.from({ length: height }, () => Array(width).fill(fill));
@@ -118,6 +142,7 @@ function generateMap() {
   editor.elevation = makeGrid(editor.width, editor.height, 0);
   editor.portals = [];
   editor.monsterSpawns = [];
+  editor.npcs = [];
   editor.selectedPortalId = null;
   editor.selectedMonsterPackId = null;
   editor.status = "DRAFT";
@@ -458,6 +483,24 @@ function drawMap() {
       ctx.fillStyle = "#e7ffff";
       ctx.font = `${Math.max(9, size * 4)}px Segoe UI`;
       ctx.fillText(portal.tenMapDen || portal.denMap || "Portal", px + radius + 3, py - radius);
+    }
+  }
+  for (const npc of editor.npcs) {
+    const px = (Number(npc.x) + .5) * size;
+    const py = (Number(npc.y) + .5) * size;
+    const shop = npc.type === "shop" || npc.loaiNpc === "SHOP";
+    ctx.fillStyle = shop ? "#e3c878" : "#8fd0ad";
+    ctx.strokeStyle = "#142018";
+    ctx.lineWidth = Math.max(1, size * .45);
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(3, size * 2.1), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (size >= 2) {
+      ctx.fillStyle = "#f3f1dc";
+      ctx.font = `bold ${Math.max(9, size * 3)}px Segoe UI`;
+      ctx.textAlign = "left";
+      ctx.fillText(npc.name || "NPC", px + size * 2.8, py - size * 1.5);
     }
   }
   ctx.lineWidth = 1;
@@ -839,7 +882,7 @@ async function saveMap() {
   const payload = mapPayload();
   const exists = editor.knownMaps.has(payload.code);
   const url = exists ? API.BASE + API.PATHS.admin.world(payload.code) : API.BASE + API.PATHS.admin.worlds;
-  setStatus("Đang lưu lên server…");
+  setStatus("Đang xác minh MySQL và lưu map…");
   const response = await adminFetch(url, { method: exists ? "PUT" : "POST", headers: adminHeaders(true), body: JSON.stringify(payload) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không lưu được map");
@@ -848,7 +891,240 @@ async function saveMap() {
   $("publish-status").textContent = editor.status;
   $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
   await refreshMapList(data.code);
-  setStatus(`Đã lưu ${data.tenMap} · phiên bản ${data.version}`, "ok");
+  setStatus(`Đã lưu ${data.tenMap} vào MySQL · phiên bản ${data.version}`, "ok");
+}
+
+function mapPackEscape(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+}
+
+function renderMapPackPreview() {
+  $("sample-map-panel").setAttribute("aria-busy", String(mapPackState.busy || mapPackState.previewing));
+  const host = $("map-pack-list");
+  const pendingCount = mapPackState.configs.filter((config) => !editor.knownMaps.has(config.code)).length;
+  const alreadyCount = mapPackState.configs.length - pendingCount;
+  host.innerHTML = mapPackState.configs.map((config) => {
+    const state = mapPackState.savedCodes.has(config.code)
+      ? "Đã lưu nháp"
+      : mapPackState.conflictedCodes.has(config.code)
+        ? "Mã bị trùng"
+        : editor.knownMaps.has(config.code)
+          ? "Đã có · bỏ qua"
+          : mapPackState.failedCodes.has(config.code)
+            ? "Lưu lỗi · có thể thử lại"
+            : "Sẽ tạo nháp";
+    return `<div class="map-pack-row" role="listitem"><span><b>${mapPackEscape(config.name)}</b><small>${mapPackEscape(config.code)} · ${mapPackEscape(config.biome)} · 320×240 · ${config.npcCount} NPC</small></span><i>${state}</i></div>`;
+  }).join("");
+  const base = `${mapPackState.configs.length} map · 3–8 NPC mỗi map · ${pendingCount} map mới${alreadyCount ? ` · ${alreadyCount} mã đã có` : ""}.`;
+  $("map-pack-status").textContent = mapPackState.outcome || base;
+  $("map-pack-status").className = `validation-result hint${mapPackState.outcome && /lỗi/i.test(mapPackState.outcome) ? " error" : mapPackState.outcome ? " ok" : ""}`;
+  const saveButton = $("save-map-pack");
+  saveButton.disabled = mapPackState.busy || mapPackState.previewing || mapPackState.needsPreview || pendingCount === 0;
+  saveButton.textContent = mapPackState.busy
+    ? `Đang lưu ${mapPackState.completed}/${mapPackState.total}…`
+    : mapPackState.needsPreview
+      ? "Tạo lại bản xem trước để lưu"
+    : pendingCount ? `Lưu ${pendingCount} map nháp vào MySQL` : "Không có map mới để lưu";
+  $("preview-map-pack").disabled = mapPackState.busy || mapPackState.previewing;
+  $("map-pack-count").disabled = mapPackState.busy || mapPackState.previewing;
+}
+
+async function previewMapPack() {
+  if (mapPackState.busy || mapPackState.previewing) return;
+  const requestedCount = Math.max(1, Math.min(SAMPLE_MAP_TEMPLATES.length, Math.trunc(Number($("map-pack-count").value) || 10)));
+  $("map-pack-count").value = requestedCount;
+  mapPackState.previewing = true;
+  mapPackState.needsPreview = true;
+  mapPackState.outcome = "Đang đọc các mã map hiện có…";
+  $("map-pack-preview").hidden = false;
+  renderMapPackPreview();
+  try {
+    await refreshMapList($("map-list").value);
+  } finally {
+    mapPackState.previewing = false;
+  }
+  mapPackState.configs = SAMPLE_MAP_TEMPLATES.slice(0, requestedCount).map((template, index) => ({
+    ...template,
+    npcCount: 3 + (index % 6),
+    seed: `sample_world_seed_${String(index + 1).padStart(2, "0")}`,
+  }));
+  mapPackState.outcome = "";
+  mapPackState.needsPreview = false;
+  mapPackState.completed = 0;
+  mapPackState.total = 0;
+  mapPackState.savedCodes.clear();
+  mapPackState.failedCodes.clear();
+  mapPackState.conflictedCodes.clear();
+  $("map-pack-preview").hidden = false;
+  renderMapPackPreview();
+}
+
+function createSampleMapNpcs(config, spawnX, spawnY, width, height) {
+  return Array.from({ length: config.npcCount }, (_, index) => {
+    const archetype = SAMPLE_NPC_ROSTER[index];
+    const angle = (index / config.npcCount) * Math.PI * 2 - Math.PI / 2;
+    const radius = config.npcCount >= 7 ? 12 : 10;
+    const x = Math.max(1, Math.min(width - 2, Math.round(spawnX + Math.cos(angle) * radius)));
+    const y = Math.max(1, Math.min(height - 2, Math.round(spawnY + Math.sin(angle) * radius)));
+    return {
+      id: `npc_${config.code}_${index + 1}`,
+      mapCode: config.code,
+      name: archetype.name,
+      role: archetype.role,
+      type: archetype.type,
+      gender: archetype.gender,
+      color: archetype.color,
+      x,
+      y,
+      dialog: archetype.dialog,
+    };
+  });
+}
+
+const MAP_PACK_FORM_IDS = ["map-name", "map-code", "map-type", "map-biome", "map-width", "map-height", "map-seed", "map-region", "map-tier", "realm-min", "realm-max", "map-tags", "rule-safe-zone", "rule-no-monsters", "rule-allow-recall"];
+
+function captureMapPackEditorState() {
+  const fields = Object.fromEntries(MAP_PACK_FORM_IDS.map((id) => {
+    const field = $(id);
+    return [id, field.type === "checkbox" ? field.checked : field.value];
+  }));
+  return {
+    editor: { ...editor },
+    fields,
+    selectedMap: $("map-list").value,
+    validationText: $("validation-result").textContent,
+    validationClass: $("validation-result").className,
+    statusText: $("editor-status").textContent,
+    statusClass: $("editor-status").className,
+  };
+}
+
+function lockMapEditorForBatch(locked) {
+  const controls = document.querySelectorAll(".top-actions button, .top-actions select, .workspace input, .workspace select, .workspace button");
+  if (locked) {
+    for (const control of controls) {
+      mapPackControlState.set(control, control.disabled);
+      control.disabled = true;
+    }
+  } else {
+    for (const [control, wasDisabled] of mapPackControlState) control.disabled = wasDisabled;
+    mapPackControlState.clear();
+  }
+  $("canvas-scroll").style.pointerEvents = locked ? "none" : "";
+}
+
+function restoreMapPackEditorState(snapshot) {
+  Object.assign(editor, snapshot.editor);
+  for (const [id, value] of Object.entries(snapshot.fields)) {
+    const field = $(id);
+    if (field.type === "checkbox") field.checked = value;
+    else field.value = value;
+  }
+  $("publish-status").textContent = editor.status;
+  $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
+  $("validation-result").textContent = snapshot.validationText;
+  $("validation-result").className = snapshot.validationClass;
+  updateRangeLabels();
+  resizeCanvas();
+  refreshPortalTargets($("portal-target-map").value);
+  renderPortalList();
+  renderMonsterPackList();
+  $("editor-status").textContent = snapshot.statusText;
+  $("editor-status").className = snapshot.statusClass;
+}
+
+function applySampleMapTemplate(config) {
+  $("map-name").value = config.name;
+  $("map-code").value = config.code;
+  $("map-type").value = config.type;
+  $("map-biome").value = config.biome;
+  $("map-width").value = 320;
+  $("map-height").value = 240;
+  $("map-seed").value = config.seed;
+  $("map-region").value = "SAMPLE_WORLD";
+  $("map-tier").value = config.tier;
+  $("realm-min").value = config.realmMin;
+  $("realm-max").value = config.realmMax;
+  $("map-tags").value = config.tags;
+  $("rule-safe-zone").checked = Boolean(config.safeZone);
+  $("rule-no-monsters").checked = Boolean(config.noMonsters);
+  $("rule-allow-recall").checked = true;
+  editor.rules = { safeZone: Boolean(config.safeZone), noMonsters: Boolean(config.noMonsters), allowRecall: true };
+}
+
+async function saveSampleMapPack() {
+  if (mapPackState.busy || mapPackState.needsPreview || !mapPackState.configs.length) return;
+  const pending = mapPackState.configs.filter((config) => !editor.knownMaps.has(config.code));
+  if (!pending.length) return renderMapPackPreview();
+  const snapshot = captureMapPackEditorState();
+  mapPackState.busy = true;
+  mapPackState.completed = 0;
+  mapPackState.total = pending.length;
+  mapPackState.outcome = "";
+  mapPackState.failedCodes.clear();
+  mapPackState.conflictedCodes.clear();
+  lockMapEditorForBatch(true);
+  renderMapPackPreview();
+  let saved = 0;
+  let skipped = 0;
+  const failures = [];
+  try {
+    for (let index = 0; index < pending.length; index += 1) {
+      const config = pending[index];
+      mapPackState.completed = index + 1;
+      renderMapPackPreview();
+      setStatus(`Đang tạo map ${index + 1}/${pending.length} · ${config.name}`, "");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      try {
+        applySampleMapTemplate(config);
+        generateMap();
+        editor.npcs = createSampleMapNpcs(config, editor.spawnX, editor.spawnY, editor.width, editor.height);
+        drawMap();
+        const payload = mapPayload();
+        const response = await adminFetch(API.BASE + API.PATHS.admin.worlds, {
+          method: "POST",
+          headers: adminHeaders(true),
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          if (response.status === 409) {
+            skipped += 1;
+            mapPackState.conflictedCodes.add(config.code);
+            editor.knownMaps.add(config.code);
+            continue;
+          }
+          mapPackState.failedCodes.add(config.code);
+          failures.push(`${config.name}: ${data.error || `HTTP ${response.status}`}`);
+          if ([401, 403, 503].includes(response.status)) break;
+          continue;
+        }
+        saved += 1;
+        mapPackState.savedCodes.add(data.code || config.code);
+        editor.knownMaps.add(data.code || config.code);
+      } catch (error) {
+        mapPackState.failedCodes.add(config.code);
+        failures.push(`${config.name}: ${error.message || "không lưu được"}`);
+      }
+    }
+  } finally {
+    mapPackState.busy = false;
+    try {
+      restoreMapPackEditorState(snapshot);
+    } finally {
+      lockMapEditorForBatch(false);
+    }
+    try {
+      await refreshMapList(snapshot.selectedMap);
+    } catch (error) {
+      failures.push(`Không tải lại được danh sách map: ${error.message || "lỗi kết nối"}`);
+    }
+  }
+  mapPackState.completed = saved + skipped + mapPackState.failedCodes.size;
+  const failureText = failures.length ? ` · ${failures.length} lỗi` : "";
+  mapPackState.outcome = `Đã lưu ${saved} map nháp vào MySQL${skipped ? ` · bỏ qua ${skipped} mã trùng` : ""}${failureText}.`;
+  renderMapPackPreview();
+  setStatus(mapPackState.outcome, failures.length ? "error" : "ok");
 }
 
 for (const id of ["tree-density", "mountain-density", "river-width", "brush-size"]) {
@@ -860,6 +1136,27 @@ $("map-name").addEventListener("input", () => { $("stage-name").textContent = $(
 $("generate-map").addEventListener("click", generateMap);
 $("load-map").addEventListener("click", () => loadMap().catch((error) => setStatus(error.message, "error")));
 $("save-map").addEventListener("click", () => saveMap().catch((error) => setStatus(error.message, "error")));
+$("preview-map-pack").addEventListener("click", () => void previewMapPack().catch((error) => {
+  mapPackState.configs = [];
+  mapPackState.previewing = false;
+  mapPackState.needsPreview = true;
+  mapPackState.outcome = "";
+  $("map-pack-preview").hidden = false;
+  $("map-pack-status").textContent = error.message || "Không tạo được bản xem trước.";
+  $("map-pack-status").className = "validation-result error";
+  $("map-pack-list").innerHTML = "";
+  $("save-map-pack").disabled = true;
+  $("preview-map-pack").disabled = false;
+  $("map-pack-count").disabled = false;
+  $("sample-map-panel").setAttribute("aria-busy", "false");
+}));
+$("save-map-pack").addEventListener("click", () => void saveSampleMapPack().catch((error) => setStatus(error.message || "Không lưu được bộ map mẫu.", "error")));
+$("map-pack-count").addEventListener("input", () => {
+  if (mapPackState.busy || !mapPackState.configs.length) return;
+  mapPackState.needsPreview = true;
+  mapPackState.outcome = "Số lượng đã đổi. Hãy tạo lại bản xem trước trước khi lưu.";
+  renderMapPackPreview();
+});
 $("new-portal").addEventListener("click", resetPortalForm);
 $("save-portal").addEventListener("click", () => savePortalLink().catch((error) => setStatus(error.message, "error")));
 $("delete-portal").addEventListener("click", () => deletePortal().catch((error) => setStatus(error.message, "error")));

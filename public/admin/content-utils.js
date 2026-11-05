@@ -30,6 +30,50 @@
     return record;
   }
 
+  function createSampleInventory() {
+    const slots = [
+      { slot: "hat", label: "Nón", items: ["Nón Hành Cước", "Mũ Thanh Vân", "Thiên Tằm Quan"], icon: "♙", defense: 1 },
+      { slot: "armor", label: "Giáp", items: ["Áo Vải Tu Sĩ", "Giáp Thanh Cương", "Bảo Giáp Huyền Thiết"], icon: "♢", defense: 3 },
+      { slot: "pants", label: "Quần", items: ["Quần Hành Cước", "Hộ Khố Thanh Cương", "Quần Huyền Tằm"], icon: "▤", defense: 2 },
+      { slot: "boots", label: "Giày", items: ["Giày Mộc", "Ủng Thanh Vân", "Phi Vân Ngoa"], icon: "⌑", defense: 1 },
+    ];
+    const tiers = [
+      { realm: 1, suffix: "NHAP_MON", label: "Nhập Môn", cost: 180, defense: 1, maxHP: 8 },
+      { realm: 2, suffix: "NGUNG_KHI", label: "Ngưng Khí", cost: 720, defense: 4, maxHP: 28 },
+      { realm: 3, suffix: "TRUC_CO", label: "Trúc Cơ", cost: 2200, defense: 9, maxHP: 72 },
+    ];
+    const equipment = slots.flatMap((slot) => tiers.map((tier, index) => {
+      const id = `SAMPLE_${slot.slot.toUpperCase()}_${tier.suffix}`;
+      const name = slot.items[index];
+      return {
+        id,
+        maDo: id,
+        tenDo: name,
+        name,
+        icon: slot.icon,
+        loai: "EQUIPMENT",
+        type: "EQUIPMENT",
+        slot: slot.slot,
+        requiredRealmStt: tier.realm,
+        giaMua: tier.cost,
+        giaBan: Math.floor(tier.cost / 2),
+        stats: { pDef: tier.defense + slot.defense, maxHP: tier.maxHP },
+        moTa: `${slot.label} bộ ${tier.label}, tăng ${tier.defense + slot.defense} phòng thủ và ${tier.maxHP} HP.`,
+      };
+    }));
+    const supplies = [
+      { id: "SAMPLE_HUYET_NGOC_TRUNG", tenDo: "Huyết Ngọc Trung", icon: "🧪", type: "POTION", healHp: 180, giaMua: 65, giaBan: 32, moTa: "Hồi 180 HP." },
+      { id: "SAMPLE_LINH_KHI_DAN", tenDo: "Linh Khí Đan", icon: "🔵", type: "POTION", healMp: 90, giaMua: 70, giaBan: 35, moTa: "Hồi 90 MP." },
+      { id: "SAMPLE_SONG_MACH_DAN", tenDo: "Song Mạch Đan", icon: "🟣", type: "POTION", healHp: 100, healMp: 55, giaMua: 95, giaBan: 47, moTa: "Hồi 100 HP và 55 MP." },
+      { id: "SAMPLE_LINH_THACH_TRUNG", tenDo: "Linh Thạch Trung", icon: "💎", type: "STONE", giaTriTuVi: 400, giaMua: 80, giaBan: 40, moTa: "Tài nguyên tu luyện chứa linh khí ổn định." },
+      { id: "SAMPLE_NGOC_TUY_TRUNG", tenDo: "Linh Căn Ngọc Tủy Trung", icon: "🔷", type: "LINDAN", tuViLinhCanVal: 180, giaMua: 360, giaBan: 180, moTa: "Tăng 180 tu vi linh căn." },
+      { id: "SAMPLE_THAN_MOC", tenDo: "Gỗ Thần Mộc", icon: "🪵", type: "MATERIAL", giaMua: 12, giaBan: 6, moTa: "Nguyên liệu chế tạo thu thập trong rừng." },
+      { id: "SAMPLE_HUYEN_THIET", tenDo: "Huyền Thiết", icon: "⚒️", type: "MATERIAL", giaMua: 24, giaBan: 12, moTa: "Quặng cứng dùng rèn trang bị." },
+      { id: "SAMPLE_LOI_TINH", tenDo: "Lôi Tinh", icon: "⚡", type: "MATERIAL", giaMua: 45, giaBan: 22, moTa: "Tinh thể còn lưu lại lôi linh khí." },
+    ].map((item) => ({ ...item, name: item.tenDo, maDo: item.id, loai: item.type }));
+    return [...equipment, ...supplies];
+  }
+
   function containsUnsafeKey(value) {
     if (!value || typeof value !== "object") return false;
     return Object.entries(value).some(([key, child]) => UNSAFE_KEYS.has(key) || containsUnsafeKey(child));
@@ -107,5 +151,5 @@
       .map(([key, value]) => ({ key, value: formatValue(value) }));
   }
 
-  return { createBlankRecord, parseRecord, escapeHtml, formatValue, filterRecords, summarizeRecord };
+  return { createBlankRecord, createSampleInventory, parseRecord, escapeHtml, formatValue, filterRecords, summarizeRecord };
 });

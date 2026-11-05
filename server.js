@@ -104,6 +104,7 @@ for (const player of restoredGameState.players) {
 }
 const ADMIN_MAP_KEY = ENV.adminMapKey;
 const ADMIN_MAP_FILE = path.join(__dirname, "data", "admin-worlds.json");
+const ADMIN_CONTENT_FILE = path.join(__dirname, "data", "admin-content.json");
 const SKILL_VFX_FILE = path.join(__dirname, "data", "skill-vfx.json");
 const skillVfxProfileStore = new SkillVfxProfileStore(SKILL_VFX_FILE);
 const MAP_MIN_W = 320;
@@ -423,7 +424,57 @@ function adminContentId(value) {
   return String(value || "").trim().replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 80);
 }
 
+async function persistAdminContent() {
+  try {
+    const data = {
+      quests: (adminContent.quests || []).filter((q) => q.managedBy === "ADMIN"),
+      npcs: (adminContent.npcs || []).filter((n) => n.managedBy === "ADMIN"),
+      items: (adminContent.items || []).filter((it) => it.managedBy === "ADMIN"),
+      skills: (adminContent.skills || []).filter((sk) => sk.managedBy === "ADMIN"),
+    };
+    const tmp = `${ADMIN_CONTENT_FILE}.tmp`;
+    await fs.promises.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+    await fs.promises.rename(tmp, ADMIN_CONTENT_FILE);
+  } catch (err) {
+    console.error("Failed to persist admin content:", err.message);
+  }
+}
+
+function loadAdminContent() {
+  if (!fs.existsSync(ADMIN_CONTENT_FILE)) return;
+  try {
+    const saved = JSON.parse(fs.readFileSync(ADMIN_CONTENT_FILE, "utf8"));
+    if (Array.isArray(saved.quests)) {
+      for (const q of saved.quests) {
+        if (!adminContent.quests.some((x) => x.id === q.id)) adminContent.quests.push(q);
+      }
+    }
+    if (Array.isArray(saved.npcs)) {
+      for (const n of saved.npcs) {
+        if (!adminContent.npcs.some((x) => x.id === n.id)) adminContent.npcs.push(n);
+      }
+    }
+    if (Array.isArray(saved.items)) {
+      for (const it of saved.items) {
+        const idx = items.findIndex((x) => x.id === it.id);
+        if (idx >= 0) items[idx] = it;
+        else items.push(it);
+      }
+    }
+    if (Array.isArray(saved.skills)) {
+      for (const sk of saved.skills) {
+        const idx = skills.findIndex((x) => x.id === sk.id || x.code === sk.code);
+        if (idx >= 0) skills[idx] = sk;
+        else skills.push(sk);
+      }
+    }
+  } catch (err) {
+    console.error("Cannot load admin content:", err.message);
+  }
+}
+
 loadAdminWorlds();
+loadAdminContent();
 
 function publicUser(user) {
   return { id: user.id, username: user.username };
@@ -641,6 +692,7 @@ app.use("/api/admin/content", createAdminContentRouter({
   adminContent,
   normalizeId: adminContentId,
   contentService: AdminContentService,
+  persistAdminContent,
 }));
 app.get("/api/admin/worlds/:code", adminMapMiddleware, (req, res) => {
   const world = worlds.find((item) => item.code === String(req.params.code || "").toLowerCase());

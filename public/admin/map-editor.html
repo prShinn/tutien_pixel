@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Thiên Địa Đồ · Map Admin</title>
-    <link rel="stylesheet" href="/admin/map-editor.css?v=6" />
-    <link rel="stylesheet" href="/admin/admin-auth.css?v=1" />
+    <link rel="stylesheet" href="/admin/map-editor.css?v=7" />
+    <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
   </head>
   <body>
     <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
       <form id="admin-auth-form" class="admin-auth-form">
         <span class="eyebrow">QUYỀN QUẢN TRỊ</span>
         <h2 id="admin-auth-title">Đăng nhập Admin</h2>
-        <p>Dùng tài khoản được cấp role GM hoặc ADMIN.</p>
+        <p class="admin-auth-help">Không có tài khoản hay mật khẩu Admin mặc định. Tài khoản đăng ký trong game có role PLAYER; người vận hành phải cấp GM/ADMIN trong MySQL. Sau đó đăng nhập bằng username và mật khẩu Đại ca đã đăng ký.</p>
         <label for="admin-username">Tài khoản
           <input id="admin-username" name="username" autocomplete="username" maxlength="20" required />
         </label>
@@ -34,7 +34,7 @@
         <div class="admin-auth-session"><span id="admin-user-label">Chưa đăng nhập</span><button id="admin-logout" type="button" aria-label="Đăng xuất Admin" hidden>Đăng xuất</button></div>
         <select id="map-list"><option value="">Map mới</option></select>
         <button id="load-map" class="ghost">Mở map</button>
-        <button id="save-map" class="primary">Lưu lên server</button>
+        <button id="save-map" class="primary">Lưu vào MySQL</button>
       </div>
     </header>
 
@@ -153,8 +153,19 @@
           </div>
           <div id="portal-list" class="portal-list"><p class="hint">Map chưa có portal.</p></div>
         </section>
+        <section id="sample-map-panel" aria-labelledby="sample-map-title">
+          <h2 id="sample-map-title">06 · Sinh bộ map &amp; NPC mẫu</h2>
+          <p class="hint">Tạo tối đa 10 map nháp, mỗi map có 3–8 NPC trong cùng dữ liệu map để game nạp trực tiếp. Map và NPC được Backend ghi vào MySQL; mỗi lần ghi cần MySQL sẵn sàng và tài khoản GM/ADMIN. Map trùng mã sẽ được bỏ qua.</p>
+          <label>Số map <input id="map-pack-count" type="number" min="1" max="10" value="10" /></label>
+          <button id="preview-map-pack" class="wide" type="button">Tạo bản xem trước</button>
+          <div id="map-pack-preview" class="map-pack-preview" hidden>
+            <div id="map-pack-status" class="validation-result hint" role="status" aria-live="polite"></div>
+            <div id="map-pack-list" class="map-pack-list" role="list"></div>
+            <button id="save-map-pack" class="primary map-pack-save" type="button" disabled>Lưu map mới vào MySQL</button>
+          </div>
+        </section>
         <section>
-          <h2>06 · Kiểm tra &amp; xuất bản</h2>
+          <h2>07 · Kiểm tra &amp; xuất bản</h2>
           <p>Trạng thái: <strong id="publish-status" class="status-badge">DRAFT</strong></p>
           <div class="publish-actions">
             <button id="validate-map" class="ghost">Kiểm tra</button>
@@ -167,7 +178,7 @@
       <section class="map-stage">
         <div class="stage-head">
           <div><strong id="stage-name">Thanh Sơn Hà Cốc</strong><span id="map-info">600 × 400</span></div>
-          <div class="legend"><i class="water"></i>Sông <i class="forest"></i>Rừng <i class="mountain"></i>Núi <i class="spawn"></i>Spawn</div>
+          <div class="legend"><i class="water"></i>Sông <i class="forest"></i>Rừng <i class="mountain"></i>Núi <i class="spawn"></i>Spawn <i class="npc"></i>NPC</div>
         </div>
         <div id="canvas-scroll" class="canvas-scroll">
           <canvas id="map-canvas" aria-label="Bản đồ đang biên tập"></canvas>
@@ -179,8 +190,8 @@
         </footer>
       </section>
     </main>
-    <script src="/js/api.js?v=4"></script>
-    <script src="/admin/admin-auth.js?v=1"></script>
-    <script src="/admin/map-editor.js?v=7"></script>
+    <script src="/js/api.js?v=5"></script>
+    <script src="/admin/admin-auth.js?v=2"></script>
+    <script src="/admin/map-editor.js?v=9"></script>
   </body>
 </html>

@@ -30,7 +30,7 @@ async function main() {
   const questCrud = created.data.status === "DRAFT" && updated.data.status === "ACTIVE" && removed.removed === created.data.id;
   const itemCrud = item.data.id === itemId && updatedItem.data.id === itemId && updatedItem.data.name === "Updated smoke item" && removedItem.removed === itemId;
   const numericSkillCrud = Boolean(numericSkill && updatedSkill.data.id === numericSkill.id && restoredSkill.data.moTa === originalSkillDescription);
-  const valid = collections.every((collection) => listed[collection].demo && Array.isArray(listed[collection].data)) && questCrud && itemCrud && numericSkillCrud;
+  const valid = collections.every((collection) => (listed[collection].demo || listed[collection].persisted) && Array.isArray(listed[collection].data)) && questCrud && itemCrud && numericSkillCrud;
   console.log(JSON.stringify({ collections, questCrud, itemCrud, numericSkillCrud, casePreservedItemId: item.data.id === itemId, persisted: listed.quests.persisted, valid }));
   if (!valid) process.exitCode = 1;
 }

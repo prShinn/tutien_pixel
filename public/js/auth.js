@@ -111,7 +111,13 @@ const Auth = {
       return;
     }
     // No character → create screen
-    if (Auth._demoMode && typeof randomizeDemoCreation === "function") randomizeDemoCreation();
+    if (Auth._demoMode && typeof randomizeDemoCreation === "function") {
+      randomizeDemoCreation();
+      if (typeof createCharacter === "function") {
+        createCharacter();
+        return;
+      }
+    }
     showScreen("create");
   },
 

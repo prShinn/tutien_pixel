@@ -1,6 +1,6 @@
 # FE integration with the modular BE
 
-Updated: 2026-11-04. FE now targets a configurable API origin and uses the BE response as the authority for supported player mutations. The mock browser backend remains available for isolated UI/gameplay demos.
+Updated: 2026-11-05. FE now targets a configurable API origin and uses the BE response as the authority for supported player mutations. The mock browser backend remains available for isolated UI/gameplay demos.
 
 ## Local setup
 
@@ -17,7 +17,7 @@ Open the game at:
 http://localhost:3000/?apiBase=http%3A%2F%2Flocalhost%3A3800
 ```
 
-For Admin use the same query string on `/admin` and `/admin/map-editor`; local Admin pages default to `http://localhost:3800` even if gameplay previously remembered another API origin. FE accepts a query API origin only for the same origin or two loopback hosts; production deployments should inject a trusted `window.TuTienConfig.apiBase` or proxy `/api` and Socket.IO through the FE origin. The BE must allow the FE origin in `CORS_ORIGIN`.
+For Admin use the same query string on `/admin` and `/admin/map-editor`; local Admin pages default to `http://localhost:3800` even if gameplay previously remembered another API origin. Before any Admin write, FE checks that the API identifies itself as `tu-tien-pixel-be` and `/api/health/ready` reports MySQL ready. If either check fails, the write is blocked; there is no RAM/mock fallback. FE accepts a query API origin only for the same origin or two loopback hosts; production deployments should inject a trusted `window.TuTienConfig.apiBase` or proxy `/api` and Socket.IO through the FE origin. The BE must allow the FE origin in `CORS_ORIGIN`.
 
 `?mockBackend=1` keeps REST calls on local browser fixtures and local storage; Socket.IO is disabled in this mode. It does not verify connectivity to BE.
 
@@ -29,6 +29,13 @@ For Admin use the same query string on `/admin` and `/admin/map-editor`; local A
 - Mutations: shop, inventory use/equip/unequip, cultivation, skill learn/loadout and quest actions send a stable `requestId`; an uncertain request keeps its ID across retry and same-tab reload for 24 hours. Item mutations use catalog item codes, not a changing inventory index.
 - Player mutation responses replace the matching FE player/inventory state. The wide 30-second client snapshot write is disabled for live BE sessions; it remains isolated to mock mode.
 - API health status reports whether the configured BE origin responds instead of always displaying “server active”.
+
+## Admin content persistence
+
+- There is no seeded/default Admin username or password. Public registration always creates a `PLAYER`; an operator must grant `GM` or `ADMIN` in MySQL. Then sign in with the username/password chosen at registration. FE must not self-promote an account.
+- Items, skills, quest overrides, and standalone NPC overrides use the BE Admin content API. The BE stores overrides in MySQL `admin_content_records`; mutations require a GM/ADMIN bearer token and the FE accepts a write only when the response confirms `persisted: true`.
+- Map drafts/published maps are stored in MySQL `admin_worlds`. NPCs created by the map sample tool are embedded in each map's `npcs` array, so the world and its NPCs are committed together. The BE writes an audit record in the same transaction before refreshing its runtime world/catalog cache.
+- Runtime memory is a read cache after a successful DB commit, not the durable source. Realtime entities such as live sessions, active monsters, and ground loot are outside this Admin authoring flow and may still need a separate Redis/database persistence design before multi-instance runtime.
 
 ## Contract boundary
 

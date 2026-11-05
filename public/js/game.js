@@ -301,6 +301,13 @@ function randomizeDemoCreation() {
   selectGender(Math.random() < 0.5 ? "MALE" : "FEMALE");
   const roots = Array.isArray(CFG.ROOTS) ? CFG.ROOTS : [];
   if (roots.length) selectRoot(roots[Math.floor(Math.random() * roots.length)].id);
+  const demoTitles = [
+    "Tiêu Dao Tử", "Bạch Vân Cư Sĩ", "Huyền Thiên Đạo Hữu",
+    "Thanh Phong Kiếm Khách", "Cửu U Đạo Nhân", "Bắc Minh Chân Nhân",
+    "Lạc Hà Tiên Tử", "Vân Du Tu Sĩ", "Thuần Dương Đạo Giả"
+  ];
+  const charInp = document.getElementById("inp-charname");
+  if (charInp) charInp.value = `${demoTitles[Math.floor(Math.random() * demoTitles.length)]}_${Math.floor(Math.random() * 899 + 100)}`;
   const points = S.creation.points;
   points.str = 5; points.agi = 5; points.vit = 5; points.ene = 5; points.remaining = 10;
   const stats = ["str", "agi", "vit", "ene"];
@@ -308,8 +315,12 @@ function randomizeDemoCreation() {
     points[stats[Math.floor(Math.random() * stats.length)]] += 1;
     points.remaining -= 1;
   }
-  for (const stat of stats) document.getElementById("cs-" + stat).textContent = points[stat];
-  document.getElementById("pts-left").textContent = points.remaining;
+  for (const stat of stats) {
+    const el = document.getElementById("cs-" + stat);
+    if (el) el.textContent = points[stat];
+  }
+  const ptsLeft = document.getElementById("pts-left");
+  if (ptsLeft) ptsLeft.textContent = points.remaining;
 }
 
 function syncCreationPointsUI() {

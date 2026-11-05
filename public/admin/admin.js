@@ -36,7 +36,7 @@ function renderWorlds() {
 const contentLabels = { quests: "Quest", npcs: "NPC", items: "Items & Loot", skills: "Skills", accounts: "Tài khoản" };
 let activeCollection = null;
 const contentManager = ContentAdmin.createController({ api: API, getJson, adminHeaders });
-const contentState = { records: [], query: "", busy: false, editingId: null, loadVersion: 0, demo: false };
+const contentState = { records: [], query: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
 const vfxState = { skills: [], selectedCode: "", profiles: {}, loaded: false, authorized: false, saving: false, previewStarted: performance.now() };
 
 function vfxCode(skill) { return String(skill?.code || skill?.maNangLuc || skill?.id || ""); }
@@ -256,22 +256,100 @@ function setContentFeedback(message = "", kind = "success") {
   feedback.hidden = !message;
 }
 
+function renderSampleItemsPreview() {
+  const items = contentState.sampleItems?.all || AdminContentUtils.createSampleInventory();
+  const existing = new Set(contentState.records.flatMap((record) => [String(record.id), String(record.maDo || "")]));
+  const pending = items.filter((item) => !existing.has(item.id));
+  const duplicates = items.length - pending.length;
+  contentState.sampleItems = { all: items, pending };
+  const categories = [
+    ["Nón", items.filter((item) => item.slot === "hat").length],
+    ["Giáp", items.filter((item) => item.slot === "armor").length],
+    ["Quần", items.filter((item) => item.slot === "pants").length],
+    ["Giày", items.filter((item) => item.slot === "boots").length],
+    ["Vật phẩm khác", items.filter((item) => !item.slot).length],
+  ];
+  $("sample-items-preview").innerHTML = items.map((item) => {
+    const category = item.slot ? categories.find(([name]) => ({ Nón: "hat", Giáp: "armor", Quần: "pants", Giày: "boots" }[name]) === item.slot)?.[0] : item.type;
+    const state = existing.has(item.id) ? "Đã có" : "Sẽ thêm";
+    return `<div class="sample-item-row" role="listitem"><span><b>${AdminContentUtils.escapeHtml(item.name)}</b><small>${AdminContentUtils.escapeHtml(category)} · ${AdminContentUtils.escapeHtml(item.id)}</small></span><i class="${existing.has(item.id) ? "exists" : "new"}">${state}</i></div>`;
+  }).join("");
+  const storageState = contentState.persisted ? "MySQL sẵn sàng" : "Ghi MySQL đang khóa";
+  $("sample-items-status").textContent = `${items.length} món · ${categories.map(([name, count]) => `${name} ${count}`).join(" · ")} · ${pending.length} món mới, ${duplicates} món đã có · ${storageState}.`;
+  $("apply-sample-items").disabled = contentState.busy || !contentState.persisted || !pending.length;
+  $("apply-sample-items").textContent = pending.length ? `Thêm ${pending.length} món chưa có` : "Danh mục mẫu đã đủ";
+}
+
+function setSampleItemsBusy(busy) {
+  $("sample-items-tool").setAttribute("aria-busy", String(busy));
+  $("open-sample-items").disabled = busy;
+  $("new-record").disabled = busy;
+  $("apply-sample-items").disabled = busy || !contentState.persisted || !contentState.sampleItems?.pending.length;
+}
+
+async function applySampleItems() {
+  if (contentState.busy || activeCollection !== "items" || !contentState.persisted) return;
+  renderSampleItemsPreview();
+  const pending = contentState.sampleItems.pending;
+  if (!pending.length) return;
+  contentState.busy = true;
+  setSampleItemsBusy(true);
+  let created = 0;
+  let skipped = 0;
+  const failures = [];
+  for (let index = 0; index < pending.length; index += 1) {
+    const item = pending[index];
+    $("sample-items-status").textContent = `Đang thêm ${index + 1}/${pending.length}: ${item.name}…`;
+    try {
+      await contentManager.save("items", { id: item.id, json: JSON.stringify(item) });
+      created += 1;
+    } catch (error) {
+      if (/đã tồn tại/i.test(error.message || "")) skipped += 1;
+      else {
+        failures.push(`${item.id}: ${error.message || "không lưu được"}`);
+        if (/mysql|backend|không kết nối/i.test(error.message || "")) break;
+      }
+    }
+  }
+  if (activeCollection === "items") {
+    await openContent("items");
+  }
+  contentState.busy = false;
+  setSampleItemsBusy(false);
+  if (activeCollection === "items") renderContent("items", { data: contentState.records, demo: contentState.demo });
+  if (activeCollection === "items" && !$("sample-items-tool").hidden) renderSampleItemsPreview();
+  const message = `Đã thêm ${created} món${skipped ? ` · bỏ qua ${skipped} món trùng` : ""}${failures.length ? ` · ${failures.length} lỗi` : ""}.`;
+  setContentFeedback(failures.length ? `${message} ${failures.slice(0, 2).join("; ")}` : message, failures.length ? "error" : "success");
+}
+
 function renderContent(collection, payload) {
   activeCollection = collection;
   contentState.records = Array.isArray(payload.data) ? payload.data : [];
   contentState.demo = Boolean(payload.demo);
+  contentState.persisted = (payload.persisted === undefined ? contentState.persisted : payload.persisted === true) && !contentState.demo;
   $("content-title").textContent = contentLabels[collection] || collection;
-  $("content-meta").textContent = payload.demo
-    ? "Mock server · dữ liệu RAM · mất khi server khởi động lại"
-    : "Dữ liệu máy chủ";
-  const canEdit = ContentAdmin.EDITABLE_COLLECTIONS.has(collection);
+  $("content-meta").textContent = contentState.persisted
+    ? "Backend · MySQL · lưu bền vững"
+    : "Chỉ xem · Backend chưa xác nhận lưu MySQL";
+  const canEdit = ContentAdmin.EDITABLE_COLLECTIONS.has(collection) && contentState.persisted;
   const newButton = $("new-record");
   newButton.hidden = !canEdit;
   newButton.disabled = contentState.busy;
+  const sampleButton = $("open-sample-items");
+  sampleButton.hidden = collection !== "items" || !ContentAdmin.EDITABLE_COLLECTIONS.has(collection);
+  sampleButton.disabled = contentState.busy || !contentState.persisted;
+  if (collection !== "items") {
+    $("sample-items-tool").hidden = true;
+    sampleButton.setAttribute("aria-expanded", "false");
+  }
+  const storageNote = !contentState.persisted
+    ? '<div class="mock-note">Backend chưa xác nhận MySQL đang lưu dữ liệu. Các thao tác thêm, sửa, xóa đã khóa để tránh ghi vào RAM.</div>'
+    : "";
   const visibleRecords = AdminContentUtils.filterRecords(contentState.records, contentState.query);
   if (!visibleRecords.length) {
     const emptyMessage = contentState.records.length ? "Không tìm thấy bản ghi phù hợp." : "Collection chưa có bản ghi.";
-    $("content-table").innerHTML = `<div class="empty">${AdminContentUtils.escapeHtml(emptyMessage)}</div>`;
+    $("content-table").innerHTML = `${storageNote}<div class="empty">${AdminContentUtils.escapeHtml(emptyMessage)}</div>`;
+    if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
     return;
   }
   const rows = visibleRecords.map((record) => {
@@ -285,16 +363,20 @@ function renderContent(collection, payload) {
       : `<span class="content-readonly">Chỉ xem</span>`;
     return `<article class="content-record" role="listitem"><div class="content-record-id"><b>${id}</b><small>${values}</small></div><span class="table-status">${state}</span>${actions}</article>`;
   }).join("");
-  const mockNote = payload.demo
-    ? `<div class="mock-note">${collection === "quests" || collection === "npcs" ? "Quest và NPC trong mục này là catalog demo; chưa nối vào nội dung runtime." : "Đây là catalog demo trên server hiện tại; thay đổi chưa được lưu bền vững."}</div>`
-    : "";
-  $("content-table").innerHTML = `${mockNote}<div class="content-record-list" role="list">${rows}</div>`;
+  $("content-table").innerHTML = `${storageNote}<div class="content-record-list" role="list">${rows}</div>`;
+  if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
 }
 
 async function openContent(collection, { feedback = "" } = {}) {
   activeCollection = collection;
   const loadVersion = ++contentState.loadVersion;
   contentState.records = [];
+  contentState.persisted = false;
+  $("content-meta").textContent = "Đang xác minh MySQL…";
+  $("new-record").hidden = true;
+  $("open-sample-items").hidden = true;
+  $("open-sample-items").disabled = true;
+  $("sample-items-tool").hidden = true;
   if (feedback) setContentFeedback(feedback);
   else setContentFeedback();
   $("content-table").innerHTML = '<div class="loading" role="status">Đang tải dữ liệu…</div>';
@@ -305,12 +387,13 @@ async function openContent(collection, { feedback = "" } = {}) {
     if (feedback) setContentFeedback(feedback);
   } catch (error) {
     if (loadVersion !== contentState.loadVersion || collection !== activeCollection) return;
-    $("content-table").innerHTML = `<div class="empty"><span>${AdminContentUtils.escapeHtml(error.message || "Không tải được dữ liệu.")}</span><button class="vfx-button subtle" type="button" data-content-action="reload">Thử tải lại</button></div>`;
+    $("content-meta").textContent = "Không xác minh được MySQL · chỉ đọc";
+    $("content-table").innerHTML = `<div class="mock-note">Mọi thao tác ghi đã khóa cho tới khi Backend và MySQL hoạt động.</div><div class="empty"><span>${AdminContentUtils.escapeHtml(error.message || "Không tải được dữ liệu.")}</span><button class="vfx-button subtle" type="button" data-content-action="reload">Thử tải lại</button></div>`;
   }
 }
 
 function openContentEditor(record = null) {
-  if (!activeCollection || !ContentAdmin.EDITABLE_COLLECTIONS.has(activeCollection) || contentState.busy) return;
+  if (!activeCollection || !ContentAdmin.EDITABLE_COLLECTIONS.has(activeCollection) || contentState.busy || !contentState.persisted) return;
   const editing = Boolean(record);
   const fields = editing ? { ...record } : AdminContentUtils.createBlankRecord(activeCollection, Date.now(), contentState.records);
   const recordId = String(fields.id ?? "");
@@ -336,7 +419,7 @@ function setContentEditorError(message) {
 
 async function saveContent(event) {
   event.preventDefault();
-  if (contentState.busy || !activeCollection) return;
+  if (contentState.busy || !activeCollection || !contentState.persisted) return;
   const wasEdit = contentState.editingId !== null;
   const editingId = contentState.editingId;
   contentState.busy = true;
@@ -368,6 +451,7 @@ async function handleContentAction(event) {
   if (!button) return;
   const action = button.dataset.contentAction;
   if (action === "reload") return openContent(activeCollection);
+  if (!contentState.persisted) return;
   const record = contentState.records[Number(button.dataset.index)];
   if (!record || contentState.busy) return;
   if (action === "edit") return openContentEditor(record);
@@ -429,6 +513,19 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
 }));
 
 $("new-record").addEventListener("click", () => openContentEditor());
+$("open-sample-items").addEventListener("click", () => {
+  const panel = $("sample-items-tool");
+  const open = panel.hidden;
+  panel.hidden = !open;
+  $("open-sample-items").setAttribute("aria-expanded", String(open));
+  if (open) renderSampleItemsPreview();
+});
+$("close-sample-items").addEventListener("click", () => {
+  $("sample-items-tool").hidden = true;
+  $("open-sample-items").setAttribute("aria-expanded", "false");
+  $("open-sample-items").focus();
+});
+$("apply-sample-items").addEventListener("click", () => { void applySampleItems(); });
 $("content-search").addEventListener("input", (event) => {
   contentState.query = event.target.value;
   if (activeCollection) renderContent(activeCollection, { data: contentState.records, demo: contentState.demo });

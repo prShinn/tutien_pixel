@@ -126,6 +126,10 @@ const GameData = {
 				giaBan: item.giaBan || item.sell || 0,
 				buyPrice: item.giaMua || item.buyPrice || 0,
 				sell: item.giaBan || item.sell || 0,
+				// Equipment
+				slot: item.slot || (item.loai === "EQUIPMENT" || item.type === "EQUIPMENT" ? (item.equipSlot || "weapon") : null),
+				stats: item.stats || {},
+				requiredRealmStt: Number(item.requiredRealmStt || 1),
 				// Desc
 				desc: item.moTa || item.desc || item.description || "",
 				description: item.moTa || item.desc || item.description || "",
