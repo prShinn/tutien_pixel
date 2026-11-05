@@ -334,27 +334,59 @@ async function createCharacter() {
   }
   const { str, agi, vit, ene } = S.creation.points;
 
-  const demoWorldPath = Auth._demoMode
-    ? API.PATHS.worlds.byCode("binh_nguyen")
-    : API.PATHS.worlds.default;
-  const [defaultRealm, defaultWorldDto] = await Promise.all([
-    Net.get(`${API.PATHS.data.realms}/stt/1`),
-    Net.get(demoWorldPath),
-  ]);
-  if (!defaultRealm?.code || !defaultWorldDto?.code) {
-    alert("Không thể tải dữ liệu khởi tạo nhân vật. Vui lòng thử lại sau.");
+  const defaultRealm = CFG.REALMS.find((realm) => Number(realm.stt) === 1)
+    || await Net.get(`${API.PATHS.data.realms}/stt/1`);
+  if (!defaultRealm?.code) {
+    alert("Không tải được cảnh giới khởi đầu từ máy chủ. Vui lòng thử lại sau.");
     return;
   }
 
+  // Khi có phiên BE, chỉ gửi dữ liệu tạo nhân vật được server cho phép.
+  // Map, spawn, chỉ số dẫn xuất, tiền và inventory do BE quyết định.
+  if (authToken) {
+    try {
+      const response = await Net.post(API.PATHS.player.create, {
+        name,
+        gender: S.creation.gender,
+        linhCan: S.creation.root.id,
+        stats: { str, agi, vit, ene },
+      });
+      const player = response?.player || response;
+      if (!player?.id || response?.error) {
+        const status = Number(response?.httpStatus || 0);
+        const outcomeMayHaveCommitted = response?.code === "NETWORK_ERROR" || status === 409 || status >= 500;
+        if (outcomeMayHaveCommitted && S.session.user?.id) {
+          const existing = await Net.get(API.PATHS.player.byUser(S.session.user.id));
+          if (existing?.id && !existing.error) {
+            await Auth._startGameWithData(existing);
+            return;
+          }
+        }
+        alert(response?.error || "Máy chủ chưa tạo được nhân vật. Vui lòng thử lại.");
+        return;
+      }
+      await Auth._startGameWithData(player);
+      return;
+    } catch (error) {
+      alert(error?.message || "Không thể kết nối máy chủ để tạo nhân vật.");
+      return;
+    }
+  }
+
+  let defaultWorldDto;
+  try {
+    defaultWorldDto = await Net.get(API.PATHS.worlds.default);
+  } catch (error) {
+    alert(error?.message || "Không thể tải bản đồ khởi đầu.");
+    return;
+  }
+  if (!defaultWorldDto?.code) {
+    alert(defaultWorldDto?.error || "Không tải được bản đồ khởi đầu. Vui lòng thử lại sau.");
+    return;
+  }
   const defaultMap = normalizeWorldDto(defaultWorldDto);
-  const spawnX =
-    typeof defaultWorldDto.spawnX === "number"
-      ? defaultWorldDto.spawnX
-      : Math.floor(defaultMap.w / 2);
-  const spawnY =
-    typeof defaultWorldDto.spawnY === "number"
-      ? defaultWorldDto.spawnY
-      : Math.floor(defaultMap.h / 2);
+  const spawnX = Number.isFinite(Number(defaultWorldDto.spawnX)) ? Number(defaultWorldDto.spawnX) : Math.floor(defaultMap.w / 2);
+  const spawnY = Number.isFinite(Number(defaultWorldDto.spawnY)) ? Number(defaultWorldDto.spawnY) : Math.floor(defaultMap.h / 2);
 
   const trangBi = {
     vuKhi: null, ao: null, giay: null, mu: null, tay: null, nhan: null, vong: null,
@@ -396,14 +428,6 @@ async function createCharacter() {
     img: S.creation.gender === "MALE" ? "./assets/char_male_anim-source.png" : "./assets/char_female_anim-source.png",
     equip_slot: JSON.stringify(trangBi),
   };
-  const saved = await Net.post(API.PATHS.player.create, playerData);
-  if (saved?.id) {
-    playerData.id = saved.id;
-    if (saved.mapCode) playerData.mapCode = saved.mapCode;
-    if (saved.mapId) playerData.mapId = saved.mapId;
-    if (Number.isFinite(Number(saved.x))) playerData.x = Number(saved.x);
-    if (Number.isFinite(Number(saved.y))) playerData.y = Number(saved.y);
-  }
   S.player = {
     ...playerData,
     root: S.creation.root,
@@ -454,10 +478,11 @@ function enterGame(map, x, y) {
   Net.connectSocket();
   Net.startAutoSave();
 
-  // Lưu dữ liệu khi đóng tab/reload
-  window.addEventListener("beforeunload", () => {
-    Net.saveNow({ type: "browser_close" });
-  });
+  // Chỉ snapshot cho demo mock; BE lưu qua mutation/API gameplay authority.
+  if (!Net._beforeUnloadBound) {
+    Net._beforeUnloadBound = true;
+    window.addEventListener("beforeunload", () => Net.saveNow({ type: "browser_close" }));
+  }
 
   requestAnimationFrame((ts) => {
     S.lastTs = ts;
@@ -512,11 +537,17 @@ function showScreen(name) {
   const ok = await Auth.tryAutoLogin().catch(() => false);
   if (!ok) showScreen("auth");
 
+  const health = await Net._fetch(API.HEALTH, { signal: AbortSignal.timeout(5000) }).catch(() => null);
   // The label must describe the active data source accurately.
   const authStatus = document.getElementById("auth-status");
-  if (authStatus) authStatus.textContent = (typeof MockBackend !== "undefined" && MockBackend?.enabled)
-    ? "🧪 Đang dùng API mô phỏng trên trình duyệt"
-    : "✓ Máy chủ đang hoạt động";
+  if (authStatus) {
+    authStatus.textContent = (typeof MockBackend !== "undefined" && MockBackend?.enabled)
+      ? "🧪 Đang dùng API mô phỏng trên trình duyệt"
+      : health?.ok
+        ? "✓ Đã kết nối máy chủ game"
+        : "⚠ Chưa kết nối được máy chủ game";
+    authStatus.title = API.BASE;
+  }
 })();
 
 function bindGenderButtons() {

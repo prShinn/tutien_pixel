@@ -94,7 +94,7 @@ test("content manager sends create, update and delete requests with safe IDs", a
   const requests = [];
   const controller = ContentAdmin.createController({
     api: apiConfig(),
-    adminHeaders: () => ({ "x-admin-key": "test-key" }),
+    adminHeaders: () => ({ Authorization: "Bearer test-token" }),
     getJson: async (url, options = {}) => {
       requests.push({ url, options });
       return { data: JSON.parse(options.body || "null") };
@@ -107,6 +107,7 @@ test("content manager sends create, update and delete requests with safe IDs", a
 
   assert.equal(requests[0].url, "http://game.test/api/admin/content/items");
   assert.equal(requests[0].options.method, "POST");
+  assert.equal(requests[0].options.headers.Authorization, "Bearer test-token");
   assert.equal(JSON.parse(requests[0].options.body).id, "ITEM_NHO");
   assert.equal(JSON.parse(requests[0].options.body).updatedAt, undefined);
   assert.equal(requests[1].url, "http://game.test/api/admin/content/quests/QUEST_ONE");
@@ -119,7 +120,7 @@ test("content manager sends create, update and delete requests with safe IDs", a
 
 test("Admin shell loads the tested editor controller and exposes accessible CRUD controls", () => {
   assert.ok(adminHtml.indexOf("content-utils.js") < adminHtml.indexOf("content-manager.js"));
-  assert.ok(adminHtml.indexOf("content-manager.js") < adminHtml.indexOf("admin.js?v=7"));
+  assert.ok(adminHtml.indexOf("content-manager.js") < adminHtml.indexOf("admin.js?v=8"));
   assert.match(adminHtml, /id="content-editor-dialog"[^>]*aria-labelledby/);
   assert.match(adminHtml, /id="content-record-json"[^>]*spellcheck="false"/);
   assert.match(adminScript, /data-content-action="edit"/);

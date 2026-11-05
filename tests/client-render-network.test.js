@@ -9,6 +9,35 @@ const { pathToFileURL } = require("node:url");
 
 const root = path.join(__dirname, "..");
 const coreDirectory = path.join(root, "public", "js", "core");
+const networkSource = fs.readFileSync(path.join(root, "public", "js", "net.js"), "utf8");
+
+function networkHarness({ fetchImpl, session = {} }) {
+  const values = new Map(Object.entries(session));
+  const sessionStorage = {
+    getItem(key) { return values.get(key) ?? null; },
+    setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
+  };
+  const context = vm.createContext({
+    sessionStorage,
+    fetch: fetchImpl,
+    Headers,
+    Response,
+    crypto: { randomUUID: () => "request-id-0001" },
+    AutoLoot: { isEnabled: () => false },
+    API: {
+      BASE: "http://be.test",
+      SOCKET_URL: "http://be.test",
+      AUTO_SAVE_MS: 30000,
+      PATHS: { auth: { refresh: "/api/auth/refresh", logout: "/api/auth/logout", login: "/api/auth/login", register: "/api/auth/register", demo: "/api/auth/demo" }, player: { update: (id) => `/api/player/${id}` } },
+    },
+    S: { player: null, session: { user: null }, inventory: [] },
+    UI: { buildInv() {}, update() {} },
+    console,
+  });
+  vm.runInContext(`${networkSource}\nglobalThis.__Net = Net;`, context, { filename: "net.js" });
+  return { Net: context.__Net, values, state: context.S };
+}
 
 test("fixed-step clock gives the same 60 gameplay ticks at 240Hz and 20FPS", async () => {
   const { createFixedStepClock } = await import(pathToFileURL(path.join(coreDirectory, "fixed-step.mjs")).href);
@@ -97,4 +126,98 @@ test("renderer uses stable global Y order for drawable entities", () => {
   ];
   const sorted = context.__Render.sortDrawables(drawables);
   assert.deepEqual(Array.from(sorted, (entry) => entry.id), ["loot", "npc", "monster", "near-player"]);
+});
+
+test("terrain renderer loads the 47-mask sprite atlas and rasterizes 8px ground cells", async () => {
+  const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
+  const atlasSource = fs.readFileSync(path.join(root, "public", "assets", "tilesets", "temperate-47.svg"), "utf8");
+  assert.match(atlasSource, /width="1504" height="40"/);
+  assert.equal((atlasSource.match(/<g transform=/g) || []).length, 47 * 4 * 5);
+
+  const draws = [];
+  function makeCanvas() {
+    const canvas = { width: 0, height: 0 };
+    canvas.getContext = () => ({
+      imageSmoothingEnabled: true,
+      clearRect() {},
+      drawImage(...args) { draws.push(args); },
+      createImageData(width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+      putImageData() {},
+    });
+    return canvas;
+  }
+  class FakeImage {
+    constructor() { this.naturalWidth = 1504; this.naturalHeight = 40; }
+    set src(value) {
+      this.url = value;
+      setTimeout(() => this.onload?.(), 0);
+    }
+  }
+  const context = vm.createContext({
+    Image: FakeImage,
+    S: { tiles: Array.from({ length: 8 }, () => Array(8).fill(0)), mapW: 8, mapH: 8 },
+    document: { createElement: () => makeCanvas() },
+  });
+  vm.runInContext(`${renderSource}\nglobalThis.__Render = Render;`, context, { filename: "render.js" });
+  context.__Render.buildTerrainCache();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const atlasDraw = draws.find(([source]) => source instanceof FakeImage);
+  assert.ok(atlasDraw, "the loaded sprite atlas should be used to build the terrain cache");
+  assert.equal(atlasDraw[1] % 8, 0, "source X must begin on an 8px sprite boundary");
+  assert.ok(atlasDraw[1] >= 0 && atlasDraw[1] < 32, "the grass mask must select one of four variants");
+  assert.equal(atlasDraw[2], 0, "grass is the first atlas row");
+  assert.deepEqual(Array.from(atlasDraw.slice(3)), [8, 8, 0, 0, 8, 8]);
+});
+
+test("expired access token refreshes once then retries the original request", async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, authorization: new Headers(options.headers || {}).get("Authorization") });
+    if (url.endsWith("/api/player/state") && calls.filter((call) => call.url.endsWith("/api/player/state")).length === 1) {
+      return new Response(JSON.stringify({ ok: false, error: "Token expired" }), { status: 401 });
+    }
+    if (url.endsWith("/api/auth/refresh")) {
+      return new Response(JSON.stringify({ token: "access-new", accessToken: "access-new", refreshToken: "refresh-new" }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ id: "player-1" }), { status: 200 });
+  };
+  const { Net, values } = networkHarness({ fetchImpl, session: { tu_tien_token: "access-old", tu_tien_refresh_token: "refresh-old" } });
+
+  const result = await Net.get("/api/player/state");
+
+  assert.equal(result.id, "player-1");
+  assert.deepEqual(calls.map((call) => call.url.split("/").slice(-2).join("/")), ["player/state", "auth/refresh", "player/state"]);
+  assert.equal(calls[2].authorization, "Bearer access-new");
+  assert.equal(values.get("tu_tien_refresh_token"), "refresh-new");
+});
+
+test("a failed mutation retry reuses requestId and live autosave never writes snapshots", async () => {
+  const requestIds = [];
+  const failedNetwork = async (_url, options = {}) => {
+    if (options.body) requestIds.push(JSON.parse(options.body).requestId);
+    throw new TypeError("network offline");
+  };
+  const firstSession = networkHarness({ fetchImpl: failedNetwork, session: { tu_tien_token: "access-token" } });
+
+  const failed = await firstSession.Net.mutate("POST", "/api/player/shop/buy", { itemCode: "stone", quantity: 1 });
+  assert.equal(failed.code, "NETWORK_ERROR");
+
+  let attempts = 0;
+  const retrySession = networkHarness({ fetchImpl: async (_url, options = {}) => {
+    requestIds.push(JSON.parse(options.body).requestId);
+    attempts += 1;
+    return new Response(JSON.stringify({ ok: true, player: { id: "player-1" } }), { status: 200 });
+  }, session: Object.fromEntries(firstSession.values) });
+  const { Net, state } = retrySession;
+  const result = await Net.mutate("POST", "/api/player/shop/buy", { itemCode: "stone", quantity: 1 });
+  assert.equal(result.ok, true);
+  assert.equal(requestIds.length, 2);
+  assert.equal(requestIds[0], requestIds[1]);
+
+  state.player = { id: "player-1" };
+  const beforeSave = attempts;
+  const saved = await Net.saveNow({ type: "test" });
+  assert.equal(saved.reason, "SERVER_AUTHORITATIVE_STATE");
+  assert.equal(attempts, beforeSave);
 });

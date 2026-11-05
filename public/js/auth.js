@@ -54,26 +54,20 @@ const Auth = {
     try {
       const path =
         Auth._mode === "login" ? API.PATHS.auth.login : API.PATHS.auth.register;
-      const res = await fetch(API.BASE + path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        Auth._err(data.error || "Lỗi không xác định");
+      const data = await Net.post(path, { username, password });
+      if (data?.error || !(data?.accessToken || data?.token)) {
+        Auth._err(data?.error || "Lỗi không xác định");
         return;
       }
 
-      authToken = data.token;
+      Net.setSession(data);
       Auth._demoMode = false;
       S.session.user = data.user;
-      sessionStorage.setItem("tu_tien_token", authToken);
 
       if (Auth._mode === "register") {
         showScreen("create");
       } else {
-        Auth._afterLogin();
+        await Auth._afterLogin();
       }
     } catch {
       Auth._err("Không thể kết nối máy chủ. Thử lại sau?");
@@ -87,15 +81,14 @@ const Auth = {
     if (Auth._demoPending) return;
     Auth._demoPending = true;
     try {
-      const res = await fetch(API.BASE + API.PATHS.auth.demo, { method: "POST" });
-      const data = await res.json();
-      authToken = data.token;
+      const data = await Net.post(API.PATHS.auth.demo, {});
+      if (data?.error || !(data?.accessToken || data?.token)) throw new Error(data?.error || "Máy chủ không trả phiên demo hợp lệ.");
+      Net.setSession(data);
       Auth._demoMode = true;
       S.session.user = data.user;
-      sessionStorage.setItem("tu_tien_token", authToken);
       await Auth._afterLogin();
-    } catch {
-      Auth._err("Không thể vào demo. Hãy kiểm tra server.");
+    } catch (error) {
+      Auth._err(error?.message || "Không thể vào demo. Hãy kiểm tra server.");
     } finally {
       Auth._demoPending = false;
     }
@@ -106,10 +99,17 @@ const Auth = {
     try {
       const data = await Net.get(API.PATHS.player.byUser(S.session.user.id));
       if (data?.id && !data.error) {
-        Auth._startGameWithData(data);
+        await Auth._startGameWithData(data);
         return;
       }
-    } catch {}
+      if ((data?.error && data.httpStatus !== 404) || (data?.httpStatus && data.httpStatus !== 404)) {
+        throw new Error(data?.error || "Không tải được nhân vật từ máy chủ.");
+      }
+    } catch (error) {
+      Auth._err(error?.message || "Không thể tải nhân vật từ máy chủ.");
+      showScreen("auth");
+      return;
+    }
     // No character → create screen
     if (Auth._demoMode && typeof randomizeDemoCreation === "function") randomizeDemoCreation();
     showScreen("create");
@@ -214,28 +214,29 @@ const Auth = {
       try { return JSON.parse(playerData.jsonIventory); } catch { return []; }
     })();
     S.inventory = Array.isArray(rawInventory) ? rawInventory : [];
-    // In mock mode there is no world_init Socket event, so hydrate the same world
-    // DTO through the API contract before starting the local simulation.
+    // Nạp map theo DTO nhân vật để hiển thị ngay, trước khi Socket đồng bộ world_init.
     let initialMap = null;
-    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
-      const mapCode = playerData.mapCode || playerData.mapId || "";
-      let worldDto = mapCode ? await Net.get(API.PATHS.worlds.byCode(mapCode)) : null;
-      if (!worldDto?.code) worldDto = await Net.get(API.PATHS.worlds.default);
-      if (worldDto?.code) initialMap = normalizeWorldDto(worldDto);
-    }
+    const mapCode = playerData.mapCode || playerData.mapId || "";
+    let worldDto = mapCode ? await Net.get(API.PATHS.worlds.byCode(mapCode)) : null;
+    if (!worldDto?.code) worldDto = await Net.get(API.PATHS.worlds.default);
+    if (worldDto?.code) initialMap = normalizeWorldDto(worldDto);
+    else console.warn("[Auth] Không tải được map trước khi vào game; chờ world_init từ Socket.IO.", worldDto?.error || "");
     enterGame(initialMap, S.player.x, S.player.y);
   },
 
   playOffline() {
-    authToken = null;
+    Net.clearSession();
     S.session.user = null;
     showScreen("create");
   },
 
   logout() {
-    Net.saveNow().finally(() => {
-      sessionStorage.removeItem("tu_tien_token");
-      authToken = null;
+    const refreshToken = sessionStorage.getItem("tu_tien_refresh_token");
+    const revoke = refreshToken
+      ? Net.post(API.PATHS.auth.logout, { refreshToken }).catch(() => null)
+      : Promise.resolve();
+    revoke.finally(() => {
+      Net.clearSession();
       S.session.user = null;
       S.player = null;
       S.inventory = [];
@@ -261,15 +262,8 @@ const Auth = {
   async tryAutoLogin() {
     if (!authToken) return false;
     try {
-      const res = await fetch(API.BASE + API.PATHS.auth.me, {
-        headers: { Authorization: "Bearer " + authToken },
-      });
-      if (!res.ok) {
-        sessionStorage.removeItem("tu_tien_token");
-        authToken = null;
-        return false;
-      }
-      const data = await res.json();
+      const data = await Net.get(API.PATHS.auth.me);
+      if (data?.error || !data?.user?.id) return false;
       S.session.user = { id: data.user.id, username: data.user.username };
       document.getElementById("auth-status").textContent =
         `Chào lại, ${data.user.username}!`;

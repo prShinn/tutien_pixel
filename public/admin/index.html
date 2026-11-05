@@ -5,8 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Thiên Địa Đồ · Admin</title>
     <link rel="stylesheet" href="/admin/admin.css?v=4" />
+    <link rel="stylesheet" href="/admin/admin-auth.css?v=1" />
   </head>
   <body>
+    <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
+      <form id="admin-auth-form" class="admin-auth-form">
+        <span class="eyebrow">QUYỀN QUẢN TRỊ</span>
+        <h2 id="admin-auth-title">Đăng nhập Admin</h2>
+        <p>Dùng tài khoản được cấp role GM hoặc ADMIN.</p>
+        <label for="admin-username">Tài khoản
+          <input id="admin-username" name="username" autocomplete="username" maxlength="20" required />
+        </label>
+        <label for="admin-password">Mật khẩu
+          <input id="admin-password" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p id="admin-auth-error" class="admin-auth-error" role="alert" aria-live="assertive" hidden></p>
+        <button id="admin-auth-submit" type="submit">Đăng nhập</button>
+      </form>
+    </dialog>
     <div class="admin-shell">
       <aside class="sidebar">
         <a class="brand" href="/admin"><span class="brand-mark">Đồ</span><span><b>Thiên Địa Đồ</b><small>Realm operations</small></span></a>
@@ -28,7 +44,7 @@
         <div class="sidebar-foot"><span class="status-dot"></span>Demo server online<small>Data-driven control plane</small></div>
       </aside>
       <main class="main">
-        <header class="topbar"><div><span class="eyebrow">CONTROL ROOM / DEMO</span><h1 id="view-title">Tổng quan thế giới</h1></div><div class="admin-session"><label>Admin key <input id="admin-key" type="password" placeholder="Nhập admin key" autocomplete="off" /></label><a href="/" class="back-link">← Vào game</a></div></header>
+        <header class="topbar"><div><span class="eyebrow">CONTROL ROOM / DEMO</span><h1 id="view-title">Tổng quan thế giới</h1></div><div class="admin-session admin-auth-session"><span id="admin-user-label">Chưa đăng nhập</span><button id="admin-logout" type="button" aria-label="Đăng xuất Admin" hidden>Đăng xuất</button><a href="/" class="back-link">← Vào game</a></div></header>
         <section id="overview" class="view active-view">
           <div class="hero"><div><p class="eyebrow">Thiên Địa Đồ</p><h2>Một châu lục, một nguồn dữ liệu.</h2><p>Quản lý nội dung từ cấu hình. Runtime chỉ đọc những gì đã xuất bản.</p></div><a class="hero-action" href="/admin/map-editor">Mở Map Editor <span>→</span></a></div>
           <div class="stat-grid">
@@ -69,11 +85,12 @@
         <footer class="content-editor-actions"><button id="content-editor-cancel" class="vfx-button subtle" type="button">Hủy</button><button id="content-editor-save" class="vfx-button primary" type="submit">Lưu bản ghi</button></footer>
       </form>
     </dialog>
-    <script src="/js/api.js?v=3"></script>
+    <script src="/js/api.js?v=4"></script>
     <script>window.ctx = null; window.S = { player: null }; window.CFG = {};</script>
+    <script src="/admin/admin-auth.js?v=1"></script>
     <script src="/js/skill-vfx.js?v=4"></script>
     <script src="/admin/content-utils.js?v=1"></script>
     <script src="/admin/content-manager.js?v=1"></script>
-    <script src="/admin/admin.js?v=7"></script>
+    <script src="/admin/admin.js?v=8"></script>
   </body>
 </html>

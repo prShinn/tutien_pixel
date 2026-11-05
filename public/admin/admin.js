@@ -3,10 +3,12 @@
 const $ = (id) => document.getElementById(id);
 const state = { worlds: [], realms: [] };
 
-function adminHeaders() { return { "x-admin-key": $("admin-key").value }; }
+function adminHeaders(json = false) { return json ? { "content-type": "application/json" } : {}; }
 
 async function getJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = AdminAuth.isAdminUrl(url)
+    ? await AdminAuth.fetch(url, options)
+    : await fetch(url, options);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || `Request failed: ${response.status}`);
   return data;
@@ -178,7 +180,7 @@ async function openSkillVfx() {
       vfxState.profiles = {};
       setVfxDisabled(true);
       $("vfx-skill-list").innerHTML = `<div class="empty">${vfxEscape(error.message)}</div>`;
-      $("vfx-save-state").textContent = /admin key/i.test(error.message) ? "Kiểm tra lại Admin key" : "Không tải được danh sách skill";
+      $("vfx-save-state").textContent = error.message || "Không tải được danh sách skill";
       $("vfx-save-state").classList.remove("saved");
       return;
     }
@@ -393,9 +395,22 @@ async function loadOverview() {
     state.worlds = worlds; state.realms = realms;
     renderStats(); renderWorlds();
   } catch (error) {
-    $("world-list").innerHTML = `<div class="empty">${error.message} · kiểm tra Admin key.</div>`;
+    $("world-list").innerHTML = `<div class="empty">${error.message} · cần tài khoản GM/ADMIN.</div>`;
   }
 }
+
+function reloadAdminViewAfterLogin() {
+  void loadOverview();
+  const active = document.querySelector('.nav-item.active[data-view]');
+  if (active?.dataset.view === "content") void openContent(active.dataset.collection);
+  if (active?.dataset.view === "skill-vfx") {
+    vfxState.loaded = false;
+    vfxState.authorized = false;
+    setVfxDisabled(true);
+    void openSkillVfx();
+  }
+}
+window.addEventListener("admin:authenticated", reloadAdminViewAfterLogin);
 
 document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEventListener("click", (event) => {
   event.preventDefault();
@@ -413,15 +428,6 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   if (isVfx) openSkillVfx();
 }));
 
-$("admin-key").addEventListener("change", () => {
-  loadOverview();
-  if (document.querySelector('.nav-item.active')?.dataset.view === "skill-vfx") {
-    vfxState.loaded = false;
-    vfxState.authorized = false;
-    setVfxDisabled(true);
-    openSkillVfx();
-  }
-});
 $("new-record").addEventListener("click", () => openContentEditor());
 $("content-search").addEventListener("input", (event) => {
   contentState.query = event.target.value;
@@ -521,4 +527,4 @@ window.addEventListener("storage", (event) => {
 });
 window.requestAnimationFrame(drawVfxPreview);
 setVfxDisabled(true);
-loadOverview();
+void AdminAuth.ready.then((authenticated) => { if (authenticated) return loadOverview(); });

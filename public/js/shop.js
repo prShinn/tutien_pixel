@@ -94,11 +94,10 @@ const Shop = {
     const item = CFG.ITEMS[id];
     if (!item) return;
     if (authToken) {
-      const result = await Net.post(API.PATHS.player.buy, { itemId: id });
+      const result = await Net.mutate("POST", API.PATHS.player.buy, { itemCode: id, quantity: 1 });
       if (!result?.player) return UI.log(result?.error || "Không thể mua vật phẩm.", "system");
-      Object.assign(S.player, result.player);
-      try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }
-      UI.log(`Mua: ${item.icon} ${item.name} (-${item.giaMua}xu)`, "loot");
+      Net.applyPlayerSnapshot(result.player, { render: false });
+      UI.log(`Mua: ${item.icon} ${item.name} (-${result.result?.price ?? item.giaMua}xu)`, "loot");
       UI.buildInv(); UI.update(); this.render();
       return;
     }
@@ -116,10 +115,9 @@ const Shop = {
     const item = S.inventory[idx];
     if (!item) return;
     if (authToken) {
-      const result = await Net.post(API.PATHS.player.sell, { index: idx });
+      const result = await Net.mutate("POST", API.PATHS.player.sell, { itemCode: item.itemCode || item.id, quantity: 1 });
       if (!result?.player) return UI.log(result?.error || "Không thể bán vật phẩm.", "system");
-      Object.assign(S.player, result.player);
-      try { S.inventory = JSON.parse(result.player.jsonIventory || "[]"); } catch { S.inventory = []; }
+      Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`Bán: ${item.name} (+${result.result?.price || 0}xu)`, "loot");
       UI.buildInv(); UI.update(); this.render();
       return;

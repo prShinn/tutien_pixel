@@ -47,20 +47,18 @@ const Inventory = {
     const item = S.inventory[idx];
     if (!item) return;
     if (authToken && (item.type || item.loai) === "EQUIPMENT") {
-      const result = await Net.post(API.PATHS.player.equipItem, { index: idx, itemId: item.id, slot: item.slot || "weapon" });
+      const result = await Net.mutate("POST", API.PATHS.player.equipItem, { itemCode: item.itemCode || item.id, slot: item.slot || "weapon" });
       if (!result?.player) return UI.log(result?.error || "KhÃ´ng thá»ƒ trang bá»‹ váº­t pháº©m.", "system");
-      Object.assign(S.player, result.player);
-      try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+      Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "âš”ï¸"} ÄÃ£ trang bá»‹ ${item.name}`, "loot");
       UI.buildInv();
       UI.update();
       return;
     }
     if (authToken) {
-      const result = await Net.post(API.PATHS.player.useItem, { index: idx, itemId: item.id });
+      const result = await Net.mutate("POST", API.PATHS.player.useItem, { itemCode: item.itemCode || item.id });
       if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");
-      Object.assign(S.player, result.player);
-      try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+      Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
       UI.buildInv();
       UI.update();
@@ -99,10 +97,9 @@ const Inventory = {
   async unequip(item, slotKey) {
     if (!item || !authToken) return UI.log("Chưa kết nối máy chủ.", "system");
     const slotMap = { weapon: "weapon", helmet: "hat", armor: "armor", pants: "pants", boots: "boots", ring: "ring", amulet: "amulet", belt: "belt", gem: "gem" };
-    const result = await Net.post(API.PATHS.player.unequipItem, { slot: slotMap[slotKey] || slotKey });
+    const result = await Net.mutate("POST", API.PATHS.player.unequipItem, { slot: slotMap[slotKey] || slotKey });
     if (!result?.player) return UI.log(result?.error || "Không thể tháo trang bị.", "system");
-    Object.assign(S.player, result.player);
-    try { S.inventory = typeof result.player.jsonIventory === "string" ? JSON.parse(result.player.jsonIventory || "[]") : (result.player.inventory || []); } catch { S.inventory = []; }
+    Net.applyPlayerSnapshot(result.player, { render: false });
     UI.log(`Đã tháo ${item.name || "trang bị"} vào túi đồ.`, "loot");
     UI.buildInv(); UI.renderEquipment(true); UI.update();
   },

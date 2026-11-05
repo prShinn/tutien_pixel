@@ -33,7 +33,7 @@ Mỗi biome nên có palette, tile rules và landmark riêng. Không tăng kích
 
 ## Map Admin MVP
 
-Truy cập `/admin`, dùng `ADMIN_MAP_KEY` từ môi trường (demo mặc định: `demo-admin`). Editor hỗ trợ:
+Truy cập `/admin` và đăng nhập bằng tài khoản có role `GM` hoặc `ADMIN`. FE gửi Bearer access token; không gửi static admin key. Khi chạy FE local riêng với BE local, Admin tự trỏ tới `http://localhost:3800`; có thể ghi đè bằng `TuTienConfig.apiBase` hoặc query `apiBase`.
 
 - Sinh địa hình có seed bằng value-noise/fBm; cùng seed cho cùng kết quả.
 - Preset sơn thủy, thảo nguyên, rừng cổ, quần sơn và thành trì.
@@ -74,7 +74,7 @@ Renderer raster hóa toàn bộ địa hình vào offscreen canvas đúng một 
 
 1. Bổ sung công cụ đặt portal, NPC, bãi quái và vùng polygon trực tiếp trên canvas.
 2. Tách decoration/vật cản có chiều cao khỏi terrain cache để renderer đưa chúng vào cùng danh sách Y-sort với nhân vật.
-3. Thay atlas Canvas tạo lúc chạy bằng tileset atlas pixel-art được họa theo biome; giữ nguyên lưới collision 1px và render cell 8×8.
+3. Mở rộng atlas pixel-art SVG hiện tại thành bộ riêng cho từng biome; giữ nguyên lưới collision 1px và render cell 8×8.
 4. Chia map lớn thành chunk 32×32, version từng chunk và chỉ broadcast vùng lân cận.
 5. Thêm draft/publish để map đang sửa không thay đổi world online trước khi duyệt.
 
@@ -84,7 +84,8 @@ Renderer raster hóa toàn bộ địa hình vào offscreen canvas đúng một 
 - Player/monster từ socket được đưa vào buffer tối đa 3 snapshot và render chậm 100ms; gói cũ bị bỏ, teleport xa reset buffer.
 - HUD nhận event `player:vitals_changed`, `player:position_changed` và `target:changed`; DOM chỉ cập nhật khi giá trị đang hiển thị đổi.
 - Dynamic drawables (loot, NPC, monster, người chơi) dùng Y-sort ổn định theo điểm chân. Portal và terrain vẫn ở lớp nền.
-- Terrain ground/path/water dùng atlas Canvas 47-mask với 4 biến thể pixel cho mỗi loại; các vùng 8×8 world pixel được phân loại từ layer nền. `jsonMap`, collision và tọa độ entity vẫn ở lưới 1px.
+- Terrain ground/path/water/stone/plaza dùng sprite atlas SVG tĩnh 47-mask với 4 biến thể pixel cho mỗi loại. Sprite 8×8 có hoa văn riêng và mép chuyển bậc để bờ nước, góc đá, đường đất và sân nối tự nhiên hơn. Gameplay và Map Editor dùng chung asset `public/assets/tilesets/temperate-47.svg`; file có thể dựng lại bằng `node scripts/generate-autotile-atlas.js`.
+- Renderer phân loại các vùng 8×8 từ layer nền rồi rasterize atlas vào cache; `jsonMap`, collision, vật thể, cao độ và tọa độ entity vẫn giữ nguyên lưới 1px. Nếu asset chưa tải được, gameplay giữ fallback nền đơn sắc và Map Editor giữ preview cũ để không chặn nạp map.
 - `objects` và `elevation` được phủ lại trên atlas theo footprint 1px gốc để giữ đường viền rừng, núi và tường.
 
-Atlas hiện được dựng theo palette procedural, chưa dùng tileset sprite được họa thủ công theo biome. Cây, núi và vách vẫn nằm trong terrain cache; muốn chúng che khuất nhân vật đúng 2.5D cần tách object render layer có sprite và điểm chân để Y-sort cùng entity.
+Atlas hiện là một bộ temperate dùng palette và pattern pixel cố định; các biome khác chưa có atlas riêng. Cây, núi và tường vẫn được phủ vào terrain cache theo footprint 1px; muốn chúng che khuất nhân vật đúng 2.5D cần tách object render layer có sprite và điểm chân để Y-sort cùng entity.

@@ -121,7 +121,7 @@ const QuestUI = {
         : action === "claim"
           ? API.PATHS.quests.claim(questId)
           : API.PATHS.quests.track(questId);
-      const result = await Net.post(path, {});
+      const result = await Net.mutate("POST", path, {});
       if (result?.error) throw new Error(result.error);
       this.applySnapshot(result);
       this.syncPlayer(result.player);

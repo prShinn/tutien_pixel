@@ -1,20 +1,19 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 // FILE: public/js/net.js
 // 1. DÙNG ĐỂ LÀM GÌ:
-//    - Cầu nối mạng (Networking & Synchronization Client): Giao tiếp HTTP REST API (get, post,
-//      put) và Socket.io thời gian thực. Đồng bộ hóa di chuyển, trạng thái phòng chơi (world_state),
-//      quái vật (monster_update), sát thương (combat_hit/combat_error), chuyển map, chat.
+//    - Cầu nối mạng: gọi REST API, refresh phiên đăng nhập và đồng bộ Socket.IO thời gian thực.
 // 2. CẤU HÌNH LIÊN QUAN:
 //    - sessionStorage("tu_tien_token"), socket.io client.
 //    - Phụ thuộc: State (S), World, Render, UI, Combat.
 // 3. XỬ LÝ VẤN ĐỀ NÀO:
-//    - Chống lag/spam: Throttle gửi gói tin di chuyển, debounced auto-save định kỳ.
+//    - Chống lag/spam: Throttle movement; chỉ demo mock mới snapshot state vào local API.
 //    - Server-authoritative: Nhận movement_corrected khi phát hiện sai lệch vị trí hoặc va chạm.
 //    - Client-side prediction & reconciliation: Hòa giải trạng thái mượt mà khi đổi map/mất mạng.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 let socket = null;
 let authToken = sessionStorage.getItem("tu_tien_token");
+let authRefreshToken = sessionStorage.getItem("tu_tien_refresh_token");
 
 function effectColor(effect) {
   return ({
@@ -28,6 +27,11 @@ const Net = {
   _saveTimer: null,
   _isOnline: false,
   _pendingRequests: new Map(),
+  _pendingMutationIds: new Map(),
+  _pendingMutationIdsLoaded: false,
+  _refreshPromise: null,
+  _socketRefreshing: false,
+  _beforeUnloadBound: false,
   _savePromise: null,
   _mapChangeTimer: null,
   _autoLootElapsed: 0,
@@ -83,6 +87,104 @@ const Net = {
     return `${method}:${path}:${payload}`;
   },
 
+  requestId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 12)}`;
+  },
+
+  setSession(session, { preservePendingMutations = false } = {}) {
+    if (!preservePendingMutations) this.clearPendingMutations();
+    authToken = session?.accessToken || session?.token || null;
+    authRefreshToken = session?.refreshToken || null;
+    if (authToken) sessionStorage.setItem("tu_tien_token", authToken);
+    else sessionStorage.removeItem("tu_tien_token");
+    if (authRefreshToken) sessionStorage.setItem("tu_tien_refresh_token", authRefreshToken);
+    else sessionStorage.removeItem("tu_tien_refresh_token");
+  },
+
+  clearSession() {
+    authToken = null;
+    authRefreshToken = null;
+    sessionStorage.removeItem("tu_tien_token");
+    sessionStorage.removeItem("tu_tien_refresh_token");
+    this.clearPendingMutations();
+  },
+
+  _restorePendingMutationIds() {
+    if (this._pendingMutationIdsLoaded) return;
+    this._pendingMutationIdsLoaded = true;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("tu_tien_pending_mutations") || "{}");
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      for (const [fingerprint, value] of Object.entries(saved)) {
+        if (typeof value?.requestId === "string" && Number(value.createdAt) >= cutoff) {
+          this._pendingMutationIds.set(fingerprint, value);
+        }
+      }
+      this._persistPendingMutationIds();
+    } catch {
+      sessionStorage.removeItem("tu_tien_pending_mutations");
+    }
+  },
+
+  _persistPendingMutationIds() {
+    const entries = [...this._pendingMutationIds.entries()].slice(-100);
+    this._pendingMutationIds = new Map(entries);
+    try {
+      sessionStorage.setItem("tu_tien_pending_mutations", JSON.stringify(Object.fromEntries(entries)));
+    } catch { /* session storage is optional and must not block gameplay */ }
+  },
+
+  clearPendingMutations() {
+    this._pendingMutationIds.clear();
+    this._pendingMutationIdsLoaded = true;
+    sessionStorage.removeItem("tu_tien_pending_mutations");
+  },
+
+  async refreshSession() {
+    if (!authRefreshToken) return false;
+    if (this._refreshPromise) return this._refreshPromise;
+    this._refreshPromise = (async () => {
+      let response;
+      try {
+        response = await fetch(API.BASE + API.PATHS.auth.refresh, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: authRefreshToken }),
+        });
+      } catch {
+        return false;
+      }
+      const data = await this._readResponse(response);
+      if (!response.ok || !(data?.accessToken || data?.token) || !data?.refreshToken) {
+        if (response.status === 401 || response.status === 403) this.clearSession();
+        return false;
+      }
+      this.setSession(data, { preservePendingMutations: true });
+      return true;
+    })();
+    try {
+      return await this._refreshPromise;
+    } finally {
+      this._refreshPromise = null;
+    }
+  },
+
+  async _readResponse(response) {
+    try {
+      const data = await response.json();
+      if (response.ok) return data;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        return { ...data, error: typeof data.error === "string" ? data.error : `Yêu cầu thất bại (${response.status})`, httpStatus: response.status };
+      }
+      return { ok: false, error: `Yêu cầu thất bại (${response.status})`, code: "HTTP_ERROR", httpStatus: response.status };
+    } catch {
+      return response.ok
+        ? null
+        : { ok: false, error: `Yêu cầu thất bại (${response.status})`, code: "HTTP_ERROR", httpStatus: response.status };
+    }
+  },
+
   async _fetch(path, opts = {}) {
     const method = (opts.method || "GET").toUpperCase();
     const body = opts.body || "";
@@ -91,8 +193,26 @@ const Net = {
       return this._pendingRequests.get(key);
     }
     const promise = (async () => {
-      const res = await fetch(API.BASE + path, opts);
-      return res.json();
+      let res;
+      try {
+        res = await fetch(API.BASE + path, opts);
+      } catch {
+        return { ok: false, error: "Không thể kết nối máy chủ. Kiểm tra địa chỉ API hoặc kết nối mạng rồi thử lại.", code: "NETWORK_ERROR", retryable: true };
+      }
+      const data = await this._readResponse(res);
+      const authEndpoint = path.startsWith(API.PATHS.auth.refresh) || path.startsWith(API.PATHS.auth.logout)
+        || path.startsWith(API.PATHS.auth.login) || path.startsWith(API.PATHS.auth.register)
+        || path.startsWith(API.PATHS.auth.demo);
+      if (res.status !== 401 || authEndpoint || !authRefreshToken || !(await this.refreshSession())) return data;
+      const headers = new Headers(opts.headers || {});
+      headers.set("Authorization", `Bearer ${authToken}`);
+      let retry;
+      try {
+        retry = await fetch(API.BASE + path, { ...opts, headers });
+      } catch {
+        return { ok: false, error: "Không thể kết nối máy chủ sau khi làm mới phiên.", code: "NETWORK_ERROR", retryable: true };
+      }
+      return this._readResponse(retry);
     })();
     this._pendingRequests.set(key, promise);
     try {
@@ -130,77 +250,84 @@ const Net = {
     });
   },
 
+  async mutate(method, path, body = {}) {
+    this._restorePendingMutationIds();
+    const normalizedMethod = String(method || "POST").toUpperCase();
+    const fingerprint = `${normalizedMethod}:${path}:${JSON.stringify(body)}`;
+    let pending = this._pendingMutationIds.get(fingerprint);
+    if (pending && pending.createdAt < Date.now() - 24 * 60 * 60 * 1000) {
+      this._pendingMutationIds.delete(fingerprint);
+      pending = null;
+    }
+    if (!pending) {
+      pending = { requestId: this.requestId(), createdAt: Date.now() };
+      this._pendingMutationIds.set(fingerprint, pending);
+      this._persistPendingMutationIds();
+    }
+    const options = {
+      method: normalizedMethod,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + authToken,
+      },
+      body: JSON.stringify({ ...body, requestId: pending.requestId }),
+    };
+    try {
+      const result = await this._fetch(path, options);
+      if (!result?.error) {
+        this._pendingMutationIds.delete(fingerprint);
+        this._persistPendingMutationIds();
+      }
+      return result;
+    } catch (error) {
+      // Keep the same id if the user retries after a network failure.
+      throw error;
+    }
+  },
+
+  applyPlayerSnapshot(player, { render = true } = {}) {
+    if (!player || typeof player !== "object" || !S.player) return false;
+    Object.assign(S.player, player);
+    if (Array.isArray(player.inventory)) S.inventory = player.inventory;
+    else if (typeof player.jsonIventory === "string") {
+      try {
+        const inventory = JSON.parse(player.jsonIventory || "[]");
+        if (Array.isArray(inventory)) S.inventory = inventory;
+      } catch { /* keep the last valid local inventory */ }
+    }
+    if (render) {
+      UI.buildInv();
+      UI.update();
+    }
+    return true;
+  },
+
   // ── Save ──
   async saveNow(event) {
-    if (!authToken || !S.player) return Promise.resolve();
-
-    // Tránh việc gọi save liên tục tạo ra hàng đợi vô hạn
-    if (this._savePromise) {
-      // Nếu đang có một yêu cầu lưu, ta ghi nhận là cần lưu thêm một lần nữa sau khi xong
-      this._needsSaveAgain = true;
-      return this._savePromise;
+    if (!authToken || !S.player) return { ok: true, skipped: true };
+    if (!(typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      // BE không chấp nhận ghi đè snapshot từ client. Mutation REST và realtime là nguồn lưu state.
+      return { ok: true, skipped: true, reason: "SERVER_AUTHORITATIVE_STATE" };
     }
-
-    this._savePromise = (async () => {
-      const p = S.player;
-      const trangBi = p.trangBi || {
-        vuKhi: null, ao: null, giay: null, mu: null,
-        tay: null, nhan: null, vong: null,
-      };
-
-      const playerData = {
-        id: p.id,
-        userId: p.userId,
-        name: p.name,
-        linhCan: p.linhCan,
-        maCanhGioi: p.maCanhGioi || p.canhGioi?.code,
-        tangTuVi: p.tangTuVi || p.stage || 1,
-        tuViHienTai: Math.floor(p.tuViHienTai || 0),
-        tuViLenCap: Math.floor(p.tuViLenCap || 0),
-        tuViLinhCan: Math.floor(p.tuViLinhCan || 0),
-        stats: p.stats || { str: 5, agi: 5, vit: 5, ene: 5 },
-        hp: Math.floor(p.hp || 0),
-        maxHp: p.maxHp || 100,
-        mp: Math.floor(p.mp || 0),
-        maxMp: p.maxMp || 100,
-        xu: Math.floor(p.xu || 0),
-        x: Math.floor(p.x || 0),
-        y: Math.floor(p.y || 0),
-        mapCode: S.mapCode || p.mapCode,
-        mapId: p.mapId || S.mapCode || p.mapCode,
-        jsonIventory: JSON.stringify(S.inventory || []),
-        skills: JSON.stringify((p.skills || []).map(sk => mapFESkillToBE(sk))),
-        equipment: p.equipment || {},
-        equip_slot: JSON.stringify(trangBi),
-        faction: p.faction || "CHINH",
-        guildId: p.guildId || null,
-        crit: String(p.crit || "0"),
-        speed: p.speed || 1,
-        _event: event ? (event.type || "manual") : "auto"
-      };
-
-      try {
-        const res = await this.put(API.PATHS.player.update(playerData.id), playerData);
-        if (res?.id || res?.ok) {
-          if (event) console.log("💾 Đã lưu dữ liệu (Map/Event):", event);
-        }
-      } catch (err) {
-        console.error("⚠ Lỗi lưu dữ liệu:", err);
-      } finally {
-        this._savePromise = null;
-        // Nếu trong lúc lưu có yêu cầu mới, thực hiện lưu tiếp một lần cuối
-        if (this._needsSaveAgain) {
-          this._needsSaveAgain = false;
-          this.saveNow({ type: "follow_up" });
-        }
-      }
-    })();
-    return this._savePromise;
+    const player = S.player;
+    const equipment = player.trangBi || { vuKhi: null, ao: null, giay: null, mu: null, tay: null, nhan: null, vong: null };
+    return this.put(API.PATHS.player.update(player.id), {
+      ...player,
+      userId: player.userId || S.session.user?.id,
+      mapCode: S.mapCode || player.mapCode,
+      mapId: player.mapId || S.mapCode || player.mapCode,
+      jsonIventory: JSON.stringify(S.inventory || []),
+      skills: JSON.stringify((player.skills || []).map((skill) => mapFESkillToBE(skill))),
+      equip_slot: JSON.stringify(equipment),
+      _event: event?.type || "auto",
+    });
   },
 
   startAutoSave() {
     clearInterval(Net._saveTimer);
-    Net._saveTimer = setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS);
+    Net._saveTimer = typeof MockBackend !== "undefined" && MockBackend?.enabled
+      ? setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS)
+      : null;
   },
 
   // ── Socket.io ──
@@ -256,9 +383,20 @@ const Net = {
       });
 
       socket.on("connect_error", (err) => {
-        if (err?.message === "Token không hợp lệ" || err?.message === "Không có token") {
-          sessionStorage.removeItem("tu_tien_token");
-          authToken = null;
+        if (err?.message === "UNAUTHORIZED" && authRefreshToken) {
+          if (!Net._socketRefreshing) {
+            Net._socketRefreshing = true;
+            void Net.refreshSession().then((refreshed) => {
+              if (refreshed && socket) {
+                socket.auth = { token: authToken };
+                if (!socket.active) socket.connect();
+              } else if (!authRefreshToken) {
+                UI.log("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để tiếp tục.", "system");
+              }
+            }).finally(() => { Net._socketRefreshing = false; });
+          }
+        } else if (err?.message === "Token không hợp lệ" || err?.message === "Không có token" || err?.message === "UNAUTHORIZED") {
+          Net.clearSession();
         }
         Net._setBadge(false);
       });

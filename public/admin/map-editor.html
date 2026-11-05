@@ -4,9 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Thiên Địa Đồ · Map Admin</title>
-    <link rel="stylesheet" href="/admin/map-editor.css?v=5" />
+    <link rel="stylesheet" href="/admin/map-editor.css?v=6" />
+    <link rel="stylesheet" href="/admin/admin-auth.css?v=1" />
   </head>
   <body>
+    <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
+      <form id="admin-auth-form" class="admin-auth-form">
+        <span class="eyebrow">QUYỀN QUẢN TRỊ</span>
+        <h2 id="admin-auth-title">Đăng nhập Admin</h2>
+        <p>Dùng tài khoản được cấp role GM hoặc ADMIN.</p>
+        <label for="admin-username">Tài khoản
+          <input id="admin-username" name="username" autocomplete="username" maxlength="20" required />
+        </label>
+        <label for="admin-password">Mật khẩu
+          <input id="admin-password" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p id="admin-auth-error" class="admin-auth-error" role="alert" aria-live="assertive" hidden></p>
+        <button id="admin-auth-submit" type="submit">Đăng nhập</button>
+      </form>
+    </dialog>
     <header class="topbar">
       <div>
         <span class="seal">ĐỒ</span>
@@ -15,7 +31,7 @@
       </div>
       <div class="top-actions">
         <a href="/admin" class="ghost">← Admin Hub</a>
-        <label>Admin key <input id="admin-key" type="password" placeholder="Nhập admin key" autocomplete="off" /></label>
+        <div class="admin-auth-session"><span id="admin-user-label">Chưa đăng nhập</span><button id="admin-logout" type="button" aria-label="Đăng xuất Admin" hidden>Đăng xuất</button></div>
         <select id="map-list"><option value="">Map mới</option></select>
         <button id="load-map" class="ghost">Mở map</button>
         <button id="save-map" class="primary">Lưu lên server</button>
@@ -163,7 +179,8 @@
         </footer>
       </section>
     </main>
-    <script src="/js/api.js"></script>
-    <script src="/admin/map-editor.js?v=5"></script>
+    <script src="/js/api.js?v=4"></script>
+    <script src="/admin/admin-auth.js?v=1"></script>
+    <script src="/admin/map-editor.js?v=7"></script>
   </body>
 </html>

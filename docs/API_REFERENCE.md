@@ -1,6 +1,6 @@
-# 🔌 API REFERENCE — Backend :3000
+# 🔌 API REFERENCE — FE ↔ Modular BE
 
-> Base URL: `http://localhost:3000`
+> Local BE URL: `http://localhost:3800` (FE API origin remains configurable)
 > Auth: `Bearer <token>` trong header `Authorization`
 
 ---
@@ -10,11 +10,13 @@
 | Method | Endpoint | Body | Response | Auth |
 |--------|----------|------|----------|------|
 | POST | `/api/auth/register` | `{username, password}` | `{token, user}` | ❌ |
-| POST | `/api/auth/login` | `{username, password}` | `{token, user}` | ❌ |
-| GET | `/api/auth/me` | — | `{user}` | ✅ |
+| POST | `/api/auth/login` | `{username, password}` | `{user: {id, username, role}, token, accessToken, refreshToken}` | ❌ |
+| GET | `/api/auth/me` | — | `{user: {id, username, role}}` | ✅ |
+| POST | `/api/auth/refresh` | `{refreshToken}` | `{user: {id, username, role}, token, accessToken, refreshToken}` | ❌ |
+| POST | `/api/auth/logout` | `{refreshToken}` | `{ok: true}` | ❌ |
 
 Đăng ký mới dùng username 3-20 ký tự (chữ, số, `_`, `-`) và password 8-72 byte UTF-8.
-Endpoint demo chỉ hoạt động ngoài production.
+BE cấp access token 15 phút và refresh token 30 ngày; mỗi lần refresh xoay vòng token cũ. Endpoint demo chỉ hoạt động ngoài production. Đăng ký công khai không cấp role quản trị; role `GM`/`ADMIN` phải do BE cấp.
 
 ---
 
@@ -78,7 +80,9 @@ chuyên biệt; vị trí online được cập nhật bởi socket server.
 | POST | `/api/worlds` | WorldData | WorldData+id | Admin |
 | PUT | `/api/worlds/:id` | WorldData | WorldData | Admin |
 
-MVP hiện dùng `x-admin-key` cho các endpoint editor:
+Admin FE đăng nhập qua `POST /api/auth/login`, xác minh role bằng `GET /api/auth/me`, rồi gửi `Authorization: Bearer <accessToken>` cho các endpoint quản trị. Chỉ role `GM` và `ADMIN` được phép; FE lưu phiên trong `sessionStorage`, refresh token khi access token hết hạn và gọi logout để thu hồi refresh token. FE không gửi `x-admin-key`.
+
+Các endpoint quản trị map gồm:
 
 - `GET /api/admin/worlds`: danh sách map và phiên bản.
 - `POST /api/admin/worlds`: tạo map mới.

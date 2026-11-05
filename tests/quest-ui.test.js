@@ -16,7 +16,7 @@ function createHarness({ get = async () => ({}), post = async () => ({}) } = {})
       track: (id) => `/api/quests/${encodeURIComponent(id)}/track`,
       claim: (id) => `/api/quests/${encodeURIComponent(id)}/claim`,
     } } },
-    Net: { get, post },
+    Net: { get, post, mutate: async (_method, url, body) => post(url, body) },
     Input: { keys: {} },
     S: { player: null },
     UI: { buildInv() {}, update() {} },

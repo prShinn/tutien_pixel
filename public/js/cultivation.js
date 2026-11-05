@@ -105,11 +105,11 @@ const Cultivation = {
     }
     const item = S.inventory[idx];
     if (authToken) {
-      const result = await Net.post(API.PATHS.player.absorb, { itemId: item.id, amount: item.giaTriTuVi || 0 });
+      const result = await Net.mutate("POST", API.PATHS.player.absorb, { itemCode: item.itemCode || item.id });
       if (!result?.player) return UI.log(result?.error || "Không thể hấp thụ tu vi.", "system");
-      Object.assign(p, result.player);
-      Inventory.remove(idx);
+      Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon} Hấp thu ${item.name} → Tu Vi +${result.result.amount}`, "level");
+      UI.buildInv();
       UI.update();
       return;
     }
@@ -154,10 +154,9 @@ const Cultivation = {
     }
 
     if (authToken) {
-      const result = await Net.post(API.PATHS.player.breakthrough, {});
+      const result = await Net.mutate("POST", API.PATHS.player.breakthrough, {});
       if (!result?.player) return UI.log(result?.error || "Không thể đột phá.", "system");
-      Object.assign(p, result.player);
-      S.player = { ...p };
+      Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(result.result?.major ? "🌟 Thăng cảnh giới!" : `⚡ Đột phá tầng ${p.tangTuVi}!`, "level");
       UI.update();
       return;
@@ -169,7 +168,7 @@ const Cultivation = {
       this.applyBreakthroughStats(p, false);
       UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
     } else {
-      const res = await Net.get(`${API.PATHS.data.realms}/${p.canhGioi.stt + 1}`);
+      const res = await Net.get(`${API.PATHS.data.realms}/stt/${p.canhGioi.stt + 1}`);
       p.canhGioi = res;
       p.realm = res.stt || p.realm + 1;
       p.tangTuVi = 1;

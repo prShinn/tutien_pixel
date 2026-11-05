@@ -247,14 +247,136 @@ const PREVIEW_RGB = {
   0: [66, 111, 63], 1: [113, 111, 103], 2: [49, 95, 121], 3: [51, 45, 42],
   4: [117, 100, 72], 5: [43, 91, 53], 6: [107, 104, 96], 7: [146, 123, 81],
 };
+const PREVIEW_AUTOTILE_SIZE = 8;
+const PREVIEW_AUTOTILE_VARIANTS = 4;
+const PREVIEW_AUTOTILE_TYPES = [0, 1, 2, 4, 7];
+const PREVIEW_AUTOTILE_DIRECTIONS = [
+  { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
+  { bit: 4, dx: 0, dy: 1 }, { bit: 8, dx: -1, dy: 0 },
+  { bit: 16, dx: 1, dy: -1 }, { bit: 32, dx: 1, dy: 1 },
+  { bit: 64, dx: -1, dy: 1 }, { bit: 128, dx: -1, dy: -1 },
+];
+function normalizePreviewMask(mask) {
+  const north = Boolean(mask & 1), east = Boolean(mask & 2);
+  const south = Boolean(mask & 4), west = Boolean(mask & 8);
+  if (!(north && east)) mask &= ~16;
+  if (!(east && south)) mask &= ~32;
+  if (!(south && west)) mask &= ~64;
+  if (!(west && north)) mask &= ~128;
+  return mask;
+}
+const PREVIEW_AUTOTILE_MASKS = Array.from({ length: 256 }, (_, mask) => mask)
+  .filter((mask) => normalizePreviewMask(mask) === mask);
+const PREVIEW_AUTOTILE_MASK_INDEX = new Map(PREVIEW_AUTOTILE_MASKS.map((mask, index) => [mask, index]));
+const PREVIEW_AUTOTILE_URL = "/assets/tilesets/temperate-47.svg";
 let previewCanvas = null;
+let previewAutotileAtlas = null;
+let previewAutotileLoading = false;
 let scheduledDraw = 0;
+
+function loadPreviewAutotileAtlas() {
+  if (previewAutotileAtlas || previewAutotileLoading || typeof Image === "undefined") return;
+  previewAutotileLoading = true;
+  const image = new Image();
+  image.onload = () => {
+    previewAutotileLoading = false;
+    if (image.naturalWidth !== PREVIEW_AUTOTILE_MASKS.length * PREVIEW_AUTOTILE_VARIANTS * PREVIEW_AUTOTILE_SIZE
+      || image.naturalHeight !== PREVIEW_AUTOTILE_TYPES.length * PREVIEW_AUTOTILE_SIZE) return;
+    previewAutotileAtlas = image;
+    requestDraw();
+  };
+  image.onerror = () => { previewAutotileLoading = false; };
+  image.src = PREVIEW_AUTOTILE_URL;
+}
+
+function previewHash(x, y, seed = 0) {
+  return (Math.imul(x + 31, 73856093) ^ Math.imul(y + 17, 19349663) ^ Math.imul(seed + 7, 83492791)) >>> 0;
+}
+
+function drawAutotiledPreview(preview) {
+  const cellSize = PREVIEW_AUTOTILE_SIZE;
+  const columns = Math.ceil(editor.width / cellSize);
+  const rows = Math.ceil(editor.height / cellSize);
+  const kinds = Array.from({ length: rows }, () => Array(columns).fill(TILE.GRASS));
+  const groundAt = (x, y) => {
+    const type = Number(editor.ground[y]?.[x] ?? TILE.GRASS);
+    return PREVIEW_AUTOTILE_TYPES.includes(type) ? type : TILE.GRASS;
+  };
+
+  for (let cellY = 0; cellY < rows; cellY += 1) {
+    for (let cellX = 0; cellX < columns; cellX += 1) {
+      const counts = Array(8).fill(0);
+      const endY = Math.min(editor.height, (cellY + 1) * cellSize);
+      const endX = Math.min(editor.width, (cellX + 1) * cellSize);
+      for (let y = cellY * cellSize; y < endY; y += 1) {
+        for (let x = cellX * cellSize; x < endX; x += 1) {
+          const type = groundAt(x, y);
+          counts[type] += 1;
+        }
+      }
+      let dominant = TILE.GRASS, dominantCount = -1;
+      for (const type of PREVIEW_AUTOTILE_TYPES) {
+        if (counts[type] > dominantCount) { dominant = type; dominantCount = counts[type]; }
+      }
+      kinds[cellY][cellX] = dominant;
+    }
+  }
+
+  preview.imageSmoothingEnabled = false;
+  const typeRows = new Map(PREVIEW_AUTOTILE_TYPES.map((type, index) => [type, index]));
+  for (let cellY = 0; cellY < rows; cellY += 1) {
+    for (let cellX = 0; cellX < columns; cellX += 1) {
+      const type = kinds[cellY][cellX];
+      let mask = 0;
+      for (const direction of PREVIEW_AUTOTILE_DIRECTIONS) {
+        if (kinds[cellY + direction.dy]?.[cellX + direction.dx] === type) mask |= direction.bit;
+      }
+      mask = normalizePreviewMask(mask);
+      const maskIndex = PREVIEW_AUTOTILE_MASK_INDEX.get(mask) ?? 0;
+      const variant = previewHash(cellX, cellY, type) % PREVIEW_AUTOTILE_VARIANTS;
+      const sourceX = (maskIndex * PREVIEW_AUTOTILE_VARIANTS + variant) * cellSize;
+      const sourceY = typeRows.get(type) * cellSize;
+      preview.drawImage(previewAutotileAtlas, sourceX, sourceY, cellSize, cellSize,
+        cellX * cellSize, cellY * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
+function drawPreviewObjectsAndElevation(preview) {
+  const overlay = preview.createImageData(editor.width, editor.height);
+  for (let y = 0; y < editor.height; y += 1) {
+    for (let x = 0; x < editor.width; x += 1) {
+      const object = Number(editor.objects[y]?.[x] ?? TILE.EMPTY);
+      const elevation = Math.max(0, Number(editor.elevation[y]?.[x] || 0));
+      const index = (y * editor.width + x) * 4;
+      if (object >= 0) {
+        const base = PREVIEW_RGB[object] || PREVIEW_RGB[TILE.GRASS];
+        const variation = (randomAt(x, y, 1337) - .5) * 9;
+        overlay.data[index] = Math.max(0, Math.min(255, Math.round(base[0] + variation)));
+        overlay.data[index + 1] = Math.max(0, Math.min(255, Math.round(base[1] + variation)));
+        overlay.data[index + 2] = Math.max(0, Math.min(255, Math.round(base[2] + variation)));
+        overlay.data[index + 3] = 255;
+      } else if (elevation) {
+        overlay.data[index] = 235;
+        overlay.data[index + 1] = 225;
+        overlay.data[index + 2] = 190;
+        overlay.data[index + 3] = Math.min(72, Math.round(elevation * 18));
+      }
+    }
+  }
+  preview.putImageData(overlay, 0, 0);
+}
 
 function buildPreviewCache() {
   if (!previewCanvas) previewCanvas = document.createElement("canvas");
   previewCanvas.width = editor.width;
   previewCanvas.height = editor.height;
   const preview = previewCanvas.getContext("2d");
+  if (previewAutotileAtlas) {
+    drawAutotiledPreview(preview);
+    drawPreviewObjectsAndElevation(preview);
+    return;
+  }
   const image = preview.createImageData(editor.width, editor.height);
   for (let y = 0; y < editor.height; y += 1) {
     for (let x = 0; x < editor.width; x += 1) {
@@ -454,9 +576,8 @@ function mapPayload() {
   };
 }
 
-function adminHeaders(json = false) {
-  return { "x-admin-key": $("admin-key").value, ...(json ? { "content-type": "application/json" } : {}) };
-}
+function adminHeaders(json = false) { return json ? { "content-type": "application/json" } : {}; }
+function adminFetch(url, options = {}) { return AdminAuth.fetch(url, options); }
 
 function refreshPortalTargets(selected = "") {
   const sourceCode = $("map-code").value.trim().toLowerCase();
@@ -528,7 +649,7 @@ async function savePortalLink() {
 
   await saveMap();
   const target = editor.mapCatalog.get(targetCode);
-  const response = await fetch(API.BASE + API.PATHS.admin.linkPortal, {
+  const response = await adminFetch(API.BASE + API.PATHS.admin.linkPortal, {
     method: "POST",
     headers: adminHeaders(true),
     body: JSON.stringify({
@@ -554,7 +675,7 @@ async function savePortalLink() {
 
 async function deletePortal() {
   if (!editor.currentCode || !editor.selectedPortalId) return;
-  const response = await fetch(API.BASE + API.PATHS.admin.portal(editor.currentCode, editor.selectedPortalId), {
+  const response = await adminFetch(API.BASE + API.PATHS.admin.portal(editor.currentCode, editor.selectedPortalId), {
     method: "DELETE",
     headers: adminHeaders(),
   });
@@ -639,14 +760,14 @@ function renderValidation(validation) {
 
 async function validateMap() {
   if (!editor.currentCode) await saveMap();
-  const response = await fetch(API.BASE + API.PATHS.admin.validateWorld(editor.currentCode), { headers: adminHeaders() });
+  const response = await adminFetch(API.BASE + API.PATHS.admin.validateWorld(editor.currentCode), { headers: adminHeaders() });
   const data = await response.json(); if (!response.ok) throw new Error(data.error || "Không kiểm tra được map");
   renderValidation(data); return data;
 }
 
 async function publishMap() {
   await saveMap();
-  const response = await fetch(API.BASE + API.PATHS.admin.publishWorld(editor.currentCode), { method: "POST", headers: adminHeaders() });
+  const response = await adminFetch(API.BASE + API.PATHS.admin.publishWorld(editor.currentCode), { method: "POST", headers: adminHeaders() });
   const data = await response.json();
   if (!response.ok) { renderValidation(data.validation); throw new Error(data.error || "Không xuất bản được map"); }
   editor.status = "PUBLISHED"; $("publish-status").textContent = editor.status; $("publish-status").classList.add("published");
@@ -654,7 +775,7 @@ async function publishMap() {
 }
 
 async function refreshMapList(selected = "") {
-  const response = await fetch(API.BASE + API.PATHS.admin.worlds, { headers: adminHeaders() });
+  const response = await adminFetch(API.BASE + API.PATHS.admin.worlds, { headers: adminHeaders() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không tải được danh sách map");
   editor.knownMaps = new Set(data.map((map) => map.code));
@@ -678,7 +799,7 @@ async function loadMap() {
   const code = $("map-list").value;
   if (!code) { generateMap(); return; }
   setStatus("Đang tải map…");
-  const response = await fetch(API.BASE + API.PATHS.admin.world(code), { headers: adminHeaders() });
+  const response = await adminFetch(API.BASE + API.PATHS.admin.world(code), { headers: adminHeaders() });
   const world = await response.json();
   if (!response.ok) throw new Error(world.error || "Không tải được map");
   editor.width = Number(world.w); editor.height = Number(world.h);
@@ -719,7 +840,7 @@ async function saveMap() {
   const exists = editor.knownMaps.has(payload.code);
   const url = exists ? API.BASE + API.PATHS.admin.world(payload.code) : API.BASE + API.PATHS.admin.worlds;
   setStatus("Đang lưu lên server…");
-  const response = await fetch(url, { method: exists ? "PUT" : "POST", headers: adminHeaders(true), body: JSON.stringify(payload) });
+  const response = await adminFetch(url, { method: exists ? "PUT" : "POST", headers: adminHeaders(true), body: JSON.stringify(payload) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không lưu được map");
   editor.currentCode = data.code;
@@ -773,8 +894,15 @@ canvas.addEventListener("pointercancel", () => { editor.painting = false; });
 
 updateRangeLabels();
 renderPalette();
+loadPreviewAutotileAtlas();
 generateMap();
-refreshMapList().then(() => {
-  if (new URLSearchParams(window.location.search).get("map")) return loadMap();
-}).catch((error) => setStatus(`${error.message} · kiểm tra Admin key cấu hình trên server`, "error"));
-refreshMonsterCatalog().catch((error) => setStatus(error.message, "error"));
+async function initializeMapEditorData() {
+  await refreshMapList();
+  if (new URLSearchParams(window.location.search).get("map")) await loadMap();
+  await refreshMonsterCatalog();
+}
+function loadMapEditorAfterLogin() {
+  void initializeMapEditorData().catch((error) => setStatus(`${error.message} · cần tài khoản GM/ADMIN`, "error"));
+}
+void AdminAuth.ready.then((authenticated) => { if (authenticated) loadMapEditorAfterLogin(); });
+window.addEventListener("admin:authenticated", loadMapEditorAfterLogin);

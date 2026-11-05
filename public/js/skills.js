@@ -132,12 +132,22 @@ const SkillSystem = {
   },
 
   async learnSkill(code) {
-    const result = await Net.post(API.PATHS.player.learnSkill, { skillCode: code, source: "book" });
-    if (result?.learnedSkills) {
+    try {
+      const result = await Net.mutate("POST", API.PATHS.player.learnSkill, { skillCode: code, source: "book" });
+      if (!result?.learnedSkills) {
+        UI.notify(result?.error || "Chưa thể lĩnh hội kỹ năng này.", "error");
+        return;
+      }
       if (!this._book) await this.loadBook();
-      this._book.learnedSkills = result.learnedSkills;
+      if (this._book) this._book.learnedSkills = result.learnedSkills;
+      if (S.player) {
+        S.player.learnedSkills = result.learnedSkills;
+        if (Number.isFinite(Number(result.combatPower))) S.player.combatPower = Number(result.combatPower);
+      }
       this.renderSkillBook();
       UI.log("Đã lĩnh hội thần thông: " + (result.skill?.name || code), "level");
+    } catch {
+      UI.notify("Mất kết nối khi lĩnh hội kỹ năng. Hãy thử lại.", "error");
     }
   },
 
@@ -158,7 +168,7 @@ const SkillSystem = {
       button.textContent = "Đang lưu…";
     }
     try {
-      const result = await Net.put(API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
+      const result = await Net.mutate("PUT", API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
       if (result?.skills) {
         S.player.skills = result.skills.map(mapBESkillToFE);
         S.player.equippedSkills = result.equippedSkills;

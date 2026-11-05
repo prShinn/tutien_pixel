@@ -26,20 +26,14 @@ const TC = {
 
 const AUTOTILE_SIZE = 8;
 const AUTOTILE_VARIANTS = 4;
+const AUTOTILE_ATLAS_URL = "/assets/tilesets/temperate-47.svg";
 const AUTOTILE_DIRECTIONS = [
   { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
   { bit: 4, dx: 0, dy: 1 }, { bit: 8, dx: -1, dy: 0 },
   { bit: 16, dx: 1, dy: -1 }, { bit: 32, dx: 1, dy: 1 },
   { bit: 64, dx: -1, dy: 1 }, { bit: 128, dx: -1, dy: -1 },
 ];
-const AUTOTILE_PALETTES = {
-  0: { base: "#2a5a28", shade: "#21491f", light: "#3c7434", edge: "#84754a", detail: "#91a95a" },
-  1: { base: "#5a5a68", shade: "#454550", light: "#777786", edge: "#34343f", detail: "#a5a5ad" },
-  2: { base: "#1a3a6a", shade: "#102b53", light: "#2a5a9a", edge: "#73bfd0", detail: "#73bfd0" },
-  4: { base: "#3a3020", shade: "#2d2519", light: "#56452b", edge: "#806842", detail: "#a38a58" },
-  7: { base: "#4a4030", shade: "#3b3428", light: "#69583a", edge: "#897149", detail: "#b09a65" },
-};
-const AUTOTILE_GROUND_TYPES = Object.keys(AUTOTILE_PALETTES).map(Number);
+const AUTOTILE_GROUND_TYPES = [0, 1, 2, 4, 7];
 
 function normalizeAutotileMask(mask) {
   const north = Boolean(mask & 1), east = Boolean(mask & 2), south = Boolean(mask & 4), west = Boolean(mask & 8);
@@ -53,6 +47,7 @@ function normalizeAutotileMask(mask) {
 const AUTOTILE_MASKS = Array.from({ length: 256 }, (_, mask) => mask)
   .filter((mask) => normalizeAutotileMask(mask) === mask);
 const AUTOTILE_MASK_INDEX = new Map(AUTOTILE_MASKS.map((mask, index) => [mask, index]));
+const AUTOTILE_ATLAS_COLUMNS = AUTOTILE_MASKS.length * AUTOTILE_VARIANTS;
 
 function autotileHash(x, y, seed = 0) {
   return (Math.imul(x + 31, 73856093) ^ Math.imul(y + 17, 19349663) ^ Math.imul(seed + 7, 83492791)) >>> 0;
@@ -61,85 +56,31 @@ function autotileHash(x, y, seed = 0) {
 const Render = {
   _remoteWalkState: new WeakMap(),
   _autotileAtlas: null,
+  _autotileAtlasLoading: false,
+  _autotileAtlasFailed: false,
 
   buildAutotileAtlas() {
     if (this._autotileAtlas) return this._autotileAtlas;
-    const atlas = document.createElement("canvas");
-    atlas.width = AUTOTILE_MASKS.length * AUTOTILE_VARIANTS * AUTOTILE_SIZE;
-    atlas.height = AUTOTILE_GROUND_TYPES.length * AUTOTILE_SIZE;
-    const atlasCtx = atlas.getContext("2d");
-    if (!atlasCtx) return null;
-    atlasCtx.imageSmoothingEnabled = false;
-
-    for (let row = 0; row < AUTOTILE_GROUND_TYPES.length; row += 1) {
-      const type = AUTOTILE_GROUND_TYPES[row];
-      const colors = AUTOTILE_PALETTES[type];
-      for (let maskIndex = 0; maskIndex < AUTOTILE_MASKS.length; maskIndex += 1) {
-        const mask = AUTOTILE_MASKS[maskIndex];
-        for (let variant = 0; variant < AUTOTILE_VARIANTS; variant += 1) {
-          const originX = (maskIndex * AUTOTILE_VARIANTS + variant) * AUTOTILE_SIZE;
-          const originY = row * AUTOTILE_SIZE;
-          atlasCtx.fillStyle = colors.base;
-          atlasCtx.fillRect(originX, originY, AUTOTILE_SIZE, AUTOTILE_SIZE);
-
-          for (let y = 0; y < AUTOTILE_SIZE; y += 1) {
-            for (let x = 0; x < AUTOTILE_SIZE; x += 1) {
-              const hash = autotileHash(x + variant * 11, y + maskIndex * 3, type);
-              const detail = hash % 29;
-              if (detail === 0 || detail === 1) {
-                atlasCtx.fillStyle = colors.shade;
-                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
-              } else if (detail === 2) {
-                atlasCtx.fillStyle = colors.light;
-                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
-              }
-              if (type === 2 && y === 2 + ((x + variant) % 4) && detail < 5) {
-                atlasCtx.fillStyle = colors.detail;
-                atlasCtx.fillRect(originX + x, originY + y, 1, 1);
-              }
-            }
-          }
-
-          const edge = (side, i) => {
-            const sideBit = { north: 1, east: 2, south: 4, west: 8 }[side];
-            if (mask & sideBit) return;
-            const jitter = autotileHash(i, maskIndex, variant + type) % 3;
-            const x = side === "east" ? AUTOTILE_SIZE - 1 : side === "west" ? 0 : i;
-            const y = side === "south" ? AUTOTILE_SIZE - 1 : side === "north" ? 0 : i;
-            atlasCtx.fillStyle = colors.edge;
-            if (type === 2) {
-              if (jitter !== 0) atlasCtx.fillRect(originX + x, originY + y, 1, 1);
-            } else {
-              atlasCtx.fillRect(originX + x, originY + y, 1, 1);
-              if (jitter === 1 && i > 0 && i < AUTOTILE_SIZE - 1) {
-                const insetX = side === "east" ? -1 : side === "west" ? 1 : 0;
-                const insetY = side === "south" ? -1 : side === "north" ? 1 : 0;
-                atlasCtx.fillRect(originX + x + insetX, originY + y + insetY, 1, 1);
-              }
-            }
-          };
-          for (let i = 0; i < AUTOTILE_SIZE; i += 1) {
-            edge("north", i); edge("east", i); edge("south", i); edge("west", i);
-          }
-
-          // The 47-mask table includes rounded outer corners where a diagonal is absent.
-          const corners = [
-            { sides: 1 | 8, diagonal: 128, x: 0, y: 0 },
-            { sides: 1 | 2, diagonal: 16, x: AUTOTILE_SIZE - 1, y: 0 },
-            { sides: 2 | 4, diagonal: 32, x: AUTOTILE_SIZE - 1, y: AUTOTILE_SIZE - 1 },
-            { sides: 4 | 8, diagonal: 64, x: 0, y: AUTOTILE_SIZE - 1 },
-          ];
-          atlasCtx.fillStyle = colors.edge;
-          for (const corner of corners) {
-            if ((mask & corner.sides) === corner.sides && !(mask & corner.diagonal)) {
-              atlasCtx.fillRect(originX + corner.x, originY + corner.y, 1, 1);
-            }
-          }
+    if (!this._autotileAtlasLoading && !this._autotileAtlasFailed && typeof Image !== "undefined") {
+      this._autotileAtlasLoading = true;
+      const atlas = new Image();
+      atlas.onload = () => {
+        this._autotileAtlasLoading = false;
+        if (atlas.naturalWidth !== AUTOTILE_ATLAS_COLUMNS * AUTOTILE_SIZE
+          || atlas.naturalHeight !== AUTOTILE_GROUND_TYPES.length * AUTOTILE_SIZE) {
+          this._autotileAtlasFailed = true;
+          return;
         }
-      }
+        this._autotileAtlas = atlas;
+        if (S.tiles?.length && S.mapW && S.mapH) this.buildTerrainCache();
+      };
+      atlas.onerror = () => {
+        this._autotileAtlasLoading = false;
+        this._autotileAtlasFailed = true;
+      };
+      atlas.src = AUTOTILE_ATLAS_URL;
     }
-    this._autotileAtlas = atlas;
-    return atlas;
+    return this._autotileAtlas;
   },
 
   buildTerrainCache() {

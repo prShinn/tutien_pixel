@@ -78,7 +78,7 @@ function createAdminHarness({ authorized = true, failMutations = false } = {}) {
       const classes = new Set();
       elements.set(id, {
         id,
-        value: id === "admin-key" && authorized ? "demo-admin" : "",
+        value: "",
         textContent: "",
         innerHTML: "",
         disabled: false,
@@ -112,8 +112,8 @@ function createAdminHarness({ authorized = true, failMutations = false } = {}) {
     let data;
     let status = 200;
     const method = options.method || "GET";
-    if (url.includes("/api/admin/") && (!authorized || options.headers?.["x-admin-key"] !== "demo-admin")) {
-      return { ok: false, status: 401, json: async () => ({ error: "Admin key không hợp lệ" }) };
+    if (url.includes("/api/admin/") && (!authorized || options.headers?.Authorization !== "Bearer demo-admin")) {
+      return { ok: false, status: 401, json: async () => ({ error: "Phiên Admin cần role GM/ADMIN" }) };
     }
     if (url.endsWith("/api/admin/skill-vfx")) {
       if (method === "GET") data = { profiles: structuredClone(profiles) };
@@ -176,6 +176,14 @@ function createAdminHarness({ authorized = true, failMutations = false } = {}) {
     performance: { now: () => 1000 },
     console: { warn() {}, error() {} },
     setImmediate,
+    AdminAuth: {
+      ready: Promise.resolve(true),
+      isAdminUrl(url) { return String(url).includes("/api/admin/"); },
+      fetch(url, options = {}) {
+        const headers = { ...(options.headers || {}), Authorization: "Bearer demo-admin" };
+        return fetch(url, { ...options, headers });
+      },
+    },
   });
   context.window = context;
   vm.runInContext(`${source}\nglobalThis.__SkillVFX = SkillVFX;\n${contentUtilsSource}\n${contentManagerSource}\n${adminSource}`, context, { filename: "admin.js" });
@@ -205,12 +213,13 @@ test("built-in profile keeps skill form, element palette, and default duration",
 
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
   assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=5/);
-  assert.match(adminHtml, /js\/api\.js\?v=3/);
+  assert.match(adminHtml, /js\/api\.js\?v=4/);
   assert.match(adminHtml, /admin\.css\?v=4/);
   assert.match(adminHtml, /js\/skill-vfx\.js\?v=4/);
   assert.match(adminHtml, /admin\/content-utils\.js\?v=1/);
   assert.match(adminHtml, /admin\/content-manager\.js\?v=1/);
-  assert.match(adminHtml, /admin\.js\?v=7/);
+  assert.match(adminHtml, /admin\/admin-auth\.js\?v=1/);
+  assert.match(adminHtml, /admin\.js\?v=8/);
   assert.match(adminHtml, /Cấu hình được dùng chung trên máy chủ game hiện tại/);
   assert.doesNotMatch(adminHtml, /trong hồ sơ trình duyệt hiện tại/);
 });
@@ -391,12 +400,12 @@ test("Admin HTML bindings load catalog and complete create, update, and delete",
   assert.equal(admin.elements.get("vfx-profile-badge").textContent, "Mặc định");
 });
 
-test("Admin VFX controls stay disabled when the admin key is rejected", async () => {
+test("Admin VFX controls stay disabled when the Bearer session is rejected", async () => {
   const admin = createAdminHarness({ authorized: false });
   admin.listeners.get("nav:click")({ preventDefault() {} });
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.match(admin.elements.get("vfx-skill-list").innerHTML, /Admin key không hợp lệ/);
+  assert.match(admin.elements.get("vfx-skill-list").innerHTML, /role GM\/ADMIN/);
   assert.equal(admin.elements.get("vfx-create").disabled, true);
   assert.equal(admin.elements.get("vfx-label").disabled, true);
   admin.listeners.get("vfx-create:click")();
