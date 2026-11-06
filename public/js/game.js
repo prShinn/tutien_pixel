@@ -521,6 +521,7 @@ function enterGame(map, x, y) {
   UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "chat");
   UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "chat");
   Net.connectSocket();
+  if (S.session?.user?.id && typeof QuestUI !== "undefined") void QuestUI.refresh();
   Net.startAutoSave();
 
   // Chỉ snapshot cho demo mock; BE lưu qua mutation/API gameplay authority.

@@ -3,6 +3,7 @@ const QuestUI = {
   filter: "all",
   selectedId: "first-journey",
   trackedId: null,
+  dismissedTrackerQuestId: null,
   returnFocus: null,
   quests: [],
   revision: -1,
@@ -54,6 +55,21 @@ const QuestUI = {
     void this.refresh();
   },
 
+  openTrackerDetails() {
+    const modal = document.getElementById("quest-modal");
+    if (!modal) return;
+    const quest = this.trackerQuest();
+    if (quest) {
+      this.selectedId = quest.id;
+      this.filter = "all";
+    }
+    if (modal.style.display === "flex") {
+      this.render();
+      return;
+    }
+    this.toggle();
+  },
+
   close() {
     const modal = document.getElementById("quest-modal");
     if (modal) modal.style.display = "none";
@@ -90,8 +106,18 @@ const QuestUI = {
     const revision = Number(snapshot.revision);
     if (Number.isFinite(revision) && revision < this.revision) return;
     if (Number.isFinite(revision)) this.revision = revision;
+    const dismissedId = this.dismissedTrackerQuestId;
+    const previousDismissedQuest = this.quests.find((quest) => quest.id === dismissedId);
     this.quests = snapshot.quests.filter((quest) => quest && typeof quest.id === "string");
     this.trackedId = typeof snapshot.trackedId === "string" ? snapshot.trackedId : null;
+    if (dismissedId) {
+      const updatedDismissedQuest = this.quests.find((quest) => quest.id === dismissedId);
+      if (!previousDismissedQuest || !updatedDismissedQuest
+          || previousDismissedQuest.status !== updatedDismissedQuest.status
+          || this.trackedId) {
+        this.dismissedTrackerQuestId = null;
+      }
+    }
     if (!this.quests.some((quest) => quest.id === this.selectedId)) {
       this.selectedId = this.quests[0]?.id || null;
     }
@@ -123,7 +149,15 @@ const QuestUI = {
           : API.PATHS.quests.track(questId);
       const result = await Net.mutate("POST", path, {});
       if (result?.error) throw new Error(result.error);
+      const claimedQuest = action === "claim" ? this.quests.find((quest) => quest.id === questId) : null;
       this.applySnapshot(result);
+      if (action === "claim" && claimedQuest?.category === "main") {
+        const nextMainQuest = this.quests.find((quest) => quest.category === "main" && quest.status === "available");
+        if (nextMainQuest) {
+          this.selectedId = nextMainQuest.id;
+          this.filter = "all";
+        }
+      }
       this.syncPlayer(result.player);
       this.message = action === "claim"
         ? "Đã nhận phần thưởng nhiệm vụ."
@@ -179,9 +213,24 @@ const QuestUI = {
     if (countEl) countEl.textContent = String(count);
   },
 
+  trackerQuest() {
+    const visible = (quest) => quest && quest.id !== this.dismissedTrackerQuestId;
+    const find = (predicate) => this.quests.find((quest) => visible(quest) && predicate(quest)) || null;
+    const isTrackable = (quest) => quest.status === "active" || quest.status === "ready";
+
+    return find((quest) => quest.category === "main" && quest.status === "ready")
+      || find((quest) => quest.id === this.trackedId && quest.category === "main" && quest.status === "active")
+      || find((quest) => quest.id === this.trackedId && isTrackable(quest))
+      || find((quest) => quest.category === "main" && quest.status === "active")
+      || find((quest) => quest.category === "main" && quest.status === "available")
+      || find((quest) => quest.status === "ready")
+      || find((quest) => quest.status === "active")
+      || find((quest) => quest.status === "available");
+  },
+
   renderTracker() {
     const tracker = document.getElementById("quest-tracker");
-    const quest = this.quests.find((entry) => entry.id === this.trackedId && entry.status === "active");
+    const quest = this.trackerQuest();
     if (!tracker) return;
     if (!quest) {
       tracker.style.display = "none";
@@ -189,13 +238,59 @@ const QuestUI = {
     }
     tracker.style.display = "flex";
     const title = document.getElementById("quest-tracker-title");
+    const state = document.getElementById("quest-tracker-state");
     const objective = document.getElementById("quest-tracker-objective");
+    const location = document.getElementById("quest-tracker-location");
+    const guide = document.getElementById("quest-tracker-guide");
     const count = document.getElementById("quest-tracker-count");
     const fill = document.getElementById("quest-tracker-fill");
+    const progressBar = tracker.querySelector(".quest-tracker-progress");
+    const openButton = tracker.querySelector(".quest-tracker-open");
+    const openLabel = document.getElementById("quest-tracker-open-label");
+    const closeButton = tracker.querySelector(".quest-tracker-close");
+    const progress = Math.max(0, Number(quest.progress) || 0);
+    const target = Math.max(0, Number(quest.target) || 0);
+    const isTrackedActive = quest.id === this.trackedId && quest.status === "active";
+    const statusMessages = {
+      active: "ĐANG THỰC HIỆN",
+      ready: "HOÀN TẤT · MỞ SỔ ĐỂ NHẬN THƯỞNG",
+      available: "NHIỆM VỤ MỚI · MỞ SỔ ĐỂ NHẬN",
+    };
+    const openLabels = {
+      active: "CHI TIẾT",
+      ready: "MỞ ĐỂ NHẬN THƯỞNG",
+      available: "MỞ ĐỂ NHẬN NV",
+    };
     if (title) title.textContent = quest.title;
+    if (state) {
+      state.className = `quest-tracker-state quest-tracker-state--${quest.status}`;
+      state.textContent = statusMessages[quest.status] || "NHIỆM VỤ";
+    }
     if (objective) objective.textContent = quest.objective;
-    if (count) count.textContent = `${quest.progress} / ${quest.target}`;
-    if (fill) fill.style.width = `${Math.min(100, Math.round((quest.progress / Math.max(1, quest.target)) * 100))}%`;
+    if (location) location.textContent = quest.location ? `KHU VỰC · ${quest.location}` : "KHU VỰC · Chưa xác định";
+    if (guide) {
+      const giver = quest.giver ? `NPC giao: ${quest.giver}. ` : "";
+      guide.textContent = `${giver}${quest.summary || "Thực hiện mục tiêu để tiếp tục hành trình."}`;
+    }
+    if (count) {
+      count.textContent = quest.status === "available"
+        ? "Chưa nhận nhiệm vụ"
+        : quest.status === "ready"
+          ? `${progress} / ${target} · Đã đủ mục tiêu`
+          : `${progress} / ${target}`;
+    }
+    if (progressBar) progressBar.style.display = quest.status === "available" ? "none" : "block";
+    if (fill) {
+      const ratio = quest.status === "ready" ? 100 : Math.min(100, Math.round((progress / Math.max(1, target)) * 100));
+      fill.style.width = `${ratio}%`;
+    }
+    if (openLabel) openLabel.textContent = openLabels[quest.status] || "MỞ SỔ";
+    if (openButton) openButton.title = quest.status === "ready"
+      ? "Mở chi tiết quest để nhận thưởng"
+      : quest.status === "available"
+        ? "Mở chi tiết quest để nhận nhiệm vụ mới"
+        : "Mở chi tiết nhiệm vụ đang làm";
+    if (closeButton) closeButton.style.display = isTrackedActive ? "inline-flex" : "none";
   },
 
   renderList() {
@@ -394,9 +489,13 @@ const QuestUI = {
     return this.mutate("track", quest.id);
   },
 
-  untrack() {
-    if (!this.trackedId) return;
-    return this.mutate("track", this.trackedId);
+  async untrack() {
+    const questId = this.trackedId;
+    if (!questId || !this.quests.some((quest) => quest.id === questId && quest.status === "active")) return;
+    this.dismissedTrackerQuestId = questId;
+    await this.mutate("track", questId);
+    if (this.trackedId === questId) this.dismissedTrackerQuestId = null;
+    this.renderTracker();
   },
 };
 

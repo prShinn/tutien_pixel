@@ -2614,7 +2614,12 @@ body {
 }
 .quest-tracker .pixel-icon { width: 15px; height: 15px; }
 .quest-tracker > strong { color: #ead8a9; font-size: 10px; }
+.quest-tracker-state { color: #d7c88e; font: bold 8px/1.35 "Courier New", monospace; }
+.quest-tracker-state--ready,
+.quest-tracker-state--available { color: #f1cf73; }
 .quest-tracker-objective { color: #c3bcac; font-size: 9px; }
+.quest-tracker-location { color: #afd39e; font: 8px/1.35 "Courier New", monospace; }
+.quest-tracker-guide { color: #c3bcac; font-size: 8px; line-height: 1.4; overflow-wrap: anywhere; }
 .quest-tracker-progress { height: 8px; border: 1px solid #09080e; background: #111017; }
 .quest-tracker-progress span { display: block; height: 100%; background: #9b8048; }
 .quest-tracker small { align-self: flex-end; color: #c9c0ad; font: 8px/1 "Courier New", monospace; }

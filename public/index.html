@@ -280,11 +280,14 @@
       </div>
       <aside id="quest-tracker" class="quest-tracker" style="display:none;" aria-live="polite">
         <div class="quest-tracker-head">
-          <button class="quest-tracker-open" type="button" onclick="QuestUI.toggle()"><span class="pixel-icon icon-quest" aria-hidden="true"></span>THEO DÕI</button>
+          <button class="quest-tracker-open" type="button" onclick="QuestUI.openTrackerDetails()" title="Mở chi tiết nhiệm vụ"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span id="quest-tracker-open-label">MỞ SỔ</span></button>
           <button class="quest-tracker-close" type="button" aria-label="Bỏ theo dõi" onclick="QuestUI.untrack()">✕</button>
         </div>
         <strong id="quest-tracker-title"></strong>
+        <span id="quest-tracker-state" class="quest-tracker-state"></span>
         <span id="quest-tracker-objective" class="quest-tracker-objective"></span>
+        <span id="quest-tracker-location" class="quest-tracker-location"></span>
+        <span id="quest-tracker-guide" class="quest-tracker-guide"></span>
         <div class="quest-tracker-progress"><span id="quest-tracker-fill"></span></div>
         <small id="quest-tracker-count"></small>
       </aside>
@@ -538,6 +541,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=30"></script>
+    <script src="./js/bootstrap.js?v=31"></script>
   </body>
 </html>

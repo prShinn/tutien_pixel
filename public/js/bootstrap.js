@@ -21,9 +21,9 @@
     { id: "render", src: "./js/render.js?v=15", dependsOn: ["visual-effects"] },
     { id: "skill-vfx", src: "./js/skill-vfx.js?v=20", dependsOn: ["api", "visual-effects"] },
     { id: "ui", src: "./js/ui.js?v=12", dependsOn: ["render", "visual-effects"] },
-    { id: "quest", src: "./js/quest.js?v=3", dependsOn: ["network", "ui"] },
+    { id: "quest", src: "./js/quest.js?v=4", dependsOn: ["network", "ui"] },
     { id: "input", src: "./js/input.js?v=3", dependsOn: ["world", "network"] },
-    { id: "game-entry", src: "./js/game.js?v=11", dependsOn: ["socket-client", "api", "auto-loot", "visual-effects", "utils", "balance", "game-data", "network", "auth", "world", "monster", "skills", "combat", "cultivation", "inventory", "shop", "render", "skill-vfx", "ui", "quest", "input"] },
+    { id: "game-entry", src: "./js/game.js?v=12", dependsOn: ["socket-client", "api", "auto-loot", "visual-effects", "utils", "balance", "game-data", "network", "auth", "world", "monster", "skills", "combat", "cultivation", "inventory", "shop", "render", "skill-vfx", "ui", "quest", "input"] },
   ];
   const timeoutMs = 20000;
   const errorPanel = document.getElementById("client-boot-error");

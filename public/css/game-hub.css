@@ -153,6 +153,9 @@
 #quest-tracker .quest-tracker-open,
 #quest-tracker .quest-tracker-close { min-height: 30px; padding: 4px 7px; font-size: 9px; }
 #quest-tracker > strong { color: var(--hub-gold); font-size: 11px; }
+#quest-tracker .quest-tracker-state { font-size: 8px; line-height: 1.4; }
+#quest-tracker .quest-tracker-location { font-size: 8px; line-height: 1.4; }
+#quest-tracker .quest-tracker-guide { font-size: 9px; line-height: 1.4; }
 #quest-tracker .quest-tracker-objective { font-size: 10px; line-height: 1.4; }
 #quest-tracker .quest-tracker-count { font-size: 9px; }
 
