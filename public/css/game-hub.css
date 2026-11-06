@@ -275,16 +275,6 @@
 .hud-compact #game-controls-hint,
 .hud-compact #kpah-hud-topright .hub-actions,
 .hud-compact #kpah-hud-bottomleft .bottom-btns { display: none !important; }
-#game-notifications { top: calc(62px + env(safe-area-inset-top)); z-index: 80; }
-.game-notification {
-  border-color: #796b51;
-  background: #211f2a;
-  color: var(--hub-paper);
-  font-size: 12px;
-}
-#loot-feed { top: 27%; }
-.loot-drop-toast { border: 2px solid #796b51; border-radius: 0; background: #211f2a; color: #f0d77f; box-shadow: 2px 2px 0 #100f17; }
-
 .kpah-modal { padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
 .kpah-modal-box {
   width: min(1040px, calc(100vw - 32px));
@@ -444,10 +434,6 @@
   #kpah-hud-bottomright .skbar-key { top: 2px; left: 3px; font-size: 8px; }
   #kpah-hud-bottomright .sk-main strong { font-size: 8px; }
   #game-controls-hint { display: none; }
-  #game-notifications { top: calc(54px + env(safe-area-inset-top)); right: 8px; left: auto; width: min(218px, calc(100vw - 20px)); transform: none; }
-  .game-notification { padding: 6px 7px 6px 22px; font-size: 10px; }
-  #loot-feed { top: 31%; width: calc(100vw - 24px); }
-
   .kpah-modal { align-items: stretch; justify-content: stretch; }
   .kpah-modal-box { width: 100%; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px); max-height: 100%; }
   .kpah-modal-body { min-height: 0; flex-direction: column; overflow: auto; overscroll-behavior: contain; }
@@ -487,11 +473,6 @@
   #kpah-hud-bottomright .sk-sub { min-height: 42px; height: 42px; }
   #kpah-hud-bottomright .sk-main { height: 46px; }
   #quest-tracker { top: calc(78px + env(safe-area-inset-top)); max-height: 130px; overflow: auto; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #game-notifications *,
-  #loot-feed * { animation: none !important; }
 }
 
 #client-boot-error[hidden] { display: none !important; }

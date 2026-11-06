@@ -16,7 +16,6 @@ const UI = {
   _lastEqHash: "",
   selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
-  _notifications: new Map(),
   pixelIconClass(item = {}, slotHint = "") {
     const values = [slotHint, item.slot, item.type, item.loai, item.id, item.name, item.effect, item.damageType, item.category]
       .filter(Boolean)
@@ -429,19 +428,13 @@ const UI = {
     if (this.selectedInventoryIndex >= 0) Inventory.use(this.selectedInventoryIndex);
   },
 
-  pushLoot(loot) {
-    const feed = document.getElementById("loot-feed");
-    if (!feed || !loot) return;
+  pushLoot(loot, action = "") {
+    if (!loot) return [];
     const entries = [];
-    if (Number(loot.xu || 0) > 0) entries.push(`💰 +${loot.xu} xu`);
-    for (const item of loot.items || []) entries.push(`${item.icon || "📦"} ${item.name || item.id} x${item.count || 1}`);
-    entries.forEach((text) => {
-      const el = document.createElement("div");
-      el.className = "loot-drop-toast";
-      el.textContent = text;
-      feed.appendChild(el);
-      setTimeout(() => el.remove(), 2600);
-    });
+    const prefix = action ? `${action}: ` : "";
+    if (Number(loot.xu || 0) > 0) entries.push(`${prefix}💰 +${loot.xu} xu`);
+    for (const item of loot.items || []) entries.push(`${prefix}${item.icon || "📦"} ${item.name || item.id} x${item.count || 1}`);
+    return entries.map((text) => this.log(text, "loot"));
   },
 
   updateAutoLootToggle(enabled) {
@@ -611,67 +604,27 @@ const UI = {
   },
 
   notify(message, type = "info") {
-    const host = document.getElementById("game-notifications");
-    if (!host || message === undefined || message === null || String(message).trim() === "") return null;
+    if (message === undefined || message === null || String(message).trim() === "") return null;
     const text = String(message).trim();
     const kind = ["success", "warning", "error", "info"].includes(type) ? type : "info";
-    const key = `${kind}:${text}`;
-    const now = Date.now();
-    const existing = this._notifications.get(key);
-    if (existing?.node?.isConnected && now - existing.at < 2400) {
-      clearTimeout(existing.timer);
-      existing.at = now;
-      existing.timer = setTimeout(() => this._removeNotification(key, existing.node), existing.duration);
-      return existing.node;
-    }
-
-    const node = document.createElement("div");
-    node.className = `game-notification notice-${kind}`;
-    node.setAttribute("role", kind === "error" ? "alert" : "status");
-    node.textContent = text;
-    while (host.children.length >= 3) {
-      const oldest = host.firstElementChild;
-      if (!oldest) break;
-      oldest.remove();
-      for (const [oldKey, entry] of this._notifications) {
-        if (entry.node === oldest) {
-          clearTimeout(entry.timer);
-          this._notifications.delete(oldKey);
-          break;
-        }
-      }
-    }
-    host.appendChild(node);
-    const duration = kind === "error" ? 5200 : (kind === "warning" ? 4600 : (kind === "success" ? 4200 : 3600));
-    const entry = { node, at: now, duration, timer: null };
-    entry.timer = setTimeout(() => this._removeNotification(key, node), duration);
-    this._notifications.set(key, entry);
-    return node;
-  },
-
-  _removeNotification(key, node) {
-    node?.remove();
-    if (this._notifications.get(key)?.node === node) this._notifications.delete(key);
+    const styles = { success: "level", warning: "system", error: "combat", info: "system" };
+    const markers = { success: "✓", warning: "⚠", error: "✕", info: "ℹ" };
+    return this.log(`${markers[kind]} ${text}`, styles[kind]);
   },
 
   log(msg, cls = "") {
-    if (cls !== "chat") {
-      const type = cls === "level" || cls === "loot" ? "success"
-        : (cls === "system" || cls === "combat" ? "warning" : "info");
-      this.notify(msg, type);
-      return;
-    }
     const area = document.getElementById("log-area");
     if (!area) return;
     const now = Date.now();
-    if (this._lastLog.msg === msg && now - this._lastLog.at < 1400 && this._lastLog.node?.isConnected) {
+    const messageClass = ["chat", "combat", "loot", "system", "level"].includes(cls) ? cls : "chat";
+    if (this._lastLog.msg === msg && this._lastLog.cls === messageClass && now - this._lastLog.at < 1400 && this._lastLog.node?.isConnected) {
       this._lastLog.at = now;
       this._lastLog.count += 1;
       this._lastLog.node.textContent = `${this._lastLog.node.dataset.base} ×${this._lastLog.count}`;
-      return;
+      return this._lastLog.node;
     }
     const p = document.createElement("p");
-    p.className = "lc lc-" + cls;
+    p.className = `lc lc-${messageClass}`;
     const t = new Date().toLocaleTimeString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -681,9 +634,10 @@ const UI = {
     p.dataset.base = base;
     p.textContent = base;
     area.appendChild(p);
-    this._lastLog = { msg, at: now, node: p, count: 1 };
+    this._lastLog = { msg, cls: messageClass, at: now, node: p, count: 1 };
     area.scrollTop = area.scrollHeight;
     while (area.children.length > 150) area.removeChild(area.firstChild);
+    return p;
   },
 };
 

@@ -1178,21 +1178,7 @@ body {
 .esl { cursor:pointer; transition:transform .12s, border-color .12s; }
 .esl:hover { transform:translateY(-2px); border-color:#d7b65a; }
 .esl.equipped { border-color:rgba(128,216,220,.55); color:#d7eff2; background:linear-gradient(145deg,rgba(22,45,58,.8),rgba(5,10,18,.9)); }
-#loot-feed { position:fixed; left:50%; top:24%; transform:translateX(-50%); z-index:450; display:flex; flex-direction:column; align-items:center; gap:5px; pointer-events:none; }
-.loot-drop-toast { padding:6px 12px; border:1px solid rgba(215,182,90,.65); border-radius:999px; background:rgba(10,15,24,.9); color:#f4d982; box-shadow:0 6px 20px rgba(0,0,0,.32); font-size:11px; animation:lootRise 2.6s ease-out forwards; }
-#game-notifications { position:fixed; top:clamp(54px,8vh,82px); left:50%; transform:translateX(-50%); z-index:700; display:flex; flex-direction:column; align-items:stretch; gap:6px; width:min(440px,calc(100vw - 24px)); pointer-events:none; }
-.game-notification { position:relative; padding:8px 12px 8px 30px; border:2px solid #766239; background:rgba(8,13,22,.97); color:#f1e5c1; box-shadow:3px 3px 0 rgba(0,0,0,.65); font-size:11px; line-height:1.45; text-align:center; overflow-wrap:anywhere; animation:noticePop .12s steps(2,end); }
-.game-notification::before { content:""; position:absolute; left:11px; top:50%; width:7px; height:7px; transform:translateY(-50%); background:#8db5c9; box-shadow:2px 2px 0 rgba(0,0,0,.55); }
-.notice-success { border-color:#827146; color:#ffe7a3; }
-.notice-success::before { background:#e8c35e; }
-.notice-warning { border-color:#9b7341; color:#ffe0a4; }
-.notice-warning::before { background:#f0aa48; }
-.notice-error { border-color:#984e55; color:#ffd1cb; }
-.notice-error::before { background:#e87373; }
-.notice-info::before { background:#8fc7d5; }
-@keyframes noticePop { from { opacity:.65; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
-@keyframes lootRise { 0%{opacity:0; transform:translateY(10px) scale(.94)} 12%{opacity:1; transform:translateY(0) scale(1)} 78%{opacity:1} 100%{opacity:0; transform:translateY(-22px) scale(.98)} }
-@media (max-width:760px) { .hub-actions { display:none; } #loot-feed { top:18%; } #game-notifications { top:58px; width:calc(100vw - 20px); } .game-notification { padding:7px 9px 7px 25px; font-size:10px; } .game-notification::before { left:9px; } .inventory-hint { display:none; } }
+@media (max-width:760px) { .hub-actions { display:none; } .inventory-hint { display:none; } }
 .continent-modal { position:fixed; inset:0; z-index:900; align-items:center; justify-content:center; padding:20px; background:rgba(2,5,12,.78); backdrop-filter:blur(6px); }
 .continent-box { width:min(900px, calc(100vw - 30px)); max-height:min(680px, calc(100vh - 40px)); overflow:auto; border:1px solid rgba(128,216,220,.35); border-radius:16px; background:linear-gradient(145deg,#0b1421,#101326); box-shadow:0 22px 80px rgba(0,0,0,.6); color:#dbe7f2; }
 .continent-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:16px 18px; border-bottom:1px solid rgba(128,216,220,.18); }

@@ -288,9 +288,6 @@
         <div class="quest-tracker-progress"><span id="quest-tracker-fill"></span></div>
         <small id="quest-tracker-count"></small>
       </aside>
-      <div id="loot-feed" aria-live="polite"></div>
-      <div id="game-notifications" aria-live="polite" aria-relevant="additions text" aria-label="Thông báo trong game"></div>
-
       <!-- 2. KPAH HUD: TOP LEFT -->
       <div id="kpah-hud-topleft">
         <div class="hud-avatar sprite-portrait">
@@ -330,7 +327,7 @@
       <!-- 4. KPAH HUD: BOTTOM LEFT (Menu / Chat) -->
       <div id="kpah-hud-bottomleft">
         <div id="kpah-chat-log">
-          <div id="log-area"></div>
+          <div id="log-area" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Chat và thông báo trong game"></div>
           <div id="chat-bar" style="display:none;">
             <input class="inp" id="chat-inp" placeholder="Chat..." maxlength="100"/>
             <button id="chat-send" onclick="Net.sendChat()">Gửi</button>
