@@ -65,6 +65,7 @@ const Inventory = {
       if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
+      if (typeof Sound !== "undefined") Sound.play("item");
       UI.buildInv();
       UI.update();
       return;
@@ -106,6 +107,7 @@ const Inventory = {
     if (!result?.player) return UI.log(result?.error || "Không thể tháo trang bị.", "system");
     Net.applyPlayerSnapshot(result.player, { render: false });
     UI.log(`Đã tháo ${item.name || "trang bị"} vào túi đồ.`, "loot");
+    if (typeof Sound !== "undefined") Sound.play("click");
     UI.buildInv(); UI.renderEquipment(true); UI.update();
   },
 };

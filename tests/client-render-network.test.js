@@ -11,7 +11,7 @@ const root = path.join(__dirname, "..");
 const coreDirectory = path.join(root, "public", "js", "core");
 const networkSource = fs.readFileSync(path.join(root, "public", "js", "net.js"), "utf8");
 
-function networkHarness({ fetchImpl, session = {} }) {
+function networkHarness({ fetchImpl, session = {}, globals = {} }) {
   const values = new Map(Object.entries(session));
   const sessionStorage = {
     getItem(key) { return values.get(key) ?? null; },
@@ -21,6 +21,8 @@ function networkHarness({ fetchImpl, session = {} }) {
   const context = vm.createContext({
     sessionStorage,
     fetch: fetchImpl,
+    setTimeout,
+    clearTimeout,
     Headers,
     Response,
     crypto: { randomUUID: () => "request-id-0001" },
@@ -34,10 +36,88 @@ function networkHarness({ fetchImpl, session = {} }) {
     S: { player: null, session: { user: null }, inventory: [] },
     UI: { buildInv() {}, update() {} },
     console,
+    ...globals,
   });
   vm.runInContext(`${networkSource}\nglobalThis.__Net = Net;`, context, { filename: "net.js" });
-  return { Net: context.__Net, values, state: context.S };
+  return { Net: context.__Net, values, state: context.S, context };
 }
+
+test("map_updated reloads the map silently and asks BE for the latest room snapshot", async () => {
+  const handlers = new Map();
+  const commands = [];
+  const state = {
+    player: { x: 2, y: 3, px: 80, py: 112, hp: 10, maxHp: 10, mp: 5, maxMp: 5 },
+    session: { user: null },
+    inventory: [],
+    players: new Map(),
+    mapCode: "field",
+    mapVersion: 1,
+    tiles: [[0]],
+    monsters: [],
+    groundItems: [],
+  };
+  const loaded = [];
+  const socket = {
+    id: "socket_self",
+    connected: true,
+    active: true,
+    on(name, callback) { handlers.set(name, callback); },
+    emit(name, envelope, callback) {
+      if (name !== "game_command") return;
+      commands.push(envelope.type);
+      Promise.resolve(handlers.get("world_init")({
+        mapCode: "field",
+        player: { id: "player_1", x: 2, y: 3, mapCode: "field", inventory: [] },
+        players: [],
+        monsters: [{ id: "wolf_live", x: 4, y: 5, hp: 72, maxHp: 100, name: "Updated wolf" }],
+        groundItems: [{ id: "loot_live" }],
+      })).then(() => callback({ ok: true }));
+    },
+  };
+  const { Net } = networkHarness({
+    session: { tu_tien_token: "access-token" },
+    fetchImpl: async () => new Response(JSON.stringify({ code: "field", version: 2, w: 1, h: 1, jsonMap: [[0]] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+    globals: {
+      S: state,
+      API: {
+        BASE: "http://be.test",
+        SOCKET_URL: "http://be.test",
+        AUTO_SAVE_MS: 30000,
+        PATHS: {
+          auth: { refresh: "/api/auth/refresh", logout: "/api/auth/logout", login: "/api/auth/login", register: "/api/auth/register", demo: "/api/auth/demo" },
+          player: { update: (id) => `/api/player/${id}` },
+          worlds: { byCode: (code) => `/api/worlds/by-code?code=${encodeURIComponent(code)}` },
+        },
+      },
+      io: () => socket,
+      World: {
+        loadMap(map, x, y, options) {
+          loaded.push({ map, x, y, options });
+          state.mapCode = map.code;
+          state.mapVersion = map.version;
+          state.tiles = map.jsonMap;
+          state.players.clear();
+        },
+      },
+      normalizeWorldDto: (map) => map,
+      CFG: { TS: 32 },
+      Monster: { make: (data, x, y, id) => ({ ...data, id, px: x * 32 + 16, py: y * 32 + 16 }) },
+      UI: { buildInv() {}, update() {}, hideLoading() {}, log() {} },
+    },
+  });
+
+  Net.connectSocket();
+  await handlers.get("map_updated")({ mapCode: "field", version: 2, monsters: [{ id: "stale_snapshot" }], groundItems: [] });
+
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].options.silent, true);
+  assert.deepEqual(commands, ["world.resync"]);
+  assert.equal(state.monsters[0].id, "wolf_live");
+  assert.equal(state.groundItems[0].id, "loot_live");
+});
 
 test("fixed-step clock gives the same 60 gameplay ticks at 240Hz and 20FPS", async () => {
   const { createFixedStepClock } = await import(pathToFileURL(path.join(coreDirectory, "fixed-step.mjs")).href);

@@ -319,6 +319,7 @@
         <div class="hub-actions" aria-label="Lối tắt HUB">
           <button class="hub-action" type="button" onclick="UI.toggleKpahMenu()" title="Mở nhân vật và hành trang"><span class="pixel-icon icon-profile" aria-hidden="true"></span>Nhân vật</button>
           <button class="hub-action" type="button" onclick="UI.toggleContinent()" title="Mở bản đồ đại lục"><span class="pixel-icon icon-map" aria-hidden="true"></span>Đại lục</button>
+          <button class="hub-action" id="btn-sound-toggle" type="button" onclick="UI.toggleSound()" title="Bật/Tắt Âm thanh"><span id="sound-icon" aria-hidden="true">🔊</span><span id="sound-label">Âm thanh</span></button>
         </div>
         <div class="online-badge" id="online-badge">● Offline</div>
         <div class="hud-xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
@@ -343,6 +344,7 @@
           <button class="kpah-btn" type="button" id="btn-auto" aria-label="Bật hoặc tắt tự động chiến đấu" title="Tự động chiến đấu" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span><span class="hub-btn-label">Tự Động</span></button>
           <button class="kpah-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
           <button class="kpah-btn persistent-effects-toggle active" type="button" id="btn-buff-effects" aria-pressed="true" aria-label="Hiệu ứng khi tung chiêu quanh nhân vật: đang hiện" title="Ẩn hiệu ứng khi tung chiêu quanh nhân vật" onclick="UI.toggleBuffEffects()"><span class="buff-effects-icon" aria-hidden="true">FX</span><span id="buff-effects-state">FX: HIỆN</span></button>
+          <button class="kpah-btn sound-toggle active" type="button" id="btn-sound-bar" aria-pressed="true" aria-label="Âm thanh game: đang bật" title="Bật hoặc tắt âm thanh game" onclick="UI.toggleSound()"><span id="sound-bar-icon" aria-hidden="true">🔊</span><span id="sound-bar-state">Âm: BẬT</span></button>
         </div>
       </div>
 
@@ -539,6 +541,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=28"></script>
+    <script src="./js/bootstrap.js?v=30"></script>
   </body>
 </html>

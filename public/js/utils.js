@@ -85,6 +85,8 @@ function normalizeWorldDto(dto) {
       elevation: parseStringOrObj(layers.elevation || [], []),
     },
     biome: dto.biome || "LEGACY",
+    type: dto.type || dto.mapType || "PLAIN",
+    rules: parseStringOrObj(dto.rules || {}, {}),
     seed: dto.seed || code,
     version: Number(dto.version || 0),
     w: w,

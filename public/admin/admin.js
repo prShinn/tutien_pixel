@@ -274,9 +274,7 @@ async function loadSampleItemsPreview() {
   const loadVersion = contentState.loadVersion;
   const isCurrent = () => !$("sample-items-tool").hidden && activeCollection === "items" && loadVersion === contentState.loadVersion;
   try {
-    const result = contentState.legacyCatalog?.collection === "items"
-      ? contentState.legacyCatalog.payload
-      : await fetchCatalog("items", { ids: items.map((item) => item.id).join(","), limit: 100 });
+    const result = await fetchCatalog("items", { ids: items.map((item) => item.id).join(","), limit: 100 });
     if (!isCurrent()) return;
     if (result.persisted !== true || result.demo === true) throw new Error("API Admin chưa xác nhận danh mục MySQL.");
     if (result.pagination && result.pagination.total > result.data.length) {
@@ -291,41 +289,11 @@ async function loadSampleItemsPreview() {
 }
 
 async function fetchCatalog(collection, params) {
-  let payload;
-  try {
-    payload = await contentManager.list(collection, params);
-  } catch (error) {
-    if (error.status !== 500 && error.status !== 501) throw error;
-    try {
-      payload = await contentManager.list(collection);
-    } catch {
-      throw error;
-    }
-  }
+  const payload = await contentManager.list(collection, params);
   if (!Array.isArray(payload?.data)) throw new Error("API Admin trả danh sách không hợp lệ.");
-  if (payload.pagination != null) {
-    const { page, limit, total } = payload.pagination;
-    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1
-        || !Number.isSafeInteger(total) || total < 0) {
-      throw new Error("API Admin trả thông tin phân trang không hợp lệ.");
-    }
-  }
-  return payload;
-}
-
-function paginateLegacyCatalog(payload, page, query) {
-  const search = query.trim().toLocaleLowerCase("vi");
-  const matches = payload.data.filter((record) => {
-    const text = [record.id, record.code, record.maDo, record.tenDo, record.name, record.tenNangLuc].join(" ");
-    return text.toLocaleLowerCase("vi").includes(search);
-  });
-  const current = Math.min(page, Math.max(1, Math.ceil(matches.length / catalogPageSize)));
-  const offset = (current - 1) * catalogPageSize;
-  return {
-    ...payload,
-    data: matches.slice(offset, offset + catalogPageSize),
-    pagination: { page: current, limit: catalogPageSize, total: matches.length },
-  };
+  return pagedCollections.has(collection)
+    ? AdminContentUtils.validatePagedResult(payload, { page: params?.page ?? 1, limit: params?.limit ?? catalogPageSize })
+    : payload;
 }
 
 function renderSampleItemsPreview() {
@@ -411,7 +379,7 @@ function renderContent(collection, payload) {
   contentState.persisted = (payload.persisted === undefined ? contentState.persisted : payload.persisted === true) && !contentState.demo;
   $("content-title").textContent = contentLabels[collection] || collection;
   $("content-meta").textContent = contentState.persisted
-    ? (contentState.legacyCatalog?.collection === collection ? "MySQL · phân trang trên trình duyệt" : "Backend · MySQL · lưu bền vững")
+    ? (pagedCollections.has(collection) ? "Backend · MySQL · phân trang máy chủ" : "Backend · MySQL · lưu bền vững")
     : "Chỉ xem · Backend chưa xác nhận lưu MySQL";
   const canEdit = ContentAdmin.EDITABLE_COLLECTIONS.has(collection) && contentState.persisted;
   const newButton = $("new-record");
@@ -456,7 +424,7 @@ function renderContent(collection, payload) {
   if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
 }
 
-async function openContent(collection, { feedback = "", reuseLegacy = false } = {}) {
+async function openContent(collection, { feedback = "" } = {}) {
   clearTimeout(contentSearchTimer);
   if (activeCollection !== collection) {
     contentState.page = 1;
@@ -464,9 +432,6 @@ async function openContent(collection, { feedback = "", reuseLegacy = false } = 
     $("content-search").value = "";
   }
   activeCollection = collection;
-  if (!reuseLegacy || !AdminAuth.isAuthenticated() || contentState.legacyCatalog?.collection !== collection) {
-    contentState.legacyCatalog = null;
-  }
   const loadVersion = ++contentState.loadVersion;
   $("content-pagination").hidden = true;
   $("open-monster-studio").hidden = true;
@@ -485,15 +450,10 @@ async function openContent(collection, { feedback = "", reuseLegacy = false } = 
   $("content-table").innerHTML = '<div class="loading" role="status">Đang tải dữ liệu…</div>';
   try {
     const params = pagedCollections.has(collection) ? { page: contentState.page, limit: catalogPageSize, q: contentState.query.trim() } : null;
-    let payload = params
-      ? contentState.legacyCatalog?.payload ?? await fetchCatalog(collection, params)
+    const payload = params
+      ? await fetchCatalog(collection, params)
       : await contentManager.list(collection);
     if (loadVersion !== contentState.loadVersion || collection !== activeCollection) return;
-    if (params && !payload.pagination) {
-      contentState.legacyCatalog = { collection, payload };
-      payload = paginateLegacyCatalog(payload, contentState.page, contentState.query);
-      contentState.page = payload.pagination.page;
-    }
     const lastPage = payload.pagination ? Math.max(1, Math.ceil(payload.pagination.total / payload.pagination.limit)) : 1;
     if (params && contentState.page > lastPage) {
       contentState.page = lastPage;
@@ -536,22 +496,7 @@ async function openContentEditor(record = null) {
   const collection = activeCollection;
   const editing = Boolean(record);
   let records = contentState.records;
-  if (!editing && collection === "skills") {
-    const version = contentState.loadVersion;
-    const button = $("new-record");
-    if (button.disabled) return;
-    button.disabled = true;
-    try {
-      records = (await contentManager.list(collection)).data;
-      if (version !== contentState.loadVersion || collection !== activeCollection) return;
-      if (!Array.isArray(records)) throw new Error("API Admin trả danh sách kỹ năng không hợp lệ.");
-    } catch (error) {
-      if (version === contentState.loadVersion) setContentFeedback(error.message, "error");
-      return;
-    } finally {
-      if (version === contentState.loadVersion) button.disabled = false;
-    }
-  }
+  if (!editing && collection === "skills") records = [];
   const fields = editing ? { ...record } : AdminContentUtils.createBlankRecord(collection, Date.now(), records);
   const recordId = String((editing && collection === "skills" ? fields.code || fields.id : fields.id) ?? "");
   delete fields.id;
@@ -678,7 +623,6 @@ window.addEventListener("admin:authenticated", reloadAdminViewAfterLogin);
 window.addEventListener("admin:unauthenticated", () => {
   clearTimeout(contentSearchTimer);
   contentState.loadVersion += 1;
-  contentState.legacyCatalog = null;
   contentState.sampleItems = null;
   contentState.records = [];
   contentState.pagination = null;
@@ -753,14 +697,14 @@ $("content-search").addEventListener("input", (event) => {
     $("content-pagination").hidden = true;
     $("content-table").innerHTML = '<div class="loading" role="status">Đang tìm dữ liệu…</div>';
     const collection = activeCollection;
-    contentSearchTimer = setTimeout(() => { if (activeCollection === collection) void openContent(collection, { reuseLegacy: true }); }, 250);
+    contentSearchTimer = setTimeout(() => { if (activeCollection === collection) void openContent(collection); }, 250);
   } else if (activeCollection) renderContent(activeCollection, { data: contentState.records, demo: contentState.demo, pagination: contentState.pagination });
 });
 for (const [id, step] of [["content-prev", -1], ["content-next", 1]]) {
   $(id).addEventListener("click", async () => {
     if (!pagedCollections.has(activeCollection) || !contentState.pagination || contentState.busy) return;
     contentState.page += step;
-    await openContent(activeCollection, { reuseLegacy: true });
+    await openContent(activeCollection);
     if (!$("content-pagination").hidden) $("content-page-summary").focus();
   });
 }

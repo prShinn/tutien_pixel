@@ -32,8 +32,19 @@ test("blank content records use collection templates and distinct identifier pre
   assert.equal(skill.id, 21);
   assert.equal(skill.code, "SKILL_21");
   assert.equal(skill.category, "ACTIVE");
+  const skillWithoutLoadedCatalog = ContentUtils.createBlankRecord("skills", 456, []);
+  assert.equal(skillWithoutLoadedCatalog.id, 456);
+  assert.equal(skillWithoutLoadedCatalog.code, "SKILL_456");
   assert.match(quest.id, /^quest_new_789$/);
   assert.throws(() => ContentUtils.createBlankRecord("accounts"), /chưa hỗ trợ/);
+});
+
+test("paged admin catalogs require server pagination and reject oversized or mismatched pages", () => {
+  const firstPage = { data: [{ id: "ITEM_1" }], pagination: { page: 1, limit: 24, total: 100 } };
+  assert.equal(ContentUtils.validatePagedResult(firstPage, { page: 1, limit: 24 }), firstPage);
+  assert.throws(() => ContentUtils.validatePagedResult({ data: firstPage.data }, { page: 1, limit: 24 }), /chưa trả phân trang máy chủ/);
+  assert.throws(() => ContentUtils.validatePagedResult(firstPage, { page: 2, limit: 24 }), /không hợp lệ/);
+  assert.throws(() => ContentUtils.validatePagedResult({ data: Array(25).fill({}), pagination: { page: 1, limit: 24, total: 25 } }, { page: 1, limit: 24 }), /không hợp lệ/);
 });
 
 test("content editor validates JSON and required display fields", () => {
@@ -138,6 +149,9 @@ test("Admin shell loads the tested editor controller and exposes accessible CRUD
   assert.match(adminHtml, /NPC theo bản đồ/);
   assert.match(adminHtml, /id="content-editor-dialog"[^>]*aria-labelledby/);
   assert.match(adminHtml, /id="content-record-json"[^>]*spellcheck="false"/);
+  assert.match(adminHtml, /admin\/content-utils\.js\?v=5/);
+  assert.doesNotMatch(adminScript, /legacyCatalog|paginateLegacyCatalog/);
+  assert.match(adminScript, /validatePagedResult/);
   assert.match(adminScript, /data-content-action="edit"/);
   assert.match(adminScript, /data-content-action="delete"/);
   assert.match(adminScript, /content-editor-form"\)\.addEventListener\("submit"/);

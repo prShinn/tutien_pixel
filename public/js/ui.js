@@ -77,6 +77,7 @@ const UI = {
     element.style.backgroundRepeat = img ? "no-repeat" : "";
   },
   toggleKpahMenu() {
+    if (typeof Sound !== "undefined") Sound.play("click");
     const el = document.getElementById("kpah-menu-modal");
     if (el) el.style.display = (el.style.display === "none") ? "flex" : "none";
     if (el?.style.display === "flex") {
@@ -104,6 +105,7 @@ const UI = {
     if (text) text.textContent = String(message || "");
   },
   toggleChat() {
+    if (typeof Sound !== "undefined") Sound.play("click");
     const el = document.getElementById("chat-bar");
     if (el) {
       el.style.display = (el.style.display === "none") ? "flex" : "none";
@@ -113,6 +115,7 @@ const UI = {
     }
   },
   async toggleContinent() {
+    if (typeof Sound !== "undefined") Sound.play("click");
     const el = document.getElementById("continent-modal");
     if (!el) return;
     const opening = el.style.display === "none";
@@ -414,6 +417,7 @@ const UI = {
   },
 
   selectInventoryItem(index) {
+    if (typeof Sound !== "undefined") Sound.play("click");
     this.selectedInventoryIndex = Number(index);
     Inventory.selectedIndex = this.selectedInventoryIndex;
     this.buildInv();
@@ -460,6 +464,37 @@ const UI = {
     const enabled = VisualEffects.setPersistentEffectsEnabled(!VisualEffects.arePersistentEffectsEnabled());
     this.updateBuffEffectsToggle(enabled);
     return enabled;
+  },
+
+  toggleSound() {
+    if (typeof Sound === "undefined") return;
+    const sfxOn = Sound.toggleSfx();
+    const bgmOn = Sound.toggleBgm();
+    const isMuted = !sfxOn && !bgmOn;
+    this.updateSoundToggle(!isMuted);
+    UI.notify(isMuted ? "Đã tắt âm thanh" : "Đã bật âm thanh", "info");
+  },
+
+  updateSoundToggle(enabled) {
+    const isEnabled = Boolean(enabled);
+    const icon = document.getElementById("sound-icon");
+    const label = document.getElementById("sound-label");
+    const button = document.getElementById("btn-sound-toggle");
+    if (icon) icon.textContent = isEnabled ? "🔊" : "🔇";
+    if (label) label.textContent = isEnabled ? "Âm thanh" : "Tắt âm";
+    if (button) button.classList.toggle("muted", !isEnabled);
+
+    const barBtn = document.getElementById("btn-sound-bar");
+    const barIcon = document.getElementById("sound-bar-icon");
+    const barState = document.getElementById("sound-bar-state");
+    if (barBtn) {
+      barBtn.classList.toggle("active", isEnabled);
+      barBtn.setAttribute("aria-pressed", String(isEnabled));
+      barBtn.setAttribute("aria-label", `Âm thanh game: đang ${isEnabled ? "bật" : "tắt"}`);
+      barBtn.title = isEnabled ? "Tắt âm thanh game" : "Bật âm thanh game";
+    }
+    if (barIcon) barIcon.textContent = isEnabled ? "🔊" : "🔇";
+    if (barState) barState.textContent = isEnabled ? "Âm: BẬT" : "Âm: TẮT";
   },
 
   updateBuffEffectsToggle(enabled) {

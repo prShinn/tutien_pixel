@@ -589,6 +589,147 @@ const Render = {
     return (this.walkCycle(actor) % 4) * (Math.PI / 2);
   },
 
+  weaponAttackStyle(actor) {
+    const weapon = actor?.equipment?.weapon;
+    if (!weapon) return "fist";
+    const normalize = (value) => String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const type = normalize([weapon.weaponType, weapon.kind].filter(Boolean).join(" "));
+    const name = normalize([weapon.name, weapon.tenDo].filter(Boolean).join(" "));
+    const code = normalize([weapon.itemCode, weapon.code, weapon.id].filter(Boolean).join(" "));
+    const identity = `${type} ${name} ${code}`;
+    if (/cung|bow/.test(identity)) return "bow";
+    if (/spear|qiang/.test(type) || /thuong/.test(name)) return "spear";
+    if (/truong|staff|rod/.test(identity) || /(^|\s|_)con(_|\s|$)/.test(code)) return "staff";
+    if (/chuy|bua|hammer|mace|dia_cui/.test(identity)) return "heavy";
+    if (/dao|saber|cleaver/.test(identity)) return "saber";
+    return "sword";
+  },
+
+  drawWeaponAttack(sx, sy, actor, style, tint, now, reduceMotion = false) {
+    const startedAt = Number.isFinite(Number(actor.animStartedAt)) ? Number(actor.animStartedAt) : now;
+    const duration = Number(actor.animUntil) - startedAt;
+    const elapsed = Math.max(0, now - startedAt);
+    const progress = reduceMotion ? 0.55 : Math.max(0, Math.min(1, elapsed / (duration > 0 ? duration : 360)));
+    const eased = progress * progress * (3 - 2 * progress);
+    const left = actor.direction === "left";
+    const up = actor.direction === "up";
+    const down = actor.direction === "down";
+    const pivotX = sx + (up || down ? 0 : left ? -3 : 3);
+    const pivotY = sy - (up ? 13 : down ? 5 : 10);
+    const colors = {
+      dark: "#211d25",
+      metal: "#d8d1b8",
+      glow: tint || "#d8d1b8",
+      trail: "#fff0b2",
+    };
+    const pointAt = (angle, length) => ({ x: Math.cos(angle) * length, y: Math.sin(angle) * length });
+
+    ctx.save();
+    ctx.translate(pivotX, pivotY);
+    ctx.scale(left ? -1 : 1, 1);
+
+    if (["sword", "saber", "heavy"].includes(style)) {
+      const start = style === "heavy"
+        ? (up ? -2.2 : down ? -2.5 : -Math.PI / 2)
+        : style === "saber"
+          ? (up ? -2.8 : down ? -1.6 : -2.65)
+          : (up ? -2.6 : down ? -1.25 : -2.35);
+      const finish = style === "heavy"
+        ? (up ? 0.55 : down ? 1.1 : 1.05)
+        : style === "saber"
+          ? (up ? 0.2 : down ? 1.55 : 0.6)
+          : (up ? 0.35 : down ? 1.5 : 0.35);
+      const angleAt = (amount) => start + (finish - start) * amount;
+      const bladeLength = style === "heavy" ? 13 : style === "saber" ? 12 : 11;
+      if (progress > 0.22 && progress < 0.8) {
+        for (let index = 5; index > 0; index -= 1) {
+          const trailProgress = Math.max(0, eased - index * 0.065);
+          const tip = pointAt(angleAt(trailProgress), bladeLength + 2);
+          ctx.globalAlpha = (1 - index / 6) * 0.52;
+          ctx.fillStyle = index % 2 ? colors.glow : colors.trail;
+          ctx.fillRect(Math.round(tip.x / 2) * 2, Math.round(tip.y / 2) * 2, 2, 2);
+        }
+      }
+      ctx.rotate(angleAt(eased));
+      ctx.fillStyle = colors.dark;
+      ctx.fillRect(-2, -2, bladeLength + 5, 4);
+      ctx.fillStyle = style === "heavy" ? "#9a8d73" : colors.metal;
+      ctx.fillRect(2, -1, bladeLength, 2);
+      ctx.fillStyle = colors.glow;
+      ctx.fillRect(bladeLength, -1, 3, 2);
+      ctx.fillStyle = "#72543a";
+      ctx.fillRect(-2, -1, 4, 2);
+      if (style === "heavy" && progress > 0.72 && progress < 0.9) {
+        ctx.globalAlpha = (1 - (progress - 0.72) / 0.18) * 0.72;
+        ctx.fillStyle = colors.glow;
+        ctx.fillRect(bladeLength + 1, 3, 3, 2);
+        ctx.fillRect(bladeLength + 5, 5, 2, 2);
+      }
+    } else if (["staff", "spear"].includes(style)) {
+      const aim = up ? -Math.PI / 2 : down ? Math.PI / 2 : 0;
+      const drawOffset = progress < 0.2 ? -3 : (progress < 0.68 ? -3 + (progress - 0.2) / 0.48 * 7 : 4 - (progress - 0.68) / 0.32 * 7);
+      ctx.rotate(aim - (style === "spear" ? 0 : 0.18));
+      ctx.translate(drawOffset, 0);
+      const length = style === "spear" ? 16 : 13;
+      ctx.fillStyle = colors.dark;
+      ctx.fillRect(-2, -2, length + 5, 4);
+      ctx.fillStyle = style === "staff" ? "#a5784c" : colors.metal;
+      ctx.fillRect(0, -1, length, 2);
+      ctx.fillStyle = colors.glow;
+      ctx.fillRect(length - 1, -2, 4, 4);
+      if (progress > 0.38 && progress < 0.7) {
+        ctx.globalAlpha = (1 - Math.abs(progress - 0.52) / 0.18) * 0.8;
+        ctx.fillStyle = colors.trail;
+        ctx.fillRect(length + 3, -1, 3, 2);
+      }
+    } else if (style === "bow") {
+      const drawOffset = progress < 0.42 ? -2 : (progress < 0.66 ? 4 : 1);
+      ctx.translate(drawOffset, 0);
+      ctx.fillStyle = colors.dark;
+      if (up || down) {
+        ctx.fillRect(-2, -7, 2, 14);
+        ctx.fillStyle = colors.glow;
+        ctx.fillRect(-4, -6, 2, 3);
+        ctx.fillRect(-4, 3, 2, 3);
+        ctx.fillStyle = colors.metal;
+        const arrowDirection = up ? -1 : 1;
+        ctx.fillRect(-1, arrowDirection * 2, 1, 5);
+        if (progress > 0.48 && progress < 0.72) {
+          ctx.fillStyle = colors.trail;
+          ctx.fillRect(-2, arrowDirection * 7, 3, 2);
+        }
+      } else {
+        ctx.fillRect(5, -7, 2, 14);
+        ctx.fillStyle = colors.glow;
+        ctx.fillRect(7, -6, 2, 3);
+        ctx.fillRect(7, 3, 2, 3);
+        ctx.fillStyle = colors.metal;
+        ctx.fillRect(4, -1, 7, 1);
+        if (progress > 0.48 && progress < 0.72) {
+          ctx.fillStyle = colors.trail;
+          ctx.fillRect(11, -1, 5, 2);
+          ctx.fillRect(15, -3, 2, 2);
+          ctx.fillRect(15, 1, 2, 2);
+        }
+      }
+    } else {
+      const reach = progress < 0.28 ? -1 : (progress < 0.62 ? (progress - 0.28) / 0.34 * 5 : 5 - (progress - 0.62) / 0.38 * 6);
+      const vertical = up ? -4 : down ? 4 : 0;
+      ctx.fillStyle = "#e2bd91";
+      ctx.fillRect(1 + reach, vertical - 2, 5, 4);
+      if (progress > 0.4 && progress < 0.72) {
+        ctx.globalAlpha = (1 - Math.abs(progress - 0.56) / 0.16) * 0.9;
+        ctx.fillStyle = colors.trail;
+        ctx.fillRect(7 + reach, vertical - 3, 3, 2);
+        ctx.fillRect(9 + reach, vertical + 2, 2, 2);
+      }
+    }
+    ctx.restore();
+  },
+
   player(sx, sy, tint, actor = S.player) {
     const gender = actor?.gender === "FEMALE" ? "female" : "male";
     const defaultImg = `./assets/characters/cultivator-${gender}.png`;
@@ -610,11 +751,22 @@ const Render = {
       ? this.walkFrame(actor)
       : Math.floor(now / animation.speed) % 4;
     // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
+    const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
+    const weaponStyle = this.weaponAttackStyle(actor);
+    const attackPose = { sword: 2, saber: 1, staff: 3, heavy: 0, spear: 2, bow: 0, fist: 3 }[weaponStyle];
+    const attackDuration = Number(actor?.animUntil) - Number(actor?.animStartedAt);
+    const attackProgress = activeAction === "attack"
+      ? Math.max(0, Math.min(1, actionElapsed / (attackDuration > 0 ? attackDuration : 360)))
+      : 0;
+    const attackMotion = !reduceMotion && activeAction === "attack" ? Math.sin(attackProgress * Math.PI) : 0;
+    const facingX = actor?.direction === "left" ? -1 : actor?.direction === "right" ? 1 : 0;
+    const facingY = actor?.direction === "up" ? -1 : actor?.direction === "down" ? 1 : 0;
+    const attackLean = { sword: 0.035, saber: 0.045, staff: -0.025, heavy: 0.075, spear: -0.035, bow: 0.02, fist: 0.06 }[weaponStyle];
     const frameIndex = reduceMotion
-      ? ((activeAction === "attack" || activeAction === "cast" || activeAction === "hurt") ? 2 : 0)
+      ? (activeAction === "attack" ? (defaultCharacterSheet ? attackPose : 2) : ((activeAction === "cast" || activeAction === "hurt") ? 2 : 0))
       : (activeAction === "idle"
         ? [0, 1, 2, 1][rawFrame]
-        : (activeAction === "walk" ? rawFrame : Math.min(3, Math.floor(actionElapsed / animation.speed))));
+        : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed))));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
       : 0;
@@ -672,18 +824,18 @@ const Render = {
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
       // chạm đúng chân, trong khi collision vẫn dùng cùng tọa độ world.
-      ctx.translate(sx, sy - bob + (CFG.ACTOR_FOOT_OFFSET || 0));
-      ctx.rotate(sway - attackPulse * 0.035);
+      ctx.translate(sx + facingX * attackMotion * 0.9, sy - bob + facingY * attackMotion * 0.7 + (CFG.ACTOR_FOOT_OFFSET || 0));
+      ctx.rotate(sway - attackPulse * 0.035 + attackMotion * attackLean * (facingX < 0 ? -1 : 1));
       ctx.scale(1 + attackPulse * 0.035, 1 - attackPulse * 0.025);
       ctx.scale(1 + (walking && !reduceMotion ? Math.abs(stride) * 0.035 : 0), 1 - (walking && !reduceMotion ? Math.abs(stride) * 0.025 : 0));
       ctx.scale(facingScale, 1);
-      const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
       const spriteFrame = actor?.animation?.kind === "grid"
         ? { col: frameIndex % Number(actor.animation.cols || 4), row: animation.row, cols: actor.animation.cols || 4, rows: actor.animation.rows || 4 }
         : (defaultCharacterSheet ? { col: frameIndex, row: animation.row, cols: 4, rows: 4 } : null);
       const drawn = this.drawSprite(imgToDraw, hurtShift * facingScale, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
+        if (activeAction === "attack") this.drawWeaponAttack(sx, sy - bob, actor, weaponStyle, tint, now, reduceMotion);
         if (actor?.hitUntil > Date.now()) {
           ctx.save();
           const pulse = 0.58 + Math.sin(Date.now() * 0.045) * 0.18;
@@ -738,6 +890,7 @@ const Render = {
       ctx.fillRect(handX + direction * 3, y + 3, 2, 2);
       ctx.fillRect(handX + direction * 5, y + 1, 2, 2);
     }
+    if (activeAction === "attack") this.drawWeaponAttack(sx, sy - bob, actor, weaponStyle, tint, now, reduceMotion);
 
     if (actor?.hitUntil > Date.now()) {
       ctx.save();

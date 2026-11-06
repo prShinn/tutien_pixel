@@ -195,14 +195,27 @@
 
 - Ưu tiên PC webgame: canvas/map trung tâm, HUD desktop, chuột + bàn phím, skill bar ngang và panel thông tin.
 - Không đổi gameplay server, Socket.io, combat hay state để chạy mobile trong các phase hiện tại.
-- Mobile responsive, touch joystick, safe-area và landscape là phase cuối sau khi PC webgame hoàn thiện.
+- Mobile responsive, touch joystick, safe-area, landscape và export file cài đặt APK cho Android là phase mở rộng sau khi PC webgame hoàn thiện vertical slice.
 
-## P16 — MOBILE WEBGAME (PHASE CUỐI)
+## P16 — MOBILE WEBGAME & XUẤT BẢN APP ANDROID (APK / CAPACITOR)
 
-- Thêm touch joystick bên trái; nút đánh, skill và thao tác nhanh bên phải.
-- Hỗ trợ portrait cho menu và landscape cho map; xử lý safe-area, notch và khóa cuộn trang.
-- Tái sử dụng cùng socket/event contract, server state và combat pipeline của PC.
-- Kiểm tra FPS, reconnect, đổi orientation và PC/mobile cùng map realtime.
+**Mục tiêu:** Trải nghiệm đầy đủ trên thiết bị di động, vừa chơi trực tiếp trên trình duyệt mobile, vừa có thể cài đặt độc lập bằng file `.apk` native.
+
+- **Giao diện & Điều khiển cảm ứng (Touch Controls)**:
+  - Thêm Virtual Joystick (cần gạt ảo) góc trái dưới để di chuyển nhân vật linh hoạt.
+  - Cụm nút kỹ năng hình quạt (Skill Button Ring) góc phải dưới, phím tương tác nhanh (F / Nói chuyện / Nhặt đồ) bằng ngón cái.
+  - Tối ưu hóa Touch-action: Khóa cuộn trang (bounce scrolling), chặn pinch-to-zoom vô tình.
+- **Tối ưu hiển thị màn hình di động**:
+  - Khóa cố định chế độ xoay ngang (`Landscape`).
+  - Xử lý vùng an toàn màn hình (`safe-area-inset` cho tai thỏ, notch camera và thanh điều hướng Android).
+- **Quy trình đóng gói Native Android (Capacitor Container)**:
+  - Đóng gói toàn bộ bundle tĩnh từ `public/` vào Android Studio project qua Capacitor.
+  - WebView sử dụng tăng tốc phần cứng GPU, duy trì tốc độ khung hình 60 FPS.
+  - Cấu hình động endpoint Backend (cho phép chuyển đổi giữa localhost dev, IP mạng LAN và VPS production HTTPS).
+  - Tích hợp Native Plugins: Khóa xoay màn hình, rung haptics khi ra đòn, splash screen khởi động game.
+- **Kiểm định nghiệm thu**:
+  - Build file `.apk` cài đặt trực tiếp trên các dòng máy Android từ thấp đến cao.
+  - Người chơi trên mobile APK và người chơi trên PC Web cùng vào một map, nhìn thấy nhau di chuyển và đánh quái thời gian thực qua Socket.IO mà không bị lệch dữ liệu.
 
 ## Trạng thái thực thi theo code — 2026-10-19
 

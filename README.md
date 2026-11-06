@@ -86,5 +86,7 @@ Các event legacy vẫn được giữ để tương thích smoke test cũ; tín
 3. Bổ sung role-based Admin permission, audit log, backup/restore và vận hành nhiều instance.
 4. Nghiệm thu tuyến map đầu game, hiệu ứng chiến đấu, loot và tiến độ phá cảnh trên BE MySQL.
 5. Chạy đầy đủ kiểm thử browser trên các viewport mục tiêu và kiểm thử deploy/khôi phục dữ liệu.
+6. Mở rộng giao diện điều khiển cảm ứng (Virtual Joystick) và đóng gói xuất bản ứng dụng di động độc lập (file APK / Android) qua Capacitor.
 
 Kế hoạch BE chi tiết: `docs/PLAN_MOCK_FIRST_SERVER_MIGRATION.md`.
+Quy trình phát triển & đóng gói APK: `docs/WORKFLOW.md` và `docs/ROADMAP.md`.

@@ -37,7 +37,7 @@ function isSolid(tx, ty) {
 const World = {
   pendingNpcId: null,
 
-  loadMap(def, toX, toY) {
+  loadMap(def, toX, toY, { silent = false } = {}) {
     if (!def) return;
     World.pendingNpcId = null;
     S.mapCode = (def.code || "").toLowerCase();
@@ -150,11 +150,13 @@ const World = {
         }
       }
     }
-    const ov = document.getElementById("map-name-overlay");
-    ov.textContent = def.name ?? def.tenMap;
-    ov.classList.add("show");
-    setTimeout(() => ov.classList.remove("show"), 2200);
-    UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "chat");
+    if (!silent) {
+      const ov = document.getElementById("map-name-overlay");
+      ov.textContent = def.name ?? def.tenMap;
+      ov.classList.add("show");
+      setTimeout(() => ov.classList.remove("show"), 2200);
+      UI.log(`── Đến: ${def.name ?? def.tenMap} ──`, "chat");
+    }
     
     S.players.clear();
   },

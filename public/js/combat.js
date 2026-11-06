@@ -126,6 +126,7 @@ const Combat = {
       S.player.animStartedAt = Date.now();
       S.player.animState = "attack";
       S.player.animUntil = S.player.animStartedAt + 360;
+      if (typeof Sound !== "undefined") Sound.play("attack");
     }
     if (socket?.connected) {
       S.combatPending = true;
@@ -138,6 +139,7 @@ const Combat = {
       if (typeof SkillVFX !== "undefined") SkillVFX.basicAttack(S.player, m, { miss: true });
       else Render.combatFx(m.px, m.py, "miss", "#a8ff8a", 0.7);
       Render.floatDmg(m.px, m.py, -26, "MISS", "#88ff88");
+      if (typeof Sound !== "undefined") Sound.play("miss");
       S.atkCd = CFG.ATK_CD;
       return;
     }
@@ -154,6 +156,7 @@ const Combat = {
       dmg += critAdd;
     }
     m.hitUntil = Date.now() + 180;
+    if (typeof Sound !== "undefined") Sound.play(isCrit ? "crit" : "hit", { isCrit });
     if (typeof SkillVFX !== "undefined") SkillVFX.basicAttack(S.player, m, { critical: isCrit });
     else Render.combatFx(m.px, m.py, isCrit ? "crit" : "hit", isCrit ? "#fff06a" : "#ff765c", isCrit ? 1.25 : 1);
     Render.floatDmg(m.px, m.py, -26, (isCrit ? "CRIT! " : "") + dmg, isCrit ? "#fff06a" : "#ff5555", isCrit);

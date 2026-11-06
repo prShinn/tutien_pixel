@@ -31,6 +31,7 @@ const Net = {
   _pendingMutationIdsLoaded: false,
   _refreshPromise: null,
   _socketRefreshing: false,
+  _mapRefreshSeq: 0,
   _beforeUnloadBound: false,
   _savePromise: null,
   _mapChangeTimer: null,
@@ -74,7 +75,11 @@ const Net = {
             S.player.portalLocked = false;
             UI.hideLoading();
           }
-          UI.log(`⚠ ${response.error.message}`, "system");
+          if (type === "map.change" && response.error.code === "PORTAL_LOCKED") {
+            UI.notify(response.error.message, "warning");
+          } else {
+            UI.log(`⚠ ${response.error.message}`, "system");
+          }
         }
         onAck?.(response);
         resolve(response);
@@ -486,6 +491,40 @@ const Net = {
         } catch (e) { console.error("world_init error:", e); }
       });
 
+      socket.on("map_updated", async (data) => {
+        const mapCode = String(data?.mapCode || "").toLowerCase();
+        const version = Number(data?.version || 0);
+        if (!mapCode || mapCode !== String(S.mapCode || "").toLowerCase() || version <= Number(S.mapVersion || 0)) return;
+        const refreshSeq = ++Net._mapRefreshSeq;
+        try {
+          const mapDto = await Net.get(API.PATHS.worlds.byCode(mapCode));
+          if (refreshSeq !== Net._mapRefreshSeq || mapCode !== String(S.mapCode || "").toLowerCase()) return;
+          const map = normalizeWorldDto(mapDto);
+          if (!map || map.code !== mapCode || map.version !== version || version <= Number(S.mapVersion || 0) || !S.player) return;
+          const playerX = S.player.x;
+          const playerY = S.player.y;
+          const otherPlayers = [...S.players.values()];
+          World.loadMap(map, playerX, playerY, { silent: true });
+          for (const player of otherPlayers) Net._upsertOther(player);
+          const synchronized = await Net.command("world.resync");
+          if (!synchronized?.ok) {
+            S.monsters = (Array.isArray(data.monsters) ? data.monsters : []).map((monsterData) => {
+              const x = Number(monsterData.x ?? monsterData.spawnX ?? 0);
+              const y = Number(monsterData.y ?? monsterData.spawnY ?? 0);
+              const monster = Monster.make(monsterData, x, y, monsterData.id);
+              if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(monster, monster.px, monster.py);
+              return monster;
+            });
+            S.groundItems = Array.isArray(data.groundItems) ? data.groundItems : [];
+          }
+          UI.update();
+          UI.log("Bản đồ vừa được cập nhật; quái và địa hình đã đồng bộ.", "system");
+        } catch (error) {
+          console.error("map_updated error:", error);
+          UI.log("Không tải được bản đồ vừa cập nhật. Hãy tải lại trang để đồng bộ.", "system");
+        }
+      });
+
       // ── World state (players on same map) ──
       socket.on("world_state", (data) => {
         try {
@@ -655,6 +694,7 @@ const Net = {
         }
         if (!miss && Number(damage) > 0) {
           S.cameraShake = { until: Date.now() + 90, power: 1.8 };
+          if (typeof Sound !== "undefined") Sound.play("hurt");
         }
         Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
         if (S.player.hp <= 0) {
@@ -721,6 +761,10 @@ const Net = {
           Object.assign(S.player, player);
           try { S.inventory = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : (player.inventory || S.inventory); } catch { }
         }
+        if (typeof Sound !== "undefined") {
+          if (loot?.xu || item?.kind === "xu") Sound.play("coin");
+          else Sound.play("item");
+        }
         UI.pushLoot(loot, "Nhặt");
         UI.buildInv(); UI.update();
       });
@@ -731,6 +775,12 @@ const Net = {
         const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
         const vfx = typeof SkillVFX !== "undefined" ? SkillVFX : null;
         const skill = skillCode && vfx ? vfx.findSkill(skillCode, actor) : null;
+        if (attackerId === socket.id && typeof Sound !== "undefined") {
+          if (skillCode) Sound.play("skill", { element: S.player?.linhCan });
+          else if (payload.critical) Sound.play("crit");
+          else if (payload.miss) Sound.play("miss");
+          else Sound.play("hit");
+        }
         if (attackerId === socket.id && loot) UI.pushLoot(loot);
         const hits = Array.isArray(payload.hits) && payload.hits.length
           ? payload.hits

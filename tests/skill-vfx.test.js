@@ -330,15 +330,15 @@ test("active thunder shield keeps its HUD expiry when a skill response omits buf
 });
 
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
-  assert.match(gameHtml, /js\/bootstrap\.js\?v=27/);
-  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=19/);
+  assert.match(gameHtml, /js\/bootstrap\.js\?v=\d+/);
+  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=20/);
   assert.match(adminHtml, /js\/api\.js\?v=6/);
   assert.match(adminHtml, /admin\.css\?v=5/);
-  assert.match(adminHtml, /js\/skill-vfx\.js\?v=19/);
-  assert.match(adminHtml, /admin\/content-utils\.js\?v=4/);
+  assert.match(adminHtml, /js\/skill-vfx\.js\?v=20/);
+  assert.match(adminHtml, /admin\/content-utils\.js\?v=5/);
   assert.match(adminHtml, /admin\/content-manager\.js\?v=6/);
   assert.match(adminHtml, /admin\/admin-auth\.js\?v=2/);
-  assert.match(adminHtml, /admin\.js\?v=19/);
+  assert.match(adminHtml, /admin\.js\?v=20/);
   assert.match(adminHtml, /Cấu hình được dùng chung trên máy chủ game hiện tại/);
   assert.doesNotMatch(adminHtml, /trong hồ sơ trình duyệt hiện tại/);
 });

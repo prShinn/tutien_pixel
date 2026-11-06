@@ -197,8 +197,38 @@ utils.js ───┘                │
 ## 🔄 Phiên Bản & Milestone
 
 Xem file `docs/ROADMAP.md` để biết roadmap phát triển chi tiết.
-## QUY ƯỚC NỀN TẢNG
 
-- Hiện tại phát triển PC webgame trước: chuột, bàn phím, canvas trung tâm và HUD desktop.
-- Không đưa touch joystick hoặc mobile-only layout vào gameplay core trước khi PC slice hoàn thiện.
-- Mobile là phase cuối: chỉ thêm input adapter và responsive HUD, tái sử dụng state/socket/server hiện có.
+## QUY ƯỚC NỀN TẢNG & LỘ TRÌNH ĐA NỀN TẢNG (PC WEB + MOBILE APK)
+
+- **Trọng tâm hiện tại**: Hoàn thiện vững chắc phiên bản PC Webgame (chuột, bàn phím, canvas trung tâm, HUD desktop, server authoritative).
+- **Lộ trình Mobile & APK**:
+  - Không phân tách hai codebase riêng; 100% mã nguồn Frontend HTML5/Canvas/CSS tại `public/` được tái sử dụng để xuất bản App Mobile (Android APK / AAB và iOS).
+  - Công nghệ đóng gói chuẩn: **Capacitor (Ionic)** chạy WebView tăng tốc GPU, kết nối REST & Socket.IO tới Backend server.
+  - Phân hệ Mobile App chỉ bổ sung lớp Input Adapter (Virtual Joystick bên trái, Skill buttons bên phải), responsive safe-area và cấu hình production endpoint, tuyệt đối không sửa đổi logic nghiệp vụ server và state core.
+
+---
+
+## 📱 Workflow Đóng Gói Mobile App (Android APK)
+
+```markdown
+1. [ ] Cài đặt Capacitor CLI và platform:
+       npm install @capacitor/core @capacitor/cli @capacitor/android
+2. [ ] Khởi tạo cấu hình Capacitor (capacitor.config.json) trỏ webDir = "public".
+3. [ ] Tạo project native: npx cap add android.
+4. [ ] Cấu hình API.BASE:
+       - Development APK (test mạng nội bộ): trỏ IP LAN máy dev (vd: http://192.168.1.x:3800).
+       - Production APK: trỏ Domain HTTPS Backend (vd: https://api.tutienpixel.com).
+5. [ ] Cấu hình Android Manifest:
+       - Khóa hướng màn hình: android:screenOrientation="landscape".
+       - Cấp quyền mạng: INTERNET, ACCESS_NETWORK_STATE.
+       - Cho phép Cleartext traffic (nếu test môi trường dev HTTP).
+6. [ ] Tích hợp Touch Controls:
+       - Virtual D-pad / Joystick cảm ứng góc trái dưới.
+       - Cụm nút chiêu thức hình quạt (Skill Ring) góc phải dưới.
+7. [ ] Đồng bộ asset web vào project native: npx cap sync android.
+8. [ ] Build file APK kiểm thử:
+       cd android && ./gradlew assembleDebug (hoặc Build APK trong Android Studio).
+9. [ ] Nghiệm thu thực tế:
+       - Cài đặt APK trên thiết bị thật, đăng nhập, điều khiển mượt mà 60 FPS.
+       - Thử nghiệm tắt/bật mạng, xoay màn hình, tai thỏ/dynamic island không bị che HUD.
+```

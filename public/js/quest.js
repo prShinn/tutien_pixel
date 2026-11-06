@@ -221,7 +221,7 @@ const QuestUI = {
       return;
     }
     const categoryLabels = { main: "CHÍNH TUYẾN", side: "PHỤ TUYẾN", daily: "HẰNG NGÀY" };
-    const statusLabels = { ready: "CÓ THỂ NHẬN", active: "ĐANG LÀM", available: "MỚI", completed: "HOÀN TẤT" };
+    const statusLabels = { ready: "CÓ THỂ NHẬN", active: "ĐANG LÀM", available: "MỚI", locked: "CHƯA MỞ", completed: "HOÀN TẤT" };
     const quests = this.filteredQuests();
     if (!quests.length) {
       const empty = document.createElement("p");
@@ -307,6 +307,15 @@ const QuestUI = {
     progress.appendChild(fill);
     objective.append(objectiveHeading, objectiveText, progress);
 
+    if (quest.status === "locked") {
+      const lockedNote = document.createElement("p");
+      lockedNote.className = "quest-locked-note";
+      lockedNote.textContent = quest.requiresQuestTitle
+        ? `Hoàn thành “${quest.requiresQuestTitle}” để mở nhiệm vụ này.`
+        : "Hoàn thành nhiệm vụ trước để mở nhiệm vụ này.";
+      objective.appendChild(lockedNote);
+    }
+
     const rewardSection = document.createElement("section");
     rewardSection.className = "quest-reward-section";
     const rewardHeading = document.createElement("div");
@@ -338,6 +347,9 @@ const QuestUI = {
     } else if (quest.status === "ready") {
       action.textContent = "Nhận thưởng";
       action.addEventListener("click", () => this.claimSelected());
+    } else if (quest.status === "locked") {
+      action.textContent = "Chưa mở khóa";
+      action.disabled = true;
     } else if (quest.status === "active") {
       action.textContent = quest.id === this.trackedId ? "Bỏ theo dõi" : "Theo dõi nhiệm vụ";
       action.setAttribute("aria-pressed", String(quest.id === this.trackedId));

@@ -159,6 +159,7 @@ const Cultivation = {
         UI.notify(`Hấp thu ${item.name} → Tu vi +${result.result.amount}`, "success");
         UI.buildInv();
         UI.update();
+        if (typeof Sound !== "undefined") Sound.play("item");
       } catch (error) {
         UI.notify(error.message || "Không kết nối được máy chủ để hấp thụ tu vi.", "error");
       } finally { this._absorbPending = false; }
@@ -222,6 +223,7 @@ const Cultivation = {
         Net.applyPlayerSnapshot(result.player, { render: false });
         const major = Boolean(result.major ?? result.result?.major);
         UI.notify(major ? "Thăng cảnh giới thành công!" : `Đột phá tầng ${S.player.tangTuVi} thành công!`, "success");
+        if (typeof Sound !== "undefined") Sound.play(major ? "breakthrough" : "levelUp");
         this.showBreakthroughEffect(major);
         UI.update();
       } catch (error) {

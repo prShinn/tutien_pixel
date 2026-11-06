@@ -19,7 +19,7 @@ const continent = {
       maps: [
         { code: "thanh_van_tran", name: "Thanh Vân Trấn", type: "CITY", status: "ACTIVE", tier: 1, level: "1-3", role: "capital", connections: ["dao_hoa_thon", "binh_nguyen"] },
         { code: "dao_hoa_thon", name: "Đào Hoa Thôn", type: "VILLAGE", status: "PLANNED", tier: 1, level: "1-5", role: "village", connections: ["thanh_van_tran", "thanh_van_ngoai_vuc"] },
-        { code: "thanh_van_ngoai_vuc", name: "Ngoại Vực Thanh Vân", type: "WILDERNESS_EDGE", status: "PLANNED", tier: 2, level: "3-8", role: "transition", connections: ["dao_hoa_thon", "thanh_van_son_coc"] },
+        { code: "thanh_van_ngoai_vuc", name: "Rừng Rậm Thanh Vân", type: "FOREST", status: "ACTIVE", tier: 3, level: "4-10", role: "forest", connections: ["binh_nguyen", "thanh_van_son_coc"] },
       ],
     },
     {
@@ -41,7 +41,7 @@ const continent = {
       order: 3,
       description: "Vùng núi liên hoàn, linh mạch đan xen, độ cao và hiểm địa tăng theo từng lớp.",
       maps: [
-        { code: "bach_van_son", name: "Bạch Vân Sơn", type: "MOUNTAIN", status: "PLANNED", tier: 4, level: "12-22", role: "mountain", connections: ["thanh_van_son_coc", "van_yeu_dai_son"] },
+        { code: "bach_van_son", name: "Bạch Vân Sơn", type: "MOUNTAIN", status: "ACTIVE", tier: 4, level: "12-22", role: "mountain", connections: ["thanh_van_son_coc", "van_yeu_dai_son"] },
         { code: "van_yeu_dai_son", name: "Vạn Yêu Đại Sơn", type: "MOUNTAIN_RANGE", status: "PLANNED", tier: 5, level: "20-35", role: "beast_range", connections: ["bach_van_son", "man_hoang_bien", "thien_mon_quan"] },
         { code: "thien_mon_quan", name: "Thiên Môn Quan", type: "MOUNTAIN_PASS", status: "PLANNED", tier: 6, level: "30-45", role: "gate", connections: ["van_yeu_dai_son", "man_hoang_co_dia"] },
       ],

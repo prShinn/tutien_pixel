@@ -22,7 +22,9 @@
     if (!fields) throw new Error("Collection này chưa hỗ trợ tạo bản ghi");
     const prefix = key === "items" ? "ITEM" : key === "skills" ? "SKILL" : key === "quests" ? "quest" : key.toUpperCase();
     const numericIds = key === "skills" ? records.map((record) => Number(record.id)).filter(Number.isSafeInteger) : [];
-    const id = key === "skills" ? Math.max(0, ...numericIds) + 1 : `${prefix}_${key === "quests" ? "new" : "NEW"}_${now}`;
+    const id = key === "skills"
+      ? (numericIds.length ? Math.max(...numericIds) + 1 : Math.max(1, Number.isSafeInteger(now) ? now : Date.now()))
+      : `${prefix}_${key === "quests" ? "new" : "NEW"}_${now}`;
     const record = { id, ...JSON.parse(JSON.stringify(fields)) };
     if (key === "items") record.maDo = record.id;
     if (key === "skills") record.code = `SKILL_${record.id}`;
@@ -159,6 +161,18 @@
     return records.filter((record) => JSON.stringify(record).toLocaleLowerCase().includes(normalizedQuery));
   }
 
+  function validatePagedResult(payload, { page = 1, limit = 24 } = {}) {
+    if (!Array.isArray(payload?.data)) throw new Error("API Admin trả danh sách không hợp lệ.");
+    const pagination = payload.pagination;
+    if (!pagination) throw new Error("Backend chưa trả phân trang máy chủ. Hãy cập nhật API Admin; danh sách đang khóa để tránh tải toàn bộ dữ liệu.");
+    if (!Number.isSafeInteger(pagination.page) || pagination.page < 1 || pagination.page !== Number(page)
+        || !Number.isSafeInteger(pagination.limit) || pagination.limit !== Number(limit)
+        || !Number.isSafeInteger(pagination.total) || pagination.total < 0 || payload.data.length > pagination.limit) {
+      throw new Error("API Admin trả thông tin phân trang không hợp lệ.");
+    }
+    return payload;
+  }
+
   function summarizeRecord(record, maxFields = 3) {
     return Object.entries(record || {})
       .filter(([key]) => !["id", "updatedAt", "img", "animation"].includes(key))
@@ -166,5 +180,5 @@
       .map(([key, value]) => ({ key, value: formatValue(value) }));
   }
 
-  return { createBlankRecord, createSampleInventory, parseRecord, escapeHtml, formatValue, filterRecords, summarizeRecord };
+  return { createBlankRecord, createSampleInventory, parseRecord, escapeHtml, formatValue, filterRecords, validatePagedResult, summarizeRecord };
 });

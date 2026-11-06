@@ -513,6 +513,10 @@ function enterGame(map, x, y) {
   Net.initializeAutoLoot();
   UI.initializeBuffEffectsToggle();
   UI.initializeHudLayout();
+  if (typeof Sound !== "undefined") {
+    UI.updateSoundToggle(!Sound.isSfxMuted());
+    if (!Sound.isBgmMuted()) Sound.startBgm();
+  }
   UI.log("Bắt đầu hành trình...", "chat");
   UI.log("💡 Đánh quái → rơi xu/đồ. Hấp thu linh thạch → tu vi tăng.", "chat");
   UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "chat");

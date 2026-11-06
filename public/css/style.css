@@ -2531,7 +2531,9 @@ body {
 .quest-status--ready { color: #f2d277; }
 .quest-status--active { color: #90c5a7; }
 .quest-status--available { color: #a9c7df; }
+.quest-status--locked { color: #858b83; }
 .quest-status--completed { color: #a39a88; }
+.quest-locked-note { margin: 8px 0 0; color: #9c9b8d; font-size: 10px; }
 .quest-card-progress { grid-column: 1 / -1; color: #aaa394; font-size: 9px; }
 .quest-empty,
 .quest-detail-empty { margin: 0; padding: 14px; color: #aaa394; font-size: 10px; }

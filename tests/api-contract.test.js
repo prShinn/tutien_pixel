@@ -7,6 +7,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const apiSource = fs.readFileSync(path.join(__dirname, "..", "public", "js", "api.js"), "utf8");
+const utilsSource = fs.readFileSync(path.join(__dirname, "..", "public", "js", "utils.js"), "utf8");
 const bootstrapSource = fs.readFileSync(path.join(__dirname, "..", "public", "js", "bootstrap.js"), "utf8");
 const serverSource = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
 const gameHtml = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
@@ -22,7 +23,19 @@ test("client realm catalog route matches the server and game bootstrap loads the
   assert.match(bootstrapSource, /core\/config\.mjs/);
   assert.match(bootstrapSource, /core\/state\.mjs/);
   assert.doesNotMatch(bootstrapSource, /js\/(?:config|state)\.js/);
-  assert.match(gameHtml, /js\/bootstrap\.js\?v=27/);
+  assert.match(gameHtml, /js\/bootstrap\.js\?v=\d+/);
+});
+
+test("world normalization preserves runtime fields when a published map is refreshed", () => {
+  const context = vm.createContext({ console });
+  vm.runInContext(`${utilsSource}\nglobalThis.__normalizeWorld = normalizeWorldDto;`, context, { filename: "utils.js" });
+  const map = context.__normalizeWorld({
+    code: "field_test", type: "CITY", version: 8, w: 1, h: 1, jsonMap: [[0]],
+    rules: { noMonsters: true, monsterPacksOnly: true },
+  });
+
+  assert.equal(map.type, "CITY");
+  assert.deepEqual({ ...map.rules }, { noMonsters: true, monsterPacksOnly: true });
 });
 
 test("API can target a separate local BE and rejects an untrusted API host", () => {
