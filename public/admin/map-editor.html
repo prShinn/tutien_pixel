@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Thiên Địa Đồ · Map Admin</title>
-    <link rel="stylesheet" href="/admin/map-editor.css?v=7" />
+    <link rel="stylesheet" href="/admin/map-editor.css?v=8" />
     <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
   </head>
   <body>
@@ -23,23 +23,45 @@
         <button id="admin-auth-submit" type="submit">Đăng nhập</button>
       </form>
     </dialog>
+    <nav class="editor-nav" aria-label="Điều hướng Map Editor">
+      <a id="back-to-admin" href="/admin">← Quản lý Admin</a>
+      <a href="#map-stage">Bản đồ</a>
+      <a href="#map-inspector">Công cụ</a>
+      <a class="editor-actions-link" href="#map-actions">Mở / Lưu</a>
+    </nav>
     <header class="topbar">
       <div>
         <span class="seal">ĐỒ</span>
         <strong>Thiên Địa Đồ</strong>
         <small>Biên tập địa hình tu tiên</small>
       </div>
-      <div class="top-actions">
-        <a href="/admin" class="ghost">← Admin Hub</a>
+      <div class="top-actions" id="map-actions">
         <div class="admin-auth-session"><span id="admin-user-label">Chưa đăng nhập</span><button id="admin-logout" type="button" aria-label="Đăng xuất Admin" hidden>Đăng xuất</button></div>
-        <select id="map-list"><option value="">Map mới</option></select>
+        <select id="map-list" aria-label="Chọn bản đồ"><option value="">Map mới</option></select>
         <button id="load-map" class="ghost">Mở map</button>
         <button id="save-map" class="primary">Lưu vào MySQL</button>
       </div>
     </header>
 
     <main class="workspace">
-      <aside class="inspector">
+      <section class="map-stage" id="map-stage" aria-label="Xem bản đồ">
+        <div class="stage-head">
+          <div><strong id="stage-name">Thanh Sơn Hà Cốc</strong><span id="map-info">600 × 400</span></div>
+          <div class="legend"><i class="water"></i>Sông <i class="forest"></i>Rừng <i class="mountain"></i>Núi <i class="spawn"></i>Spawn <i class="npc"></i>NPC</div>
+        </div>
+        <div id="canvas-scroll" class="canvas-scroll" tabindex="0" aria-label="Khung cuộn bản đồ">
+          <canvas id="map-canvas" aria-label="Bản đồ đang biên tập"></canvas>
+        </div>
+        <footer>
+          <span id="cursor-info">x: — · y: —</span>
+          <span id="editor-status" role="status">Sẵn sàng</span>
+          <div class="zoom-controls">
+            <label>Zoom <input id="zoom" type="range" min="1" max="8" step="0.25" value="1" /></label>
+            <button id="fit-map" type="button" class="ghost">Vừa khung</button>
+          </div>
+        </footer>
+      </section>
+      <aside class="inspector" id="map-inspector" aria-label="Công cụ bản đồ">
         <section>
           <h2>01 · Hồ sơ thế giới</h2>
           <label>Tên map <input id="map-name" value="Thanh Sơn Hà Cốc" /></label>
@@ -99,6 +121,7 @@
             <button data-layer="elevation">Cao độ</button>
             <button data-layer="spawn">Điểm sinh</button>
             <button data-layer="monster">Bãi quái</button>
+            <button data-layer="npc">NPC</button>
             <button data-layer="portal">Portal</button>
           </div>
           <div id="tile-palette" class="palette"></div>
@@ -107,13 +130,13 @@
         </section>
 
         <section id="monster-panel">
-          <h2>04 · Bãi quái</h2>
-          <p class="hint">Chọn bút Bãi quái rồi nhấp map để đặt tâm đàn. Runtime sinh quái hoàn toàn từ cấu hình này.</p>
+          <h2>04 · Cấu hình bãi quái</h2>
+          <p class="hint">Mở map, chọn quái, rồi nhấp bản đồ hoặc nhập X/Y. Lưu bãi quái và bấm Lưu map. Với map nháp, bấm Xuất bản để đưa vào game.</p>
           <label>Loại quái <select id="monster-template"><option value="">Đang tải...</option></select></label>
           <label>Mã đàn <input id="monster-pack-id" placeholder="PACK_WOLF_01" /></label>
           <div class="field-pair">
-            <label>X tâm <input id="monster-center-x" type="number" readonly /></label>
-            <label>Y tâm <input id="monster-center-y" type="number" readonly /></label>
+            <label>X tâm <input id="monster-center-x" type="number" min="0" required /></label>
+            <label>Y tâm <input id="monster-center-y" type="number" min="0" required /></label>
           </div>
           <div class="field-pair">
             <label>Số lượng <input id="monster-count" type="number" min="1" max="20" value="4" /></label>
@@ -132,8 +155,33 @@
           <div id="monster-pack-list" class="portal-list"><p class="hint">Map chưa có bãi quái.</p></div>
         </section>
 
+        <section id="npc-panel">
+          <h2>05 · NPC trên map này</h2>
+          <p class="hint">NPC nằm trong dữ liệu map đang mở. Chọn bút NPC rồi nhấp bản đồ để đặt vị trí. NPC bị ẩn vẫn được giữ lại để có thể bật lại.</p>
+          <label>Tên hiển thị <input id="npc-name" maxlength="80" required /></label>
+          <div class="field-pair">
+            <label>Mã NPC <input id="npc-id" maxlength="80" pattern="[A-Za-z0-9_-]+" required /></label>
+            <label>Vai trò <input id="npc-role" maxlength="40" placeholder="MERCHANT" required /></label>
+          </div>
+          <div class="field-pair">
+            <label>Kiểu tương tác <select id="npc-type"><option value="dialog">Đối thoại</option><option value="shop">Cửa hàng</option><option value="chest">Rương</option></select></label>
+            <label>Giới tính <select id="npc-gender"><option value="MALE">Nam</option><option value="FEMALE">Nữ</option></select></label>
+          </div>
+          <div class="field-pair">
+            <label>X <input id="npc-x" type="number" min="0" required /></label>
+            <label>Y <input id="npc-y" type="number" min="0" required /></label>
+          </div>
+          <label>Màu nhận diện <input id="npc-color" type="color" value="#8fc7bd" /></label>
+          <label>Lời thoại <textarea id="npc-dialog" maxlength="500" rows="3"></textarea></label>
+          <label class="check"><input id="npc-enabled" type="checkbox" checked /> Hiển thị NPC trong game</label>
+          <div class="portal-actions">
+            <button id="new-npc" class="ghost" type="button">+ NPC mới</button>
+            <button id="save-npc" class="wide" type="button">Lưu NPC vào map</button>
+          </div>
+          <div id="npc-list" class="portal-list"><p class="hint">Chọn hoặc tạo NPC để chỉnh sửa.</p></div>
+        </section>
         <section id="portal-panel">
-          <h2>05 · Liên kết portal</h2>
+          <h2>06 · Liên kết portal</h2>
           <p class="hint">Chọn bút Portal rồi nhấp lên map để đặt cổng nguồn.</p>
           <div class="field-pair">
             <label>X nguồn <input id="portal-source-x" type="number" readonly /></label>
@@ -154,7 +202,7 @@
           <div id="portal-list" class="portal-list"><p class="hint">Map chưa có portal.</p></div>
         </section>
         <section id="sample-map-panel" aria-labelledby="sample-map-title">
-          <h2 id="sample-map-title">06 · Sinh bộ map &amp; NPC mẫu</h2>
+          <h2 id="sample-map-title">07 · Sinh bộ map &amp; NPC mẫu</h2>
           <p class="hint">Tạo tối đa 10 map nháp, mỗi map có 3–8 NPC trong cùng dữ liệu map để game nạp trực tiếp. Map và NPC được Backend ghi vào MySQL; mỗi lần ghi cần MySQL sẵn sàng và tài khoản GM/ADMIN. Map trùng mã sẽ được bỏ qua.</p>
           <label>Số map <input id="map-pack-count" type="number" min="1" max="10" value="10" /></label>
           <button id="preview-map-pack" class="wide" type="button">Tạo bản xem trước</button>
@@ -175,23 +223,9 @@
         </section>
       </aside>
 
-      <section class="map-stage">
-        <div class="stage-head">
-          <div><strong id="stage-name">Thanh Sơn Hà Cốc</strong><span id="map-info">600 × 400</span></div>
-          <div class="legend"><i class="water"></i>Sông <i class="forest"></i>Rừng <i class="mountain"></i>Núi <i class="spawn"></i>Spawn <i class="npc"></i>NPC</div>
-        </div>
-        <div id="canvas-scroll" class="canvas-scroll">
-          <canvas id="map-canvas" aria-label="Bản đồ đang biên tập"></canvas>
-        </div>
-        <footer>
-          <span id="cursor-info">x: — · y: —</span>
-          <span id="editor-status">Sẵn sàng</span>
-          <label>Zoom <input id="zoom" type="range" min="1" max="8" value="2" /></label>
-        </footer>
-      </section>
     </main>
-    <script src="/js/api.js?v=5"></script>
+    <script src="/js/api.js?v=6"></script>
     <script src="/admin/admin-auth.js?v=2"></script>
-    <script src="/admin/map-editor.js?v=9"></script>
+    <script src="/admin/map-editor.js?v=14"></script>
   </body>
 </html>

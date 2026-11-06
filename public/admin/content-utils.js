@@ -7,12 +7,11 @@
 
   const ID_PATTERN = /^[a-zA-Z0-9_-]{1,80}$/;
   const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  const ITEM_TYPES = new Set(["STONE", "POTION", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
+  const ITEM_TYPES = new Set(["STONE", "POTION", "CONSUME", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
   const SKILL_TYPES = new Set(["COMMON", "PHYS", "MAGIC"]);
   const SKILL_CATEGORIES = new Set(["ACTIVE", "PASSIVE"]);
   const templates = {
-    quests: { name: "Nhiệm vụ mới", status: "DRAFT", level: 1, steps: 1, reward: "" },
-    npcs: { name: "NPC mới", role: "GUIDE", mapCode: "thanh_van_tran", status: "DRAFT" },
+    quests: { title: "Nhiệm vụ mới", category: "side", giver: "Lão Tu Sĩ", location: "Bình Nguyên Hoang Dã", summary: "Mô tả nhiệm vụ.", objective: "Đánh bại yêu thú", target: 1, eventType: "monster_kill", initialStatus: "available", initialProgress: 0, rewards: [] },
     items: { maDo: "", tenDo: "Vật phẩm mới", name: "Vật phẩm mới", icon: "◇", loai: "MATERIAL", type: "MATERIAL", giaMua: 0, giaBan: 0, moTa: "" },
     skills: { code: "", name: "Kỹ năng mới", icon: "✦", linhCan: "COMMON", tier: 1, mpTieuHao: 0, hoiChieu: 1, range: 1, type: "COMMON", category: "ACTIVE", targetType: "ENEMY", scalingStat: "ene", satThuong: 1, dienRong: 0, effect: "", effectVal: 0, thoiGianBuff: 0, moTa: "" },
   };
@@ -21,9 +20,9 @@
     const key = String(collection || "").toLowerCase();
     const fields = templates[key];
     if (!fields) throw new Error("Collection này chưa hỗ trợ tạo bản ghi");
-    const prefix = key === "items" ? "ITEM" : key === "skills" ? "SKILL" : key.toUpperCase();
+    const prefix = key === "items" ? "ITEM" : key === "skills" ? "SKILL" : key === "quests" ? "quest" : key.toUpperCase();
     const numericIds = key === "skills" ? records.map((record) => Number(record.id)).filter(Number.isSafeInteger) : [];
-    const id = key === "skills" ? Math.max(0, ...numericIds) + 1 : `${prefix}_NEW_${now}`;
+    const id = key === "skills" ? Math.max(0, ...numericIds) + 1 : `${prefix}_${key === "quests" ? "new" : "NEW"}_${now}`;
     const record = { id, ...JSON.parse(JSON.stringify(fields)) };
     if (key === "items") record.maDo = record.id;
     if (key === "skills") record.code = `SKILL_${record.id}`;
@@ -98,13 +97,29 @@
 
     const key = String(collection || "").toLowerCase();
     if (key === "items") {
-      if (String(fields.maDo || "").trim() !== recordId) throw new Error("Mã vật phẩm phải trùng với mã bản ghi.");
+      if (!ID_PATTERN.test(String(fields.maDo || "").trim())) throw new Error("Mã vật phẩm cần là mã hợp lệ gồm chữ, số, gạch dưới hoặc gạch nối.");
       const type = String(fields.type || fields.loai || "").trim().toUpperCase();
       if (!type) throw new Error("Vật phẩm cần có loại (type hoặc loai).");
       if (!ITEM_TYPES.has(type)) throw new Error("Loại vật phẩm không được hỗ trợ.");
       if (fields.type && fields.loai && String(fields.type).toUpperCase() !== String(fields.loai).toUpperCase()) throw new Error("type và loai phải thống nhất.");
       for (const field of ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp"]) {
         if (fields[field] !== undefined && (!Number.isFinite(Number(fields[field])) || Number(fields[field]) < 0)) throw new Error(`Trường ${field} phải là số không âm.`);
+      }
+    }
+    if (key === "quests") {
+      if (!/^[a-z0-9_-]{1,64}$/.test(recordId) || !String(fields.title || "").trim()) throw new Error("Quest cần mã chữ thường và tiêu đề hợp lệ.");
+      if (!["main", "side", "daily"].includes(fields.category)) throw new Error("Nhóm quest không hợp lệ.");
+      if (!["monster_kill", "collect_item"].includes(fields.eventType)) throw new Error("Sự kiện quest không được hỗ trợ.");
+      if (!Number.isSafeInteger(Number(fields.target)) || Number(fields.target) < 0 || Number(fields.target) > 1000000) throw new Error("Mục tiêu quest phải là số nguyên từ 0 trở lên.");
+      if (!["active", "available"].includes(fields.initialStatus) || !Number.isSafeInteger(Number(fields.initialProgress)) || Number(fields.initialProgress) < 0 || Number(fields.initialProgress) > Number(fields.target)) throw new Error("Trạng thái ban đầu hoặc tiến độ quest không hợp lệ.");
+      if (!Array.isArray(fields.rewards)) throw new Error("Phần thưởng quest phải là một danh sách.");
+    }
+    if (key === "monsters") {
+      if (!/^[A-Z0-9_]{1,64}$/.test(recordId) || String(fields.code || "") !== recordId) throw new Error("Mã quái phải trùng code và chỉ gồm chữ hoa, số, gạch dưới.");
+      if (!["NORMAL", "ELITE", "BOSS"].includes(fields.type)) throw new Error("Phân loại quái không hợp lệ.");
+      for (const field of ["level", "hp", "maxHp", "atk", "def", "speed", "respawnMs"]) {
+        if ((field === "maxHp" || field === "respawnMs") && fields[field] == null) continue;
+        if (!Number.isFinite(Number(fields[field])) || Number(fields[field]) < (field === "def" ? 0 : 0.1)) throw new Error(`Trường ${field} phải là số hợp lệ.`);
       }
     }
     if (key === "skills") {

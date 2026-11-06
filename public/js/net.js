@@ -49,7 +49,7 @@ const Net = {
         const response = { ok: false, requestId, command: type, error: { code: "COMMAND_TIMEOUT", message: "Máy chủ không phản hồi, vui lòng thử lại." } };
         if (["combat.attack", "combat.skill"].includes(type)) {
           S.combatPending = false;
-          Net.cancelLocalCast();
+          if (!payload.skillCode) Net.cancelLocalCast();
         }
         if (type === "map.change" && S.player) {
           S.player.isTeleporting = false;
@@ -67,7 +67,7 @@ const Net = {
         if (!response?.ok && response?.error?.message) {
           if (["combat.attack", "combat.skill"].includes(type)) {
             S.combatPending = false;
-            Net.cancelLocalCast();
+            if (!payload.skillCode) Net.cancelLocalCast();
           }
           if (type === "map.change" && S.player) {
             S.player.isTeleporting = false;
@@ -285,6 +285,14 @@ const Net = {
     }
   },
 
+  refreshItemViews() {
+    if (!S.player) return;
+    UI.hideTip();
+    UI.buildInv();
+    UI.renderEquipment(true);
+    if (document.getElementById("shop-modal")?.classList.contains("open")) Shop.render();
+  },
+
   applyPlayerSnapshot(player, { render = true } = {}) {
     if (!player || typeof player !== "object" || !S.player) return false;
     Object.assign(S.player, player);
@@ -347,7 +355,20 @@ const Net = {
         reconnectionAttempts: 10,
       });
 
+      let hasConnected = false;
+      let pendingItemChanges = null;
       socket.on("connect", () => {
+        if (hasConnected) {
+          const changes = pendingItemChanges = new Map();
+          void GameData.loadItems(() => pendingItemChanges === changes).then((loaded) => {
+            if (pendingItemChanges !== changes) return;
+            pendingItemChanges = null;
+            if (!loaded) return;
+            for (const change of changes.values()) GameData.updateItemCatalog(change);
+            Net.refreshItemViews();
+          });
+        }
+        hasConnected = true;
         Net._isOnline = true;
         Net._setBadge(true);
         const p = S.player;
@@ -366,6 +387,7 @@ const Net = {
       });
 
       socket.on("disconnect", () => {
+        pendingItemChanges = null;
         S.combatPending = false;
         Net.cancelLocalCast();
         clearTimeout(Net._mapChangeTimer);
@@ -570,6 +592,13 @@ const Net = {
         }
       });
 
+      socket.on("item_catalog_changed", (change) => {
+        if (!change || typeof change !== "object") return;
+        pendingItemChanges?.set(change.id, change);
+        GameData.updateItemCatalog(change);
+        Net.refreshItemViews();
+      });
+
       socket.on("monster_update", ({ monsters }) => {
         if (!Array.isArray(monsters)) return;
         for (const data of monsters) {
@@ -585,6 +614,9 @@ const Net = {
           }
           m.hp = Number(data.hp ?? m.hp);
           m.maxHp = Number(data.maxHp || m.maxHp);
+          for (const key of ["name", "img", "color", "type", "linhCan", "nguHanh", "level", "atk", "def", "speed", "respawnMs", "lootTableId", "animation", "size"]) {
+            if (data[key] !== undefined) m[key] = data[key];
+          }
           m.state = data.state || m.state;
           m.targetId = data.targetId || null;
           m.statusEffects = Array.isArray(data.statusEffects) ? data.statusEffects : [];
@@ -730,14 +762,10 @@ const Net = {
           const source = actor || { px: visualHits[0].px, py: visualHits[0].py };
           vfx.impact(skill, source, visualHits);
         }
-        if (skillCode && skillName) {
+        if (skillCode) {
           if (actor) {
-            const physicalStrike = skill && SkillSystem.isOffensive(skill)
-              && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
-            actor.animStartedAt = Date.now();
-            actor.animState = physicalStrike ? "attack" : "cast";
-            actor.animUntil = actor.animStartedAt + SkillSystem.animationDuration(skill || { damageType: "MAGIC" });
-            Render.floatSkill(actor.px, actor.py, skillName);
+            SkillSystem.animateCast(actor, skill);
+            if (skillName) Render.floatSkill(actor.px, actor.py, skillName);
           }
         } else if (actor) {
           actor.animState = "attack";
@@ -774,10 +802,8 @@ const Net = {
       socket.on("player_skill_cast", ({ playerId, skillCode, skillName, effect }) => {
         const actor = S.players.get(playerId);
         if (!actor) return;
-        actor.animStartedAt = Date.now();
-        actor.animState = "cast";
         const skill = typeof SkillVFX !== "undefined" ? SkillVFX.findSkill(skillCode, actor) : null;
-        actor.animUntil = actor.animStartedAt + SkillSystem.animationDuration(skill || { damageType: "MAGIC" });
+        SkillSystem.animateCast(actor, skill);
         if (skill && typeof SkillVFX !== "undefined") SkillVFX.support(skill, actor);
         else Render.combatFx(actor.px, actor.py, "skill", effectColor(effect));
         if (skillName) Render.floatSkill(actor.px, actor.py, skillName, effectColor(effect));
@@ -791,9 +817,6 @@ const Net = {
         S.combatPending = false;
         S.combatGcd = Math.floor((gcdMs || 350) / 16);
         if (!S.player) return;
-        S.player.animStartedAt = Date.now();
-        S.player.animState = "cast";
-        S.player.animUntil = S.player.animStartedAt + 760;
         S.player.hp = hp;
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         S.player.mp = mp;
@@ -801,6 +824,7 @@ const Net = {
         if (buffs && typeof buffs === "object" && !Array.isArray(buffs)) S.player.buffs = buffs;
         const skill = (typeof SkillVFX !== "undefined" && SkillVFX.findSkill(skillCode, S.player))
           || S.player.skills?.find(item => String(item.id) === String(skillCode) || String(item.code) === String(skillCode));
+        SkillSystem.animateCast(S.player, skill);
         if (typeof SkillVFX !== "undefined" && skill) {
           SkillVFX.support(skill, S.player);
           SkillVFX.activateBuff(skill, effectDurationMs);
@@ -888,7 +912,6 @@ const Net = {
       S.player.animUntil = 0;
       S.player.animStartedAt = 0;
     }
-    if (typeof SkillVFX !== "undefined") SkillVFX.cancelCharge();
   },
 
   toggleAutoLoot() {

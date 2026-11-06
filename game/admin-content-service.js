@@ -1,7 +1,7 @@
 "use strict";
 
-const MUTABLE_COLLECTIONS = new Set(["quests", "npcs", "items", "skills"]);
-const ITEM_TYPES = new Set(["STONE", "POTION", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
+const MUTABLE_COLLECTIONS = new Set(["quests", "npcs", "items", "skills", "monsters"]);
+const ITEM_TYPES = new Set(["STONE", "POTION", "CONSUME", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
 const SKILL_TYPES = new Set(["COMMON", "PHYS", "MAGIC"]);
 const SKILL_CATEGORIES = new Set(["ACTIVE", "PASSIVE"]);
 const NUMERIC_ITEM_FIELDS = ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp", "requiredRealmStt"];
@@ -23,7 +23,7 @@ function validateRecord(collection, record) {
   if (!String(name ?? "").trim()) return "Bản ghi cần có tên hiển thị";
 
   if (key === "items") {
-    if (String(record.maDo || "").trim() !== String(record.id)) return "Mã vật phẩm phải trùng với mã bản ghi";
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(String(record.maDo || "").trim())) return "Mã vật phẩm cần là mã hợp lệ";
     const type = String(record.type || record.loai || "").trim().toUpperCase();
     if (!type) return "Vật phẩm cần có type hoặc loai";
     if (!ITEM_TYPES.has(type)) return "Loại vật phẩm không được hỗ trợ";
@@ -50,6 +50,15 @@ function validateRecord(collection, record) {
       }
     }
     if (record.tier !== undefined && (!Number.isInteger(Number(record.tier)) || Number(record.tier) < 1)) return "Cấp kỹ năng phải là số nguyên từ 1 trở lên";
+  }
+
+  if (key === "monsters") {
+    if (!/^[A-Z0-9_]{1,64}$/.test(String(record.id)) || String(record.code || "") !== String(record.id)) return "Mã quái phải trùng code và chỉ gồm chữ hoa, số, gạch dưới";
+    if (!String(record.linhCan || "").trim() || !["NORMAL", "ELITE", "BOSS"].includes(String(record.type || "").toUpperCase())) return "Quái cần linh căn và loại hợp lệ";
+    for (const field of ["level", "hp", "maxHp", "atk", "def", "speed", "respawnMs"]) {
+      const value = Number(record[field]);
+      if (!Number.isFinite(value) || value < (field === "def" ? 0 : 0.1)) return `Trường ${field} phải là số hợp lệ`;
+    }
   }
 
   if (key === "npcs" && (!String(record.role || "").trim() || !String(record.mapCode || "").trim())) {

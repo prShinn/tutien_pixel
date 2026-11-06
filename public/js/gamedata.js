@@ -12,6 +12,7 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 const GameData = {
+	itemRecords: new Map(),
 	// ── Fetch helper (không cần auth token) ──
 	async _get(path) {
 		try {
@@ -90,56 +91,118 @@ const GameData = {
 
 	// ════ ITEMS ════
 	// GET /api/items → [{ maDo/id, tenDo/name, icon, loai/type, ... }]
-	async loadItems() {
+	normalizeItem(item) {
+		const id = item.maDo || item.id;
+		return {
+			id,
+			recordId: item.id || id,
+			name: item.tenDo || item.name,
+			icon: item.icon || item.emoji || "📦",
+			img: item.img || "",
+			type: item.loai || item.type,
+			// Tu vi stones
+			giaTriTuVi: item.giaTriTuVi || item.tuVal || 0,
+			// Elem stones
+			giaTriTang: item.giaTriTang || item.statVal || 0,
+			statKey: item.statKey || null,
+			str: item.str || false,
+			agi: item.agi || false,
+			vit: item.vit || false,
+			ene: item.ene || false,
+			// Linh Đan
+			linhCan: item.linhCan || null,
+			tuViLinhCanVal: item.tuViLinhCanVal || 0,
+			// Consumable
+			healHp: item.healHp || item.hpHoi || 0,
+			healMp: item.healMp || item.mpHoi || 0,
+			statBoost: item.statBoost || 0,
+			// Economy
+			giaMua: item.giaMua ?? item.buyPrice ?? 0,
+			giaBan: item.giaBan ?? item.sell ?? 0,
+			buyPrice: item.giaMua ?? item.buyPrice ?? 0,
+			sell: item.giaBan ?? item.sell ?? 0,
+			// Equipment
+			slot: item.slot || (item.loai === "EQUIPMENT" || item.type === "EQUIPMENT" ? (item.equipSlot || "weapon") : null),
+			stats: item.stats || {},
+			requiredRealmStt: Number(item.requiredRealmStt || 1),
+			// Desc
+			desc: item.moTa || item.desc || item.description || "",
+			description: item.moTa || item.desc || item.description || "",
+		};
+	},
+
+	updateItemCatalog({ id, item }) {
+		if (typeof id !== "string" || !/^[A-Za-z0-9_-]{1,96}$/.test(id)) return;
+		const previous = this.itemRecords.get(id);
+		if (previous && CFG.ITEMS[previous.id] === previous) delete CFG.ITEMS[previous.id];
+		this.itemRecords.delete(id);
+		if (item) {
+			const normalized = this.normalizeItem(item);
+			if (typeof normalized.id === "string" && /^[A-Za-z0-9_-]{1,96}$/.test(normalized.id)) {
+				CFG.ITEMS[normalized.id] = normalized;
+				this.itemRecords.set(id, normalized);
+			}
+		}
+		this.refreshShopCatalog();
+	},
+
+	refreshShopCatalog() {
+		CFG.SHOP_SELL = Object.values(CFG.ITEMS).filter((item) => item.giaMua > 0).map((item) => item.id);
+	},
+
+	itemWithCurrentDetails(entry) {
+		const id = entry?.itemCode || entry?.id;
+		if (!id) return entry;
+		const current = this.itemRecords.get(id) || (Object.hasOwn(CFG.ITEMS, id) ? CFG.ITEMS[id] : null);
+		if (!current) return entry;
+		const { id: _catalogCode, recordId: _recordId, ...details } = current;
+		return { ...entry, ...details };
+	},
+
+	async loadItems(isCurrent = () => true) {
 		const data = await this._get(API.PATHS.data.items);
-		if (!Array.isArray(data) || data.length === 0) {
+		if (!isCurrent()) return false;
+		if (!Array.isArray(data)) {
 			console.warn("[GameData] Không load được ITEMS từ API.");
 			return;
 		}
-		CFG.ITEMS = {};
-		const shopSell = [];
+		CFG.ITEMS = Object.create(null);
+		this.itemRecords.clear();
 		for (const item of data) {
-			const id = item.maDo || item.id;
-			const normalized = {
-				id,
-				name: item.tenDo || item.name,
-				icon: item.icon || item.emoji || "📦",
-				type: item.loai || item.type,
-				// Tu vi stones
-				giaTriTuVi: item.giaTriTuVi || item.tuVal || 0,
-				// Elem stones
-				giaTriTang: item.giaTriTang || item.statVal || 0,
-				statKey: item.statKey || null,
-				str: item.str || false,
-				agi: item.agi || false,
-				vit: item.vit || false,
-				ene: item.ene || false,
-				// Linh Đan
-				linhCan: item.linhCan || null,
-				tuViLinhCanVal: item.tuViLinhCanVal || 0,
-				// Consumable
-				healHp: item.healHp || item.hpHoi || 0,
-				healMp: item.healMp || item.mpHoi || 0,
-				statBoost: item.statBoost || 0,
-				// Economy
-				giaMua: item.giaMua || item.buyPrice || 0,
-				giaBan: item.giaBan || item.sell || 0,
-				buyPrice: item.giaMua || item.buyPrice || 0,
-				sell: item.giaBan || item.sell || 0,
-				// Equipment
-				slot: item.slot || (item.loai === "EQUIPMENT" || item.type === "EQUIPMENT" ? (item.equipSlot || "weapon") : null),
-				stats: item.stats || {},
-				requiredRealmStt: Number(item.requiredRealmStt || 1),
-				// Desc
-				desc: item.moTa || item.desc || item.description || "",
-				description: item.moTa || item.desc || item.description || "",
-			};
+			const normalized = this.normalizeItem(item);
+			const id = normalized.id;
 			CFG.ITEMS[id] = normalized;
-			// Tự động thêm vào SHOP_SELL nếu có giaMua
-			if (normalized.giaMua > 0) shopSell.push(id);
+			this.itemRecords.set(normalized.recordId, normalized);
 		}
-		if (shopSell.length) CFG.SHOP_SELL = shopSell;
-		console.info(`[GameData] ITEMS: ${Object.keys(CFG.ITEMS).length} vật phẩm đã tải.`);
+		this.refreshShopCatalog();
+		return true;
+	},
+
+	// ════ MONSTERS ════
+	// GET /api/monsters → danh mục mẫu quái dùng chung với Admin và Map Editor.
+	async loadMonsters() {
+		const data = await this._get(API.PATHS.data.monsters);
+		if (!Array.isArray(data) || data.length === 0) {
+			console.warn("[GameData] Không load được MONSTERS từ API.");
+			return;
+		}
+		CFG.MONSTERS = data.filter((monster) => monster && typeof monster === "object"
+			&& String(monster.id || monster.code || "").trim()
+			&& String(monster.name || "").trim()
+			&& Number.isFinite(Number(monster.hp)) && Number(monster.hp) > 0)
+			.map((monster) => ({
+				...monster,
+				id: monster.id || monster.code,
+				code: monster.code || monster.id,
+				maxHp: Number(monster.maxHp || monster.hp),
+				hp: Number(monster.hp),
+				level: Number(monster.level || 1),
+				atk: Number(monster.atk || 1),
+				def: Number(monster.def || 0),
+				speed: Number(monster.speed || 1),
+				respawnMs: Number(monster.respawnMs || CFG.MON_RESPAWN * 1000),
+			}));
+		if (CFG.MONSTERS.length) console.info(`[GameData] MONSTERS: ${CFG.MONSTERS.length} mẫu quái đã tải.`);
 	},
 
 	// ════ SKILLS ════
@@ -179,6 +242,7 @@ const GameData = {
 				: (sk.effect && sk.effect !== "PHYS" && sk.effect !== "MAGIC" ? sk.effect : null);
 			const categoryCode = String(sk.category || sk.loai || sk.loaiNangLuc || "").trim().toUpperCase();
 			const isPassive = categoryCode === "PASSIVE" || categoryCode === "BI_DONG"
+				|| String(sk.effect || sk.sfx_code || "").toLowerCase() === "passive"
 				|| /_TAM_PHAP$/i.test(String(sk.code || sk.maNangLuc || ""));
 
 			grouped[lc][tier].push({
@@ -228,6 +292,7 @@ const GameData = {
 			this.loadRoots(),
 			this.loadItems(),
 			this.loadSkills(),
+			this.loadMonsters(),
 		]);
 		console.info("[GameData] Hoàn tất tải dữ liệu.");
 	},

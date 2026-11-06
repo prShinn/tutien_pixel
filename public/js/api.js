@@ -1,20 +1,20 @@
 // Hợp đồng endpoint dùng chung cho browser client.
 function resolveApiBase() {
-  const queryApiBase = typeof URLSearchParams === "undefined"
+  const query = typeof URLSearchParams === "undefined"
     ? null
-    : new URLSearchParams(window.location.search || "").get("apiBase");
+    : new URLSearchParams(window.location.search || "");
+  const queryApiBase = query?.get("apiBase");
   const trustedApiBase = window.TuTienConfig?.apiBase;
   let rememberedApiBase = null;
   try { rememberedApiBase = window.sessionStorage?.getItem("tu_tien_api_base"); } catch { /* session storage may be blocked */ }
-  const localAdminPage = window.location.pathname?.startsWith("/admin")
-    && /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(window.location.origin);
-  // Do not inherit the game's remembered API origin on Admin pages. It can point
-  // to an old FE port; Admin's documented local target is the BE port.
-  const configured = trustedApiBase || queryApiBase || (localAdminPage ? null : rememberedApiBase);
-  if (!configured) {
-    if (localAdminPage) return "http://localhost:3800";
-    return window.location.origin;
-  }
+  const isLocal = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(window.location.origin);
+  const localAdminPage = isLocal && window.location.pathname?.startsWith("/admin");
+  if (!window.location.pathname?.startsWith("/admin") && query?.get("mockBackend") === "1") return window.location.origin;
+  const defaultBase = isLocal ? "http://localhost:3800" : window.location.origin;
+  const rememberedLegacyOrigin = isLocal && rememberedApiBase === window.location.origin;
+  const remembered = localAdminPage || rememberedLegacyOrigin ? null : rememberedApiBase;
+  const configured = trustedApiBase || queryApiBase || remembered;
+  if (!configured) return defaultBase;
 
   try {
     const target = new URL(configured, window.location.origin);
@@ -31,7 +31,7 @@ function resolveApiBase() {
     return target.origin;
   } catch (error) {
     console.warn("[API] Bỏ qua apiBase không hợp lệ:", error.message);
-    return window.location.origin;
+    return defaultBase;
   }
 }
 

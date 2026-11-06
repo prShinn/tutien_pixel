@@ -1,6 +1,12 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
+function adminImage(source) {
+  if (typeof source !== "string") return "";
+  if (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(source) && source.length <= 24000) return source;
+  if (/^(?:\.\/|\/)?assets\/[A-Za-z0-9_/-]+\.(?:png|svg|webp)$/i.test(source)) return "/" + source.replace(/^(?:\.\/|\/)/, "");
+  return "";
+}
 const state = { worlds: [], realms: [] };
 
 function adminHeaders(json = false) { return json ? { "content-type": "application/json" } : {}; }
@@ -10,7 +16,11 @@ async function getJson(url, options = {}) {
     ? await AdminAuth.fetch(url, options)
     : await fetch(url, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || `Request failed: ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed: ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -33,10 +43,14 @@ function renderWorlds() {
   }).join("");
 }
 
-const contentLabels = { quests: "Quest", npcs: "NPC", items: "Items & Loot", skills: "Skills", accounts: "Tài khoản" };
+const contentLabels = { quests: "Quest", npcs: "NPC theo map", items: "Items & Loot", skills: "Skills", monsters: "Ngân hàng quái", accounts: "Tài khoản" };
 let activeCollection = null;
 const contentManager = ContentAdmin.createController({ api: API, getJson, adminHeaders });
-const contentState = { records: [], query: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
+const pagedCollections = new Set(["items", "monsters", "skills"]);
+const pixelArtCollections = new Set(["items", "skills", "monsters"]);
+const catalogPageSize = 24;
+let contentSearchTimer;
+const contentState = { page: 1, records: [], query: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
 const vfxState = { skills: [], selectedCode: "", profiles: {}, loaded: false, authorized: false, saving: false, previewStarted: performance.now() };
 
 function vfxCode(skill) { return String(skill?.code || skill?.maNangLuc || skill?.id || ""); }
@@ -61,23 +75,14 @@ function renderVfxList() {
 function setVfxForm(skill, useDefaults = false) {
   setVfxDisabled(false);
   const code = vfxCode(skill);
-  const saved = vfxState.profiles[code];
-  if (useDefaults && saved) {
-    delete vfxState.profiles[code];
-  }
-  const profile = SkillVFX.profile(skill);
-  if (useDefaults && saved) {
-    vfxState.profiles[code] = saved;
-    SkillVFX.customProfiles[code] = saved;
-  }
-  const root = useDefaults ? vfxRoot(skill) : profile.root;
-  const palette = useDefaults ? (SkillVFX.palette[root] || SkillVFX.palette.COMMON) : profile.palette;
+  const profile = SkillVFX.profile(skill, { useDefaults });
+  const { root, palette } = profile;
   $("vfx-skill-name").textContent = vfxName(skill);
   $("vfx-skill-select").value = code;
   $("vfx-root").value = root;
-  $("vfx-label").value = useDefaults ? (SkillVFX.labels[SkillVFX.forms[code]] || vfxName(skill)) : profile.label;
-  $("vfx-form").value = useDefaults ? (SkillVFX.forms[code] || SkillVFX.fallbackForm(skill)) : profile.form;
-  $("vfx-duration").value = useDefaults ? (Number(skill.tier || skill.capDo || 1) >= 3 ? 760 : 580) : (profile.durationMs || (profile.tier >= 3 ? 760 : 580));
+  $("vfx-label").value = profile.label;
+  $("vfx-form").value = profile.form;
+  $("vfx-duration").value = SkillVFX.castTiming(profile).effect;
   $("vfx-color-main").value = palette.main;
   $("vfx-color-light").value = palette.light;
   $("vfx-color-dark").value = palette.dark;
@@ -216,8 +221,8 @@ function drawVfxPreview(now) {
     c.fillStyle = "#dbd8bd"; c.fillRect(x - 8, y - 10, 3, 9); c.fillRect(x + 5, y - 10, 3, 9);
     c.fillStyle = "#29251e"; c.fillRect(x - 5, y, 4, 4); c.fillRect(x + 1, y, 4, 4);
   };
-  pixelActor(player.x, player.y, "#557b68", "#e3b990", "#253e39");
-  pixelActor(target.x, target.y, "#8a4b47", "#b7775c", "#452e2c");
+  let drawEffect = () => {};
+  let label = "Chọn một skill để xem animation";
   const skill = vfxState.skills.find((item) => vfxCode(item) === vfxState.selectedCode);
   if (skill && window.SkillVFX) {
     const values = currentVfxValues();
@@ -226,26 +231,30 @@ function drawVfxPreview(now) {
     const profile = { ...defaultProfile, root, form: values?.form || defaultProfile.form, label: values?.label || defaultProfile.label, durationMs: values?.durationMs || defaultProfile.durationMs };
     const base = SkillVFX.palette[root] || SkillVFX.palette.COMMON;
     const palette = { ...base, ...(values?.colors || {}) };
-    const effectDuration = profile.durationMs || (profile.tier >= 3 ? 760 : 580);
-    const chargeDuration = 230;
-    const cycleDuration = chargeDuration + effectDuration + 260;
+    profile.palette = palette;
+    const timing = SkillVFX.castTiming(profile);
+    const castMode = SkillVFX.castMode(skill);
+    const cycleDuration = timing.charge + timing.effect + (castMode === "passive" ? SkillVFX.auraPauseMs : 260);
     const elapsed = (now - vfxState.previewStarted) % cycleDuration;
-    c.save();
-    const origin = { x: player.x, y: player.y - 6 }, point = { x: target.x, y: target.y - 6 };
-    if (elapsed < chargeDuration) SkillVFX.drawCharge(origin, profile, palette, elapsed / chargeDuration);
-    else if (elapsed < chargeDuration + effectDuration) {
-      const phase = (elapsed - chargeDuration) / effectDuration;
-      if (String(profile.category).toUpperCase() === "PASSIVE" || ["heal", "restore_mp", "cleanse", "shield", "buff_def", "buff_vitals", "speed"].includes(String(profile.effect).toLowerCase())) {
-        SkillVFX.drawSupport(origin, profile, palette, phase);
-      } else {
-        SkillVFX.drawImpact(origin, point, profile, palette, phase, { miss: false, critical: phase > 0.84 }, true);
-      }
-    }
-    c.restore();
-    c.fillStyle = "#d4c9a0"; c.font = "12px monospace"; c.fillText(profile.label || vfxName(skill), 14, 24);
-  } else {
-    c.fillStyle = "#c1c0a0"; c.font = "12px monospace"; c.fillText("Chọn một skill để xem animation", 14, 24);
+    const mode = elapsed < timing.charge ? "charge" : castMode;
+    const phase = mode === "charge"
+      ? SkillVFX.phaseProgress(elapsed, timing.charge)
+      : SkillVFX.phaseProgress(elapsed - timing.charge, timing.effect);
+    label = profile.label || vfxName(skill);
+    drawEffect = (layer) => {
+      if (phase === null) return;
+      c.save();
+      SkillVFX.drawCastPhase(mode, player, [target], profile, phase, layer);
+      c.restore();
+    };
   }
+  drawEffect("behind");
+  pixelActor(player.x, player.y, "#557b68", "#e3b990", "#253e39");
+  pixelActor(target.x, target.y, "#8a4b47", "#b7775c", "#452e2c");
+  drawEffect("front");
+  c.fillStyle = "#d4c9a0";
+  c.font = "12px monospace";
+  c.fillText(label, 14, 24);
   window.requestAnimationFrame(drawVfxPreview);
 }
 
@@ -256,12 +265,75 @@ function setContentFeedback(message = "", kind = "success") {
   feedback.hidden = !message;
 }
 
+async function loadSampleItemsPreview() {
+  const items = AdminContentUtils.createSampleInventory();
+  contentState.sampleItems = null;
+  $("apply-sample-items").disabled = true;
+  $("sample-items-preview").replaceChildren();
+  $("sample-items-status").textContent = "Đang đối chiếu danh mục…";
+  const loadVersion = contentState.loadVersion;
+  const isCurrent = () => !$("sample-items-tool").hidden && activeCollection === "items" && loadVersion === contentState.loadVersion;
+  try {
+    const result = contentState.legacyCatalog?.collection === "items"
+      ? contentState.legacyCatalog.payload
+      : await fetchCatalog("items", { ids: items.map((item) => item.id).join(","), limit: 100 });
+    if (!isCurrent()) return;
+    if (result.persisted !== true || result.demo === true) throw new Error("API Admin chưa xác nhận danh mục MySQL.");
+    if (result.pagination && result.pagination.total > result.data.length) {
+      throw new Error("Chưa đối chiếu đủ vật phẩm mẫu. Hãy tải lại danh mục rồi thử lại.");
+    }
+    const existing = new Set(result.data.flatMap((record) => [String(record.id), String(record.maDo || "")]));
+    contentState.sampleItems = { all: items, existing };
+    renderSampleItemsPreview();
+  } catch (error) {
+    if (isCurrent()) $("sample-items-status").textContent = error.message;
+  }
+}
+
+async function fetchCatalog(collection, params) {
+  let payload;
+  try {
+    payload = await contentManager.list(collection, params);
+  } catch (error) {
+    if (error.status !== 500 && error.status !== 501) throw error;
+    try {
+      payload = await contentManager.list(collection);
+    } catch {
+      throw error;
+    }
+  }
+  if (!Array.isArray(payload?.data)) throw new Error("API Admin trả danh sách không hợp lệ.");
+  if (payload.pagination != null) {
+    const { page, limit, total } = payload.pagination;
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1
+        || !Number.isSafeInteger(total) || total < 0) {
+      throw new Error("API Admin trả thông tin phân trang không hợp lệ.");
+    }
+  }
+  return payload;
+}
+
+function paginateLegacyCatalog(payload, page, query) {
+  const search = query.trim().toLocaleLowerCase("vi");
+  const matches = payload.data.filter((record) => {
+    const text = [record.id, record.code, record.maDo, record.tenDo, record.name, record.tenNangLuc].join(" ");
+    return text.toLocaleLowerCase("vi").includes(search);
+  });
+  const current = Math.min(page, Math.max(1, Math.ceil(matches.length / catalogPageSize)));
+  const offset = (current - 1) * catalogPageSize;
+  return {
+    ...payload,
+    data: matches.slice(offset, offset + catalogPageSize),
+    pagination: { page: current, limit: catalogPageSize, total: matches.length },
+  };
+}
+
 function renderSampleItemsPreview() {
-  const items = contentState.sampleItems?.all || AdminContentUtils.createSampleInventory();
-  const existing = new Set(contentState.records.flatMap((record) => [String(record.id), String(record.maDo || "")]));
+  if (!contentState.sampleItems) return;
+  const { all: items, existing } = contentState.sampleItems;
   const pending = items.filter((item) => !existing.has(item.id));
   const duplicates = items.length - pending.length;
-  contentState.sampleItems = { all: items, pending };
+  contentState.sampleItems = { all: items, existing, pending };
   const categories = [
     ["Nón", items.filter((item) => item.slot === "hat").length],
     ["Giáp", items.filter((item) => item.slot === "armor").length],
@@ -290,7 +362,7 @@ function setSampleItemsBusy(busy) {
 async function applySampleItems() {
   if (contentState.busy || activeCollection !== "items" || !contentState.persisted) return;
   renderSampleItemsPreview();
-  const pending = contentState.sampleItems.pending;
+  const pending = contentState.sampleItems?.pending || [];
   if (!pending.length) return;
   contentState.busy = true;
   setSampleItemsBusy(true);
@@ -316,10 +388,20 @@ async function applySampleItems() {
   }
   contentState.busy = false;
   setSampleItemsBusy(false);
-  if (activeCollection === "items") renderContent("items", { data: contentState.records, demo: contentState.demo });
+  if (activeCollection === "items") renderContent("items", { data: contentState.records, demo: contentState.demo, pagination: contentState.pagination });
   if (activeCollection === "items" && !$("sample-items-tool").hidden) renderSampleItemsPreview();
   const message = `Đã thêm ${created} món${skipped ? ` · bỏ qua ${skipped} món trùng` : ""}${failures.length ? ` · ${failures.length} lỗi` : ""}.`;
   setContentFeedback(failures.length ? `${message} ${failures.slice(0, 2).join("; ")}` : message, failures.length ? "error" : "success");
+}
+
+function renderContentPager() {
+  const pagination = contentState.pagination;
+  $("content-pagination").hidden = !pagination;
+  if (!pagination) return;
+  const pages = Math.max(1, Math.ceil(pagination.total / pagination.limit));
+  $("content-page-summary").textContent = "Trang " + pagination.page + "/" + pages + " · " + pagination.total + " bản ghi";
+  $("content-prev").disabled = pagination.page <= 1 || contentState.busy;
+  $("content-next").disabled = pagination.page >= pages || contentState.busy;
 }
 
 function renderContent(collection, payload) {
@@ -329,15 +411,17 @@ function renderContent(collection, payload) {
   contentState.persisted = (payload.persisted === undefined ? contentState.persisted : payload.persisted === true) && !contentState.demo;
   $("content-title").textContent = contentLabels[collection] || collection;
   $("content-meta").textContent = contentState.persisted
-    ? "Backend · MySQL · lưu bền vững"
+    ? (contentState.legacyCatalog?.collection === collection ? "MySQL · phân trang trên trình duyệt" : "Backend · MySQL · lưu bền vững")
     : "Chỉ xem · Backend chưa xác nhận lưu MySQL";
   const canEdit = ContentAdmin.EDITABLE_COLLECTIONS.has(collection) && contentState.persisted;
   const newButton = $("new-record");
-  newButton.hidden = !canEdit;
+  newButton.hidden = !canEdit || collection === "monsters";
   newButton.disabled = contentState.busy;
   const sampleButton = $("open-sample-items");
   sampleButton.hidden = collection !== "items" || !ContentAdmin.EDITABLE_COLLECTIONS.has(collection);
   sampleButton.disabled = contentState.busy || !contentState.persisted;
+  $("open-monster-studio").hidden = collection !== "monsters";
+  $("open-monster-studio").disabled = contentState.busy || !contentState.persisted;
   if (collection !== "items") {
     $("sample-items-tool").hidden = true;
     sampleButton.setAttribute("aria-expanded", "false");
@@ -345,9 +429,11 @@ function renderContent(collection, payload) {
   const storageNote = !contentState.persisted
     ? '<div class="mock-note">Backend chưa xác nhận MySQL đang lưu dữ liệu. Các thao tác thêm, sửa, xóa đã khóa để tránh ghi vào RAM.</div>'
     : "";
-  const visibleRecords = AdminContentUtils.filterRecords(contentState.records, contentState.query);
+  const pagination = contentState.pagination = payload.pagination ?? null;
+  renderContentPager();
+  const visibleRecords = pagination ? contentState.records : AdminContentUtils.filterRecords(contentState.records, contentState.query);
   if (!visibleRecords.length) {
-    const emptyMessage = contentState.records.length ? "Không tìm thấy bản ghi phù hợp." : "Collection chưa có bản ghi.";
+    const emptyMessage = (contentState.query.trim() || contentState.records.length) ? "Không tìm thấy bản ghi phù hợp." : "Collection chưa có bản ghi.";
     $("content-table").innerHTML = `${storageNote}<div class="empty">${AdminContentUtils.escapeHtml(emptyMessage)}</div>`;
     if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
     return;
@@ -356,49 +442,123 @@ function renderContent(collection, payload) {
     const recordIndex = contentState.records.indexOf(record);
     const values = AdminContentUtils.summarizeRecord(record, 3).map(({ key, value }) =>
       `<span class="content-field"><small>${AdminContentUtils.escapeHtml(key)}</small><span title="${AdminContentUtils.escapeHtml(value)}">${AdminContentUtils.escapeHtml(value)}</span></span>`).join("");
-    const id = AdminContentUtils.escapeHtml(record.id);
+    const id = AdminContentUtils.escapeHtml(collection === "skills" ? record.code || record.id : record.id);
     const state = AdminContentUtils.escapeHtml(record.status || "Đang dùng");
-    const actions = canEdit
-      ? `<div class="content-record-actions"><button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">Sửa</button><button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button></div>`
+    const canEditRecord = canEdit;
+    const asset = pagedCollections.has(collection) ? adminImage(record.img) || adminImage(record.icon) : "";
+    const preview = asset ? `<img class="content-record-preview" src="${asset}" alt="" loading="lazy" />` : "";
+    const actions = canEditRecord
+      ? `<div class="content-record-actions"><button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">Sửa</button>${collection === "items" || collection === "skills" ? `<button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button>` : ""}</div>`
       : `<span class="content-readonly">Chỉ xem</span>`;
-    return `<article class="content-record" role="listitem"><div class="content-record-id"><b>${id}</b><small>${values}</small></div><span class="table-status">${state}</span>${actions}</article>`;
+    return `<article class="content-record${pagedCollections.has(collection) ? " with-preview" : ""}" role="listitem">${preview || (pagedCollections.has(collection) ? '<span class="content-record-preview preview-placeholder" aria-hidden="true">—</span>' : "")}<div class="content-record-id"><b>${AdminContentUtils.escapeHtml(record.tenDo || record.name || record.title || record.id)}</b><small class="content-record-code">${id}</small><div class="content-record-fields">${values}</div></div><span class="table-status">${state}</span>${actions}</article>`;
   }).join("");
   $("content-table").innerHTML = `${storageNote}<div class="content-record-list" role="list">${rows}</div>`;
   if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
 }
 
-async function openContent(collection, { feedback = "" } = {}) {
+async function openContent(collection, { feedback = "", reuseLegacy = false } = {}) {
+  clearTimeout(contentSearchTimer);
+  if (activeCollection !== collection) {
+    contentState.page = 1;
+    contentState.query = "";
+    $("content-search").value = "";
+  }
   activeCollection = collection;
+  if (!reuseLegacy || !AdminAuth.isAuthenticated() || contentState.legacyCatalog?.collection !== collection) {
+    contentState.legacyCatalog = null;
+  }
   const loadVersion = ++contentState.loadVersion;
+  $("content-pagination").hidden = true;
+  $("open-monster-studio").hidden = true;
   contentState.records = [];
+  contentState.pagination = null;
   contentState.persisted = false;
+  $("content-title").textContent = contentLabels[collection] || collection;
   $("content-meta").textContent = "Đang xác minh MySQL…";
   $("new-record").hidden = true;
   $("open-sample-items").hidden = true;
   $("open-sample-items").disabled = true;
   $("sample-items-tool").hidden = true;
+  $("open-sample-items").setAttribute("aria-expanded", "false");
   if (feedback) setContentFeedback(feedback);
   else setContentFeedback();
   $("content-table").innerHTML = '<div class="loading" role="status">Đang tải dữ liệu…</div>';
   try {
-    const payload = await contentManager.list(collection);
+    const params = pagedCollections.has(collection) ? { page: contentState.page, limit: catalogPageSize, q: contentState.query.trim() } : null;
+    let payload = params
+      ? contentState.legacyCatalog?.payload ?? await fetchCatalog(collection, params)
+      : await contentManager.list(collection);
     if (loadVersion !== contentState.loadVersion || collection !== activeCollection) return;
+    if (params && !payload.pagination) {
+      contentState.legacyCatalog = { collection, payload };
+      payload = paginateLegacyCatalog(payload, contentState.page, contentState.query);
+      contentState.page = payload.pagination.page;
+    }
+    const lastPage = payload.pagination ? Math.max(1, Math.ceil(payload.pagination.total / payload.pagination.limit)) : 1;
+    if (params && contentState.page > lastPage) {
+      contentState.page = lastPage;
+      return openContent(collection, { feedback });
+    }
     renderContent(collection, payload);
     if (feedback) setContentFeedback(feedback);
   } catch (error) {
     if (loadVersion !== contentState.loadVersion || collection !== activeCollection) return;
-    $("content-meta").textContent = "Không xác minh được MySQL · chỉ đọc";
-    $("content-table").innerHTML = `<div class="mock-note">Mọi thao tác ghi đã khóa cho tới khi Backend và MySQL hoạt động.</div><div class="empty"><span>${AdminContentUtils.escapeHtml(error.message || "Không tải được dữ liệu.")}</span><button class="vfx-button subtle" type="button" data-content-action="reload">Thử tải lại</button></div>`;
+    $("content-meta").textContent = "Không tải được danh mục";
+    $("content-table").innerHTML = `<div class="empty"><span>${AdminContentUtils.escapeHtml(error.message || "Không tải được dữ liệu.")}</span><button class="vfx-button subtle" type="button" data-content-action="reload">Thử tải lại</button></div>`;
   }
 }
 
-function openContentEditor(record = null) {
+let resetEditorImage;
+let generatedEditorImage = "";
+
+function showEditorImage(record, enabled) {
+  const panel = $("content-pixel-art");
+  panel.hidden = panel.disabled = !enabled;
+  if (!enabled) return;
+  $("content-pixel-help").textContent = activeCollection === "monsters"
+    ? "Tạo sprite quái từ PNG hoặc JPG. Ảnh mới dùng một khung với chuyển động do game tạo. Để trống ảnh nguồn để giữ sprite hiện tại."
+    : "Chọn PNG hoặc JPG để tạo icon. Khi sửa bản ghi, để trống ảnh nguồn nếu muốn giữ ảnh hiện tại.";
+  const previous = panel.querySelector("img");
+  const preview = panel.querySelector("canvas");
+  const source = adminImage(record?.img);
+  if (source) previous.src = source;
+  else previous.removeAttribute("src");
+  resetEditorImage ??= ItemStudio.mountImage(panel, { onChange(img) {
+    generatedEditorImage = img;
+    preview.hidden = !img;
+    previous.hidden = Boolean(img) || !previous.hasAttribute("src");
+  } });
+  resetEditorImage();
+}
+
+async function openContentEditor(record = null) {
   if (!activeCollection || !ContentAdmin.EDITABLE_COLLECTIONS.has(activeCollection) || contentState.busy || !contentState.persisted) return;
+  const collection = activeCollection;
   const editing = Boolean(record);
-  const fields = editing ? { ...record } : AdminContentUtils.createBlankRecord(activeCollection, Date.now(), contentState.records);
-  const recordId = String(fields.id ?? "");
+  let records = contentState.records;
+  if (!editing && collection === "skills") {
+    const version = contentState.loadVersion;
+    const button = $("new-record");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      records = (await contentManager.list(collection)).data;
+      if (version !== contentState.loadVersion || collection !== activeCollection) return;
+      if (!Array.isArray(records)) throw new Error("API Admin trả danh sách kỹ năng không hợp lệ.");
+    } catch (error) {
+      if (version === contentState.loadVersion) setContentFeedback(error.message, "error");
+      return;
+    } finally {
+      if (version === contentState.loadVersion) button.disabled = false;
+    }
+  }
+  const fields = editing ? { ...record } : AdminContentUtils.createBlankRecord(collection, Date.now(), records);
+  const recordId = String((editing && collection === "skills" ? fields.code || fields.id : fields.id) ?? "");
   delete fields.id;
   delete fields.updatedAt;
+  const usePixelEditor = pixelArtCollections.has(collection);
+  if (usePixelEditor) delete fields.img;
+  showEditorImage(record, usePixelEditor);
   contentState.editingId = editing ? recordId : null;
   $("content-editor-title").textContent = editing ? `Sửa ${contentLabels[activeCollection]}` : `Thêm ${contentLabels[activeCollection]}`;
   $("content-editor-save").textContent = editing ? "Lưu thay đổi" : "Tạo bản ghi";
@@ -422,27 +582,44 @@ async function saveContent(event) {
   if (contentState.busy || !activeCollection || !contentState.persisted) return;
   const wasEdit = contentState.editingId !== null;
   const editingId = contentState.editingId;
+  const collection = activeCollection;
   contentState.busy = true;
   $("content-editor-save").disabled = true;
+  $("content-editor-close").disabled = true;
+  $("content-editor-cancel").disabled = true;
   $("content-editor-save").textContent = "Đang lưu…";
   setContentEditorError("");
   try {
     const id = $("content-record-id").value.trim();
-    const result = await contentManager.save(activeCollection, {
+    const json = $("content-record-json").value;
+    const pixelArt = $("content-pixel-art");
+    const pixelImage = pixelArtCollections.has(collection) ? generatedEditorImage : undefined;
+    if (pixelImage === "" && (!wasEdit || pixelArt.elements.namedItem("source").files.length)) {
+      throw new Error("Hãy chọn ảnh nguồn và đợi ảnh pixel hiển thị trước khi lưu.");
+    }
+    pixelArt.disabled = true;
+    const result = await contentManager.save(collection, {
       id,
-      json: $("content-record-json").value,
+      json,
       existingId: editingId,
+      pixelImage,
     });
     $("content-editor-dialog").close();
-    await openContent(activeCollection, { feedback: wasEdit ? "Đã lưu thay đổi." : "Đã tạo bản ghi." });
-    if (result?.data?.id) setContentFeedback(`Đã lưu ${result.data.id}.`);
+    if (activeCollection === collection) {
+      const feedback = result?.data?.id ? `Đã lưu ${result.data.id}.` : wasEdit ? "Đã lưu thay đổi." : "Đã tạo bản ghi.";
+      await openContent(collection, { feedback });
+    }
   } catch (error) {
     setContentEditorError(error.message || "Không lưu được bản ghi.");
   } finally {
     contentState.busy = false;
     $("content-editor-save").disabled = false;
+    $("content-editor-close").disabled = false;
+    $("content-editor-cancel").disabled = false;
+    $("content-pixel-art").disabled = $("content-pixel-art").hidden;
     $("content-editor-save").textContent = contentState.editingId ? "Lưu thay đổi" : "Tạo bản ghi";
     $("new-record").disabled = false;
+    renderContentPager();
   }
 }
 
@@ -455,18 +632,21 @@ async function handleContentAction(event) {
   const record = contentState.records[Number(button.dataset.index)];
   if (!record || contentState.busy) return;
   if (action === "edit") return openContentEditor(record);
-  if (action !== "delete" || !window.confirm(`Xóa bản ghi “${record.name || record.title || record.id}”?`)) return;
+  if (action === "preview") return;
+  if (action !== "delete" || ["quests", "monsters"].includes(activeCollection) || !window.confirm(`Xóa bản ghi “${record.name || record.title || record.id}”?`)) return;
   contentState.busy = true;
   button.disabled = true;
+  const collection = activeCollection;
+  const id = collection === "skills" ? record.code || record.id : record.id;
   try {
-    await contentManager.remove(activeCollection, record.id);
-    await openContent(activeCollection, { feedback: `Đã xóa ${record.id}.` });
+    await contentManager.remove(collection, id);
+    if (activeCollection === collection) await openContent(collection, { feedback: `Đã xóa ${id}.` });
   } catch (error) {
     setContentFeedback(error.message || "Không xóa được bản ghi.", "error");
   } finally {
     contentState.busy = false;
     $("new-record").disabled = false;
-    renderContent(activeCollection, { data: contentState.records, demo: contentState.demo });
+    if (contentState.persisted) renderContent(activeCollection, { data: contentState.records, demo: contentState.demo, pagination: contentState.pagination });
   }
 }
 
@@ -495,6 +675,18 @@ function reloadAdminViewAfterLogin() {
   }
 }
 window.addEventListener("admin:authenticated", reloadAdminViewAfterLogin);
+window.addEventListener("admin:unauthenticated", () => {
+  clearTimeout(contentSearchTimer);
+  contentState.loadVersion += 1;
+  contentState.legacyCatalog = null;
+  contentState.sampleItems = null;
+  contentState.records = [];
+  contentState.pagination = null;
+  contentState.persisted = false;
+  $("content-pagination").hidden = true;
+  $("sample-items-tool").hidden = true;
+  $("content-table").replaceChildren();
+});
 
 document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEventListener("click", (event) => {
   event.preventDefault();
@@ -503,14 +695,40 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   item.classList.add("active");
   const isContent = item.dataset.view === "content";
   const isVfx = item.dataset.view === "skill-vfx";
-  $("overview").classList.toggle("hidden", isContent || isVfx);
+  const isItemStudio = item.dataset.view === "item-studio";
+  const isMonsterStudio = item.dataset.view === "monster-studio";
+  $("overview").classList.toggle("hidden", isContent || isVfx || isItemStudio || isMonsterStudio);
   $("content-view").classList.toggle("active", isContent);
   $("skill-vfx-view").classList.toggle("active", isVfx);
+  $("item-studio-view").hidden = !isItemStudio;
+  $("monster-studio-view").hidden = !isMonsterStudio;
   $("placeholder").classList.remove("active");
-  $("view-title").textContent = isVfx ? "Hoạt ảnh kỹ năng" : (isContent ? (contentLabels[item.dataset.collection] || "Content") : "Tổng quan thế giới");
+  const viewTitles = { "skill-vfx": "Hoạt ảnh kỹ năng", "item-studio": "Tạo vật phẩm từ ảnh", "monster-studio": "Tạo quái vật từ ảnh" };
+  $("view-title").textContent = isContent ? (contentLabels[item.dataset.collection] || "Content") : (viewTitles[item.dataset.view] || "Tổng quan thế giới");
   if (isContent) openContent(item.dataset.collection);
   if (isVfx) openSkillVfx();
 }));
+
+ItemStudio.mount({
+  form: $("item-studio-form"),
+  async saveItem(record) {
+    await API.assertPersistentStorage();
+    return contentManager.save("items", { id: record.id, json: JSON.stringify(record) });
+  },
+  openItems: () => document.querySelector('.nav-item[data-collection="items"]').click(),
+});
+
+$("open-monster-studio").addEventListener("click", () => {
+  document.querySelector('.nav-item[data-view="monster-studio"]').click();
+});
+
+mountMonsterStudio($("monster-studio-form"), async (record) => {
+  await API.assertPersistentStorage();
+  const result = await getJson(API.BASE + API.PATHS.admin.content("monsters"), {
+    method: "POST", headers: adminHeaders(true), body: JSON.stringify(record),
+  });
+  if (result.persisted !== true || result.demo === true) throw new Error("Backend chưa xác nhận lưu quái vào MySQL.");
+});
 
 $("new-record").addEventListener("click", () => openContentEditor());
 $("open-sample-items").addEventListener("click", () => {
@@ -518,7 +736,7 @@ $("open-sample-items").addEventListener("click", () => {
   const open = panel.hidden;
   panel.hidden = !open;
   $("open-sample-items").setAttribute("aria-expanded", String(open));
-  if (open) renderSampleItemsPreview();
+  if (open) void loadSampleItemsPreview();
 });
 $("close-sample-items").addEventListener("click", () => {
   $("sample-items-tool").hidden = true;
@@ -528,15 +746,35 @@ $("close-sample-items").addEventListener("click", () => {
 $("apply-sample-items").addEventListener("click", () => { void applySampleItems(); });
 $("content-search").addEventListener("input", (event) => {
   contentState.query = event.target.value;
-  if (activeCollection) renderContent(activeCollection, { data: contentState.records, demo: contentState.demo });
+  if (pagedCollections.has(activeCollection)) {
+    clearTimeout(contentSearchTimer);
+    contentState.page = 1;
+    contentState.loadVersion += 1;
+    $("content-pagination").hidden = true;
+    $("content-table").innerHTML = '<div class="loading" role="status">Đang tìm dữ liệu…</div>';
+    const collection = activeCollection;
+    contentSearchTimer = setTimeout(() => { if (activeCollection === collection) void openContent(collection, { reuseLegacy: true }); }, 250);
+  } else if (activeCollection) renderContent(activeCollection, { data: contentState.records, demo: contentState.demo, pagination: contentState.pagination });
 });
+for (const [id, step] of [["content-prev", -1], ["content-next", 1]]) {
+  $(id).addEventListener("click", async () => {
+    if (!pagedCollections.has(activeCollection) || !contentState.pagination || contentState.busy) return;
+    contentState.page += step;
+    await openContent(activeCollection, { reuseLegacy: true });
+    if (!$("content-pagination").hidden) $("content-page-summary").focus();
+  });
+}
 $("content-table").addEventListener("click", (event) => { void handleContentAction(event); });
 $("content-editor-form").addEventListener("submit", (event) => { void saveContent(event); });
+$("content-pixel-reset").addEventListener("click", () => resetEditorImage?.());
 $("content-editor-close").addEventListener("click", () => $("content-editor-dialog").close());
 $("content-editor-cancel").addEventListener("click", () => $("content-editor-dialog").close());
+$("content-editor-dialog").addEventListener("cancel", (event) => {
+  if (contentState.busy) event.preventDefault();
+});
 $("content-editor-dialog").addEventListener("close", () => {
+  resetEditorImage?.();
   contentState.editingId = null;
-  contentState.busy = false;
   $("content-editor-save").disabled = false;
   $("content-editor-save").textContent = "Lưu bản ghi";
 });

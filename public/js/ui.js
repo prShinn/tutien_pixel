@@ -47,25 +47,29 @@ const UI = {
   },
   createPixelIcon(item, slotHint = "", extraClass = "") {
     const icon = document.createElement("span");
-    const itemArtClass = slotHint === "skill" ? "" : " item-art-icon";
-    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
-    icon.setAttribute("aria-hidden", "true");
     if (slotHint === "skill") {
+      icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${extraClass ? ` ${extraClass}` : ""}`;
+      icon.setAttribute("aria-hidden", "true");
       this.applySkillIcon(icon, item);
       return icon;
     }
-    const customImg = item && (item.img || item.icon);
+    const customImg = item && (item.img || (typeof item.icon === "string" && (item.icon.includes("/") || item.icon.endsWith(".png") || item.icon.endsWith(".svg")) ? item.icon : ""));
+    const itemArtClass = customImg ? "" : " item-art-icon";
+    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
+    icon.setAttribute("aria-hidden", "true");
     if (customImg && typeof customImg === "string") {
       icon.style.backgroundImage = `url("${customImg}")`;
-      icon.style.backgroundPosition = "center";
+      icon.style.backgroundPosition = "center center";
       icon.style.backgroundSize = "contain";
       icon.style.backgroundRepeat = "no-repeat";
     }
     return icon;
   },
   applySkillIcon(element, skill) {
-    // Skill artwork is served from the game's local asset tree.
-    const img = typeof skill?.img === "string" && /^(?:\.\/|\/)?assets\/[a-zA-Z0-9_/-]+\.png$/.test(skill.img) ? skill.img : "";
+    const source = skill?.img;
+    const isAsset = typeof source === "string" && /^(?:\.\/|\/)?assets\/[a-zA-Z0-9_/-]+\.png$/.test(source);
+    const isGenerated = typeof source === "string" && source.length <= 24000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(source);
+    const img = isAsset || isGenerated ? source : "";
     element.classList.toggle("skill-art-icon", Boolean(img));
     element.style.backgroundImage = img ? `url("${img}")` : "";
     element.style.backgroundPosition = img ? "center" : "";
@@ -299,7 +303,7 @@ const UI = {
   renderEquipment(force = false) {
     const modal = document.getElementById("kpah-menu-modal");
     if (!force && (!modal || modal.style.display === "none")) return;
-    const eq = S.player?.equipment || {};
+    const eq = Object.fromEntries(Object.entries(S.player?.equipment || {}).map(([slot, item]) => [slot, GameData.itemWithCurrentDetails(item)]));
     const eqHash = JSON.stringify(eq);
     if (!force && this._lastEqHash === eqHash) return;
     this._lastEqHash = eqHash;
@@ -346,8 +350,15 @@ const UI = {
             : item.type === "CONSUME"
               ? "Đan Dược"
               : "Vật Phẩm";
-    document.getElementById("tip-body").innerHTML =
-      `${item.description + `${item?.giaTriTuVi ? "+ " + item?.giaTriTuVi : ""} ` || ""}<br><span style="color:var(--text2)">Bán: ${item.giaBan || 0} xu</span>`;
+    const price = document.createElement("span");
+    price.style.color = "var(--text2)";
+    price.textContent = `Bán: ${item.giaBan || 0} xu`;
+    const cultivation = item.giaTriTuVi ? ` + ${item.giaTriTuVi}` : "";
+    document.getElementById("tip-body").replaceChildren(
+      document.createTextNode(`${item.description || item.desc || item.moTa || ""}${cultivation}`),
+      document.createElement("br"),
+      price,
+    );
     tip.style.display = "block";
     tip.style.left = e.clientX + 14 + "px";
     tip.style.top = e.clientY - 10 + "px";
@@ -371,7 +382,7 @@ const UI = {
     if (!grid) return;
     grid.innerHTML = "";
     for (let i = 0; i < CFG.INV_MAX; i++) {
-      const it = S.inventory[i];
+      const it = GameData.itemWithCurrentDetails(S.inventory[i]);
       const el = document.createElement("div");
       el.className = it ? "isl" : "isl empty";
       if (it) {
@@ -392,7 +403,7 @@ const UI = {
       }
       grid.appendChild(el);
     }
-    const selected = S.inventory[this.selectedInventoryIndex];
+    const selected = GameData.itemWithCurrentDetails(S.inventory[this.selectedInventoryIndex]);
     const selection = document.getElementById("inv-selection");
     const useBtn = document.getElementById("inv-use-btn");
     if (selection) selection.textContent = selected ? `${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
@@ -406,7 +417,7 @@ const UI = {
     this.selectedInventoryIndex = Number(index);
     Inventory.selectedIndex = this.selectedInventoryIndex;
     this.buildInv();
-    const item = S.inventory[this.selectedInventoryIndex];
+    const item = GameData.itemWithCurrentDetails(S.inventory[this.selectedInventoryIndex]);
     if (item) this.showTip(item, { clientX: window.innerWidth - 330, clientY: window.innerHeight - 190 });
   },
 
@@ -457,8 +468,8 @@ const UI = {
     if (!button) return;
     const isEnabled = Boolean(enabled);
     button.setAttribute("aria-pressed", String(isEnabled));
-    button.setAttribute("aria-label", `Hiệu ứng duy trì quanh nhân vật: đang ${isEnabled ? "hiện" : "ẩn"}`);
-    button.title = isEnabled ? "Ẩn hiệu ứng duy trì quanh nhân vật" : "Bật hiệu ứng duy trì quanh nhân vật";
+    button.setAttribute("aria-label", `Hiệu ứng khi tung chiêu quanh nhân vật: đang ${isEnabled ? "hiện" : "ẩn"}`);
+    button.title = isEnabled ? "Ẩn hiệu ứng khi tung chiêu quanh nhân vật" : "Bật hiệu ứng khi tung chiêu quanh nhân vật";
     button.classList.toggle("active", isEnabled);
     if (state) state.textContent = isEnabled ? "FX: HIỆN" : "FX: ẨN";
   },

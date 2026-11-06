@@ -44,7 +44,8 @@ const Inventory = {
   },
 
   async use(idx) {
-    const item = S.inventory[idx];
+    const entry = S.inventory[idx];
+    const item = authToken ? GameData.itemWithCurrentDetails(entry) : entry;
     if (!item) return;
     if ((item.type || item.loai) === "BREAKTHROUGH_PILL") {
       return UI.notify("Giữ đan trong túi và bấm Đột phá khi đủ tu vi, OVR và tầng cuối. Máy chủ tự tiêu hao 1 viên khi phá đại cảnh giới.", "info");

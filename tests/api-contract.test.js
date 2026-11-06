@@ -18,11 +18,11 @@ test("client realm catalog route matches the server and game bootstrap loads the
   assert.equal(context.__API.PATHS.data.realms, "/api/canh-gioi");
   assert.equal(context.__API.BASE, "http://game.test");
   assert.match(serverSource, /app\.get\(["']\/api\/canh-gioi["']/);
-  assert.match(bootstrapSource, /js\/api\.js\?v=5/);
+  assert.match(bootstrapSource, /js\/api\.js\?v=6/);
   assert.match(bootstrapSource, /core\/config\.mjs/);
   assert.match(bootstrapSource, /core\/state\.mjs/);
   assert.doesNotMatch(bootstrapSource, /js\/(?:config|state)\.js/);
-  assert.match(gameHtml, /js\/bootstrap\.js\?v=13/);
+  assert.match(gameHtml, /js\/bootstrap\.js\?v=27/);
 });
 
 test("API can target a separate local BE and rejects an untrusted API host", () => {
@@ -76,7 +76,16 @@ test("API can target a separate local BE and rejects an untrusted API host", () 
     window: { sessionStorage: noRememberedApiBase, location: { origin: "http://localhost:3000", pathname: "/", search: "" } },
   });
   vm.runInContext(`${apiSource}\nglobalThis.__API = API;`, localGameContext, { filename: "api-game-local.js" });
-  assert.equal(localGameContext.__API.BASE, "http://localhost:3000");
+  assert.equal(localGameContext.__API.BASE, "http://localhost:3800");
+
+  const legacyGameContext = vm.createContext({
+    URL,
+    URLSearchParams,
+    console,
+    window: { sessionStorage: staleRememberedApiBase, location: { origin: "http://localhost:3000", pathname: "/", search: "" } },
+  });
+  vm.runInContext(`${apiSource}\nglobalThis.__API = API;`, legacyGameContext, { filename: "api-game-stale.js" });
+  assert.equal(legacyGameContext.__API.BASE, "http://localhost:3800");
 
   const untrustedContext = vm.createContext({
     URL,

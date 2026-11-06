@@ -553,7 +553,7 @@ function sendCachedWorld(req, res, world) {
   return res.send(cached.json);
 }
 
-app.post("/api/auth/register", authLimiter, async (req, res) => {
+app.post(["/api/auth/register", "/api/register"], authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
   const usernameKey = username.toLowerCase();
@@ -590,7 +590,7 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", authLimiter, async (req, res) => {
+app.post(["/api/auth/login", "/api/login"], authLimiter, async (req, res) => {
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
   if (username.length > 20 || Buffer.byteLength(password, "utf8") > 72) {
@@ -601,7 +601,7 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
-app.post("/api/auth/demo", demoLimiter, (req, res) => {
+app.post(["/api/auth/demo", "/api/demo"], demoLimiter, (req, res) => {
   if (ENV.isProduction) return res.status(404).json({ error: "Không tìm thấy endpoint" });
   const username = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const user = { id: nextUserId++, username, passwordHash: "demo", isDemo: true };
@@ -609,7 +609,7 @@ app.post("/api/auth/demo", demoLimiter, (req, res) => {
   res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
 });
 
-app.get("/api/auth/me", authMiddleware, (req, res) => {
+app.get(["/api/auth/me", "/api/me"], authMiddleware, (req, res) => {
   res.json({ user: { id: req.userId, username: req.username } });
 });
 

@@ -7,7 +7,8 @@ const SkillVFX = {
   storageKey: "tutien.skillVfxProfiles.v1",
   allowedForms: null,
   ownedBuffAuras: [],
-  elementalImpactAtlas: "./assets/effects/elemental-impact-atlas-v3.png",
+  auraPauseMs: 850,
+  elementalImpactAtlas: "/assets/effects/elemental-impact-atlas-v3.png",
 
   loadCustomProfiles() {
     try {
@@ -197,11 +198,11 @@ const SkillVFX = {
     return typeof mapBESkillToFE === "function" ? mapBESkillToFE(skill) : skill;
   },
 
-  profile(skill) {
+  profile(skill, { useDefaults = false } = {}) {
     const normalized = this.normalize(skill);
     const code = String(normalized?.code || normalized?.id || "");
     const root = String(normalized?.linhCan || "COMMON").toUpperCase();
-    const custom = this.customProfiles[code] || {};
+    const custom = useDefaults ? {} : this.customProfiles[code] || {};
     const baseRoot = this.palette[root] ? root : "COMMON";
     const customRoot = this.palette[String(custom.root || "").toUpperCase()] ? String(custom.root).toUpperCase() : baseRoot;
     const effect = String(normalized?.effect || "").toLowerCase();
@@ -213,6 +214,8 @@ const SkillVFX = {
       ? custom.form
       : (this.allowedForms.has(normalized?.vfxForm) ? normalized.vfxForm : (this.forms[code] || (isLightningShield ? "thunder-shield" : this.fallbackForm(normalized))));
     const tier = Math.max(1, Number(normalized?.tier || 1));
+    // The Admin catalog has the raw BE radius, while gameplay uses the mapped field.
+    const areaRadius = Number(normalized?.aoeR ?? normalized?.dienRong ?? 0);
     const basePalette = this.palette[customRoot] || this.palette.COMMON;
     const colors = custom.colors && typeof custom.colors === "object" ? custom.colors : {};
     const requestedDuration = Number(custom.durationMs);
@@ -222,8 +225,8 @@ const SkillVFX = {
       form,
       effect,
       tier,
-      aoe: Boolean(normalized?.aoe || Number(normalized?.aoeR || 0) > 0),
-      aoeR: Number(normalized?.aoeR || 0),
+      aoe: Boolean(normalized?.aoe || areaRadius > 0),
+      aoeR: areaRadius,
       category: String(normalized?.category || "ACTIVE").toUpperCase(),
       label: String(custom.label || this.labels[form] || normalized?.name || "Thần thông").slice(0, 60),
       durationMs: Number.isFinite(requestedDuration) && requestedDuration > 0
@@ -260,9 +263,28 @@ const SkillVFX = {
     return { x: Number(actor?.px ?? actor?.x ?? 0), y: Number(actor?.py ?? actor?.y ?? 0) };
   },
 
-  spawn(skill, source, targets, mode = "impact") {
+  castTiming(profile) {
+    return { charge: 230, effect: profile.durationMs || (profile.tier >= 3 ? 760 : 580) };
+  },
+
+  phaseProgress(elapsed, duration) {
+    return elapsed >= 0 && elapsed < duration ? elapsed / duration : null;
+  },
+
+  castMode(skillData) {
+    const skill = this.normalize(skillData);
+    if (String(skill?.category).toUpperCase() === "PASSIVE") return "passive";
+    return Number(skill?.satThuong || 0) > 0 && !["heal", "shield", "cleanse", "speed"].includes(String(skill?.effect || ""))
+      ? "impact"
+      : "support";
+  },
+
+  isCasterPhase(mode) {
+    return mode === "charge" || mode === "support" || mode === "passive";
+  },
+
+  spawn(skill, source, targets, mode = "impact", startedAt = Date.now(), profile = this.profile(skill)) {
     if (!skill || !source) return;
-    const profile = this.profile(skill);
     const from = this.point(source);
     const points = (targets || []).slice(0, 12).map((target) => ({
       ...this.point(target),
@@ -270,25 +292,30 @@ const SkillVFX = {
       critical: Boolean(target?.critical),
     }));
     if (!points.length) points.push({ ...from, miss: false, critical: false });
-    const duration = mode === "charge" ? 420 : (profile.durationMs || (profile.tier >= 3 ? 1120 : 980));
-    this.active.push({ profile, from, targets: points, mode, startedAt: Date.now(), duration });
+    const timing = this.castTiming(profile);
+    const duration = mode === "charge" ? timing.charge : timing.effect;
+    const entry = { profile, from, targets: points, mode, startedAt, duration };
+    if (this.isCasterPhase(mode)) entry.caster = source;
+    this.active.push(entry);
     if (this.active.length > this.maxActive) this.active.splice(0, this.active.length - this.maxActive);
+    return entry;
   },
 
-  charge(skill, source, target = null) {
-    this.spawn(skill, source, target ? [target] : [], "charge");
-  },
-
-  cancelCharge() {
-    this.active = this.active.filter((entry) => entry.mode !== "charge");
+  playCast(skill, source, targets, mode) {
+    if (!skill || !source) return;
+    const now = Date.now();
+    const profile = this.profile(skill);
+    const charge = this.spawn(skill, source, targets, "charge", now, profile);
+    const effect = this.spawn(skill, source, targets, mode, now + charge.duration, profile);
+    if (mode === "impact") effect.caster = source;
   },
 
   impact(skill, source, targets) {
-    this.spawn(skill, source, targets, "impact");
+    this.playCast(skill, source, targets, "impact");
   },
 
   support(skill, source) {
-    this.spawn(skill, source, [source], "support");
+    this.playCast(skill, source, [source], "support");
   },
 
   activateBuff(skillData, durationMs) {
@@ -361,13 +388,9 @@ const SkillVFX = {
     const skill = this.normalize(skillData);
     if (!S.player || !skill) return;
     const source = S.player;
-    if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
-      this.spawn(skill, source, [source], "preview");
-      return;
-    }
-    const offensive = Number(skill.satThuong || 0) > 0 && !["heal", "shield", "cleanse", "speed"].includes(String(skill.effect || ""));
-    if (!offensive) {
-      this.spawn(skill, source, [source], "preview-support");
+    const mode = this.castMode(skill);
+    if (mode !== "impact") {
+      this.playCast(skill, source, [source], mode);
       return;
     }
     const maxRange = Number(skill.range || 5) * CFG.SKILL_RANGE_SCALE;
@@ -378,46 +401,64 @@ const SkillVFX = {
           .sort((a, b) => dist(a.px, a.py, source.px, source.py) - dist(b.px, b.py, source.px, source.py))
           .find((monster) => dist(monster.px, monster.py, source.px, source.py) <= maxRange);
     const previewTarget = target || { px: source.px + (source.direction === "left" ? -36 : 36), py: source.py };
-    this.spawn(skill, source, [previewTarget], "preview");
+    this.playCast(skill, source, [previewTarget], mode);
   },
 
-  draw(cameraX, cameraY, layer = "all") {
+  drawCastPhase(mode, origin, targets, profile, progress, layer = "all") {
+    const behind = this.isCasterPhase(mode);
+    const splitEffect = mode === "passive" || (mode === "support" && profile.form === "thunder-shield");
+    if (layer === "behind" && !behind) return;
+    if (layer === "front" && behind && !splitEffect) return;
+    const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
+    if (behind) {
+      // Compact self effects around the caster's feet. Projectiles and target effects keep their scale.
+      const scale = 0.68;
+      ctx.save();
+      try {
+        ctx.translate(origin.x * (1 - scale), origin.y * (1 - scale));
+        ctx.scale(scale, scale);
+        if (mode === "charge") this.drawCharge(origin, profile, palette, progress);
+        else if (mode === "support") this.drawSupport(origin, profile, palette, progress, layer);
+        else this.drawPassive(origin, profile, palette, progress, layer);
+      } finally {
+        ctx.restore();
+      }
+    } else {
+      // Area damage can hit multiple enemies but the cast has one visual center.
+      const visualTargets = mode === "impact" && profile.aoe ? targets.slice(0, 1) : targets;
+      for (const target of visualTargets) {
+        if (mode === "basic-attack") this.drawMelee(origin, target, palette, progress, target, profile.tier);
+        else if (mode === "monster-attack") this.drawMonsterAttack(origin, target, profile, palette, progress, target);
+        else this.drawImpact(origin, target, profile, palette, progress, target);
+      }
+    }
+  },
+
+  draw(cameraX, cameraY, layer = "all", positionForCaster) {
     if (!ctx) return;
     const now = Date.now();
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    const showCasterEffects = typeof VisualEffects === "undefined" || VisualEffects.arePersistentEffectsEnabled();
     this.active = this.active.filter((entry) => now - entry.startedAt < (reduceMotion ? Math.min(entry.duration, 360) : entry.duration));
     ctx.save();
     try {
       for (const entry of this.active) {
-        const staysBehindActors = entry.mode === "charge" || entry.mode === "support" || entry.mode === "preview-support" || entry.profile.category === "PASSIVE";
-        const splitLightning = ["thunder-shield", "passive-lightning"].includes(entry.profile.form)
-          && (entry.mode === "support" || entry.mode === "preview-support" || entry.profile.category === "PASSIVE");
-        if (layer === "behind" && !staysBehindActors && !splitLightning) continue;
-        if (layer === "front" && staysBehindActors && !splitLightning) continue;
+        if (!showCasterEffects && this.isCasterPhase(entry.mode)) continue;
         const elapsed = now - entry.startedAt;
-        const progress = reduceMotion ? 0.55 : Math.max(0, Math.min(1, elapsed / entry.duration));
-        const palette = entry.profile.palette || this.palette[entry.profile.root] || this.palette.COMMON;
-        const origin = { x: entry.from.x - cameraX, y: entry.from.y - cameraY };
-        if (entry.mode === "charge") this.drawCharge(origin, entry.profile, palette, progress);
-        else if (entry.mode === "support" || entry.mode === "preview-support") {
-          this.drawSupport(origin, entry.profile, palette, progress, layer);
-          if (entry.mode === "preview-support" && layer !== "front") this.drawPixelRing(origin.x, origin.y - 4, 23, palette.light, 0.45, 1);
+        const phase = this.phaseProgress(elapsed, entry.duration);
+        if (phase === null) continue;
+        const progress = reduceMotion
+          ? (entry.mode === "impact" && entry.profile.form === "fireball" ? 0.76 : 0.55)
+          : phase;
+        const from = entry.caster ? positionForCaster?.(entry.caster) ?? this.point(entry.caster) : entry.from;
+        if (entry.mode === "impact" && entry.caster) {
+          // Release the projectile from the caster's rendered position, then keep its path stable.
+          entry.from = from;
+          delete entry.caster;
         }
-        else if (entry.mode === "monster-attack") {
-          const target = entry.targets[0];
-          if (target) this.drawMonsterAttack(origin, { x: target.x - cameraX, y: target.y - cameraY }, entry.profile, palette, progress, target);
-        } else if (entry.profile.category === "PASSIVE") this.drawPassive(origin, entry.profile, palette, progress, layer);
-        else {
-          for (const target of entry.targets) {
-            const point = { x: target.x - cameraX, y: target.y - cameraY };
-            if (entry.mode === "basic-attack") this.drawMelee(origin, point, palette, progress, target, entry.profile.tier);
-            else this.drawImpact(origin, point, entry.profile, palette, progress, target, entry.mode === "preview");
-          }
-        }
-      }
-      if (typeof VisualEffects !== "undefined" && VisualEffects.arePersistentEffectsEnabled()) {
-        this.drawOwnedPassive(cameraX, cameraY, now, reduceMotion, layer);
-        this.drawOwnedBuffs(cameraX, cameraY, now, layer, reduceMotion);
+        const origin = { x: from.x - cameraX, y: from.y - cameraY };
+        const targets = entry.targets.map((target) => ({ ...target, x: target.x - cameraX, y: target.y - cameraY }));
+        this.drawCastPhase(entry.mode, origin, targets, entry.profile, progress, layer);
       }
     } finally {
       ctx.restore();
@@ -456,7 +497,7 @@ const SkillVFX = {
     this.drawPixelRing(origin.x, origin.y + 3, 7 + progress * 3, palette.dark, pulse * 0.5, 1);
   },
 
-  drawImpact(origin, target, profile, palette, progress, outcome, preview) {
+  drawImpact(origin, target, profile, palette, progress, outcome) {
     const form = profile.form;
     const isSelf = form.startsWith("passive-") || ["heal", "growth", "shield", "water-shield", "stone-armor", "thunder-shield", "meditate", "clear-heart", "solar-mark", "light-speed", "leaf-speed", "earth-rune"].includes(form);
     const missOffset = outcome.miss ? 6 : 0;
@@ -516,33 +557,37 @@ const SkillVFX = {
       this.colorStamp(target.x + 7, target.y - 8, 3, palette.accent, 0.86);
       this.colorStamp(target.x + 12, target.y - 12, 2, palette.light, 0.76);
     }
-    this.drawElementalImpact(point, profile, progress, outcome, preview);
-    if (preview) this.drawPixelRing(target.x, target.y, 10 + progress * 4, palette.light, 0.45, 1);
+    this.drawElementalImpact(point, profile, progress, outcome);
     if (outcome.critical && progress > 0.55) this.drawBurst(point, { ...palette, main: palette.light }, progress, profile.tier + 1, profile.aoeR);
   },
 
-  drawElementalImpact(point, profile, progress, outcome = {}, preview = false) {
-    if (outcome.miss || typeof Render === "undefined" || !ctx) return;
+  loadImpactAtlas() {
+    if (!this.impactAtlasImage && typeof Image !== "undefined") {
+      this.impactAtlasImage = new Image();
+      this.impactAtlasImage.src = this.elementalImpactAtlas;
+    }
+  },
+
+  drawElementalImpact(point, profile, progress, outcome = {}) {
+    if (outcome.miss || !ctx) return;
     const rows = { LOI: 0, HOA: 1, THUY: 2, THO: 3, MOC: 4 };
     const row = rows[String(profile.root || "").toUpperCase()];
     if (row === undefined) return;
+    const atlas = this.impactAtlasImage;
+    if (!atlas?.complete || !atlas.naturalWidth || !atlas.naturalHeight) return;
     const tier = Math.max(1, Number(profile.tier || 1));
     const frame = Math.min(3, Math.max(0, Math.floor(progress * 4)));
     const size = Math.min(58, 42 + (tier - 1) * 5);
-    const previousSmoothing = ctx.imageSmoothingEnabled;
-    const previousAlpha = ctx.globalAlpha;
+    const frameWidth = Math.floor(atlas.naturalWidth / 4);
+    const frameHeight = Math.floor(atlas.naturalHeight / 5);
+    ctx.save();
     ctx.imageSmoothingEnabled = false;
-    if (preview) ctx.globalAlpha *= 0.76;
+    ctx.globalAlpha = Math.min(1, (1 - progress) * 4);
     try {
-      Render.drawSprite(this.elementalImpactAtlas, point.x, point.y - 2, size, size, {
-        col: frame,
-        row,
-        cols: 4,
-        rows: 5,
-      });
+      ctx.drawImage(atlas, frame * frameWidth, row * frameHeight, frameWidth, frameHeight,
+        Math.round(point.x - size / 2), Math.round(point.y - 2 - size / 2), size, size);
     } finally {
-      ctx.imageSmoothingEnabled = previousSmoothing;
-      ctx.globalAlpha = previousAlpha;
+      ctx.restore();
     }
   },
 
@@ -721,9 +766,9 @@ const SkillVFX = {
     for (const [dx, dy] of points) this.colorStamp(x + dx * radius, y + dy * radius, size, color, alpha);
   },
 
-  drawBurst(point, palette, progress, tier, aoeR = 0) {
+  drawBurst(point, palette, progress, tier, aoeR = 0, opacity = 1) {
     const radius = 4 + progress * (8 + Math.min(aoeR, 3) * 3) * (tier >= 3 ? 1.3 : 1);
-    const alpha = Math.max(0.22, 1 - progress * 0.72);
+    const alpha = Math.max(0.22, 1 - progress * 0.72) * opacity;
     this.drawPixelRing(point.x, point.y, radius, palette.main, alpha, 3);
     this.drawPixelRing(point.x, point.y, radius * 0.62, palette.light, alpha, 2);
     const sparks = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -2], [2, 0], [0, 2], [-2, 0]];
@@ -794,7 +839,12 @@ const SkillVFX = {
   },
 
   drawProjectile(origin, point, palette, progress, form, tier) {
-    const travel = Math.min(1, progress / 0.68);
+    if (form === "fireball" && progress >= 0.62) {
+      const burst = (progress - 0.62) / 0.38;
+      this.drawBurst(point, palette, burst, tier, 0, 1 - burst);
+      return;
+    }
+    const travel = Math.min(1, progress / (form === "fireball" ? 0.62 : 0.68));
     const headX = origin.x + (point.x - origin.x) * travel;
     const headY = origin.y + (point.y - origin.y) * travel;
     const dx = point.x - origin.x, dy = point.y - origin.y;
@@ -986,7 +1036,7 @@ const SkillVFX = {
     const progressValue = Math.max(0, Math.min(1, Number(progress) || 0));
     const pulse = 0.06 + Math.sin(progressValue * Math.PI) * 0.18;
     if (form === "thunder-shield") {
-      this.drawLightningAura(point, palette, (Date.now() % 840) / 840, progressValue, layer);
+      this.drawLightningAura(point, palette, progressValue, progressValue, layer);
       return;
     }
     if (["shield", "water-shield", "stone-armor"].includes(form)) {
@@ -1095,7 +1145,8 @@ const SkillVFX = {
   },
 
   drawLightningAura(point, palette, phase, lifecycle = null, layer = "all") {
-    const cycle = ((Number(phase) || 0) % 1 + 1) % 1;
+    const cycle = Number(phase);
+    if (!(cycle > 0 && cycle < 1)) return;
     const pulseAt = (center) => {
       const distance = Math.min(Math.abs(cycle - center), 1 - Math.abs(cycle - center));
       return Math.max(0, 1 - distance / 0.12);
@@ -1106,11 +1157,10 @@ const SkillVFX = {
     const pulse = Math.max(pulseAt(0.12), pulseAt(0.62));
     const side = cycle < 0.5 ? -1 : 1;
     const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 6);
-    if (layer !== "front") {
-      this.drawPassiveGroundMark(point, palette, cycle, 0.16 + pulse * 0.42);
-    }
+    if (pulse <= 0.01 || envelope <= 0) return;
+    if (layer !== "front") this.drawPassiveGroundMark(point, palette, cycle, pulse * envelope * 0.85);
 
-    if (layer === "behind" || pulse <= 0.01) return;
+    if (layer === "behind") return;
     const localPulse = cycle < 0.5 ? pulseAt(0.12) : pulseAt(0.62);
     const x = point.x + side * halfWidth;
     const y = point.y - 6 + Math.sin(cycle * Math.PI * 2) * 1.5;
@@ -1126,26 +1176,26 @@ const SkillVFX = {
   },
 
   drawPassive(point, profile, palette, progress, layer = "all") {
-    const cycle = ((Number(progress) || 0) % 1 + 1) % 1;
-    const phase = cycle * Math.PI * 2;
+    const cycle = Number(progress);
+    if (!(cycle > 0 && cycle < 1)) return;
     if (["passive-lightning", "thunder-shield"].includes(profile.form)) {
       this.drawLightningAura(point, palette, cycle, null, layer);
       return;
     }
-    if (layer !== "front") this.drawPassiveGroundMark(point, palette, cycle, 0.2 + (Math.sin(phase * 2) + 1) * 0.12);
+    const pulse = Math.min(cycle / 0.16, (1 - cycle) / 0.64, 1);
+    if (pulse <= 0.04) return;
+    if (layer !== "front") this.drawPassiveGroundMark(point, palette, cycle, pulse * 0.85);
     if (layer === "behind") return;
 
-    const side = cycle < 0.5 ? -1 : 1;
-    const motion = cycle < 0.5 ? cycle * 2 : (cycle - 0.5) * 2;
-    const pulse = Math.sin(motion * Math.PI);
-    if (pulse <= 0.04) return;
-    const halfWidth = Math.max(8, Number(CFG.ACTOR_W || 16) / 2 + 6);
-    const x = point.x + side * halfWidth;
-    const y = point.y - 2 - motion * 15;
+    const halfWidth = Math.max(10, Number(CFG.ACTOR_W || 16) / 2 + 7);
     const root = String(profile.root || "COMMON").toUpperCase();
-    this.drawElementalGlyph(x, y, root, palette, side, pulse);
-    this.colorStamp(x + side * 3, y + 5, 2, palette.dark, pulse * 0.36);
-    this.colorStamp(x + side * 2, y + 9, 2, palette.light, pulse * 0.2);
+    for (const side of [-1, 1]) {
+      const x = point.x + side * (halfWidth + cycle * 9);
+      const y = point.y - 4 - cycle * 18;
+      this.drawElementalGlyph(x, y, root, palette, side, pulse);
+      this.colorStamp(x + side * 4, y + 5, 2, palette.accent, pulse * 0.75);
+      this.colorStamp(x + side * 2, y + 9, 2, palette.light, pulse * 0.55);
+    }
   },
 
   drawPassiveGroundMark(point, palette, phase, alpha) {
@@ -1166,60 +1216,10 @@ const SkillVFX = {
     }
   },
 
-  drawOwnedBuffs(cameraX, cameraY, now, layer = "all", reduceMotion = false) {
-    const player = S.player;
-    if (!player) return;
-    const x = player.px - cameraX;
-    const y = player.py - cameraY;
-    const phase = reduceMotion ? 0.35 : (now % 1200) / 1200;
-    this.ownedBuffAuras = this.ownedBuffAuras.filter((entry) => entry.expiresAt > now);
-    const drawn = new Set();
-    const drawAura = (skill, key) => {
-      const profile = this.profile(skill);
-      const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-      if (profile.form === "thunder-shield") this.drawLightningAura({ x, y }, palette, phase, null, layer);
-      else this.drawPassive({ x, y }, profile, palette, phase, layer);
-      drawn.add(String(skill.code || skill.id || key));
-    };
-    for (const entry of this.ownedBuffAuras) drawAura(entry.skill, entry.effect);
-    for (const [buffKey, buff] of Object.entries(player.buffs || {})) {
-      if (!buff || (Number(buff.expiresAt) > 0 && Number(buff.expiresAt) <= now)) continue;
-      const skillCode = String(buff.skillCode || buff.code || "");
-      const skill = (skillCode && this.findSkill(skillCode, player))
-        || (player.skills || []).find((entry) => String(entry.effect || "") === buffKey);
-      if (!skill) continue;
-      const code = String(skill.code || skill.id || buffKey);
-      if (!drawn.has(code)) drawAura(skill, buffKey);
-    }
-  },
-
-  drawOwnedPassive(cameraX, cameraY, now, reduceMotion, layer = "all") {
-    const player = S.player;
-    if (!player) return;
-    const root = String(player.linhCan || player.root?.id || "").toUpperCase();
-    const learnedCodes = new Set((player.learnedSkills || []).map((entry) => String(entry?.code || entry?.id || entry?.skillCode || entry)));
-    const candidates = [...learnedCodes]
-      .map((code) => this.findSkill(code, player))
-      .filter((skill) => skill && String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE");
-    for (const skill of player.skills || []) {
-      if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE"
-        && !candidates.some((candidate) => candidate.code === skill.code)) candidates.push(this.normalize(skill));
-    }
-    const legacyCode = `${root}_TAM_PHAP`;
-    const skill = candidates.find((candidate) => String(candidate.linhCan || "").toUpperCase() === root)
-      || candidates[0]
-      || (learnedCodes.has(legacyCode) ? this.findSkill(legacyCode, player) || { code: legacyCode, linhCan: root, category: "PASSIVE", tier: 1 } : null);
-    if (!skill) return;
-    const profile = this.profile(skill);
-    const palette = profile.palette || this.palette[profile.root] || this.palette.COMMON;
-    const phase = reduceMotion ? 0.35 : (now % 1500) / 1500;
-    const x = player.px - cameraX;
-    const y = player.py - cameraY;
-    this.drawPassive({ x, y }, profile, palette, phase, layer);
-  },
 };
 
 SkillVFX.loadCustomProfiles();
+SkillVFX.loadImpactAtlas();
 if (typeof window !== "undefined") {
   window.SkillVFX = SkillVFX;
   window.addEventListener("storage", (event) => {

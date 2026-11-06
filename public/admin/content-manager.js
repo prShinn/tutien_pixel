@@ -8,7 +8,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createContentManager(utils) {
   "use strict";
 
-  const EDITABLE_COLLECTIONS = new Set(["quests", "npcs", "items", "skills"]);
+  const EDITABLE_COLLECTIONS = new Set(["quests", "items", "skills", "monsters"]);
 
   function createController({ api, getJson, adminHeaders }) {
     if (!api || typeof getJson !== "function" || typeof adminHeaders !== "function") {
@@ -33,13 +33,28 @@
     }
 
     return {
-      async list(collection) {
-        return getJson(api.BASE + api.PATHS.admin.content(collection), { headers: adminHeaders() });
+      async list(collection, params) {
+        const query = params ? "?" + new URLSearchParams(params).toString() : "";
+        return getJson(api.BASE + api.PATHS.admin.content(collection) + query, { headers: adminHeaders() });
       },
 
-      async save(collection, { id, json, existingId = null }) {
+      async save(collection, { id, json, existingId = null, pixelImage }) {
         ensureEditable(collection);
         const record = utils.parseRecord(json, id, existingId, collection);
+        if (pixelImage !== undefined) {
+          delete record.img;
+          if (pixelImage) {
+            if (typeof pixelImage !== "string" || pixelImage.length > 24000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(pixelImage)) {
+              throw new Error("Ảnh pixel cần là PNG hợp lệ và không vượt giới hạn dung lượng.");
+            }
+            record.img = pixelImage;
+            if (collection === "monsters") {
+              // The generator exports one frame. Keep the display size without slicing it as a sheet.
+              const { width, height } = record.animation || {};
+              record.animation = { kind: "procedural", width, height };
+            }
+          }
+        }
         const isUpdate = existingId !== null && existingId !== undefined;
         const url = isUpdate
           ? api.BASE + api.PATHS.admin.contentItem(collection, existingId)
@@ -54,6 +69,9 @@
 
       async remove(collection, id) {
         ensureEditable(collection);
+        if (collection === "quests" || collection === "monsters") {
+          throw new Error("Xóa quest hoặc quái có thể làm mất tiến độ và cấu hình map. Hãy ẩn hoặc đổi trạng thái bản ghi.");
+        }
         const result = await getJson(api.BASE + api.PATHS.admin.contentItem(collection, id), {
           method: "DELETE",
           headers: adminHeaders(),

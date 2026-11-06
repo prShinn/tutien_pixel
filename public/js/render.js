@@ -300,13 +300,13 @@ const Render = {
       ctx.restore();
     }
     for (const portal of S.portals) if (portal.tenMapDen) Render.portal(portal, cx, cy);
-    // Self support and persistent aura effects render beneath actors so they never hide sprites.
-    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "behind");
-
     const renderTime = timestamp - (typeof EntitySnapshots !== "undefined" ? EntitySnapshots.delayMs : 100);
     const interpolated = (entity) => typeof EntitySnapshots !== "undefined"
       ? EntitySnapshots.sample(entity, renderTime)
       : { x: entity.px, y: entity.py };
+    const positionForCaster = (actor) => actor === p ? localPosition : interpolated(actor);
+    // Cast preparation and self support render beneath actors.
+    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "behind", positionForCaster);
     const drawables = [];
     let drawOrder = 0;
     for (const drop of S.groundItems || []) {
@@ -342,7 +342,7 @@ const Render = {
     Render.sortDrawables(drawables);
     for (const drawable of drawables) drawable.draw();
     Render.drawCombatFx(cx, cy);
-    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "front");
+    if (typeof SkillVFX !== "undefined") SkillVFX.draw(cx, cy, "front", positionForCaster);
 
     // KPAH Name Tags & HP Bar
     ctx.font = "bold 6px monospace";
@@ -684,7 +684,6 @@ const Render = {
       const drawn = this.drawSprite(imgToDraw, hurtShift * facingScale, -actorH / 2 - 2, actorW, actorH, spriteFrame);
       ctx.restore();
       if (drawn) {
-        this.drawBuffEffects(sx, sy, actor, actorW);
         if (actor?.hitUntil > Date.now()) {
           ctx.save();
           const pulse = 0.58 + Math.sin(Date.now() * 0.045) * 0.18;
@@ -1161,43 +1160,6 @@ const Render = {
     }
   },
 
-  drawBuffEffects(sx, sy, actor, actorW) {
-    if (typeof VisualEffects === "undefined" || !VisualEffects.arePersistentEffectsEnabled()) return;
-    const buffs = actor?.buffs || {};
-    const now = Date.now();
-    const active = (key) => buffs[key] && (!buffs[key].expiresAt || Number(buffs[key].expiresAt) > now);
-    const shield = active("shield") || active("buff_def") || active("buff_vitals");
-    const attack = active("buff_atk") || active("buff_crit");
-    const speed = active("buff_spd") || active("buff_cast");
-    if (!shield && !attack && !speed) return;
-    const pulse = 0.2 + Math.sin(now * 0.004) * 0.06;
-    ctx.save();
-    ctx.lineWidth = 0.7;
-    ctx.globalAlpha = pulse;
-    // Buff lâu dài chỉ hiện thành dấu nhỏ sát mặt đất, không bao quanh thân nhân vật.
-    const radiusX = Math.max(4.5, Math.min(7, actorW * 0.38));
-    const footY = sy + 1.2;
-    if (shield) {
-      ctx.strokeStyle = active("shield") ? "#72d7ff" : "#8fa8ff";
-      ctx.beginPath();
-      ctx.ellipse(sx, footY, radiusX, 1.5, 0, Math.PI * 1.05, Math.PI * 1.95);
-      ctx.stroke();
-    }
-    if (attack) {
-      ctx.strokeStyle = active("buff_crit") ? "#ffd166" : "#ff8b55";
-      ctx.beginPath();
-      ctx.ellipse(sx, footY, radiusX + 1.5, 2.1, 0, Math.PI * 0.08, Math.PI * 0.42);
-      ctx.stroke();
-    }
-    if (speed) {
-      ctx.strokeStyle = active("buff_cast") ? "#c79bff" : "#8ff0ff";
-      ctx.beginPath();
-      ctx.ellipse(sx, footY, radiusX + 2.5, 2.8, 0, Math.PI * 0.58, Math.PI * 0.92);
-      ctx.stroke();
-    }
-    ctx.restore();
-  },
-
   floatSkill(wx, wy, name, color = "#ffd166") {
     if (!name) return;
     if (!S.floatingTexts) S.floatingTexts = [];
@@ -1220,10 +1182,12 @@ const Render = {
       if (!S.imageCache) S.imageCache = {};
       img = new Image();
       img.crossOrigin = "Anonymous"; // Cần thiết để xử lý Canvas pixel
-      img.onload = () => {
-        // Tự động xóa nền (checkerboard/trắng) khi ảnh tải xong
-        S.imageCache[imgSource] = Render._removeBg(img);
-      };
+      // Icon PNG được xuất với alpha từ Item Studio, giữ nguyên các pixel sáng.
+      if (typeof imgSource === "string" && !imgSource.startsWith("data:image/png;base64,")) {
+        img.onload = () => {
+          S.imageCache[imgSource] = Render._removeBg(img);
+        };
+      }
       img.hasError = false;
       img.onerror = () => { img.hasError = true; };
       img.src = imgSource;

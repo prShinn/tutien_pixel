@@ -128,6 +128,44 @@ test("renderer uses stable global Y order for drawable entities", () => {
   assert.deepEqual(Array.from(sorted, (entry) => entry.id), ["loot", "npc", "monster", "near-player"]);
 });
 
+test("offline world uses the edited monster catalog and honors exact configured pack counts", () => {
+  const worldSource = fs.readFileSync(path.join(root, "public", "js", "world.js"), "utf8");
+  const overlay = { textContent: "", classList: { add() {}, remove() {} } };
+  const CFG = { TS: 1, MON_AGGRO: 40, MON_LEASH: 72, MONSTERS: [
+    { id: "WOLF_A", code: "WOLF_A", name: "Lang đã sửa", hp: 80, maxHp: 100, img: "edited.png", atk: 14, def: 3, speed: 1.2 },
+  ] };
+  const S = { player: { x: 5, y: 5, px: 5, py: 5 }, players: new Map() };
+  const context = vm.createContext({
+    CFG,
+    S,
+    Render: { buildTerrainCache() {} },
+    Monster: { make(data, x, y, id) { return { ...data, id, x, y }; } },
+    UI: { log() {} },
+    document: { getElementById: () => overlay },
+    setTimeout() {},
+    console,
+  });
+  vm.runInContext(`${worldSource}\nglobalThis.__World = World;`, context, { filename: "world.js" });
+  const tiles = Array.from({ length: 20 }, () => Array(20).fill(0));
+  const layers = { ground: tiles, objects: tiles.map((row) => row.map(() => -1)), elevation: tiles.map((row) => row.map(() => 0)) };
+  const map = {
+    code: "test_field", name: "Test field", w: 20, h: 20, spawnX: 5, spawnY: 5,
+    jsonMap: tiles, layers,
+    monsters: [{ id: "WOLF_A", code: "WOLF_A", name: "Lang cũ", hp: 10, maxHp: 10, img: "old.png" }],
+    monsterSpawns: [{ packId: "WOLVES", templateId: "WOLF_A", centerX: 10, centerY: 10, count: 2, radius: 4 }],
+    rules: { monsterPacksOnly: true },
+    npcs: [{ id: "visible", name: "Hiện", x: 4, y: 4 }, { id: "hidden", name: "Ẩn", x: 5, y: 4, enabled: false }],
+  };
+
+  context.__World.loadMap(map);
+  assert.equal(S.monsters.length, 2, "configured count should match the pack exactly");
+  assert.ok(S.monsters.every((monster) => monster.name === "Lang đã sửa" && monster.img === "edited.png"));
+  assert.deepEqual(S.npcs.map((npc) => npc.id), ["visible"]);
+
+  context.__World.loadMap({ ...map, monsterSpawns: [] });
+  assert.equal(S.monsters.length, 0, "an explicit empty pack list must not fall back to map templates");
+});
+
 test("walk sprite frame and body step phase advance together from traveled distance", () => {
   const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
   const context = vm.createContext({});

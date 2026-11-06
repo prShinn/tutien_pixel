@@ -73,7 +73,7 @@ const World = {
       S.player.movePath = [];
     }
     S.portals = def.portals ?? [];
-    S.npcs = (def.npcs ?? []).map((n) => ({
+    S.npcs = (def.npcs ?? []).filter((n) => n.enabled !== false).map((n) => ({
       ...n,
       x: Number(n.x || 0),
       y: Number(n.y || 0),
@@ -87,21 +87,43 @@ const World = {
 
     const isCity = String(def.type || "").toUpperCase() === "CITY" || Boolean(def.rules?.noMonsters);
     if (!isCity) {
-      if (Array.isArray(def.monsterSpawns) && def.monsterSpawns.length > 0) {
+      if (Array.isArray(def.monsterSpawns) && (def.monsterSpawns.length > 0 || def.rules?.monsterPacksOnly === true)) {
         for (const pack of def.monsterSpawns) {
-          const tmpl = (def.monsters || []).find((m) => m.id === pack.templateId || m.code === pack.templateId) || def.monsters?.[0] || pack;
-          const count = Math.max(String(tmpl.type || "").toUpperCase() === "BOSS" ? 1 : 3, Math.min(5, Number(pack.count || 4)));
+          const local = (def.monsters || []).find((m) => m.id === pack.templateId || m.code === pack.templateId);
+          const current = Array.isArray(CFG.MONSTERS) ? CFG.MONSTERS.find((m) => m.id === pack.templateId || m.code === pack.templateId) : null;
+          const tmpl = current || local || def.monsters?.[0] || pack;
+          const exactPacks = def.rules?.monsterPacksOnly === true;
+          const count = exactPacks
+            ? Math.max(1, Math.min(20, Math.floor(Number(pack.count) || 1)))
+            : Math.max(String(tmpl.type || "").toUpperCase() === "BOSS" ? 1 : 3, Math.min(5, Number(pack.count || 4)));
           const radius = Number(pack.radius || 24);
           for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
             const dist = radius * (0.35 + 0.55 * (i % 2));
-            const tx = Math.round(Number(pack.centerX || def.w / 2) + Math.cos(angle) * dist);
-            const ty = Math.round(Number(pack.centerY || def.h / 2) + Math.sin(angle) * dist);
+            const centerX = Number(pack.centerX ?? def.w / 2);
+            const centerY = Number(pack.centerY ?? def.h / 2);
+            let tx = Math.round(centerX + Math.cos(angle) * dist);
+            let ty = Math.round(centerY + Math.sin(angle) * dist);
+            if (exactPacks) {
+              const isWalkable = (x, y) => {
+                if (x < 0 || y < 0 || x >= S.mapW || y >= S.mapH) return false;
+                const blocked = [T.WATER, T.WALL, T.TREE, T.MTN];
+                return !blocked.includes(S.groundTiles?.[y]?.[x] ?? S.tiles?.[y]?.[x])
+                  && !blocked.includes(S.objectTiles?.[y]?.[x]);
+              };
+              if (!isWalkable(centerX, centerY)) continue;
+              for (let step = 0; step <= Math.min(80, Math.ceil(dist)); step++) {
+                const offset = Math.max(0, dist - step);
+                const candidateX = Math.round(centerX + Math.cos(angle) * offset);
+                const candidateY = Math.round(centerY + Math.sin(angle) * offset);
+                if (isWalkable(candidateX, candidateY)) { tx = candidateX; ty = candidateY; break; }
+              }
+            }
             const fixedId = `${pack.packId || "pack"}_${i}`;
             const m = Monster.make(tmpl, tx, ty, fixedId);
             m.packId = pack.packId;
-            m.packCenterX = Number(pack.centerX || tx);
-            m.packCenterY = Number(pack.centerY || ty);
+            m.packCenterX = centerX;
+            m.packCenterY = centerY;
             S.monsters.push(m);
           }
         }

@@ -733,16 +733,9 @@ test("render camera follows the same interpolated player position as the sprite"
   assert.ok(Math.abs(render.__context.S.cam.x - expectedCameraX) < 1e-8);
 });
 
-test("persistent buff visuals stay hidden by default and, when enabled, stay at the feet", () => {
+test("the actor renderer does not attach persistent buff effects to the map", () => {
   const render = renderHarness();
-  const actor = { buffs: { shield: { expiresAt: Date.now() + 5000 }, buff_atk: { expiresAt: Date.now() + 5000 }, buff_spd: { expiresAt: Date.now() + 5000 } } };
-  render.drawBuffEffects(12, 20, actor, 14, 18);
-  assert.equal(render.__calls.length, 0);
-
-  render.__context.__buffEffectsEnabled = true;
-  render.drawBuffEffects(12, 20, actor, 14, 18);
-  assert.equal(render.__calls.length, 3);
-  assert.ok(render.__calls.every(([, y, , ry]) => Math.abs(y - 21.2) < 1e-9 && ry <= 2.8));
+  assert.equal(render.drawBuffEffects, undefined);
 });
 
 test("system feedback uses the visible toast lane while chat stays in chat", () => {
@@ -782,11 +775,11 @@ test("buff-effect toggle exposes hidden and visible state to the HUD", () => {
   elements.set("buff-effects-state", state);
   ui.initializeBuffEffectsToggle();
   assert.equal(button.getAttribute("aria-pressed"), "false");
-  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng duy trì quanh nhân vật: đang ẩn");
+  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng khi tung chiêu quanh nhân vật: đang ẩn");
   assert.equal(state.textContent, "FX: ẨN");
   assert.equal(ui.toggleBuffEffects(), true);
   assert.equal(button.getAttribute("aria-pressed"), "true");
-  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng duy trì quanh nhân vật: đang hiện");
+  assert.equal(button.getAttribute("aria-label"), "Hiệu ứng khi tung chiêu quanh nhân vật: đang hiện");
   assert.equal(state.textContent, "FX: HIỆN");
   assert.equal(ui.toggleBuffEffects(), false);
   assert.equal(visualEffects.arePersistentEffectsEnabled(), false);

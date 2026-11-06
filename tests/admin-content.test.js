@@ -24,6 +24,7 @@ function apiConfig() {
 test("blank content records use collection templates and distinct identifier prefixes", () => {
   const item = ContentUtils.createBlankRecord("items", 123);
   const skill = ContentUtils.createBlankRecord("skills", 456, [{ id: 20 }, { id: "not-numeric" }]);
+  const quest = ContentUtils.createBlankRecord("quests", 789);
 
   assert.equal(item.id, "ITEM_NEW_123");
   assert.equal(item.maDo, item.id);
@@ -31,6 +32,7 @@ test("blank content records use collection templates and distinct identifier pre
   assert.equal(skill.id, 21);
   assert.equal(skill.code, "SKILL_21");
   assert.equal(skill.category, "ACTIVE");
+  assert.match(quest.id, /^quest_new_789$/);
   assert.throws(() => ContentUtils.createBlankRecord("accounts"), /chưa hỗ trợ/);
 });
 
@@ -40,7 +42,8 @@ test("content editor validates JSON and required display fields", () => {
   assert.throws(() => ContentUtils.parseRecord('{"name":""}', "QUEST_1"), /tên hiển thị/);
   assert.throws(() => ContentUtils.parseRecord('{"name":"Quest"}', "bad id"), /Mã bản ghi/);
   assert.throws(() => ContentUtils.parseRecord('{"name":"Quest","nested":{"constructor":{}}}', "QUEST_1"), /không được hỗ trợ/);
-  assert.throws(() => ContentUtils.parseRecord('{"name":"Item","maDo":"OTHER","type":"MATERIAL"}', "ITEM_1", null, "items"), /trùng với mã bản ghi/);
+  assert.throws(() => ContentUtils.parseRecord('{"name":"Item","maDo":"","type":"MATERIAL"}', "ITEM_1", null, "items"), /Mã vật phẩm/);
+  assert.equal(ContentUtils.parseRecord('{"name":"Item","maDo":"OTHER","type":"MATERIAL"}', "ITEM_1", null, "items").maDo, "OTHER");
   assert.throws(() => ContentUtils.parseRecord('{"name":"Item","maDo":"ITEM_1","type":"UNKNOWN"}', "ITEM_1", null, "items"), /Loại vật phẩm/);
   assert.throws(() => ContentUtils.parseRecord('{"name":"Skill","linhCan":"KIM"}', "1", null, "skills"), /mã code/);
   assert.throws(() => ContentUtils.parseRecord('{"name":"Skill","code":"S_1","linhCan":"KIM","tier":1.5}', "1", null, "skills"), /số nguyên/);
@@ -62,7 +65,8 @@ test("server content validation protects item and skill fields and detects dupli
   const validItem = { id: "STONE_B", maDo: "STONE_B", name: "Ngọc", type: "STONE", giaMua: 10 };
 
   assert.equal(AdminContentService.validateRecord("items", validItem), null);
-  assert.match(AdminContentService.validateRecord("items", { ...validItem, maDo: "OTHER" }), /trùng với mã/);
+  assert.equal(AdminContentService.validateRecord("items", { ...validItem, maDo: "OTHER" }), null);
+  assert.match(AdminContentService.validateRecord("items", { ...validItem, maDo: "bad code" }), /mã hợp lệ/);
   assert.match(AdminContentService.validateRecord("items", { ...validItem, giaMua: -1 }), /số không âm/);
   assert.match(AdminContentService.validateRecord("items", { ...validItem, type: "UNKNOWN" }), /không được hỗ trợ/);
   const validEquipment = { id: "SWORD_B", maDo: "SWORD_B", name: "Kiếm", type: "EQUIPMENT", requiredRealmStt: 1 };
@@ -82,6 +86,14 @@ test("server content rules accept every shipped item and skill catalog record", 
   assert.equal(skills.filter((skill) => AdminContentService.validateRecord("skills", skill)).length, 0);
 });
 
+test("monster catalog records remain editable with gameplay-safe identifiers and combat fields", () => {
+  const monster = { id: "WOLF_A", code: "WOLF_A", name: "Lang Xám", type: "NORMAL", linhCan: "KIM", level: 2, hp: 40, maxHp: 50, atk: 8, def: 2, speed: 1, respawnMs: 10000, img: "./assets/monsters/wolf.png" };
+  assert.equal(ContentAdmin.EDITABLE_COLLECTIONS.has("monsters"), true);
+  assert.equal(ContentUtils.parseRecord(JSON.stringify(monster), monster.id, null, "monsters").img, monster.img);
+  assert.equal(AdminContentService.validateRecord("monsters", monster), null);
+  assert.match(AdminContentService.validateRecord("monsters", { ...monster, code: "OTHER" }), /trùng code/);
+});
+
 test("content search and summaries safely format structured values", () => {
   const records = [{ id: "ITEM_A", name: "Thảo dược", stats: { hp: 10 } }, { id: "SKILL_B", name: "Hỏa Cầu" }];
 
@@ -97,22 +109,23 @@ test("content manager sends create, update and delete requests with safe IDs", a
     adminHeaders: () => ({ Authorization: "Bearer test-token" }),
     getJson: async (url, options = {}) => {
       requests.push({ url, options });
-      return { data: JSON.parse(options.body || "null") };
+      return { demo: false, persisted: true, data: JSON.parse(options.body || "null") };
     },
   });
 
   await controller.save("items", { id: "ITEM_NHO", json: '{"name":"Linh thạch","maDo":"ITEM_NHO","type":"STONE"}' });
-  await controller.save("quests", { id: "ignored", existingId: "QUEST_ONE", json: '{"name":"Nhiệm vụ mới","id":"tampered"}' });
+  await controller.save("quests", { id: "ignored", existingId: "quest_one", json: '{"title":"Nhiệm vụ mới","category":"side","giver":"Lão Tu Sĩ","location":"Bình Nguyên Hoang Dã","summary":"Mô tả","objective":"Đánh bại yêu thú","target":1,"eventType":"monster_kill","initialStatus":"available","initialProgress":0,"rewards":[],"id":"tampered"}' });
   await controller.remove("skills", "SKILL/1");
+  await assert.rejects(controller.remove("monsters", "WOLF_A"), /Xóa quest hoặc quái/);
 
   assert.equal(requests[0].url, "http://game.test/api/admin/content/items");
   assert.equal(requests[0].options.method, "POST");
   assert.equal(requests[0].options.headers.Authorization, "Bearer test-token");
   assert.equal(JSON.parse(requests[0].options.body).id, "ITEM_NHO");
   assert.equal(JSON.parse(requests[0].options.body).updatedAt, undefined);
-  assert.equal(requests[1].url, "http://game.test/api/admin/content/quests/QUEST_ONE");
+  assert.equal(requests[1].url, "http://game.test/api/admin/content/quests/quest_one");
   assert.equal(requests[1].options.method, "PUT");
-  assert.equal(JSON.parse(requests[1].options.body).id, "QUEST_ONE");
+  assert.equal(JSON.parse(requests[1].options.body).id, "quest_one");
   assert.equal(requests[2].url, "http://game.test/api/admin/content/skills/SKILL%2F1");
   assert.equal(requests[2].options.method, "DELETE");
   await assert.rejects(controller.remove("accounts", "1"), /chỉ cho phép xem/);
@@ -120,7 +133,9 @@ test("content manager sends create, update and delete requests with safe IDs", a
 
 test("Admin shell loads the tested editor controller and exposes accessible CRUD controls", () => {
   assert.ok(adminHtml.indexOf("content-utils.js") < adminHtml.indexOf("content-manager.js"));
-  assert.ok(adminHtml.indexOf("content-manager.js") < adminHtml.indexOf("admin.js?v=8"));
+  assert.ok(adminHtml.indexOf("content-manager.js") < adminHtml.indexOf('src="/admin/admin.js'));
+  assert.match(adminHtml, /Bãi quái theo map/);
+  assert.match(adminHtml, /NPC theo bản đồ/);
   assert.match(adminHtml, /id="content-editor-dialog"[^>]*aria-labelledby/);
   assert.match(adminHtml, /id="content-record-json"[^>]*spellcheck="false"/);
   assert.match(adminScript, /data-content-action="edit"/);

@@ -24,6 +24,7 @@ export const CFG = {
   MON_RESPAWN: 420,
   REALMS: [],
   ROOTS: [],
+  MONSTERS: [],
   ITEMS: {},
   SKILLS: {},
   SHOP_SELL: [],

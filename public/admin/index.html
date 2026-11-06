@@ -6,6 +6,7 @@
     <title>Thiên Địa Đồ · Admin</title>
     <link rel="stylesheet" href="/admin/admin.css?v=5" />
     <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
+    <link rel="stylesheet" href="/admin/item-studio.css?v=5" />
   </head>
   <body>
     <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
@@ -29,11 +30,15 @@
         <nav class="nav" aria-label="Admin navigation">
           <p class="nav-label">Vận hành</p>
           <a class="nav-item active" href="#overview" data-view="overview"><span>⌂</span>Tổng quan</a>
-          <a class="nav-item" href="/admin/map-editor"><span>⌘</span>Bản đồ &amp; Portal</a>
+          <a class="nav-item" href="/admin/map-editor"><span>⌘</span>Quản lý bản đồ</a>
+          <a class="nav-item" href="/admin/map-editor#npc-panel"><span>♙</span>NPC theo bản đồ</a>
+          <a class="nav-item" href="/admin/map-editor#monster-panel"><span>♞</span>Bãi quái theo map</a>
           <p class="nav-label">Nội dung</p>
           <a class="nav-item" href="#quests" data-view="content" data-collection="quests"><span>◇</span>Quest <i>MySQL</i></a>
-          <a class="nav-item" href="#npcs" data-view="content" data-collection="npcs"><span>♙</span>NPC <i>MySQL</i></a>
           <a class="nav-item" href="#items" data-view="content" data-collection="items"><span>◈</span>Items &amp; Loot <i>MySQL</i></a>
+          <a class="nav-item" href="#item-studio" data-view="item-studio"><span>▧</span>Tạo vật phẩm từ ảnh</a>
+          <a class="nav-item" href="#monsters" data-view="content" data-collection="monsters"><span>♞</span>Ngân hàng quái <i>MySQL</i></a>
+          <a class="nav-item" href="#monster-studio" data-view="monster-studio"><span>♞</span>Tạo quái vật từ ảnh</a>
           <a class="nav-item" href="#skills" data-view="content" data-collection="skills"><span>✦</span>Skills <i>MySQL</i></a>
           <a class="nav-item" href="#skill-vfx" data-view="skill-vfx"><span>▧</span>VFX Skill <i>Pixel studio</i></a>
           <p class="nav-label">Hệ thống</p>
@@ -53,10 +58,10 @@
             <article class="stat-card"><span class="stat-icon red">♞</span><div><small>Bãi quái</small><strong id="pack-count">—</strong></div><em>Spawn theo cấu hình</em></article>
             <article class="stat-card"><span class="stat-icon gold">✦</span><div><small>Cảnh giới</small><strong id="realm-count">—</strong></div><em>Tiến trình tu vi</em></article>
           </div>
-          <div class="content-grid"><section class="panel map-panel"><div class="panel-head"><div><span class="eyebrow">WORLD REGISTRY</span><h3>Bản đồ trong hệ thống</h3></div><a href="/admin/map-editor" class="text-link">Quản lý map →</a></div><div id="world-list" class="world-list"><div class="loading">Đang đọc world registry…</div></div></section><section class="panel roadmap"><div class="panel-head"><div><span class="eyebrow">MODULE ROADMAP</span><h3>Luồng mở rộng</h3></div></div><div class="module-row ready"><span>01</span><div><b>Map / Portal</b><small>Đang hoạt động · MySQL draft và publish</small></div><strong>Ready</strong></div><div class="module-row ready"><span>02</span><div><b>Monster spawn</b><small>Đang hoạt động · cấu hình nằm trong dữ liệu map</small></div><strong>Ready</strong></div><div class="module-row"><span>03</span><div><b>NPC / Quest</b><small>NPC theo map lưu MySQL; quest chưa nối vào runtime</small></div><strong>Đang nối</strong></div><div class="module-row"><span>04</span><div><b>Items / Loot / Skill</b><small>Admin lưu MySQL; item và skill được nạp vào catalog runtime</small></div><strong>Ready</strong></div><div class="module-row"><span>05</span><div><b>Tài khoản</b><small>Đọc từ MySQL · thao tác quản trị tài khoản chưa mở</small></div><strong>Chỉ xem</strong></div></section></div>
+          <div class="content-grid"><section class="panel map-panel"><div class="panel-head"><div><span class="eyebrow">WORLD REGISTRY</span><h3>Bản đồ trong hệ thống</h3></div><a href="/admin/map-editor" class="text-link">Quản lý map →</a></div><div id="world-list" class="world-list"><div class="loading">Đang đọc world registry…</div></div></section><section class="panel roadmap"><div class="panel-head"><div><span class="eyebrow">MODULE ROADMAP</span><h3>Luồng mở rộng</h3></div></div><div class="module-row ready"><span>01</span><div><b>Map / Portal</b><small>Đang hoạt động · MySQL draft và publish</small></div><strong>Ready</strong></div><div class="module-row ready"><span>02</span><div><b>Monster spawn</b><small>Đang hoạt động · cấu hình nằm trong dữ liệu map</small></div><strong>Ready</strong></div><div class="module-row ready"><span>03</span><div><b>NPC / Quest</b><small>NPC lưu trong map; quest được đọc và áp dụng vào tiến độ runtime</small></div><strong>Ready</strong></div><div class="module-row ready"><span>04</span><div><b>Items / Loot / Skill</b><small>Admin lưu MySQL; item và skill được nạp vào catalog runtime</small></div><strong>Ready</strong></div><div class="module-row"><span>05</span><div><b>Tài khoản</b><small>Đọc từ MySQL · thao tác quản trị tài khoản chưa mở</small></div><strong>Chỉ xem</strong></div></section></div>
         </section>
         <section id="placeholder" class="placeholder-view"><div class="placeholder-mark">✦</div><span class="eyebrow">MODULE RESERVED</span><h2 id="placeholder-title">Module đang được chuẩn bị</h2><p>Quản lý tài khoản và moderation cần hoàn thiện phân quyền cùng lưu trữ bền vững trước khi mở thao tác.</p><a href="/admin" class="hero-action">Về tổng quan <span>→</span></a></section>
-        <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">BACKEND CONTENT</span><h2 id="content-title">Collection</h2><p id="content-meta">Đang xác minh MySQL…</p></div><div class="content-tools"><label class="content-search-label" for="content-search">Tìm bản ghi</label><input id="content-search" class="content-search" type="search" placeholder="Tên, mã hoặc nội dung…" /><button id="open-sample-items" class="hero-action sample-trigger" type="button" aria-expanded="false" aria-controls="sample-items-tool" hidden>✦ Bổ sung bộ mẫu</button><button id="new-record" class="hero-action" type="button">+ Thêm bản ghi</button></div></div>
+        <section id="content-view" class="content-view"><div class="content-toolbar"><div><span class="eyebrow">BACKEND CONTENT</span><h2 id="content-title">Collection</h2><p id="content-meta">Đang xác minh MySQL…</p></div><div class="content-tools"><label class="content-search-label" for="content-search">Tìm bản ghi</label><input id="content-search" class="content-search" maxlength="100" type="search" placeholder="Tên, mã hoặc nội dung…" /><button id="open-sample-items" class="hero-action sample-trigger" type="button" aria-expanded="false" aria-controls="sample-items-tool" hidden>✦ Bổ sung bộ mẫu</button><button id="open-monster-studio" class="hero-action" type="button" hidden>+ Tạo quái từ ảnh</button><button id="new-record" class="hero-action" type="button">+ Thêm bản ghi</button></div></div>
           <section id="sample-items-tool" class="sample-items-tool" aria-labelledby="sample-items-title" hidden>
             <header><div><span class="eyebrow">KHO MẪU</span><h3 id="sample-items-title">Trang bị và vật phẩm nhập môn</h3></div><button id="close-sample-items" class="sample-close" type="button" aria-label="Đóng công cụ bộ mẫu">×</button></header>
             <p>Bộ mẫu gồm 12 trang bị (Nón, Giáp, Quần, Giày ở 3 cảnh giới) và 8 vật phẩm tiêu hao, linh thạch, nguyên liệu. Khi Backend xác nhận MySQL sẵn sàng, dữ liệu được ghi bền vững; nếu MySQL lỗi, thao tác sẽ bị chặn và không chuyển sang lưu RAM.</p>
@@ -64,7 +69,100 @@
             <div id="sample-items-preview" class="sample-items-preview" role="list"></div>
             <footer><button id="apply-sample-items" class="hero-action" type="button" disabled>Thêm các món chưa có</button></footer>
           </section>
-          <div id="content-feedback" class="content-feedback" role="status" aria-live="polite" hidden></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div></div></section>
+          <div id="content-feedback" class="content-feedback" role="status" aria-live="polite" hidden></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div><nav id="content-pagination" class="content-pagination" aria-label="Phân trang danh mục" hidden><button id="content-prev" type="button" class="vfx-button subtle">Trang trước</button><span id="content-page-summary" tabindex="-1" role="status"></span><button id="content-next" type="button" class="vfx-button subtle">Trang sau</button></nav></div></section>
+        <section id="item-studio-view" hidden>
+          <form id="item-studio-form" class="item-studio">
+            <section class="panel item-studio-panel" aria-labelledby="item-art-heading">
+              <h2 id="item-art-heading">1. Tạo icon pixel</h2>
+              <label>Ảnh nguồn <small>PNG hoặc JPG, tối đa 8 MB</small><input name="source" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" required /></label>
+              <div class="item-studio-preview">
+                <canvas width="48" height="48" role="img" aria-label="Xem trước icon vật phẩm pixel"></canvas>
+              </div>
+              <p data-art-status role="status">Chọn ảnh để xem trước icon.</p>
+              <div class="item-studio-fields">
+                <label>Kích thước<select name="size"><option value="32">32 × 32</option><option value="48" selected>48 × 48</option><option value="64">64 × 64</option></select></label>
+                <label>Chi tiết màu<select name="colors"><option value="32">Ít màu</option><option value="24" selected>Cân bằng</option><option value="12">Giữ nhiều màu</option></select></label>
+                <label class="item-studio-check"><input name="removeBg" type="checkbox" checked /> Tách nền đồng màu</label>
+                <label class="item-studio-check"><input name="outline" type="checkbox" checked /> Viền pixel</label>
+              </div>
+            </section>
+            <section class="panel item-studio-panel" aria-labelledby="item-info-heading">
+              <h2 id="item-info-heading">2. Thông tin vật phẩm</h2>
+              <div class="item-studio-fields">
+                <label>Tên<input name="itemName" required maxlength="80" /></label>
+                <label>Mã vật phẩm<input name="code" required maxlength="80" pattern="[A-Z0-9_]+" spellcheck="false" /></label>
+                <label>Loại<select name="type"><option value="MATERIAL">Nguyên liệu</option><option value="EQUIPMENT">Trang bị</option><option value="POTION">Thuốc hồi phục</option><option value="STONE">Linh thạch</option><option value="LINDAN">Đan linh căn</option></select></label>
+                <label>Giá mua (xu)<input name="giaMua" type="number" min="0" max="1000000000" value="0" required /></label>
+                <label>Giá bán (xu)<input name="giaBan" type="number" min="0" max="1000000000" value="0" required /></label>
+              </div>
+              <p>Giá mua bằng 0 sẽ ẩn vật phẩm khỏi danh sách mua ở cửa hàng.</p>
+              <fieldset data-item-type="EQUIPMENT" hidden disabled>
+                <legend>Chỉ số trang bị</legend>
+                <div class="item-studio-fields">
+                  <label>Ô trang bị<select name="slot"><option value="hat">Nón</option><option value="armor">Giáp</option><option value="pants">Quần</option><option value="boots">Giày</option><option value="weapon">Vũ khí</option></select></label>
+                  <label>Bậc cảnh giới tối thiểu<input name="requiredRealmStt" type="number" min="1" max="100" value="1" required /></label>
+                  <label>Công vật lý<input name="pAtk" type="number" min="0" max="1000000" value="0" required /></label>
+                  <label>Thủ vật lý<input name="pDef" type="number" min="0" max="1000000" value="0" required /></label>
+                  <label>HP tối đa cộng thêm<input name="maxHP" type="number" min="0" max="1000000" value="0" required /></label>
+                </div>
+              </fieldset>
+              <fieldset data-item-type="POTION" hidden disabled>
+                <legend>Hồi phục</legend>
+                <div class="item-studio-fields">
+                  <label>HP hồi<input name="healHp" type="number" min="0" max="1000000" value="0" required /></label>
+                  <label>MP hồi<input name="healMp" type="number" min="0" max="1000000" value="0" required /></label>
+                </div>
+              </fieldset>
+              <fieldset data-item-type="STONE" hidden disabled>
+                <legend>Hấp thu linh thạch</legend>
+                <label>Tu vi cộng thêm<input name="giaTriTuVi" type="number" min="1" max="1000000" value="120" required /></label>
+              </fieldset>
+              <fieldset data-item-type="LINDAN" hidden disabled>
+                <legend>Hấp thu linh đan</legend>
+                <label>Tu vi linh căn cộng thêm<input name="tuViLinhCanVal" type="number" min="1" max="1000000" value="120" required /></label>
+              </fieldset>
+              <label>Mô tả<textarea name="moTa" maxlength="500" rows="3"></textarea></label>
+              <p id="item-save-status" role="status"></p>
+              <button class="hero-action" type="submit" disabled>Lưu vào kho vật phẩm</button>
+              <button class="vfx-button subtle" type="button" id="item-studio-list" hidden>Mở Items &amp; Loot</button>
+            </section>
+          </form>
+        </section>
+        <section id="monster-studio-view" hidden>
+          <form id="monster-studio-form" class="item-studio">
+            <section class="panel item-studio-panel" aria-labelledby="monster-art-heading">
+              <h2 id="monster-art-heading">1. Tạo sprite pixel</h2>
+              <label>Ảnh nguồn <small>PNG, tối đa 8 MB. Ảnh nền trong suốt cho kết quả tốt nhất.</small><input name="source" type="file" accept="image/png,.png" required /></label>
+              <div class="item-studio-preview"><canvas width="48" height="48" role="img" aria-label="Xem trước sprite quái vật"></canvas></div>
+              <p data-art-status role="status">Chọn ảnh để xem trước sprite.</p>
+              <div class="item-studio-fields">
+                <label>Kích thước<select name="size"><option value="32">32 × 32</option><option value="48" selected>48 × 48</option><option value="64">64 × 64</option></select></label>
+                <label>Chi tiết màu<select name="colors"><option value="32">Ít màu</option><option value="24" selected>Cân bằng</option><option value="12">Giữ nhiều màu</option></select></label>
+                <label class="item-studio-check"><input name="removeBg" type="checkbox" checked /> Tách nền đồng màu</label>
+                <label class="item-studio-check"><input name="outline" type="checkbox" checked /> Viền pixel</label>
+              </div>
+              <p><a class="text-link" data-monster-download download="monster.png" hidden>Tải sprite PNG</a></p>
+            </section>
+            <section class="panel item-studio-panel" aria-labelledby="monster-info-heading">
+              <h2 id="monster-info-heading">2. Thông tin quái vật</h2>
+              <div class="item-studio-fields">
+                <label>Tên quái<input name="monsterName" maxlength="80" required /></label>
+                <label>Mã quái<input name="code" maxlength="64" pattern="[A-Z0-9_]+" placeholder="HOANG_SOI_DO" spellcheck="false" required /></label>
+                <label>Phân loại<select name="type"><option value="NORMAL">Thường</option><option value="ELITE">Tinh anh</option><option value="BOSS">Boss</option></select></label>
+                <label>Linh căn<select name="linhCan"><option value="KIM">Kim</option><option value="MOC">Mộc</option><option value="THUY">Thủy</option><option value="HOA">Hỏa</option><option value="THO">Thổ</option><option value="AM">Ám</option><option value="QUANG">Quang</option><option value="PHONG">Phong</option><option value="LOI">Lôi</option></select></label>
+                <label>Cấp<input name="level" type="number" min="1" max="1000" value="1" required /></label>
+                <label>HP tối đa<input name="hp" type="number" min="1" max="10000000" value="90" required /></label>
+                <label>Tấn công<input name="atk" type="number" min="1" max="100000" value="9" required /></label>
+                <label>Phòng thủ<input name="def" type="number" min="0" max="100000" value="2" required /></label>
+                <label>Tốc độ<input name="speed" type="number" min="0.1" max="10" step="0.05" value="1.25" required /></label>
+                <label>Hồi sinh (giây)<input name="respawn" type="number" min="1" max="3600" value="15" required /></label>
+              </div>
+              <p data-monster-status role="status"></p>
+              <button class="hero-action" type="submit" disabled>Lưu vào ngân hàng quái</button>
+              <a class="text-link" data-monster-map hidden>Phân bổ lên bản đồ →</a>
+            </section>
+          </form>
+        </section>
         <section id="skill-vfx-view" class="skill-vfx-view">
           <div class="vfx-heading"><div><span class="eyebrow">PIXEL EFFECT WORKSHOP</span><h2>Hoạt ảnh kỹ năng</h2><p>Tinh chỉnh hiệu ứng theo tên skill và linh căn. Bản xem thử dùng đúng bộ vẽ pixel trong game.</p></div><span id="vfx-save-state" class="vfx-save-state">Chưa tải dữ liệu</span></div>
           <div class="vfx-layout">
@@ -85,20 +183,39 @@
     <dialog id="content-editor-dialog" class="content-editor" aria-labelledby="content-editor-title">
       <form id="content-editor-form" novalidate>
         <header class="content-editor-head"><div><span class="eyebrow">CHỈNH SỬA NỘI DUNG</span><h2 id="content-editor-title">Thêm bản ghi</h2></div><button id="content-editor-close" class="content-editor-close" type="button" aria-label="Đóng cửa sổ">×</button></header>
-        <p id="content-editor-help" class="content-editor-help">Dữ liệu đang chạy trên mock server và sẽ mất khi server khởi động lại.</p>
+        <p id="content-editor-help" class="content-editor-help">Thay đổi được lưu qua API Admin.</p>
         <label class="content-editor-id-label" for="content-record-id">Mã bản ghi</label><input id="content-record-id" class="content-record-id" maxlength="80" autocomplete="off" required />
+        <fieldset id="content-pixel-art" class="content-pixel-art" hidden disabled>
+          <legend>Ảnh pixel 2D</legend>
+          <p id="content-pixel-help" class="content-editor-help">Chọn PNG hoặc JPG để tạo ảnh pixel.</p>
+          <label>Ảnh nguồn <input name="source" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" /></label>
+          <div class="item-studio-preview">
+            <img alt="Ảnh hiện tại" hidden />
+            <canvas width="48" height="48" role="img" aria-label="Ảnh pixel mới" hidden></canvas>
+          </div>
+          <div class="item-studio-fields">
+            <label>Kích thước<select name="size"><option value="32">32 × 32</option><option value="48" selected>48 × 48</option><option value="64">64 × 64</option></select></label>
+            <label>Chi tiết màu<select name="colors"><option value="32">Ít màu</option><option value="24" selected>Cân bằng</option><option value="12">Giữ nhiều màu</option></select></label>
+            <label class="item-studio-check"><input name="removeBg" type="checkbox" checked /> Tách nền đồng màu</label>
+            <label class="item-studio-check"><input name="outline" type="checkbox" checked /> Viền pixel</label>
+          </div>
+          <p data-art-status role="status">Chọn ảnh để xem trước icon.</p>
+          <button id="content-pixel-reset" class="vfx-button subtle" type="button">Bỏ ảnh đã chọn</button>
+        </fieldset>
         <label class="content-editor-json-label" for="content-record-json">Các trường dữ liệu <small>Nhập JSON hợp lệ; mã bản ghi được quản lý riêng ở trên.</small></label>
         <textarea id="content-record-json" class="content-record-json" spellcheck="false" rows="16" autocapitalize="off" autocomplete="off"></textarea>
         <p id="content-editor-error" class="content-editor-error" role="alert" hidden></p>
         <footer class="content-editor-actions"><button id="content-editor-cancel" class="vfx-button subtle" type="button">Hủy</button><button id="content-editor-save" class="vfx-button primary" type="submit">Lưu bản ghi</button></footer>
       </form>
     </dialog>
-    <script src="/js/api.js?v=5"></script>
+    <script src="/js/api.js?v=6"></script>
     <script>window.ctx = null; window.S = { player: null }; window.CFG = {};</script>
     <script src="/admin/admin-auth.js?v=2"></script>
-    <script src="/js/skill-vfx.js?v=16"></script>
-    <script src="/admin/content-utils.js?v=2"></script>
-    <script src="/admin/content-manager.js?v=2"></script>
-    <script src="/admin/admin.js?v=10"></script>
+    <script src="/js/skill-vfx.js?v=20"></script>
+    <script src="/admin/content-utils.js?v=4"></script>
+    <script src="/admin/content-manager.js?v=6"></script>
+    <script src="/admin/item-studio.js?v=3"></script>
+    <script src="/admin/monster-studio.js?v=1"></script>
+    <script src="/admin/admin.js?v=19"></script>
   </body>
 </html>

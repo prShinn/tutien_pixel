@@ -6,7 +6,7 @@ Bản hiện tại phù hợp **demo nội bộ trên một server**: đăng ký
 
 ## Chạy local
 
-Yêu cầu Node.js và npm tương thích với `package-lock.json`.
+Chạy project BE MySQL tại `D:\Setup\mine\tutien_pixel_be` theo README của BE trước. BE mặc định dùng cổng 3800 và cần cho phép origin của FE qua `CORS_ORIGIN`. Sau đó chạy project FE:
 
 ```powershell
 npm install
@@ -19,6 +19,8 @@ Mở:
 - Game: `http://localhost:3000/`
 - Admin: `http://localhost:3000/admin`
 - Map editor: `http://localhost:3000/admin/map-editor`
+
+Game và Admin mở từ localhost mặc định gọi REST và Socket.IO của BE cổng 3800. Khi BE dùng cổng khác, truyền `?apiBase=http://localhost:<cổng>`. Dùng `?mockBackend=1` để mở bản mock, hoặc chỉ định `?apiBase=http://localhost:3000` nếu cần chạy API JSON cũ một cách chủ động.
 
 Đổi cổng bằng `PORT`. Máy dev dùng cấu hình mẫu trong `.env.example`; production bắt buộc đặt `JWT_SECRET` và `ADMIN_MAP_KEY` riêng.
 
@@ -34,7 +36,7 @@ npm run smoke:demo
 - `npm run smoke:persistence`: tạo account và nhân vật trong file tạm, mua và hấp thụ vật phẩm, di chuyển qua Socket.IO, restart server rồi kiểm tra dữ liệu đã khôi phục.
 - `npm run smoke:demo`: chạy 10 smoke test tích hợp trên cổng riêng; không chiếm cổng 3000/3001.
 
-## Dữ liệu và lưu trữ
+## Dữ liệu và lưu trữ của API JSON cũ
 
 Account thường và player aggregate được lưu vào `data/game-state.json` bằng snapshot JSON atomic. File gồm password hash bcrypt, nhân vật, inventory, currency, cultivation, skill, quest state và vị trí gần nhất. File này được Git ignore. Có thể đổi đường dẫn bằng `GAME_STATE_FILE`.
 
@@ -79,10 +81,10 @@ Các event legacy vẫn được giữ để tương thích smoke test cũ; tín
 
 ## Còn cần trước beta công khai
 
-1. Thay JSON file bằng PostgreSQL repository và migration; bảo đảm inventory/reward/currency mutation có transaction và idempotency.
+1. Nghiệm thu transaction và retry của inventory, phần thưởng, tiền tệ và tu vi trên BE MySQL.
 2. Nối CRUD Quest/NPC Admin với runtime, đồng thời lưu catalog Items/Skills bền vững.
 3. Bổ sung role-based Admin permission, audit log, backup/restore và vận hành nhiều instance.
-4. Hoàn thiện thêm bản đồ runtime; hiện 2 map đang hoạt động trong 11 map trên world graph.
+4. Nghiệm thu tuyến map đầu game, hiệu ứng chiến đấu, loot và tiến độ phá cảnh trên BE MySQL.
 5. Chạy đầy đủ kiểm thử browser trên các viewport mục tiêu và kiểm thử deploy/khôi phục dữ liệu.
 
 Kế hoạch BE chi tiết: `docs/PLAN_MOCK_FIRST_SERVER_MIGRATION.md`.

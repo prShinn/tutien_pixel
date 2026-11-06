@@ -10,6 +10,7 @@ const PALETTES = {
   ground: [[0, "Cỏ"], [1, "Đá"], [2, "Nước"], [4, "Đường đất"], [7, "Sân lát"]],
   objects: [[-1, "Xóa vật thể"], [3, "Tường"], [5, "Cây"], [6, "Núi"]],
   elevation: [[0, "Thấp"], [1, "Thoải"], [2, "Cao"], [3, "Đỉnh"]],
+  npc: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,7 @@ const editor = {
   mapCatalog: new Map(),
   selectedPortalId: null,
   selectedMonsterPackId: null,
+  selectedNpcId: null,
   monsterCatalog: [],
   status: "DRAFT",
   ground: [],
@@ -40,6 +42,7 @@ const editor = {
   monsterSpawns: [],
   npcs: [],
   rules: {},
+  dirty: false,
 };
 const SAMPLE_MAP_TEMPLATES = [
   { code: "sample_dao_hoa_thon", name: "Đào Hoa Thôn", type: "VILLAGE", biome: "CITY", tier: 1, realmMin: 1, realmMax: 3, safeZone: true, noMonsters: true, tags: "mẫu, thôn làng, khu an toàn" },
@@ -141,8 +144,10 @@ function generateMap() {
   editor.objects = makeGrid(editor.width, editor.height, TILE.EMPTY);
   editor.elevation = makeGrid(editor.width, editor.height, 0);
   editor.portals = [];
+  editor.monsters = [];
   editor.monsterSpawns = [];
   editor.npcs = [];
+  editor.selectedNpcId = null;
   editor.selectedPortalId = null;
   editor.selectedMonsterPackId = null;
   editor.status = "DRAFT";
@@ -201,16 +206,31 @@ function generateMap() {
   editor.currentCode = null;
   resizeCanvas();
   renderPortalList();
+  resetMonsterPackForm();
   setStatus("Đã sinh địa hình mới", "ok");
+  editor.dirty = true;
 }
 
 function resizeCanvas() {
-  editor.zoom = Number($("zoom").value);
   canvas.width = editor.width * editor.zoom;
   canvas.height = editor.height * editor.zoom;
   $("map-info").textContent = `${editor.width} × ${editor.height}`;
   $("stage-name").textContent = $("map-name").value || "Map chưa đặt tên";
+  layoutCanvas();
   drawMap();
+}
+
+function layoutCanvas() {
+  const viewport = $("canvas-scroll");
+  const padding = getComputedStyle(viewport);
+  const width = viewport.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+  const height = viewport.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+  if (width <= 0 || height <= 0) return;
+  const zoom = Number($("zoom").value);
+  const fit = Math.min(width / editor.width, height / editor.height, 1);
+  canvas.style.width = `${editor.width * fit * zoom}px`;
+  canvas.style.height = `${editor.height * fit * zoom}px`;
+  $("zoom").setAttribute("aria-valuetext", `${zoom} lần kích thước vừa khung`);
 }
 
 function neighbor(layer, x, y, fallback) {
@@ -471,6 +491,14 @@ function drawMap() {
     ctx.font = `${Math.max(9, size * 3)}px Segoe UI`;
     ctx.fillText(`${pack.templateId} ×${pack.count}`, px + 5, py - 5);
   }
+  if (editor.layer === "monster") {
+    const x = $("monster-center-x").valueAsNumber, y = $("monster-center-y").valueAsNumber;
+    if (x >= 0 && x < editor.width && y >= 0 && y < editor.height) {
+      ctx.strokeStyle = "#fff2a8";
+      ctx.lineWidth = 2;
+      ctx.strokeRect((x + .5) * size - 4, (y + .5) * size - 4, 8, 8);
+    }
+  }
   for (const portal of editor.portals) {
     const px = (Number(portal.x) + .5) * size;
     const py = (Number(portal.y) + .5) * size;
@@ -489,6 +517,7 @@ function drawMap() {
     const px = (Number(npc.x) + .5) * size;
     const py = (Number(npc.y) + .5) * size;
     const shop = npc.type === "shop" || npc.loaiNpc === "SHOP";
+    ctx.globalAlpha = npc.enabled === false ? 0.35 : 1;
     ctx.fillStyle = shop ? "#e3c878" : "#8fd0ad";
     ctx.strokeStyle = "#142018";
     ctx.lineWidth = Math.max(1, size * .45);
@@ -501,6 +530,7 @@ function drawMap() {
       ctx.font = `bold ${Math.max(9, size * 3)}px Segoe UI`;
       ctx.textAlign = "left";
       ctx.fillText(npc.name || "NPC", px + size * 2.8, py - size * 1.5);
+    ctx.globalAlpha = 1;
     }
   }
   ctx.lineWidth = 1;
@@ -516,7 +546,8 @@ function renderPalette() {
   host.innerHTML = "";
   const entries = PALETTES[editor.layer] || [];
   if (!entries.length) {
-    host.innerHTML = `<p class="hint">${editor.layer === "portal" ? "Nhấp vào bản đồ để đặt portal nguồn." : "Nhấp vào bản đồ để đặt điểm xuất hiện."}</p>`;
+    const hints = { portal: "Nhấp vào bản đồ để đặt portal nguồn.", monster: "Nhấp vào bản đồ để đặt tâm bãi quái." };
+    host.textContent = hints[editor.layer] || "Nhấp vào bản đồ để đặt điểm xuất hiện.";
     return;
   }
   if (!entries.some(([value]) => value === editor.selected)) editor.selected = entries[0][0];
@@ -531,11 +562,17 @@ function renderPalette() {
 }
 
 function paintAt(x, y) {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= editor.width || y >= editor.height) return;
   if (editor.layer === "monster") {
     $("monster-center-x").value = x;
     $("monster-center-y").value = y;
-    const selected = editor.monsterSpawns.find((pack) => pack.packId === editor.selectedMonsterPackId);
-    if (selected) { selected.centerX = x; selected.centerY = y; }
+    requestDraw();
+    return;
+  }
+  if (editor.layer === "npc") {
+    $("npc-x").value = x;
+    $("npc-y").value = y;
+    editor.dirty = true;
     requestDraw();
     return;
   }
@@ -555,6 +592,7 @@ function paintAt(x, y) {
     return;
   }
   const radius = editor.layer === "spawn" ? 0 : Math.max(0, editor.brush - 1);
+  editor.dirty = true;
   if (editor.layer === "spawn") {
     editor.spawnX = x; editor.spawnY = y; clearSpawn(10); requestDraw(); return;
   }
@@ -729,6 +767,97 @@ async function deletePortal() {
   setStatus(`Đã xóa portal ${data.removed}`, "ok");
 }
 
+function resetNpcForm() {
+  editor.selectedNpcId = null;
+  const code = $("map-code").value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_") || "new_map";
+  let ordinal = editor.npcs.length + 1;
+  while (editor.npcs.some((npc) => npc.id === `npc_${code}_${ordinal}`)) ordinal++;
+  $("npc-id").value = `npc_${code}_${ordinal}`;
+  $("npc-name").value = "";
+  $("npc-role").value = "GUIDE";
+  $("npc-type").value = "dialog";
+  $("npc-gender").value = "MALE";
+  $("npc-x").value = editor.spawnX;
+  $("npc-y").value = editor.spawnY;
+  $("npc-color").value = "#8fc7bd";
+  $("npc-dialog").value = "";
+  $("npc-enabled").checked = true;
+  renderNpcList();
+}
+
+function selectNpc(id) {
+  const npc = editor.npcs.find((item) => item.id === id);
+  if (!npc) return resetNpcForm();
+  editor.selectedNpcId = npc.id;
+  $("npc-id").value = npc.id;
+  $("npc-name").value = npc.name || "";
+  $("npc-role").value = npc.role || "GUIDE";
+  $("npc-type").value = npc.type || (npc.loaiNpc ? npc.loaiNpc.toLowerCase() : "dialog");
+  $("npc-gender").value = String(npc.gender || "MALE").toUpperCase();
+  $("npc-x").value = npc.x ?? 0;
+  $("npc-y").value = npc.y ?? 0;
+  $("npc-color").value = /^#[0-9a-f]{6}$/i.test(npc.color || "") ? npc.color : "#8fc7bd";
+  $("npc-dialog").value = npc.dialog || "";
+  $("npc-enabled").checked = npc.enabled !== false;
+  renderNpcList();
+  requestDraw();
+}
+
+function renderNpcList() {
+  const host = $("npc-list");
+  host.replaceChildren();
+  if (!editor.npcs.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "Map chưa có NPC.";
+    host.appendChild(empty);
+    return;
+  }
+  for (const npc of editor.npcs) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `portal-item${npc.id === editor.selectedNpcId ? " active" : ""}`;
+    button.textContent = `${npc.name || npc.id} · (${npc.x}, ${npc.y})${npc.enabled === false ? " · Đang ẩn" : ""}`;
+    button.addEventListener("click", () => selectNpc(npc.id));
+    host.appendChild(button);
+  }
+}
+
+async function saveNpc() {
+  const id = $("npc-id").value.trim();
+  const name = $("npc-name").value.trim();
+  const role = $("npc-role").value.trim();
+  const x = $("npc-x").valueAsNumber, y = $("npc-y").valueAsNumber;
+  const pattern = /^[A-Za-z0-9_-]{1,80}$/;
+  if (!pattern.test(id) || !name || !role) throw new Error("Mã, tên và vai trò NPC là bắt buộc.");
+  if (![x, y].every(Number.isInteger) || x < 0 || x >= editor.width || y < 0 || y >= editor.height) throw new Error("Tọa độ NPC phải nằm trong bản đồ.");
+  if (SOLID.has(editor.ground[y]?.[x]) || SOLID.has(editor.objects[y]?.[x])) throw new Error("NPC phải đứng trên ô đi được.");
+  if (editor.npcs.some((npc) => npc.id === id && npc.id !== editor.selectedNpcId)) throw new Error("Mã NPC này đã được dùng trên map.");
+  const npc = {
+    id, mapCode: $("map-code").value.trim(), name, role, type: $("npc-type").value,
+    gender: $("npc-gender").value, color: $("npc-color").value, x, y,
+    dialog: $("npc-dialog").value.trim(), enabled: $("npc-enabled").checked,
+  };
+  const before = editor.npcs;
+  const index = before.findIndex((item) => item.id === editor.selectedNpcId);
+  editor.npcs = before.slice();
+  if (index < 0) editor.npcs.push(npc);
+  else editor.npcs[index] = npc;
+  editor.selectedNpcId = id;
+  renderNpcList();
+  requestDraw();
+  try {
+    await saveMap();
+    selectNpc(id);
+    setStatus(`Đã lưu NPC ${name} vào dữ liệu map trong MySQL.`, "ok");
+  } catch (error) {
+    editor.npcs = before;
+    renderNpcList();
+    requestDraw();
+    throw error;
+  }
+}
+
 function resetMonsterPackForm() {
   editor.selectedMonsterPackId = null;
   $("monster-pack-id").value = "";
@@ -744,7 +873,12 @@ function selectMonsterPack(packId) {
   const pack = editor.monsterSpawns.find((item) => item.packId === packId);
   if (!pack) return resetMonsterPackForm();
   editor.selectedMonsterPackId = pack.packId;
-  $("monster-template").value = pack.templateId; $("monster-pack-id").value = pack.packId;
+  const select = $("monster-template");
+  if (![...select.options].some((option) => option.value === pack.templateId)) {
+    const local = editor.monsters.find((item) => item.id === pack.templateId || item.code === pack.templateId);
+    if (local) select.add(new Option(`${local.name || pack.templateId} · mẫu trong map`, pack.templateId));
+  }
+  select.value = pack.templateId; $("monster-pack-id").value = pack.packId;
   $("monster-center-x").value = pack.centerX; $("monster-center-y").value = pack.centerY;
   $("monster-count").value = pack.count; $("monster-radius").value = pack.radius;
   $("monster-aggro").value = pack.aggroRange; $("monster-leash").value = pack.leashDistance;
@@ -768,30 +902,57 @@ function renderMonsterPackList() {
 
 function saveMonsterPack() {
   const templateId = $("monster-template").value;
-  const centerX = Number($("monster-center-x").value), centerY = Number($("monster-center-y").value);
-  if (!templateId) throw new Error("Chưa chọn loại quái");
-  if (![centerX, centerY].every(Number.isFinite)) throw new Error("Chọn bút Bãi quái và đặt tâm đàn trên map");
-  const generatedId = `PACK_${templateId}_${editor.monsterSpawns.length + 1}`;
+  const definition = editor.monsterCatalog.find((item) => String(item.id) === templateId)
+    || editor.monsters.find((item) => item.id === templateId || item.code === templateId);
+  if (!definition) throw new Error("Chưa chọn loại quái");
+  if ($("rule-no-monsters").checked || $("map-type").value === "CITY") throw new Error("Map đang ở chế độ không có quái.");
+  const centerX = $("monster-center-x").valueAsNumber, centerY = $("monster-center-y").valueAsNumber;
+  if (![centerX, centerY].every(Number.isInteger) || centerX < 0 || centerX >= editor.width || centerY < 0 || centerY >= editor.height) {
+    throw new Error("Chọn tâm đàn hoặc nhập tọa độ nguyên trong bản đồ.");
+  }
+  const ground = editor.ground[centerY]?.[centerX], object = editor.objects[centerY]?.[centerX];
+  const obstacles = [TILE.WATER, TILE.WALL, TILE.TREE, TILE.MOUNTAIN];
+  if (ground === undefined || obstacles.includes(ground) || obstacles.includes(object)) throw new Error("Tâm đàn phải nằm trên ô đi được.");
+  for (const id of ["monster-count", "monster-radius", "monster-aggro", "monster-leash", "monster-chase"]) {
+    const input = $(id);
+    if (!input.value || !input.reportValidity()) throw new Error("Kiểm tra số lượng, bán kính và thông số truy đuổi.");
+  }
+  let ordinal = editor.monsterSpawns.length + 1;
+  while (editor.monsterSpawns.some((item) => item.packId === `PACK_${templateId}_${ordinal}`)) ordinal++;
+  const generatedId = `PACK_${templateId}_${ordinal}`;
   const packId = ($("monster-pack-id").value.trim() || generatedId).toUpperCase().replace(/[^A-Z0-9_-]+/g, "_");
   const pack = { packId, templateId, centerX, centerY, count: Number($("monster-count").value), radius: Number($("monster-radius").value), aggroRange: Number($("monster-aggro").value), leashDistance: Number($("monster-leash").value), chaseDurationMs: Number($("monster-chase").value) };
   const oldId = editor.selectedMonsterPackId;
   if (editor.monsterSpawns.some((item) => item.packId === packId && item.packId !== oldId)) throw new Error("Mã đàn quái đã tồn tại");
   const index = editor.monsterSpawns.findIndex((item) => item.packId === oldId);
   if (index >= 0) editor.monsterSpawns[index] = pack; else editor.monsterSpawns.push(pack);
+  const definitionIndex = editor.monsters.findIndex((item) => item.id === templateId || item.code === templateId);
+  if (definitionIndex >= 0) editor.monsters[definitionIndex] = definition;
+  else editor.monsters.push(definition);
+  editor.rules.monsterPacksOnly = true;
   editor.selectedMonsterPackId = packId; selectMonsterPack(packId);
-  setStatus(`Đã cập nhật bãi quái ${packId}`, "ok");
+  editor.dirty = true;
+  setStatus(`Đã cập nhật bãi quái ${packId}. Bấm Lưu map để ghi vào MySQL.`, "ok");
 }
 
 function deleteMonsterPack() {
   editor.monsterSpawns = editor.monsterSpawns.filter((item) => item.packId !== editor.selectedMonsterPackId);
   resetMonsterPackForm();
+  editor.rules.monsterPacksOnly = true;
+  editor.dirty = true;
+  setStatus("Đã gỡ bãi quái khỏi bản đang sửa. Bấm Lưu map để ghi thay đổi.", "ok");
 }
 
 async function refreshMonsterCatalog() {
-  const response = await fetch(API.BASE + API.PATHS.data.monsters); const data = await response.json();
+  const response = await fetch(API.BASE + API.PATHS.data.monsters, { cache: "no-store" }); const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không tải được ngân hàng quái");
   editor.monsterCatalog = Array.isArray(data) ? data : [];
-  $("monster-template").innerHTML = editor.monsterCatalog.map((monster) => `<option value="${monster.id}">${monster.name} · cấp ${monster.level}</option>`).join("");
+  const select = $("monster-template");
+  const selected = new URLSearchParams(window.location.search).get("monster") || select.value;
+  select.replaceChildren(new Option("Chọn loại quái", ""), ...editor.monsterCatalog.map(
+    (monster) => new Option(`${monster.name} · cấp ${monster.level}`, monster.id),
+  ));
+  select.value = selected;
   renderMonsterPackList();
 }
 
@@ -839,6 +1000,10 @@ function normalizeLoadedLayers(world) {
 }
 
 async function loadMap() {
+  if (editor.dirty && !window.confirm("Map đang có thay đổi chưa lưu. Mở map khác và bỏ phần chỉnh sửa này?")) {
+    $("map-list").value = editor.currentCode || "";
+    return;
+  }
   const code = $("map-list").value;
   if (!code) { generateMap(); return; }
   setStatus("Đang tải map…");
@@ -852,6 +1017,8 @@ async function loadMap() {
   editor.monsterSpawns = world.monsterSpawns || []; editor.npcs = world.npcs || []; editor.rules = world.rules || {};
   editor.status = world.status || "PUBLISHED";
   editor.selectedMonsterPackId = null;
+  editor.selectedNpcId = null;
+  editor.dirty = false;
   editor.currentCode = world.code;
   $("map-name").value = world.tenMap || world.name || world.code;
   $("map-code").value = world.code;
@@ -873,7 +1040,8 @@ async function loadMap() {
   resizeCanvas();
   refreshPortalTargets();
   renderPortalList();
-  renderMonsterPackList();
+  resetMonsterPackForm();
+  resetNpcForm();
   renderValidation(world.validation);
   setStatus(`Đã mở ${world.tenMap || world.code}`, "ok");
 }
@@ -883,11 +1051,13 @@ async function saveMap() {
   const exists = editor.knownMaps.has(payload.code);
   const url = exists ? API.BASE + API.PATHS.admin.world(payload.code) : API.BASE + API.PATHS.admin.worlds;
   setStatus("Đang xác minh MySQL và lưu map…");
+  await API.assertPersistentStorage();
   const response = await adminFetch(url, { method: exists ? "PUT" : "POST", headers: adminHeaders(true), body: JSON.stringify(payload) });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không lưu được map");
   editor.currentCode = data.code;
   editor.status = data.status || editor.status;
+  editor.dirty = false;
   $("publish-status").textContent = editor.status;
   $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
   await refreshMapList(data.code);
@@ -1130,10 +1300,27 @@ async function saveSampleMapPack() {
 for (const id of ["tree-density", "mountain-density", "river-width", "brush-size"]) {
   $(id).addEventListener("input", () => { editor.brush = Number($("brush-size").value); updateRangeLabels(); });
 }
-$("zoom").addEventListener("input", resizeCanvas);
+$("zoom").addEventListener("input", layoutCanvas);
+$("fit-map").addEventListener("click", () => {
+  $("zoom").value = "1";
+  layoutCanvas();
+  $("canvas-scroll").scrollTo(0, 0);
+});
+if (typeof ResizeObserver === "function") {
+  const observer = new ResizeObserver(layoutCanvas);
+  observer.observe($("canvas-scroll"));
+} else {
+  window.addEventListener("resize", layoutCanvas);
+}
+$("back-to-admin").addEventListener("click", (event) => {
+  if (editor.dirty && !window.confirm("Map có thay đổi chưa lưu. Quay về trang quản lý Admin?")) event.preventDefault();
+});
 $("show-grid").addEventListener("change", drawMap);
 $("map-name").addEventListener("input", () => { $("stage-name").textContent = $("map-name").value; });
-$("generate-map").addEventListener("click", generateMap);
+$("generate-map").addEventListener("click", () => {
+  const replacingSavedMap = Boolean(editor.currentCode);
+  if ((!editor.dirty && !replacingSavedMap) || window.confirm("Sinh địa hình mới sẽ thay toàn bộ địa hình map đang mở. Tiếp tục?")) generateMap();
+});
 $("load-map").addEventListener("click", () => loadMap().catch((error) => setStatus(error.message, "error")));
 $("save-map").addEventListener("click", () => saveMap().catch((error) => setStatus(error.message, "error")));
 $("preview-map-pack").addEventListener("click", () => void previewMapPack().catch((error) => {
@@ -1161,8 +1348,23 @@ $("new-portal").addEventListener("click", resetPortalForm);
 $("save-portal").addEventListener("click", () => savePortalLink().catch((error) => setStatus(error.message, "error")));
 $("delete-portal").addEventListener("click", () => deletePortal().catch((error) => setStatus(error.message, "error")));
 $("new-monster-pack").addEventListener("click", resetMonsterPackForm);
+for (const id of ["monster-center-x", "monster-center-y"]) $(id).addEventListener("input", () => { editor.dirty = true; requestDraw(); });
 $("save-monster-pack").addEventListener("click", () => { try { saveMonsterPack(); } catch (error) { setStatus(error.message, "error"); } });
 $("delete-monster-pack").addEventListener("click", deleteMonsterPack);
+$("new-npc").addEventListener("click", () => {
+  resetNpcForm();
+  $("layer-tabs").querySelector('[data-layer="npc"]').click();
+});
+$("save-npc").addEventListener("click", () => { void saveNpc().catch((error) => setStatus(error.message, "error")); });
+for (const id of ["npc-x", "npc-y"]) $(id).addEventListener("input", () => { editor.dirty = true; requestDraw(); });
+for (const id of ["npc-name", "npc-id", "npc-role", "npc-type", "npc-gender", "npc-color", "npc-dialog", "npc-enabled"]) {
+  $(id).addEventListener("input", () => { editor.dirty = true; });
+  $(id).addEventListener("change", () => { editor.dirty = true; });
+}
+for (const id of ["map-name", "map-code", "map-type", "map-biome", "map-width", "map-height", "map-seed", "map-region", "map-tier", "realm-min", "realm-max", "map-tags", "rule-safe-zone", "rule-no-monsters", "rule-allow-recall"]) {
+  $(id).addEventListener("input", () => { editor.dirty = true; });
+  $(id).addEventListener("change", () => { editor.dirty = true; });
+}
 $("validate-map").addEventListener("click", () => validateMap().catch((error) => setStatus(error.message, "error")));
 $("publish-map").addEventListener("click", () => publishMap().catch((error) => setStatus(error.message, "error")));
 $("rule-safe-zone").addEventListener("change", () => { if ($("rule-safe-zone").checked) $("rule-no-monsters").checked = true; });
@@ -1179,24 +1381,67 @@ $("layer-tabs").addEventListener("click", (event) => {
   editor.layer = button.dataset.layer;
   for (const item of $("layer-tabs").querySelectorAll("button")) item.classList.toggle("active", item === button);
   renderPalette();
+  requestDraw();
+  if (editor.layer === "npc") $("npc-panel").scrollIntoView({ block: "nearest" });
 });
-canvas.addEventListener("pointerdown", (event) => { editor.painting = true; canvas.setPointerCapture(event.pointerId); const tile = pointerTile(event); paintAt(tile.x, tile.y); });
+let touchTap = null;
+canvas.addEventListener("pointerdown", (event) => {
+  if (!event.isPrimary || event.button !== 0) return;
+  canvas.setPointerCapture(event.pointerId);
+  if (event.pointerType === "touch") {
+    touchTap = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    return;
+  }
+  editor.painting = true;
+  const tile = pointerTile(event);
+  paintAt(tile.x, tile.y);
+});
 canvas.addEventListener("pointermove", (event) => {
+  if (!event.isPrimary) return;
+  if (touchTap?.id === event.pointerId && Math.hypot(event.clientX - touchTap.x, event.clientY - touchTap.y) > 8) touchTap = null;
   const tile = pointerTile(event);
   $("cursor-info").textContent = `x: ${tile.x} · y: ${tile.y}`;
   if (editor.painting && tile.x >= 0 && tile.y >= 0 && tile.x < editor.width && tile.y < editor.height) paintAt(tile.x, tile.y);
 });
-canvas.addEventListener("pointerup", () => { editor.painting = false; });
-canvas.addEventListener("pointercancel", () => { editor.painting = false; });
+function stopPainting(event) {
+  if (!event.isPrimary) return;
+  editor.painting = false;
+  touchTap = null;
+}
+canvas.addEventListener("pointerup", (event) => {
+  if (touchTap?.id === event.pointerId && Math.hypot(event.clientX - touchTap.x, event.clientY - touchTap.y) <= 8) {
+    const tile = pointerTile(event);
+    paintAt(tile.x, tile.y);
+  }
+  stopPainting(event);
+});
+canvas.addEventListener("pointercancel", stopPainting);
+canvas.addEventListener("lostpointercapture", stopPainting);
 
 updateRangeLabels();
 renderPalette();
 loadPreviewAutotileAtlas();
 generateMap();
+editor.dirty = false;
 async function initializeMapEditorData() {
   await refreshMapList();
-  if (new URLSearchParams(window.location.search).get("map")) await loadMap();
+  const query = new URLSearchParams(window.location.search);
+  const focusPanel = ["#npc-panel", "#monster-panel"].includes(window.location.hash) ? window.location.hash : "";
+  if (query.get("map")) await loadMap();
+  else if ((focusPanel || query.has("monster")) && editor.mapCatalog.size) {
+    $("map-list").value = editor.mapCatalog.keys().next().value;
+    await loadMap();
+  }
   await refreshMonsterCatalog();
+  if (new URLSearchParams(window.location.search).has("monster")) {
+    $("layer-tabs").querySelector('[data-layer="monster"]').click();
+    $("monster-template").scrollIntoView({ block: "nearest" });
+  }
+  if (focusPanel === "#npc-panel") $("npc-panel").scrollIntoView({ block: "start" });
+  if (focusPanel === "#monster-panel") {
+    $("layer-tabs").querySelector('[data-layer="monster"]').click();
+    $("monster-panel").scrollIntoView({ block: "start" });
+  }
 }
 function loadMapEditorAfterLogin() {
   void initializeMapEditorData().catch((error) => setStatus(`${error.message} · cần tài khoản GM/ADMIN`, "error"));

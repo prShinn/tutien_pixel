@@ -144,9 +144,20 @@ const SkillSystem = {
   },
 
   animationDuration(skill) {
+    if (skill && typeof SkillVFX !== "undefined") {
+      const timing = SkillVFX.castTiming(SkillVFX.profile(skill));
+      return timing.charge + timing.effect;
+    }
     const physicalStrike = this.isOffensive(skill)
       && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
     return physicalStrike ? 620 : 760;
+  },
+
+  animateCast(actor, skill) {
+    const physicalStrike = this.isOffensive(skill) && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
+    actor.animState = physicalStrike ? "attack" : "cast";
+    actor.animStartedAt = Date.now();
+    actor.animUntil = actor.animStartedAt + this.animationDuration(skill);
   },
 
   async loadBook() {
@@ -470,14 +481,6 @@ const SkillSystem = {
     if (document.getElementById("dialog-modal").classList.contains("open")) return;
 
     const skill = p.skills[slotIdx];
-    const startCastAnimation = (target = null) => {
-      const physicalStrike = this.isOffensive(skill) && String(skill.damageType || "PHYSICAL").toUpperCase() !== "MAGIC";
-      p.animState = physicalStrike ? "attack" : "cast";
-      p.animStartedAt = Date.now();
-      p.animUntil = p.animStartedAt + this.animationDuration(skill);
-      if (typeof SkillVFX !== "undefined") SkillVFX.charge(skill, p, target);
-    };
-
     if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
       UI.log(`${skill.icon || "✦"} ${skill.name} là kỹ năng bị động và luôn có hiệu lực.`, "system");
       return;
@@ -493,13 +496,10 @@ const SkillSystem = {
     }
 
     if (socket?.connected && !offensive) {
-      startCastAnimation();
       S.combatPending = true;
       Net.command("combat.skill", { skillCode: skill.code || skill.id || skill._beId });
       return;
     }
-
-    if (!socket?.connected) Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
 
     if (socket?.connected && offensive) {
       const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
@@ -511,13 +511,16 @@ const SkillSystem = {
             .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
       if (!target) return UI.log("Không có mục tiêu trong tầm.", "system");
       S.target = target;
-      startCastAnimation(target);
       S.combatPending = true;
       Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
       return;
     }
 
-    startCastAnimation();
+    const animate = () => {
+      this.animateCast(p, skill);
+      Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
+    };
+    if (!offensive) animate();
     p.mp -= skill.mpCost;
     skill.cdLeft = skill.cd;
 
@@ -582,6 +585,7 @@ const SkillSystem = {
       if (hits === 0)
         UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
       else {
+        animate();
         if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, hitTargets);
         UI.log(
           `${skill.icon} ${skill.name} [${skill.damageType}] → ${hits} mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
@@ -605,6 +609,7 @@ const SkillSystem = {
       }
       const dmg = this.calcDmg(skill, best);
       this.hitMonster(best, dmg, skill);
+      animate();
       if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, [best]);
       UI.log(
         `${skill.icon} ${skill.name} [${skill.damageType}×${skill.satThuong}] → ${best.name} -${dmg}${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,

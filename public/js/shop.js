@@ -99,7 +99,8 @@ const Shop = {
       empty.textContent = "Túi đồ trống";
       sell.appendChild(empty);
     }
-    S.inventory.forEach((item, idx) => {
+    S.inventory.forEach((entry, idx) => {
+      const item = GameData.itemWithCurrentDetails(entry);
       const div = document.createElement("div");
       div.className = "shop-item";
       const icon = UI.createPixelIcon(item, "", "si-emoji");

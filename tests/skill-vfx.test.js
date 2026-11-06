@@ -22,6 +22,8 @@ function createHarness(storage = new Map(), { API, fetch, VisualEffects, CFG } =
     fillStyle: "#000000",
     save() {},
     restore() {},
+    translate() {},
+    scale() {},
     fillRect(x, y, width, height) {
       draws.push([x, y, width, height, this.fillStyle, this.globalAlpha]);
     },
@@ -60,6 +62,8 @@ function createAdminHarness({ authorized = true, failMutations = false } = {}) {
     fillStyle: "#000000",
     save() {},
     restore() {},
+    translate() {},
+    scale() {},
     fillRect(x, y, width, height) { draws.push([x, y, width, height, this.fillStyle, this.globalAlpha]); },
     fillText() {},
   };
@@ -173,6 +177,8 @@ function createAdminHarness({ authorized = true, failMutations = false } = {}) {
     },
     S: { player: null },
     CFG: { SKILLS: {}, SKILL_RANGE_SCALE: 1 },
+    ItemStudio: { mount() {} },
+    mountMonsterStudio() {},
     ctx: null,
     performance: { now: () => 1000 },
     console: { warn() {}, error() {} },
@@ -234,13 +240,14 @@ test("self-bound charge and support effects render behind actors while impacts s
   assert.deepEqual(layers, ["impact"]);
 });
 
-test("persistent passive aura obeys the player visibility toggle", () => {
+test("caster visuals obey the player visibility toggle during a cast", () => {
   let enabled = false;
   let passiveDraws = 0;
   const { vfx } = createHarness(new Map(), {
     VisualEffects: { arePersistentEffectsEnabled: () => enabled },
   });
-  vfx.drawOwnedPassive = () => { passiveDraws += 1; };
+  vfx.drawCharge = () => { passiveDraws += 1; };
+  vfx.impact({ code: "HOA_CAU", linhCan: "HOA" }, { px: 0, py: 0 }, [{ px: 20, py: 0 }]);
 
   vfx.draw(0, 0, "behind");
   assert.equal(passiveDraws, 0);
@@ -249,7 +256,7 @@ test("persistent passive aura obeys the player visibility toggle", () => {
   assert.equal(passiveDraws, 1);
 });
 
-test("learned lightning passive and active thunder shield keep their distinct aura", () => {
+test("learned lightning passive and active buff do not draw an aura while idle", () => {
   const passive = { code: "LOI_TAM_PHAP", name: "Lôi thể", linhCan: "LOI", category: "PASSIVE", tier: 1 };
   const shield = { code: "LOI_HO", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield", damageType: "MAGIC", tier: 1 };
   const { vfx, context } = createHarness(new Map(), {
@@ -269,13 +276,13 @@ test("learned lightning passive and active thunder shield keep their distinct au
   };
 
   vfx.draw(0, 0, "behind");
-  assert.equal(passiveForm, "passive-lightning");
+  assert.equal(passiveForm, null);
 
   context.S.player.learnedSkills = [];
   context.S.player.skills = [shield];
   context.S.player.buffs = { shield: { expiresAt: Date.now() + 4000 } };
   vfx.draw(0, 0, "behind");
-  assert.equal(lightningCalls, 1);
+  assert.equal(lightningCalls, 0);
 });
 
 test("lightning aura uses a ground seal and an alternating bolt outside the character", () => {
@@ -309,30 +316,29 @@ test("named lightning shield keeps its lightning form when the BE code differs",
   assert.equal(profile.form, "thunder-shield");
 });
 
-test("active thunder shield persists visually when a skill response omits buff state", () => {
+test("active thunder shield keeps its HUD expiry when a skill response omits buff state", () => {
   const shield = { code: "LOI_HO", name: "Thần Lôi Hộ Thể", linhCan: "LOI", category: "ACTIVE", effect: "shield", damageType: "MAGIC", effectDur: 240, tier: 1 };
   const { vfx, context } = createHarness(new Map(), {
     VisualEffects: { arePersistentEffectsEnabled: () => true },
   });
-  let lightningCalls = 0;
-  vfx.drawLightningAura = () => { lightningCalls += 1; };
   context.S.player = { px: 24, py: 32, linhCan: "LOI", skills: [shield], buffs: {} };
 
   assert.equal(vfx.activateBuff(shield, 4000), true);
-  vfx.drawOwnedBuffs(0, 0, Date.now());
-  assert.equal(lightningCalls, 1);
+  assert.equal(vfx.ownedBuffAuras[0].code, "LOI_HO");
+  assert.ok(vfx.ownedBuffAuras[0].expiresAt > Date.now());
+  assert.equal(vfx.active.length, 0);
 });
 
 test("game bootstrap and Admin shell request the current VFX and Admin assets", () => {
-  assert.match(gameHtml, /js\/bootstrap\.js\?v=18/);
-  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=16/);
-  assert.match(adminHtml, /js\/api\.js\?v=5/);
+  assert.match(gameHtml, /js\/bootstrap\.js\?v=27/);
+  assert.match(gameBootstrap, /js\/skill-vfx\.js\?v=19/);
+  assert.match(adminHtml, /js\/api\.js\?v=6/);
   assert.match(adminHtml, /admin\.css\?v=5/);
-  assert.match(adminHtml, /js\/skill-vfx\.js\?v=16/);
-  assert.match(adminHtml, /admin\/content-utils\.js\?v=2/);
-  assert.match(adminHtml, /admin\/content-manager\.js\?v=2/);
+  assert.match(adminHtml, /js\/skill-vfx\.js\?v=19/);
+  assert.match(adminHtml, /admin\/content-utils\.js\?v=4/);
+  assert.match(adminHtml, /admin\/content-manager\.js\?v=6/);
   assert.match(adminHtml, /admin\/admin-auth\.js\?v=2/);
-  assert.match(adminHtml, /admin\.js\?v=10/);
+  assert.match(adminHtml, /admin\.js\?v=19/);
   assert.match(adminHtml, /Cấu hình được dùng chung trên máy chủ game hiện tại/);
   assert.doesNotMatch(adminHtml, /trong hồ sơ trình duyệt hiện tại/);
 });
@@ -455,7 +461,7 @@ test("impact duration uses the saved profile and renderer emits distinct pixel p
   const renderForm = (form) => {
     draws.length = 0;
     const profile = { ...vfx.profile(fireSkill), form, tier: 2, aoeR: 0 };
-    vfx.drawImpact(origin, target, profile, palette, 0.5, { miss: false, critical: false }, true);
+    vfx.drawImpact(origin, target, profile, palette, 0.5, { miss: false, critical: false });
     return draws.map((item) => item.join(",")).join("|");
   };
   const slash = renderForm("slash");
@@ -465,16 +471,20 @@ test("impact duration uses the saved profile and renderer emits distinct pixel p
   assert.notEqual(slash, fireball);
 });
 
-test("cast-up and default impact timings leave time to read the skill animation", () => {
+test("confirmed cast plays one wind-up followed immediately by the configured effect", () => {
   const { vfx } = createHarness();
-  vfx.charge(fireSkill, { px: 20, py: 30 }, { px: 60, py: 30 });
-  assert.equal(vfx.active.at(-1).mode, "charge");
-  assert.equal(vfx.active.at(-1).duration, 420);
-
-  vfx.impact(fireSkill, { px: 20, py: 30 }, [{ px: 60, py: 30 }]);
-  assert.equal(vfx.active.at(-1).duration, 980);
-  vfx.impact({ ...fireSkill, tier: 3 }, { px: 20, py: 30 }, [{ px: 60, py: 30 }]);
-  assert.equal(vfx.active.at(-1).duration, 1120);
+  const actor = { px: 20, py: 30 };
+  const target = { px: 60, py: 30 };
+  vfx.saveCustomProfiles({ HOA_CAU: { form: "fireball", durationMs: 910 } });
+  vfx.impact(fireSkill, actor, [target]);
+  assert.equal(vfx.active.length, 2);
+  const [charge, effect] = vfx.active;
+  assert.equal(charge.mode, "charge");
+  assert.equal(charge.duration, 230);
+  assert.equal(effect.mode, "impact");
+  assert.equal(effect.startedAt, charge.startedAt + charge.duration);
+  assert.equal(effect.duration, 910);
+  assert.equal(effect.profile, charge.profile);
 });
 
 test("Admin HTML bindings load catalog and complete create, update, and delete", async () => {
