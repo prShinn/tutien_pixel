@@ -323,15 +323,39 @@ const UI = {
     for (const slot of slots) {
       const el = document.getElementById(slot.id);
       if (!el) continue;
+      const isEquipped = Boolean(slot.item);
+      el.classList.toggle("equipped", isEquipped);
+      el.classList.toggle("empty", !isEquipped);
+
       const iconWrap = document.createElement("div");
-      iconWrap.className = "eicon";
+      iconWrap.className = isEquipped ? "eicon eicon-equipped" : "eicon eicon-empty";
       iconWrap.appendChild(this.createPixelIcon(slot.item || {}, slot.id));
-      const label = document.createElement("span");
-      label.textContent = slot.item?.name || slot.label;
-      el.replaceChildren(iconWrap, label);
-      el.classList.toggle("equipped", Boolean(slot.item));
-      el.title = slot.item ? `${slot.item.name || slot.label}\nClick để tháo` : `${slot.label}\nÔ trống`;
-      el.onclick = slot.item ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
+
+      const labelWrap = document.createElement("div");
+      labelWrap.className = "esl-info";
+      if (isEquipped) {
+        const nameSpan = document.createElement("strong");
+        nameSpan.className = "esl-name";
+        nameSpan.textContent = slot.item.name || slot.label;
+        const tag = document.createElement("span");
+        tag.className = "esl-badge";
+        tag.textContent = "ĐANG MẶC";
+        labelWrap.replaceChildren(nameSpan, tag);
+      } else {
+        const slotName = document.createElement("span");
+        slotName.className = "esl-slot-type";
+        slotName.textContent = slot.label;
+        const emptyHint = document.createElement("small");
+        emptyHint.className = "esl-empty-hint";
+        emptyHint.textContent = "[Trống]";
+        labelWrap.replaceChildren(slotName, emptyHint);
+      }
+
+      el.replaceChildren(iconWrap, labelWrap);
+      el.title = isEquipped
+        ? `${slot.item.name} (${slot.label})\nĐang trang bị · Nhấp để tháo vào túi đồ`
+        : `${slot.label}\nChưa trang bị (Ô trống)`;
+      el.onclick = isEquipped ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
     }
   },
 
@@ -389,6 +413,8 @@ const UI = {
       el.className = it ? "isl" : "isl empty";
       if (it) {
         el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
+        const isEqItem = (it.type || it.loai) === "EQUIPMENT";
+        if (isEqItem) el.classList.add("isl-equipment");
         const icon = this.createPixelIcon(it, "", "inventory-pixel-icon");
         const count = document.createElement("span");
         count.className = "icnt";
@@ -408,10 +434,18 @@ const UI = {
     const selected = GameData.itemWithCurrentDetails(S.inventory[this.selectedInventoryIndex]);
     const selection = document.getElementById("inv-selection");
     const useBtn = document.getElementById("inv-use-btn");
-    if (selection) selection.textContent = selected ? `${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
+    if (selection) {
+      if (selected) {
+        const isEq = (selected.type || selected.loai) === "EQUIPMENT";
+        const tag = isEq ? `[Trang bị: ${selected.slot || "Vũ khí"}]` : "[Vật phẩm]";
+        selection.textContent = `${selected.name || selected.id} · ${tag} · Nhấp đúp để ${isEq ? "trang bị" : "dùng"}`;
+      } else {
+        selection.textContent = "Chọn vật phẩm để xem thao tác";
+      }
+    }
     if (useBtn) {
       useBtn.disabled = !selected;
-      useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "Trang bị" : "Dùng";
+      useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "⚔️ Trang bị" : "✦ Dùng";
     }
   },
 
@@ -568,6 +602,25 @@ const UI = {
     host.hidden = entries.length === 0;
   },
 
+  initializeChatAutoFade() {
+    const chatLogBox = document.getElementById("kpah-chat-log");
+    if (!chatLogBox || typeof chatLogBox.addEventListener !== "function") return;
+    const scheduleFade = () => {
+      clearTimeout(this._logFadeTimer);
+      this._logFadeTimer = setTimeout(() => {
+        chatLogBox.classList.add("idle-faded");
+      }, 6000);
+    };
+    chatLogBox.addEventListener("mouseenter", () => {
+      chatLogBox.classList.remove("idle-faded");
+      clearTimeout(this._logFadeTimer);
+    });
+    chatLogBox.addEventListener("mouseleave", () => {
+      scheduleFade();
+    });
+    scheduleFade();
+  },
+
   initializeHudLayout() {
     let saved = null;
     try { saved = localStorage.getItem("tutien.hud-layout.v1"); } catch { }
@@ -575,6 +628,7 @@ const UI = {
       ? window.matchMedia?.("(orientation: landscape) and (max-height: 520px)")?.matches === true
       : saved === "compact";
     this.setHudLayout(compact, false);
+    this.initializeChatAutoFade();
     return compact;
   },
 
@@ -637,6 +691,14 @@ const UI = {
     this._lastLog = { msg, cls: messageClass, at: now, node: p, count: 1 };
     area.scrollTop = area.scrollHeight;
     while (area.children.length > 150) area.removeChild(area.firstChild);
+    const chatLogBox = document.getElementById("kpah-chat-log");
+    if (chatLogBox) {
+      chatLogBox.classList.remove("idle-faded");
+      clearTimeout(this._logFadeTimer);
+      this._logFadeTimer = setTimeout(() => {
+        chatLogBox.classList.add("idle-faded");
+      }, 6000);
+    }
     return p;
   },
 };

@@ -397,7 +397,7 @@ function loadAdminWorlds() {
 
 function adminMapMiddleware(req, res, next) {
   if (req.get("x-admin-key") !== ADMIN_MAP_KEY) return res.status(401).json({ error: "Admin key không hợp lệ" });
-  next();
+  return next();
 }
 
 // Demo content registry: giữ cùng contract với DB tương lai, hiện chạy in-memory.
@@ -477,7 +477,7 @@ loadAdminWorlds();
 loadAdminContent();
 
 function publicUser(user) {
-  return { id: user.id, username: user.username };
+  return { id: user.id, username: user.username, role: "PLAYER" };
 }
 
 function findUserByUsername(username) {
@@ -561,8 +561,8 @@ app.post(["/api/auth/register", "/api/register"], authLimiter, async (req, res) 
   if (username.length < 3 || username.length > 20 || !/^[\p{L}\p{N}_-]+$/u.test(username)) {
     return res.status(400).json({ error: "Username phải dài 3-20 ký tự, chỉ gồm chữ, số, _ hoặc -" });
   }
-  if (passwordBytes < 8 || passwordBytes > 72) {
-    return res.status(400).json({ error: "Password phải dài ít nhất 8 byte và không quá 72 byte" });
+  if (passwordBytes < 5 || passwordBytes > 72) {
+    return res.status(400).json({ error: "Password phải dài ít nhất 5 byte và không quá 72 byte" });
   }
   if (findUserByUsername(username) || registeringUsernames.has(usernameKey)) {
     return res.status(409).json({ error: "Tên tài khoản đã tồn tại" });
@@ -576,7 +576,8 @@ app.post(["/api/auth/register", "/api/register"], authLimiter, async (req, res) 
     createdUser = { id: nextUserId++, username, passwordHash };
     storeUser(createdUser);
     await gameStateStore.flush();
-    return res.json({ token: signToken(createdUser.id, createdUser.username), user: publicUser(createdUser) });
+    const token = signToken(createdUser.id, createdUser.username);
+    return res.json({ token, accessToken: token, refreshToken: token, user: publicUser(createdUser) });
   } catch (error) {
     if (createdUser && users.get(createdUser.id) === createdUser) {
       users.delete(createdUser.id);
@@ -598,7 +599,8 @@ app.post(["/api/auth/login", "/api/login"], authLimiter, async (req, res) => {
   }
   const user = findUserByUsername(username);
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(401).json({ error: "Tên đăng nhập hoặc mật khẩu sai" });
-  res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
+  const token = signToken(user.id, user.username);
+  res.json({ token, accessToken: token, refreshToken: token, user: publicUser(user) });
 });
 
 app.post(["/api/auth/demo", "/api/demo"], demoLimiter, (req, res) => {
@@ -606,11 +608,21 @@ app.post(["/api/auth/demo", "/api/demo"], demoLimiter, (req, res) => {
   const username = `demo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const user = { id: nextUserId++, username, passwordHash: "demo", isDemo: true };
   storeUser(user);
-  res.json({ token: signToken(user.id, user.username), user: publicUser(user) });
+  const token = signToken(user.id, user.username);
+  res.json({ token, accessToken: token, refreshToken: token, user: publicUser(user) });
+});
+
+app.post(["/api/auth/refresh", "/api/refresh"], authMiddleware, (req, res) => {
+  const token = signToken(req.userId, req.username);
+  res.json({ token, accessToken: token, refreshToken: token, user: { id: req.userId, username: req.username, role: "PLAYER" } });
+});
+
+app.post(["/api/auth/logout", "/api/logout"], authMiddleware, (_req, res) => {
+  res.json({ ok: true });
 });
 
 app.get(["/api/auth/me", "/api/me"], authMiddleware, (req, res) => {
-  res.json({ user: { id: req.userId, username: req.username } });
+  res.json({ user: { id: req.userId, username: req.username, role: "PLAYER" } });
 });
 
 app.get("/api/worlds", (req, res) => res.json(worlds.filter(isWorldPublished).map(worldSummary)));
@@ -887,6 +899,8 @@ app.get("/api/health", (req, res) => {
   const memory = process.memoryUsage();
   res.json({
     status: "ok",
+    service: "tu-tien-pixel-demo",
+    dependencies: { storage: "json-file", mysql: "not-configured" },
     uptime: Math.floor(process.uptime()),
     users: users.size,
     players: players.size,
@@ -896,6 +910,13 @@ app.get("/api/health", (req, res) => {
       rss: Math.round(memory.rss / 1024 / 1024),
       heapUsed: Math.round(memory.heapUsed / 1024 / 1024),
     },
+  });
+});
+app.get("/api/health/ready", (_req, res) => {
+  res.status(503).json({
+    status: "demo_only",
+    service: "tu-tien-pixel-demo",
+    dependencies: { mysql: "not-configured", storage: "json-file" },
   });
 });
 
@@ -991,11 +1012,15 @@ const serverMessageTimer = setInterval(() => {
 }, 300000);
 serverMessageTimer.unref?.();
 
+let beCompatServer = null;
 let shutdownPromise = null;
 function shutdownServer(signal) {
   if (shutdownPromise) return shutdownPromise;
   shutdownPromise = (async () => {
     clearInterval(serverMessageTimer);
+    if (beCompatServer) {
+      await new Promise((resolve) => beCompatServer.close(resolve)).catch(() => {});
+    }
     await new Promise((resolve) => io.close(resolve));
     await gameStateStore.flush();
     console.log(`Server stopped cleanly after ${signal}.`);
@@ -1024,3 +1049,17 @@ if (process.send) {
 
 const PORT = ENV.port;
 server.listen(PORT, () => console.log(`Tu Tien demo running at http://localhost:${PORT}`));
+
+
+if (PORT !== 3800) {
+  beCompatServer = http.createServer(app);
+  io.attach(beCompatServer);
+  beCompatServer.on("error", (err) => {
+    if (err.code !== "EADDRINUSE") {
+      console.warn("BE compat listener note:", err.message);
+    }
+  });
+  beCompatServer.listen(3800, () => {
+    console.log("Compatibility BE listener running at http://localhost:3800 (for FE / Admin)");
+  });
+}

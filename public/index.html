@@ -252,6 +252,7 @@
         <div class="map-widget-head">
           <span class="eyebrow">THIÊN ĐỊA</span>
           <strong id="mini-map-name">Bản đồ</strong>
+          <button id="btn-controls-help" class="map-help-btn" type="button" aria-label="Hướng dẫn phím tắt" title="WASD / Mũi tên: Di chuyển&#10;Space: Đánh thường&#10;1-4: Kỹ năng chiến đấu&#10;Click quái: Khóa mục tiêu & áp sát&#10;Esc: Bỏ chọn mục tiêu">?</button>
         </div>
         <canvas id="mini-map" width="144" height="96"></canvas>
         <div class="map-widget-foot"><span class="map-dot player"></span> Vị trí hiện tại <span id="map-coords">—</span></div>
@@ -281,6 +282,7 @@
       <aside id="quest-tracker" class="quest-tracker" style="display:none;" aria-live="polite">
         <div class="quest-tracker-head">
           <button class="quest-tracker-open" type="button" onclick="QuestUI.openTrackerDetails()" title="Mở chi tiết nhiệm vụ"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span id="quest-tracker-open-label">MỞ SỔ</span></button>
+          <button class="quest-tracker-toggle" type="button" id="btn-quest-collapse" aria-label="Thu gọn nhiệm vụ" title="Thu gọn/mở rộng" onclick="QuestUI.toggleCollapse?.()">−</button>
           <button class="quest-tracker-close" type="button" aria-label="Bỏ theo dõi" onclick="QuestUI.untrack()">✕</button>
         </div>
         <strong id="quest-tracker-title"></strong>

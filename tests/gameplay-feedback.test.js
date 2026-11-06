@@ -484,7 +484,7 @@ test("game shell exposes auto-pickup control and loads the movement and loot hel
   assert.match(gameHtml, /id="btn-auto-loot"[^>]+aria-pressed="true"/);
   assert.match(gameHtml, /id="btn-buff-effects"[^>]+aria-pressed="true"/);
   assert.match(gameHtml, /id="btn-hud-layout"[^>]+aria-expanded="true"/);
-  assert.match(gameHtml, /id="game-notifications"[^>]+aria-live="polite"/);
+  assert.match(gameHtml, /id="log-area"[^>]+aria-live="polite"/);
   assert.match(gameBootstrap, /js\/auto-loot\.js/);
   assert.match(gameBootstrap, /js\/visual-effects\.js\?v=2/);
   assert.match(gameBootstrap, /movement-feedback\.mjs/);
@@ -738,25 +738,27 @@ test("the actor renderer does not attach persistent buff effects to the map", ()
   assert.equal(render.drawBuffEffects, undefined);
 });
 
-test("system feedback uses the visible toast lane while chat stays in chat", () => {
+test("system feedback uses the unified chat and notice lane", () => {
   const { ui, elements } = uiHarness();
   ui.log("Đứng gần vật phẩm để nhặt", "system");
   ui.log("[Tôi]: xin chào", "chat");
-  assert.equal(elements.get("game-notifications").children.length, 1);
-  assert.match(elements.get("game-notifications").children[0].textContent, /Đứng gần vật phẩm/);
-  assert.equal(elements.get("log-area").children.length, 1);
-  assert.match(elements.get("log-area").children[0].textContent, /xin chào/);
+  const logArea = elements.get("log-area");
+  assert.equal(logArea.children.length, 2);
+  assert.match(logArea.children[0].textContent, /Đứng gần vật phẩm/);
+  assert.equal(logArea.children[0].className, "lc lc-system");
+  assert.match(logArea.children[1].textContent, /xin chào/);
+  assert.equal(logArea.children[1].className, "lc lc-chat");
 });
 
-test("notifications deduplicate, cap at three, and render messages as text", () => {
+test("notifications deduplicate rapid identical messages and render messages as text", () => {
   const { ui, elements } = uiHarness();
-  const host = elements.get("game-notifications");
+  const logArea = elements.get("log-area");
   ui.notify("<img src=x>", "error");
   ui.notify("<img src=x>", "error");
-  assert.equal(host.children.length, 1);
-  assert.equal(host.children[0].textContent, "<img src=x>");
-  for (let i = 0; i < 5; i += 1) ui.notify(`Thông báo ${i}`, "info");
-  assert.equal(host.children.length, 3);
+  assert.equal(logArea.children.length, 1);
+  assert.match(logArea.children[0].textContent, /✕ <img src=x> ×2/);
+  for (let i = 0; i < 3; i += 1) ui.notify(`Thông báo ${i}`, "info");
+  assert.equal(logArea.children.length, 4);
 });
 
 test("auto-loot toggle exposes its current state to assistive technology", () => {

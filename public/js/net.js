@@ -1098,14 +1098,23 @@ const Net = {
     if (socket?.connected) {
       UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
       clearTimeout(Net._mapChangeTimer);
+      Net._mapChangeTimer = null;
       Net._clearOthers();
-      // Flush vị trí hiện tại trước: server phải xác nhận nhân vật đang chạm portal.
-      // Không nhảy client tới điểm đến khi server chưa trả world_init.
-      Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapCode: S.mapCode });
-      Net._mapChangeTimer = setTimeout(() => {
+      Net._mapChangeTimer = setTimeout(async () => {
         Net._mapChangeTimer = null;
+        if (!socket?.connected) return;
+        // Portal validation must see the acknowledged authoritative position, not a fixed delay guess.
+        const movement = await Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapCode: S.mapCode });
+        if (!movement?.ok) {
+          if (S.player) {
+            S.player.isTeleporting = false;
+            S.player.portalLocked = false;
+          }
+          UI.hideLoading();
+          return;
+        }
         if (socket?.connected) Net.command("map.change", { mapCode, x: px, y: py });
-      }, 65);
+      }, 0);
     }
   },
 
@@ -1135,6 +1144,15 @@ const Net = {
       const response = await Net.mutate("POST", API.PATHS.player.respawn, {});
       if (!response?.player) throw new Error(response?.error || "Máy chủ chưa hỗ trợ hồi sinh.");
       Net.applyPlayerSnapshot(response.player, { render: false });
+      const isMock = typeof MockBackend !== "undefined" && MockBackend?.enabled;
+      if (!isMock && socket?.connected) {
+        const joined = await Net.command("world.join", {});
+        if (!joined?.ok) {
+          UI.notify("Đã lưu hồi sinh. Đang đồng bộ lại kết nối thế giới…", "warning");
+          socket.disconnect();
+          socket.connect();
+        }
+      }
       const player = S.player;
       player.dead = false;
       player.px = Number(player.x || 0) * CFG.TS + CFG.TS / 2;

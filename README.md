@@ -6,7 +6,7 @@ Bản hiện tại phù hợp **demo nội bộ trên một server**: đăng ký
 
 ## Chạy local
 
-Chạy project BE MySQL tại `D:\Setup\mine\tutien_pixel_be` theo README của BE trước. BE mặc định dùng cổng 3800 và cần cho phép origin của FE qua `CORS_ORIGIN`. Sau đó chạy project FE:
+Chạy project BE MySQL tại `D:\Work\game\tu-tien-server\tutien_pixel_be` theo README của BE trước. BE mặc định dùng cổng 3800 và cần cho phép origin của FE qua `CORS_ORIGIN`. Sau đó chạy project FE:
 
 ```powershell
 npm install

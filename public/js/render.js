@@ -1135,15 +1135,57 @@ const Render = {
     const sx = portal.x * CFG.TS + CFG.TS / 2 - cx, sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
     const a = S.animT * 0.002;
     const pulse = 7 + Math.sin(a) * 1.5;
+
+    // 1. Cột sáng thiên thanh thẳng đứng chiếu lên trời (Light Beacon)
+    ctx.save();
+    const beamGrad = ctx.createLinearGradient(sx, sy + 4, sx, sy - 36);
+    beamGrad.addColorStop(0, `rgba(0, 210, 211, ${0.35 + Math.sin(a) * 0.1})`);
+    beamGrad.addColorStop(0.6, `rgba(124, 232, 235, ${0.15 + Math.sin(a) * 0.08})`);
+    beamGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = beamGrad;
+    ctx.fillRect(sx - 8, sy - 36, 16, 40);
+    ctx.restore();
+
+    // 2. Vòng trận đồ hình thoi xoay tại mặt đất
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.rotate(Math.PI / 4);
-    ctx.strokeStyle = `rgba(124,232,235,${0.65 + Math.sin(a) * 0.15})`;
+    ctx.rotate(Math.PI / 4 + a * 0.2);
+    ctx.strokeStyle = `rgba(124,232,235,${0.7 + Math.sin(a) * 0.15})`;
     ctx.shadowColor = "#00d2d3";
-    ctx.shadowBlur = 5;
-    ctx.lineWidth = 1;
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 1.2;
     ctx.strokeRect(-pulse, -pulse, pulse * 2, pulse * 2);
     ctx.restore();
+
+    // 3. Biển tên nổi lơ lửng phía trên cổng [ ⛩ Tên Map Đến ]
+    const mapName = portal.tenMapDen || portal.toMap;
+    if (mapName) {
+      ctx.save();
+      const label = `⛩ ${mapName}`;
+      ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 10;
+      const bh = 14;
+      const by = sy - 24;
+
+      ctx.fillStyle = "rgba(10, 16, 26, 0.78)";
+      ctx.strokeStyle = "rgba(240, 215, 127, 0.65)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(sx - bw / 2, by - bh / 2, bw, bh, 3);
+      } else {
+        ctx.rect(sx - bw / 2, by - bh / 2, bw, bh);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#fff4d7";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, sx, by + 0.5);
+      ctx.restore();
+    }
   },
 
   portalRiftImage() {
