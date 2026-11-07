@@ -577,13 +577,17 @@ const Render = {
   },
 
   walkCycle(actor) {
-    // Advance each pose about once per 13px, giving a full four-frame step
-    // cycle a natural ~52px stride instead of an overly fast run.
+    // Keep quarter-stride timing for the body motion and footfall effects.
     return Math.max(0, Number(actor?.walkDistance || 0)) / 13;
   },
 
   walkFrame(actor) {
-    return Math.floor(this.walkCycle(actor)) % 4;
+    const columns = actor?.animation?.kind === "grid"
+      ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
+      : 4;
+    const alternatePose = Math.min(2, columns - 1);
+    // Two opposite-foot poses span one ~52px stride; 2-column sheets use 0/1.
+    return Math.floor(this.walkCycle(actor) / 2) % 2 === 0 ? 0 : alternatePose;
   },
 
   walkPhase(actor) {
@@ -751,7 +755,7 @@ const Render = {
     const rawFrame = reduceMotion ? 0 : activeAction === "walk"
       ? this.walkFrame(actor)
       : Math.floor(now / animation.speed) % 4;
-    // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
+    // Idle alternates the open-eye pose with a brief blink on the same sprite row.
     const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
     const weaponStyle = this.weaponAttackStyle(actor);
     const attackPose = { sword: 2, saber: 1, staff: 3, heavy: 0, spear: 2, bow: 0, fist: 3 }[weaponStyle];
@@ -763,10 +767,16 @@ const Render = {
     const facingX = actor?.direction === "left" ? -1 : actor?.direction === "right" ? 1 : 0;
     const facingY = actor?.direction === "up" ? -1 : actor?.direction === "down" ? 1 : 0;
     const attackLean = { sword: 0.035, saber: 0.045, staff: -0.025, heavy: 0.075, spear: -0.035, bow: 0.02, fist: 0.06 }[weaponStyle];
+    const idleBlinkPhase = now % 2800;
+    const spriteColumns = actor?.animation?.kind === "grid"
+      ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
+      : 4;
+    const idleBlinkFrame = Math.min(2, spriteColumns - 1);
+    const idleFrame = idleBlinkPhase >= 2480 && idleBlinkPhase < 2640 ? idleBlinkFrame : 0;
     const frameIndex = reduceMotion
       ? (activeAction === "attack" ? (defaultCharacterSheet ? attackPose : 2) : ((activeAction === "cast" || activeAction === "hurt") ? 2 : 0))
       : (activeAction === "idle"
-        ? [0, 1, 2, 1][rawFrame]
+        ? idleFrame
         : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed))));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
@@ -778,12 +788,12 @@ const Render = {
     const idle = activeAction === "idle";
     // Continuous body movement bridges the discrete sprite poses and makes
     // the feet feel planted between frame changes.
-    const idlePhase = now * 0.0032;
+    const idlePhase = now * 0.0022;
     const bob = reduceMotion ? 0 : (walking
       ? 0.25 + (1 - Math.cos(walkPhase * 2)) * 0.88
-      : (idle ? Math.sin(idlePhase) * 0.08 : 0));
+      : (idle ? Math.sin(idlePhase) * 0.28 : 0));
     const sway = reduceMotion ? 0 : idle
-      ? Math.sin(idlePhase * 0.7) * 0.008
+      ? Math.sin(idlePhase * 0.7) * 0.012
       : (walking ? Math.sin(walkPhase) * 0.05 : 0);
     const footfall = walking ? Math.max(0, Math.sin(walkPhase * 2)) : 0;
     const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
