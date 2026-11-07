@@ -17,6 +17,13 @@ foreach ($item in $manifest.items) {
     $backup = Join-Path $backupRoot $item.path
     if (-not (Test-Path -LiteralPath $backup) -or (Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ne $item.beforeHash) { throw "Rollback copy is missing or invalid: $($item.path)" }
   } elseif (Test-Path -LiteralPath $target) { throw "New backend file appeared after review: $($item.path)" }
+  $temporary = Join-Path (Split-Path -Parent $target) ('.' + [IO.Path]::GetFileName($target) + '.codex-tmp')
+  if (Test-Path -LiteralPath $temporary) {
+    if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -ne $item.afterHash) { throw "Unexpected temporary file exists: $temporary" }
+    Remove-Item -LiteralPath $temporary -Force
+  }
+  $replacementBackup = $temporary + '.old'
+  if (Test-Path -LiteralPath $replacementBackup) { throw "Unexpected replacement backup exists: $replacementBackup" }
 }
 try {
   foreach ($item in $manifest.items) {
@@ -25,8 +32,12 @@ try {
     $parent = Split-Path -Parent $target
     if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
     $temporary = Join-Path $parent ('.' + [IO.Path]::GetFileName($target) + '.codex-tmp')
+    $replacementBackup = $temporary + '.old'
     [IO.File]::WriteAllBytes($temporary, [IO.File]::ReadAllBytes($source))
-    if ($item.beforeHash) { [IO.File]::Replace($temporary, $target, $null) }
+    if ($item.beforeHash) {
+      [IO.File]::Replace($temporary, $target, $replacementBackup)
+      Remove-Item -LiteralPath $replacementBackup -Force
+    }
     else { [IO.File]::Move($temporary, $target) }
   }
   foreach ($item in $manifest.items) {
@@ -37,10 +48,34 @@ try {
   $applyError = $_
   foreach ($item in $manifest.items) {
     $target = Join-Path $actualRoot $item.path
-    if ($item.beforeHash) {
+    $temporary = Join-Path (Split-Path -Parent $target) ('.' + [IO.Path]::GetFileName($target) + '.codex-tmp')
+    $replacementBackup = $temporary + '.old'
+    if (-not (Test-Path -LiteralPath $target)) {
+      if (Test-Path -LiteralPath $temporary) {
+        if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -eq $item.afterHash) { Remove-Item -LiteralPath $temporary -Force }
+      }
+      if (Test-Path -LiteralPath $replacementBackup) {
+        if ($item.beforeHash -and (Get-FileHash -LiteralPath $replacementBackup -Algorithm SHA256).Hash -eq $item.beforeHash) { Remove-Item -LiteralPath $replacementBackup -Force }
+      }
+      continue
+    }
+    $currentHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+    if ($currentHash -eq $item.afterHash -and $item.beforeHash) {
       $backup = Join-Path $backupRoot $item.path
       if (Test-Path -LiteralPath $backup) { Copy-Item -LiteralPath $backup -Destination $target -Force }
-    } elseif (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force }
+    } elseif ($currentHash -eq $item.afterHash -and -not $item.beforeHash) {
+      Remove-Item -LiteralPath $target -Force
+    } elseif ($item.beforeHash -and $currentHash -eq $item.beforeHash) {
+      continue
+    } else {
+      Write-Warning "Rollback skipped because the backend file changed during the write: $($item.path)"
+    }
+    if (Test-Path -LiteralPath $temporary) {
+      if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -eq $item.afterHash) { Remove-Item -LiteralPath $temporary -Force }
+    }
+    if (Test-Path -LiteralPath $replacementBackup) {
+      if ($item.beforeHash -and (Get-FileHash -LiteralPath $replacementBackup -Algorithm SHA256).Hash -eq $item.beforeHash) { Remove-Item -LiteralPath $replacementBackup -Force }
+    }
   }
   throw $applyError
 }

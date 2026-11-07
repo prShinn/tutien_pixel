@@ -32,7 +32,7 @@ const Input = {
     S.player._spaceApproachTargetId = null;
     if (S.player.isMoving) {
       S.player.isMoving = false;
-      Net.emitMove(true);
+      Net.emitMove();
     }
   },
 
@@ -174,8 +174,7 @@ const Input = {
         if (S.player) {
           S.player._spaceApproachTargetId = null;
           World.cancelPlayerMove(S.player);
-          const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
-          const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= attackRange;
+          const inRange = Combat.canReachWithBasic(S.player, m);
           S.player.combatMove = !inRange;
           if (inRange) World.cancelPlayerMove(S.player);
           else World.planCombatApproach(S.player, m, Date.now());

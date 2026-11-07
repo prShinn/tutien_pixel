@@ -45,6 +45,8 @@ function mapBESkillToFE(sk) {
     icon: sk.icon || (damageType === "MAGIC" ? "✨" : "⚔️"),
     img: sk.img || "",
     vfxForm: sk.vfxForm || "",
+    requiresLineOfSight: Boolean(sk.requiresLineOfSight),
+    weaponKinds: Array.isArray(sk.weaponKinds) ? sk.weaponKinds : [],
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
     category: isPassive ? "PASSIVE" : "ACTIVE",
@@ -107,18 +109,23 @@ const SkillSystem = {
 
   tryAutoSkill(target) {
     const player = S.player;
-    if (!player || player.dead || !target || target.dead || S.combatPending || S.combatGcd > 0) return false;
+      if (!player || player.dead || !target || target.dead || S.combatPending || S.combatGcd > 0) return false;
     const now = Date.now();
     for (let slot = 0; slot < (player.skills || []).length; slot += 1) {
       const skill = player.skills[slot];
       if (!skill || String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") continue;
+      if (skill.weaponKinds?.length) {
+        const weaponKind = player.equipment?.weapon?.weaponKind || player.equipment?.weapon?.basicAttack?.style;
+        if (!weaponKind || !skill.weaponKinds.includes(weaponKind)) continue;
+      }
       if (Number(skill.cdLeft || 0) > 0 || Number(player.mp || 0) < Number(skill.mpCost || 0)) continue;
 
       const effect = String(skill.effect || "");
       let shouldCast = false;
       if (this.isOffensive(skill)) {
         const range = Math.max(1, Number(skill.range || 5)) * CFG.SKILL_RANGE_SCALE;
-        shouldCast = dist(target.px, target.py, player.px, player.py) <= range;
+        shouldCast = dist(target.px, target.py, player.px, player.py) <= range
+          && (!skill.requiresLineOfSight || Combat.hasClearShot(player, target));
       } else if (effect === "heal") {
         shouldCast = Number(player.hp || 0) < Number(player.maxHp || 1) * 0.55;
       } else if (effect === "restore_mp") {
@@ -253,7 +260,11 @@ const SkillSystem = {
       const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
       const action = known ? (passive ? "TỰ ĐỘNG" : (this._selected.has(skill.code) ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
       const damage = Number(skill.satThuong || 0);
-      const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
+      const weaponNames = { hammer: "Búa", mace: "Chùy", blade: "Đao", spear: "Thương", bow: "Cung", crossbow: "Nỏ" };
+      const weaponRequirement = skill.weaponKinds?.length
+        ? ` · Vũ khí: ${skill.weaponKinds.map((kind) => weaponNames[kind] || kind).join("/")}`
+        : "";
+      const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0}${weaponRequirement} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
       const row = document.createElement("div");
       row.className = "skill-book-row";
       const info = document.createElement("div");
@@ -474,6 +485,7 @@ const SkillSystem = {
   },
 
   useSkill(slotIdx) {
+    if (!socket?.connected || !Net._isOnline) return;
     const p = S.player;
     if (!p?.skills?.[slotIdx] || p.dead) return;
     if (S.combatGcd > 0 || S.combatPending) return;
@@ -484,6 +496,12 @@ const SkillSystem = {
     if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
       UI.log(`${skill.icon || "✦"} ${skill.name} là kỹ năng bị động và luôn có hiệu lực.`, "system");
       return;
+    }
+    if (skill.weaponKinds?.length) {
+      const weaponKind = p.equipment?.weapon?.weaponKind || p.equipment?.weapon?.basicAttack?.style;
+      if (!weaponKind || !skill.weaponKinds.includes(weaponKind)) {
+        return UI.log(`${skill.name} yêu cầu vũ khí: ${skill.weaponKinds.join(", ")}.`, "system");
+      }
     }
     const offensive = this.isOffensive(skill);
     if (skill.cdLeft > 0) {
@@ -503,13 +521,16 @@ const SkillSystem = {
 
     if (socket?.connected && offensive) {
       const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
-      const target = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= maxRange)
+      const canTarget = (monster) => monster && !monster.dead
+        && dist(monster.px, monster.py, p.px, p.py) <= maxRange
+        && (!skill.requiresLineOfSight || Combat.hasClearShot(p, monster));
+      const target = canTarget(S.target)
         ? S.target
-        : S.monsters
-            .filter((monster) => !monster.dead)
-            .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))
-            .find((monster) => dist(monster.px, monster.py, p.px, p.py) <= maxRange);
-      if (!target) return UI.log("Không có mục tiêu trong tầm.", "system");
+        : S.monsters.filter(canTarget)
+            .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))[0];
+      if (!target) return UI.log(skill.requiresLineOfSight
+        ? "Không có mục tiêu trong tầm với đường bắn thông thoáng."
+        : "Không có mục tiêu trong tầm.", "system");
       S.target = target;
       S.combatPending = true;
       Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
@@ -863,7 +884,7 @@ const SkillSystem = {
     document.getElementById('stip-dmg').textContent = `Burst ×${sk.satThuong ?? 1} (~${estDmg})`;
     document.getElementById('stip-mp').textContent    = sk.mpCost + ' MP';
     document.getElementById('stip-cd').textContent    = Math.round((sk.cd || 0) / 60) + 's';
-    document.getElementById('stip-range').textContent = (sk.aoe ? `AoE r${sk.aoeR}` : `${sk.range} tile`);
+    document.getElementById('stip-range').textContent = (sk.aoe ? `AoE r${sk.aoeR}` : `${Number(sk.range) * CFG.SKILL_RANGE_SCALE} ô`);
     document.getElementById('stip-desc').textContent  = sk.desc || '';
 
     // Vị trí tooltip: bên trái cursor, trên skill bar

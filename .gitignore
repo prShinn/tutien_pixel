@@ -1,4 +1,7 @@
 node_modules
+.env
+.env.*
+!.env.example
 *.log
 /data/game-state.json
 /data/game-state.json.*.tmp

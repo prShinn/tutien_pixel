@@ -10,6 +10,56 @@
   --hub-mint: #84c7ad;
 }
 
+#tip {
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  overflow-wrap: anywhere;
+}
+
+.item-detail {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--hub-trim);
+  background: var(--hub-ink);
+  color: var(--hub-paper);
+  font-size: 11px;
+}
+
+.item-detail[hidden] { display: none; }
+.item-description { margin: 0 0 8px; line-height: 1.5; }
+.item-facts { margin: 8px 0; }
+.item-fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hub-raised);
+}
+.item-fact dt { min-width: 0; overflow-wrap: anywhere; color: var(--hub-muted); }
+.item-fact dd { margin: 0; flex-shrink: 0; color: var(--hub-mint); }
+.item-fact-rating dd, .item-fact-quality dd { color: var(--hub-gold); font-weight: bold; }
+.item-fact-lower dd { color: #f4a49a; }
+.item-fact-requirement dd { flex-shrink: 1; text-align: right; color: var(--hub-paper); }
+.item-detail-note { margin: 7px 0; color: var(--hub-muted); font-size: 10px; line-height: 1.5; }
+.item-detail-price { margin: 8px 0 0; color: var(--hub-muted); }
+.si-effects { margin-top: 4px; color: var(--hub-mint); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+
+.skill-art-icon {
+  image-rendering: pixelated;
+  border-radius: 2px;
+}
+
+#kpah-menu-modal .skill-book-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.tip-pixel-icon.skill-art-icon {
+  width: 28px;
+  height: 28px;
+}
+
 #screen-game {
   min-height: 100svh;
   min-height: 100dvh;
@@ -696,6 +746,135 @@
 
 .kpah-col-right {
   flex: 1 1 58%;
+}
+
+/* Character menu has one scroll owner, including the expanded skill book. */
+#kpah-menu-modal .kpah-modal-box {
+  min-height: 0;
+  overflow: hidden;
+}
+
+#kpah-menu-modal .kpah-modal-header {
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+#kpah-menu-modal .kpah-modal-body {
+  display: grid;
+  grid-template-columns: minmax(240px, .85fr) minmax(0, 1.25fr);
+  align-content: start;
+  align-items: start;
+  gap: 20px;
+  min-height: 0;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--hub-trim) var(--hub-panel);
+}
+
+#kpah-menu-modal .kpah-modal-body:focus-visible {
+  outline: 2px solid var(--hub-gold);
+  outline-offset: -3px;
+}
+
+#kpah-menu-modal .kpah-col-left,
+#kpah-menu-modal .kpah-col-right {
+  min-width: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0 !important;
+}
+
+#kpah-menu-modal #inv-grid {
+  flex: none;
+  height: auto;
+  max-height: none;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  overflow: visible;
+}
+
+#kpah-menu-modal .character-skills {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 2px solid var(--hub-trim);
+}
+
+#kpah-menu-modal #skill-book-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  max-height: none;
+  overflow: visible;
+  font-size: 11px;
+}
+
+#kpah-menu-modal .skill-book-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--hub-trim);
+  background: var(--hub-raised);
+}
+
+#kpah-menu-modal .skill-book-info strong {
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+#kpah-menu-modal .skill-book-info em {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  color: var(--hub-muted);
+  line-height: 1.5;
+}
+
+#kpah-menu-modal .skill-book-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#kpah-menu-modal .skill-book-actions button,
+#kpah-menu-modal .skill-save-btn {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+#kpah-menu-modal .skill-save-btn {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
+@media (max-width: 760px) {
+  #kpah-menu-modal .kpah-modal-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 12px;
+  }
+
+  #kpah-menu-modal #skill-book-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #kpah-menu-modal .skill-book-actions button,
+  #kpah-menu-modal .skill-save-btn {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  #kpah-menu-modal #inv-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .continent-modal {
@@ -1413,4 +1592,16 @@
   .shop-qty {
     margin-left: auto;
   }
+}
+.pixel-icon.icon-unknown {
+  background-image: none;
+  border: 1px dashed currentColor;
+  border-radius: 3px;
+  opacity: .65;
+}
+.pixel-icon.icon-unknown::after {
+  content: "?";
+  display: block;
+  text-align: center;
+  font: bold 12px/16px monospace;
 }

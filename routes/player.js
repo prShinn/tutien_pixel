@@ -132,11 +132,11 @@ function createPlayerRouter({
     const index = Number.isInteger(req.body?.index)
       ? req.body.index
       : inventory.findIndex((item) => item && (
-          String(item.id) === targetCode ||
-          String(item.itemCode) === targetCode ||
-          String(item.maDo) === targetCode ||
-          String(item.code) === targetCode
-        ));
+        String(item.id) === targetCode ||
+        String(item.itemCode) === targetCode ||
+        String(item.maDo) === targetCode ||
+        String(item.code) === targetCode
+      ));
     const item = inventory[index];
     if (!item) return res.status(404).json({ error: "Item not found" });
     const catalogItem = items.find((entry) => String(entry.id) === String(item.id) || String(entry.code) === String(item.id) || String(entry.id) === String(item.itemCode));
@@ -392,11 +392,11 @@ function createPlayerRouter({
     const index = Number.isInteger(req.body?.index)
       ? req.body.index
       : inventory.findIndex((item) => item && (
-          String(item.id) === targetCode ||
-          String(item.itemCode) === targetCode ||
-          String(item.maDo) === targetCode ||
-          String(item.code) === targetCode
-        ));
+        String(item.id) === targetCode ||
+        String(item.itemCode) === targetCode ||
+        String(item.maDo) === targetCode ||
+        String(item.code) === targetCode
+      ));
     const item = inventory[index];
     if (!item || (item.type || item.loai) !== "EQUIPMENT") return res.status(400).json({ error: "Vật phẩm không thể trang bị" });
     const catalogItem = items.find((entry) => String(entry.id) === String(item.id) || String(entry.code) === String(item.id) || String(entry.id) === String(item.itemCode));

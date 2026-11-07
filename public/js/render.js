@@ -28,16 +28,17 @@ const AUTOTILE_SIZE = 8;
 const AUTOTILE_VARIANTS = 4;
 const AUTOTILE_ATLAS_URL = "/assets/tilesets/temperate-47.svg";
 const ITEM_ATLAS_URL = "./assets/items/item-icons-v2.png";
+const NPC_ROLE_ATLAS_URL = "./assets/characters/npc-village-roles-v1.png";
 const NPC_SPRITE_BY_ID = Object.freeze({
-  npc_huong_dan: "./assets/characters/npc-elder-guide-v2.png",
-  npc_shop: "./assets/characters/npc-town-merchant-v2.png",
-  npc_truong_thon: "./assets/characters/npc-elder-guide-v2.png",
-  npc_tho_ren: "./assets/characters/cultivator-male.png",
-  npc_duoc_su: "./assets/characters/cultivator-female.png",
-  npc_thuong_nhan: "./assets/characters/npc-town-merchant-v2.png",
-  npc_giao_dau: "./assets/characters/cultivator-male.png",
-  npc_tien_tram: "./assets/characters/cultivator-male.png",
-  npc_an_cu: "./assets/characters/npc-elder-guide-v2.png",
+  npc_huong_dan: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
+  npc_shop: { src: "./assets/characters/npc-town-merchant-v2.png", row: 0 },
+  npc_truong_thon: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
+  npc_tho_ren: { src: NPC_ROLE_ATLAS_URL, row: 0 },
+  npc_duoc_su: { src: NPC_ROLE_ATLAS_URL, row: 1 },
+  npc_thuong_nhan: { src: "./assets/characters/npc-town-merchant-v2.png", row: 0 },
+  npc_giao_dau: { src: NPC_ROLE_ATLAS_URL, row: 2 },
+  npc_tien_tram: { src: NPC_ROLE_ATLAS_URL, row: 3 },
+  npc_an_cu: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
 });
 const AUTOTILE_DIRECTIONS = [
   { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
@@ -1109,26 +1110,44 @@ const Render = {
     ctx.beginPath();
     ctx.ellipse(Math.round(sx), Math.round(sy + 7), 8, 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    const identity = `${npc.role || ""} ${npc.type || ""} ${npc.name || ""}`.toLowerCase();
-    const female = String(npc.gender || "").toUpperCase() === "FEMALE" || /nữ|tiên nữ|cô nương|dược sư/.test(identity);
-    const atlas = typeof npc.img === "string" && npc.img.trim().length > 0
-      ? npc.img
-      : NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()]
-        || `./assets/characters/cultivator-${female ? "female" : "male"}.png`;
+    const sprite = NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()] || NPC_SPRITE_BY_ID.npc_huong_dan;
+    const customImage = typeof npc.img === "string"
+      && /^(?:\.\/|\/)?assets\/(?:npcs\/|characters\/npc-)[a-zA-Z0-9_/-]+\.png$/.test(npc.img)
+      ? npc.img : null;
+    const atlas = customImage || sprite.src;
     const frame = Math.floor(Date.now() / 620) % 4;
-    const drawn = this.drawSprite(atlas, sx, sy - 5, 20, 28, { col: frame, row: 0, cols: 4, rows: 4 });
+    const drawn = this.drawSprite(atlas, sx, sy - 5, 20, 28, { col: frame, row: customImage ? 0 : sprite.row, cols: 4, rows: 4 });
     if (!drawn) {
       ctx.fillStyle = npc.color || "#88aacc";
       ctx.fillRect(Math.round(sx - 7), Math.round(sy - 13), 14, 20);
     }
     const label = String(npc.name || "NPC");
-    ctx.font = "bold 7px monospace";
+    const parts = label.match(/^(Trưởng Thôn|Thợ Rèn|Dược Sư|Thương Nhân|Giáo Đầu|Tiên Trạm)\s+(.+)$/i);
+    const lines = parts ? [parts[1], parts[2]] : [label];
+    const scale = Math.max(1, Number(CFG.DS) || 1);
+    const fontSize = (cW < 600 ? 10 : 11) / scale;
+    const lineHeight = 14 / scale;
+    const padding = 3 / scale;
+    const maxWidth = Math.min(120, cW * .24) / scale;
+    ctx.save();
+    ctx.font = `600 ${fontSize}px "Segoe UI", sans-serif`;
     ctx.textAlign = "center";
-    const labelWidth = Math.ceil(ctx.measureText(label).width) + 4;
-    ctx.fillStyle = "rgba(7,10,14,.78)";
-    ctx.fillRect(Math.round(sx - labelWidth / 2), Math.round(sy - 33), labelWidth, 9);
-    ctx.fillStyle = "#fff";
-    ctx.fillText(label, sx, sy - 26);
+    ctx.textBaseline = "top";
+    const labels = lines.map((line) => {
+      let text = line;
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      while (text.length && ctx.measureText(text + "…").width > maxWidth) text = text.slice(0, -1);
+      return text + "…";
+    });
+    const labelWidth = Math.max(...labels.map((text) => ctx.measureText(text).width)) + padding * 2;
+    const top = sy - 21 - labels.length * lineHeight;
+    ctx.fillStyle = "rgba(7,10,14,.65)";
+    ctx.fillRect(sx - labelWidth / 2, top - padding, labelWidth, labels.length * lineHeight + padding);
+    labels.forEach((text, index) => {
+      ctx.fillStyle = parts && index === 0 ? "#dfc68b" : "#f3eddd";
+      ctx.fillText(text, sx, top + index * lineHeight);
+    });
+    ctx.restore();
   },
 
   portal(portal, cx, cy) {

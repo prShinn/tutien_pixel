@@ -235,7 +235,7 @@ function createWorldRuntime({ world, catalog = null }) {
         playerId: player.id,
         socketId,
         mapCode,
-        movementBudget: 2.2,
+        movementBudget: 8.0,
         lastMovementAt: Date.now(),
         lastPersistAt: 0,
         persistRetryAt: 0,

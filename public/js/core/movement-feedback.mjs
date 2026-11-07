@@ -25,8 +25,10 @@ export const MovementFeedback = {
     player.py = player.visualCorrection ? fromY : toY;
     player.lastEmitX = nextX;
     player.lastEmitY = nextY;
-    player.targetMovePos = null;
-    player.movePath = [];
+    if (Math.hypot(offsetX, offsetY) > tileSize * 1.5) {
+      player.targetMovePos = null;
+      player.movePath = [];
+    }
     return true;
   },
 

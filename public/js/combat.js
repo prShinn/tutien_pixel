@@ -13,6 +13,30 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 
 const Combat = {
+  hasClearShot(player, target) {
+    const dx = (target.px - CFG.TS / 2) / CFG.TS - player.x;
+    const dy = (target.py - CFG.TS / 2) / CFG.TS - player.y;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return false;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.25));
+    for (let step = 1; step <= steps; step += 1) {
+      const ratio = step / steps;
+      if (isSolid(Math.floor(player.x + dx * ratio), Math.floor(player.y + dy * ratio))) return false;
+    }
+    return true;
+  },
+
+  canReachWithBasic(player, target, range = this.basicRange(player)) {
+    if (dist(player.px, player.py, target.px, target.py) > range) return false;
+    const style = player.equipment?.weapon?.basicAttack?.style;
+    return !["staff", "spear", "bow", "crossbow"].includes(style) || this.hasClearShot(player, target);
+  },
+
+  basicRange(player = S.player) {
+    const range = player?.equipment?.weapon?.basicAttack?.range;
+    return Number.isFinite(range) && range > 0
+      ? range
+      : CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+  },
   // ── Hệ thống Vai Trò (Role) dựa trên thuộc tính ──
   getRole() {
     const s = S.player?.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
@@ -114,8 +138,9 @@ const Combat = {
   },
 
   attack(m) {
+    if (!socket?.connected || !Net._isOnline) return;
     if (!S.player || S.player.dead || S.atkCd > 0 || S.combatGcd > 0 || S.combatPending || m.dead) return;
-    const inRange = dist(m.px, m.py, S.player.px, S.player.py) <= CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+    const inRange = this.canReachWithBasic(S.player, m);
     // Online: không dùng vị trí nội suy client để chặn request. Server kiểm tra
     // khoảng cách authoritative; nếu không hợp lệ sẽ trả action_error.
     if (!socket?.connected && !inRange) {
@@ -175,7 +200,7 @@ const Combat = {
   attackTarget() {
     const target = S.target;
     if (!target || target.dead) return UI.log("Chưa chọn mục tiêu.", "system");
-    const range = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
+    const range = this.basicRange();
     if (dist(target.px, target.py, S.player.px, S.player.py) > range) {
       World.cancelPlayerMove(S.player);
       S.player.combatMove = false;
@@ -187,7 +212,8 @@ const Combat = {
   },
 
   dropLoot(m) {
-    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+    if (API.REAL_BACKEND_ONLY) return;
+    if ((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
       const tileX = Math.floor(Number(m.px) / CFG.TS);
       const tileY = Math.floor(Number(m.py) / CFG.TS);
       const drops = [];

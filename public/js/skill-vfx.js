@@ -47,8 +47,12 @@ const SkillVFX = {
     }
   },
 
-  // All 66 current catalog entries have an authored visual form here.
+  // Weapon skills keep their visual forms alongside the existing catalog mappings.
   forms: {
+    LINH_QUANG_DAN: "fireball", XUYEN_PHONG_TIEN: "arrow",
+    BUA_SON_TACH: "mountain-slam", CHUY_THIET_COT: "shatter",
+    DAO_LIET_NGUYET: "crescent", THUONG_BACH_BO: "piercing-thrust",
+    CUNG_LIEN_CHAU: "arrow-volley", NO_PHA_GIAP: "crossbow-bolt",
     KIM_KICH: "slash", THIET_HO: "shield", PHA_GIAP: "shatter", KIM_LUAN: "orbit",
     VAN_KIM_TRAM: "blade-rain", KIM_SAT_THANH: "crescent",
     MOC_DUONG: "heal", RE_MOC: "root", SINH_TRUONG: "growth", MOC_LAO: "branch",
@@ -138,6 +142,9 @@ const SkillVFX = {
     quake: "Địa chấn",
     "earth-rune": "Địa mạch",
     "mountain-slam": "Sơn hà giáng",
+    "piercing-thrust": "Bách bộ xuyên vân",
+    "arrow-volley": "Liên châu",
+    "crossbow-bolt": "Phá giáp nỏ",
     "stone-cage": "Thạch lao",
     "light-blade": "Quang đao",
     "star-heal": "Tinh lộc",
@@ -340,7 +347,11 @@ const SkillVFX = {
     const profile = {
       code: "BASIC_ATTACK",
       root: this.palette[root] ? root : "COMMON",
-      form: "slash",
+      form: ({
+        sword: "sword-swing", blade: "slash", mace: "mace-crush",
+        hammer: "mountain-slam", spear: "piercing-thrust", staff: "projectile",
+        bow: "arrow", crossbow: "crossbow-bolt",
+      })[outcome.attackStyle] || "slash",
       tier: 1,
       category: "ACTIVE",
       aoeR: 0,
@@ -427,7 +438,7 @@ const SkillVFX = {
       // Area damage can hit multiple enemies but the cast has one visual center.
       const visualTargets = mode === "impact" && profile.aoe ? targets.slice(0, 1) : targets;
       for (const target of visualTargets) {
-        if (mode === "basic-attack") this.drawMelee(origin, target, palette, progress, target, profile.tier);
+        if (mode === "basic-attack" && profile.form === "slash") this.drawMelee(origin, target, palette, progress, target, profile.tier);
         else if (mode === "monster-attack") this.drawMonsterAttack(origin, target, profile, palette, progress, target);
         else this.drawImpact(origin, target, profile, palette, progress, target);
       }
@@ -506,9 +517,21 @@ const SkillVFX = {
       : { x: target.x + missOffset, y: target.y - missOffset * 0.5 };
     if (form === "shatter") {
       this.drawShatter(point, palette, progress, profile.tier);
+    } else if (form === "sword-swing") {
+      this.drawSwordSwing(origin, point, palette, progress);
+    } else if (form === "piercing-thrust") {
+      this.drawSpearThrust(origin, point, palette, progress);
+    } else if (form === "arrow-volley") {
+      for (const offset of [-7, 0, 7]) {
+        this.drawProjectile(origin, { x: point.x, y: point.y + offset }, palette, progress, "arrow", profile.tier);
+      }
+    } else if (form === "crossbow-bolt") {
+      this.drawProjectile(origin, point, palette, progress, "bolt", profile.tier);
+    } else if (form === "mace-crush") {
+      this.drawShatter(point, palette, progress, profile.tier);
     } else if (["slash", "crescent", "light-blade", "wind-blade", "stone-strike"].includes(form)) {
       this.drawSlash(origin, point, palette, progress, profile.tier, form);
-    } else if (["projectile", "fireball", "ice-arrow", "wood-spirit", "shadow-needles", "candle-flame"].includes(form)) {
+    } else if (["projectile", "fireball", "arrow", "bolt", "ice-arrow", "wood-spirit", "shadow-needles", "candle-flame"].includes(form)) {
       this.drawProjectile(origin, point, palette, progress, form, profile.tier);
     } else if (form === "forest") {
       this.drawForest(point, palette, progress, profile.tier);
@@ -779,6 +802,40 @@ const SkillVFX = {
     }
   },
 
+  drawSwordSwing(origin, point, palette, progress) {
+    const aim = Math.atan2(point.y - origin.y, point.x - origin.x);
+    const angle = aim + (progress - 0.5) * 2.5;
+    const x = origin.x + Math.cos(aim) * 4;
+    const y = origin.y - 7 + Math.sin(aim) * 3;
+    const alpha = Math.min(1, (1 - progress) * 3);
+    for (let trail = 1; trail <= 5; trail += 1) {
+      const previous = angle - trail * 0.14;
+      this.colorStamp(x + Math.cos(previous) * 17, y + Math.sin(previous) * 17, 3, palette.main, alpha * (1 - trail / 6));
+    }
+    for (let reach = 3; reach <= 17; reach += 2) {
+      this.colorStamp(x + Math.cos(angle) * reach, y + Math.sin(angle) * reach, 3, reach < 7 ? palette.accent : palette.light, alpha);
+    }
+  },
+
+  drawSpearThrust(origin, point, palette, progress) {
+    if (progress < 0.12 || progress > 0.88) return;
+    const dx = point.x - origin.x;
+    const dy = point.y - origin.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const travel = Math.min(1, progress * 1.4);
+    const tipX = origin.x + dx * travel;
+    const tipY = origin.y + dy * travel;
+    const trailX = -dy / length;
+    const trailY = dx / length;
+    for (let step = 0; step < 6; step += 1) {
+      const x = tipX - dx / length * step * 3;
+      const y = tipY - dy / length * step * 3;
+      this.colorStamp(x, y, step < 2 ? 4 : 2, step % 2 ? palette.main : palette.light, 0.9);
+    }
+    this.colorStamp(tipX + trailX * 3, tipY + trailY * 3, 2, palette.accent, 0.9);
+    this.colorStamp(tipX - trailX * 3, tipY - trailY * 3, 2, palette.accent, 0.9);
+  },
+
   drawSlash(origin, point, palette, progress, tier, form = "slash") {
     if (progress < 0.18 || progress > 0.9) return;
     if (form === "crescent") {
@@ -850,6 +907,15 @@ const SkillVFX = {
     const dx = point.x - origin.x, dy = point.y - origin.y;
     const length = Math.hypot(dx, dy) || 1;
     const trailX = -dx / length, trailY = -dy / length;
+    if (form === "arrow" || form === "bolt") {
+      for (let i = 1; i <= 6; i += 1) {
+        const color = form === "bolt" ? (i > 3 ? palette.accent : palette.light) : (i > 4 ? palette.accent : palette.light);
+        this.colorStamp(headX + trailX * i * (form === "bolt" ? 2.5 : 2), headY + trailY * i * 2, form === "bolt" ? 3 : 2, color, 1);
+      }
+      this.colorStamp(headX, headY, form === "bolt" ? 5 : 4, palette.light, 1);
+      if (progress > 0.68) this.drawBurst(point, palette, (progress - 0.68) / 0.32, tier, 0);
+      return;
+    }
     const count = form === "shadow-needles" ? 5 : 4;
     for (let i = count; i >= 0; i -= 1) {
       const size = Math.max(2, 5 - i * 0.7);

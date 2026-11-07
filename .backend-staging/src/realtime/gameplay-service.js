@@ -297,13 +297,16 @@ function createGameplayService({ io, auth, players, store, catalog, world, quest
     const speedBonus = Number(session.stats?.agi || 0) * 0.08;
     const speedPercent = speedBuff && speedBuff.expiresAt > now ? Math.max(0, Number(speedBuff.value || 0)) : 0;
     const movementSpeed = (BASE_MOVEMENT_SPEED + speedBonus) * (1 + speedPercent / 100);
-    session.movementBudget = Math.min(movementSpeed * 0.1, session.movementBudget + elapsed * movementSpeed);
+    const maxBudget = movementSpeed * 0.45;
+    session.movementBudget = Math.min(maxBudget, (session.movementBudget || 0) + elapsed * movementSpeed);
     session.lastMovementAt = now;
     const dx = x - session.x;
     const dy = y - session.y;
     const requestedDistance = Math.hypot(dx, dy);
     const budget = session.movementBudget;
-    const distance = Math.min(requestedDistance, budget);
+    const burstTolerance = 1.2;
+    const clamped = requestedDistance > budget + burstTolerance;
+    const distance = clamped ? Math.min(requestedDistance, budget) : requestedDistance;
     const ratio = requestedDistance > 0 ? distance / requestedDistance : 0;
     const targetX = session.x + dx * ratio;
     const targetY = session.y + dy * ratio;
@@ -325,7 +328,6 @@ function createGameplayService({ io, auth, players, store, catalog, world, quest
     session.y = acceptedY;
     runtime.updatePlayer(session.mapCode, socket.id, { x: acceptedX, y: acceptedY });
 
-    const clamped = requestedDistance > budget + 0.01;
     if (blocked || clamped) socket.emit('movement_corrected', {
       x: acceptedX,
       y: acceptedY,

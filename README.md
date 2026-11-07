@@ -1,92 +1,40 @@
 # Tu Tiên · Vạn Cổ Đế Tôn
 
-## Trạng thái
+## Kết nối bắt buộc
 
-Bản hiện tại phù hợp **demo nội bộ trên một server**: đăng ký/đăng nhập, tạo nhân vật, chơi thời gian thực, chiến đấu, loot, quest, inventory và Admin cơ bản. Đây chưa phải bản beta công khai; các giới hạn còn lại được ghi ở cuối README và trong `docs/PLAN_MOCK_FIRST_SERVER_MIGRATION.md`.
+Game và Admin dùng REST/Socket.IO của BE tại D:\Work\game\tu-tien-server\tutien_pixel_be. Account, player, inventory, tiền và quest được BE ghi vào MySQL thật.
 
-## Chạy local
+FE .env chứa cấu hình local, được Git ignore.
 
-Chạy project BE MySQL tại `D:\Work\game\tu-tien-server\tutien_pixel_be` theo README của BE trước. BE mặc định dùng cổng 3800 và cần cho phép origin của FE qua `CORS_ORIGIN`. Sau đó chạy project FE:
+    NODE_ENV=development
+    PORT=3000
+    DATA_MODE=real
+    BACKEND_URL=http://localhost:3800
 
-```powershell
-npm install
-Copy-Item .env.example .env
-npm start
-```
+DATA_MODE chỉ chấp nhận real. Thay địa chỉ BE bằng BACKEND_URL trong .env, sau đó khởi động lại FE. Runtime config được phát tại /runtime-config.js cho cả game và Admin.
 
-Mở:
+## Khởi động
 
-- Game: `http://localhost:3000/`
-- Admin: `http://localhost:3000/admin`
-- Map editor: `http://localhost:3000/admin/map-editor`
+1. Cấu hình kết nối MySQL trong .env của BE. Chạy schema/migration phù hợp với database đang sử dụng theo README của BE.
+2. Cài dependency và chạy npm start trong project BE bằng Node 24.
+3. Cài dependency và chạy npm start trong project FE.
+4. Mở game tại http://localhost:3000 và Admin tại http://localhost:3000/admin.
 
-Game và Admin mở từ localhost mặc định gọi REST và Socket.IO của BE cổng 3800. Khi BE dùng cổng khác, truyền `?apiBase=http://localhost:<cổng>`. Dùng `?mockBackend=1` để mở bản mock, hoặc chỉ định `?apiBase=http://localhost:3000` nếu cần chạy API JSON cũ một cách chủ động.
+BE phải cho phép origin FE qua CORS_ORIGIN. Khi dùng địa chỉ từ máy khác, BACKEND_URL phải là địa chỉ BE mà trình duyệt đó truy cập được.
 
-Đổi cổng bằng `PORT`. Máy dev dùng cấu hình mẫu trong `.env.example`; production bắt buộc đặt `JWT_SECRET` và `ADMIN_MAP_KEY` riêng.
+## Quy tắc runtime
 
-## Kiểm tra trước khi demo
+- Mọi /api request đến FE được chuyển tiếp tới BE. Socket.IO client kết nối tới cùng BACKEND_URL.
+- Game chỉ khởi động sau khi BE xác nhận đúng service và MySQL ready.
+- Mất kết nối realtime sẽ dừng cập nhật gameplay cho tới khi kết nối lại.
+- Máy chủ FE chỉ phục vụ tài nguyên và chuyển tiếp request. API giả lập và dữ liệu mock trên trình duyệt bị khóa.
+- URL query và sessionStorage không thay đổi địa chỉ API. Dùng .env để cấu hình.
+- Lỗi BE trả lỗi kết nối hoặc lỗi HTTP thực tế.
 
-```powershell
-npm test
-npm run smoke:persistence
-npm run smoke:demo
-```
+## Xác minh và phát triển
 
-- `npm test`: unit/contract test.
-- `npm run smoke:persistence`: tạo account và nhân vật trong file tạm, mua và hấp thụ vật phẩm, di chuyển qua Socket.IO, restart server rồi kiểm tra dữ liệu đã khôi phục.
-- `npm run smoke:demo`: chạy 10 smoke test tích hợp trên cổng riêng; không chiếm cổng 3000/3001.
+Đọc AGENTS.md trước khi thao tác. Các kịch bản API, database, gameplay và failover phải dùng BE/MySQL/Redis thật. Những bài kiểm tra và bản sao staging/validation cũ có dữ liệu giả không được dùng làm bằng chứng vận hành cho cấu hình hiện tại.
 
-## Dữ liệu và lưu trữ của API JSON cũ
+npm test và npm run smoke kiểm tra BE HTTP, MySQL readiness và bản đồ published qua request thật. Nghiệm thu mutation/gameplay cần chạy kịch bản riêng trên hệ thống thật.
 
-Account thường và player aggregate được lưu vào `data/game-state.json` bằng snapshot JSON atomic. File gồm password hash bcrypt, nhân vật, inventory, currency, cultivation, skill, quest state và vị trí gần nhất. File này được Git ignore. Có thể đổi đường dẫn bằng `GAME_STATE_FILE`.
-
-Account demo là tạm thời. Runtime map, quái, vật phẩm đang rơi và phiên Socket.IO reset khi server restart. Bản lưu JSON hiện hỗ trợ **một tiến trình trên một máy**; chưa có transaction database, backup/restore tự động hay đồng bộ nhiều server. Nếu file state lỗi hoặc sai schema, server dừng để tránh khởi động với dữ liệu rỗng.
-
-Bản đồ Admin dùng `data/admin-worlds.json`; cấu hình VFX dùng `data/skill-vfx.json`. Items/Skills Admin sửa trong RAM của tiến trình; Quest/NPC trong Admin hiện chưa nối với dữ liệu runtime.
-
-## API chính
-
-| Method | Path | Mục đích |
-|---|---|---|
-| POST | `/api/auth/register` | Tạo account |
-| POST | `/api/auth/login` | Đăng nhập |
-| POST | `/api/auth/demo` | Phiên demo, chỉ ngoài production |
-| GET | `/api/auth/me` | Xác minh token |
-| GET | `/api/worlds`, `/api/worlds/default` | Danh sách và bản đồ mặc định |
-| GET | `/api/linh-can`, `/api/canh-gioi`, `/api/items`, `/api/skills` | Catalog game |
-| GET/POST | `/api/player/me`, `/api/player` | Đọc/tạo nhân vật đã xác thực |
-| POST | `/api/player/shop/buy`, `/api/player/shop/sell` | Mua/bán vật phẩm |
-| POST | `/api/player/inventory/use`, `/api/player/cultivation/absorb` | Dùng vật phẩm, hấp thụ tu vi |
-| GET/POST | `/api/quests`, `/api/quests/:id/accept`, `/api/quests/:id/claim` | Quest của nhân vật |
-| GET/POST/PUT/DELETE | `/api/admin/content/:collection` | Admin CRUD cho catalog mock |
-| GET | `/api/health` | Tình trạng tiến trình |
-
-Các route Admin yêu cầu header `x-admin-key`. Xem `server.js` để biết toàn bộ route và điều kiện xác thực.
-
-## Realtime
-
-Client gửi `game_command` với envelope `{ requestId, type, payload }`. Các command canonical gồm `world.join`, `movement.intent`, `map.change`, `combat.attack`, `combat.skill`, `loot.pickup`, `chat.send` và `world.resync`. Server xác thực intent, cập nhật state rồi gửi snapshot/kết quả như `world_init`, `player_move`, `combat_result`, `ground_loot_spawn` và `quest_state_update`.
-
-Các event legacy vẫn được giữ để tương thích smoke test cũ; tính toán gameplay authoritative nằm ở server.
-
-## Cấu trúc chính
-
-- `server.js`: Express API, auth, player state và khởi chạy Socket.IO.
-- `game/game-state-store.js`: đọc/ghi state demo.
-- `game/quest-service.js`, `game/admin-content-service.js`: logic quest và kiểm tra catalog Admin.
-- `socket/game.js`: command realtime, movement, combat, loot và đồng bộ.
-- `public/`: game client, pixel UI và Admin.
-- `data/mock-data.js`, `data/world-structure.js`: catalog và cấu trúc thế giới mẫu.
-- `tests/`, `scripts/`: unit/contract tests, validators và smoke tests.
-
-## Còn cần trước beta công khai
-
-1. Nghiệm thu transaction và retry của inventory, phần thưởng, tiền tệ và tu vi trên BE MySQL.
-2. Nối CRUD Quest/NPC Admin với runtime, đồng thời lưu catalog Items/Skills bền vững.
-3. Bổ sung role-based Admin permission, audit log, backup/restore và vận hành nhiều instance.
-4. Nghiệm thu tuyến map đầu game, hiệu ứng chiến đấu, loot và tiến độ phá cảnh trên BE MySQL.
-5. Chạy đầy đủ kiểm thử browser trên các viewport mục tiêu và kiểm thử deploy/khôi phục dữ liệu.
-6. Mở rộng giao diện điều khiển cảm ứng (Virtual Joystick) và đóng gói xuất bản ứng dụng di động độc lập (file APK / Android) qua Capacitor.
-
-Kế hoạch BE chi tiết: `docs/PLAN_MOCK_FIRST_SERVER_MIGRATION.md`.
-Quy trình phát triển & đóng gói APK: `docs/WORKFLOW.md` và `docs/ROADMAP.md`.
+Credential chỉ nằm trong .env của BE và không được ghi vào log hay Git.

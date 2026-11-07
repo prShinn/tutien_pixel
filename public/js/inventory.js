@@ -44,6 +44,7 @@ const Inventory = {
   },
 
   async use(idx) {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const entry = S.inventory[idx];
     const item = authToken ? GameData.itemWithCurrentDetails(entry) : entry;
     if (!item) return;
@@ -65,6 +66,7 @@ const Inventory = {
       UI.buildInv();
       UI.update();
       if (typeof Sound !== "undefined") Sound.play("click");
+      void Net.command("world.resync");
       return;
     }
     if (authToken) {
@@ -81,6 +83,7 @@ const Inventory = {
       UI.buildInv();
       UI.update();
       if (typeof Sound !== "undefined") Sound.play("click");
+      void Net.command("world.resync");
       return;
     }
     if (item.type === "LINDAN") {
@@ -122,5 +125,6 @@ const Inventory = {
     UI.log(`Đã tháo ${item.name || "trang bị"} vào túi đồ.`, "loot");
     if (typeof Sound !== "undefined") Sound.play("click");
     UI.buildInv(); UI.renderEquipment(true); UI.update();
+    void Net.command("world.resync");
   },
 };
