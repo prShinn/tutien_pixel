@@ -208,6 +208,20 @@ test("renderer uses stable global Y order for drawable entities", () => {
   assert.deepEqual(Array.from(sorted, (entry) => entry.id), ["loot", "npc", "monster", "near-player"]);
 });
 
+test("renderer reduces pixel scale in a narrow viewport and restores it on desktop", () => {
+  const renderSource = fs.readFileSync(path.join(root, "public", "js", "render.js"), "utf8");
+  const context = vm.createContext({ CFG: { DS: 3 }, cW: 436, cH: 365 });
+  vm.runInContext(`${renderSource}\nglobalThis.__Render = Render;`, context);
+
+  assert.equal(context.__Render.displayScale(), 2, "small gameplay canvas should zoom out one pixel scale step");
+  context.cW = 1280;
+  context.cH = 720;
+  assert.equal(context.__Render.displayScale(), 3, "large gameplay canvas should keep the designed 3x pixel scale");
+  context.cW = 340;
+  context.cH = 200;
+  assert.equal(context.__Render.displayScale(), 1, "very small canvas should use the smallest crisp integer scale");
+});
+
 test("offline world uses the edited monster catalog and honors exact configured pack counts", () => {
   const worldSource = fs.readFileSync(path.join(root, "public", "js", "world.js"), "utf8");
   const overlay = { textContent: "", classList: { add() {}, remove() {} } };

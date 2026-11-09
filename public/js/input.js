@@ -151,8 +151,11 @@ const Input = {
       return;
     if (!canvas) return;
     const r = canvas.getBoundingClientRect();
-    const wx = (e.clientX - r.left) / CFG.DS + S.cam.x;
-    const wy = (e.clientY - r.top) / CFG.DS + S.cam.y;
+    const displayScale = typeof Render !== "undefined" && typeof Render.displayScale === "function"
+      ? Render.displayScale()
+      : CFG.DS;
+    const wx = (e.clientX - r.left) / displayScale + S.cam.x;
+    const wy = (e.clientY - r.top) / displayScale + S.cam.y;
     for (const drop of S.groundItems || []) {
       const dx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2;
       const dy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2;

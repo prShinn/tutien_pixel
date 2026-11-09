@@ -71,6 +71,15 @@ const Render = {
   _autotileAtlasLoading: false,
   _autotileAtlasFailed: false,
 
+  displayScale() {
+    const base = Math.max(1, Math.floor(Number(CFG.DS) || 3));
+    const width = Math.max(0, Number(cW) || 0);
+    const height = Math.max(0, Number(cH) || 0);
+    if (width >= 640 && height >= 360) return base;
+    if (base >= 2 && width >= 360 && height >= 240) return Math.min(base, 2);
+    return 1;
+  },
+
   interpolatePlayerPosition(player, alpha = 1) {
     const currentX = Number(player?.px) || 0;
     const currentY = Number(player?.py) || 0;
@@ -240,7 +249,7 @@ const Render = {
     const p = S.player;
     if (!p) return;
     
-    const ts = CFG.TS, ds = CFG.DS;
+    const ts = CFG.TS, ds = this.displayScale();
     const lcW = cW / ds, lcH = cH / ds; // Logical Canvas Size
     const localPosition = this.interpolatePlayerPosition(p, alpha);
     
@@ -904,7 +913,8 @@ const Render = {
 
   otherPlayer(op, cx, cy) {
     const sx = op.px - cx, sy = op.py - cy;
-    if (sx < -40 || sx > (cW/CFG.DS) + 40 || sy < -40 || sy > (cH/CFG.DS) + 40) return;
+    const ds = this.displayScale();
+    if (sx < -40 || sx > (cW / ds) + 40 || sy < -40 || sy > (cH / ds) + 40) return;
     this.player(sx, sy, op.color || "#888", op);
     ctx.fillStyle = "#fff";
     ctx.font = "7px monospace";
@@ -914,7 +924,8 @@ const Render = {
 
   monster(m, cx, cy) {
     const sx = m.px - cx, sy = m.py - cy;
-    if (sx < -45 || sx > (cW/CFG.DS) + 45 || sy < -45 || sy > (cH/CFG.DS) + 45) return;
+    const ds = this.displayScale();
+    if (sx < -45 || sx > (cW / ds) + 45 || sy < -45 || sy > (cH / ds) + 45) return;
 
     const now = Date.now();
     const moving = ["chase", "return", "patrol"].includes(m.state);
@@ -1050,7 +1061,8 @@ const Render = {
   groundLoot(drop, cx, cy) {
     const sx = Number(drop.x || 0) * CFG.TS + CFG.TS / 2 - cx;
     const sy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2 - cy;
-    if (sx < -24 || sy < -24 || sx > cW / CFG.DS + 24 || sy > cH / CFG.DS + 24) return;
+    const ds = this.displayScale();
+    if (sx < -24 || sy < -24 || sx > cW / ds + 24 || sy > cH / ds + 24) return;
     const item = drop.item || drop.itemData || {
       id: drop.itemId || drop.itemCode,
       name: drop.itemName || drop.name,
@@ -1104,7 +1116,8 @@ const Render = {
 
   npc(npc, cx, cy) {
     const sx = npc.px - cx, sy = npc.py - cy;
-    if (sx < -50 || sx > (cW/CFG.DS) + 50 || sy < -50 || sy > (cH/CFG.DS) + 50) return;
+    const ds = this.displayScale();
+    if (sx < -50 || sx > (cW / ds) + 50 || sy < -50 || sy > (cH / ds) + 50) return;
     ctx.fillStyle = "rgba(0,0,0,.32)";
     ctx.beginPath();
     ctx.ellipse(Math.round(sx), Math.round(sy + 7), 8, 2.5, 0, 0, Math.PI * 2);
@@ -1159,7 +1172,7 @@ const Render = {
   portalHint(nearest, centerX, centerY, cW, cH) {
     const { dx, dy, portal } = nearest;
     const ts = CFG.TS || 1;
-    const ds = CFG.DS || 3;
+    const ds = this.displayScale();
     const distPx = Math.hypot(dx / ds, dy / ds);
     const distMeters = Math.max(1, Math.round(distPx / ts));
     if (distMeters < 12) return; // Nếu đã gần cổng, không hiện chỉ dẫn để thoáng màn hình
