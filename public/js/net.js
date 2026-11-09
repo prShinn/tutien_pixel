@@ -1221,7 +1221,6 @@ const Net = {
       World.cancelPlayerMove(player);
       UI.hideDeathModal?.();
       UI.update();
-      if (Number(response.tuViLost) > 0) UI.log(`Tử vong: tổn thất ${response.tuViLost} tu vi.`, "combat");
       UI.notify("Đã hồi sinh tại điểm xuất phát.", "success");
     } catch (error) {
       UI.setDeathMessage?.(error.message || "Không thể hồi sinh. Vui lòng thử lại.");
