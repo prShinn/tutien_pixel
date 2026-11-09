@@ -28,16 +28,17 @@ const AUTOTILE_SIZE = 8;
 const AUTOTILE_VARIANTS = 4;
 const AUTOTILE_ATLAS_URL = "/assets/tilesets/temperate-47.svg";
 const ITEM_ATLAS_URL = "./assets/items/item-icons-v2.png";
+const NPC_ROLE_ATLAS_URL = "./assets/characters/npc-village-roles-v1.png";
 const NPC_SPRITE_BY_ID = Object.freeze({
-  npc_huong_dan: "./assets/characters/npc-elder-guide-v2.png",
-  npc_shop: "./assets/characters/npc-town-merchant-v2.png",
-  npc_truong_thon: "./assets/characters/npc-elder-guide-v2.png",
-  npc_tho_ren: "./assets/characters/cultivator-male.png",
-  npc_duoc_su: "./assets/characters/cultivator-female.png",
-  npc_thuong_nhan: "./assets/characters/npc-town-merchant-v2.png",
-  npc_giao_dau: "./assets/characters/cultivator-male.png",
-  npc_tien_tram: "./assets/characters/cultivator-male.png",
-  npc_an_cu: "./assets/characters/npc-elder-guide-v2.png",
+  npc_huong_dan: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
+  npc_shop: { src: "./assets/characters/npc-town-merchant-v2.png", row: 0 },
+  npc_truong_thon: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
+  npc_tho_ren: { src: NPC_ROLE_ATLAS_URL, row: 0 },
+  npc_duoc_su: { src: NPC_ROLE_ATLAS_URL, row: 1 },
+  npc_thuong_nhan: { src: "./assets/characters/npc-town-merchant-v2.png", row: 0 },
+  npc_giao_dau: { src: NPC_ROLE_ATLAS_URL, row: 2 },
+  npc_tien_tram: { src: NPC_ROLE_ATLAS_URL, row: 3 },
+  npc_an_cu: { src: "./assets/characters/npc-elder-guide-v2.png", row: 0 },
 });
 const AUTOTILE_DIRECTIONS = [
   { bit: 1, dx: 0, dy: -1 }, { bit: 2, dx: 1, dy: 0 },
@@ -585,13 +586,17 @@ const Render = {
   },
 
   walkCycle(actor) {
-    // Advance each pose about once per 13px, giving a full four-frame step
-    // cycle a natural ~52px stride instead of an overly fast run.
+    // Keep quarter-stride timing for the body motion and footfall effects.
     return Math.max(0, Number(actor?.walkDistance || 0)) / 13;
   },
 
   walkFrame(actor) {
-    return Math.floor(this.walkCycle(actor)) % 4;
+    const columns = actor?.animation?.kind === "grid"
+      ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
+      : 4;
+    const alternatePose = Math.min(2, columns - 1);
+    // Two opposite-foot poses span one ~52px stride; 2-column sheets use 0/1.
+    return Math.floor(this.walkCycle(actor) / 2) % 2 === 0 ? 0 : alternatePose;
   },
 
   walkPhase(actor) {
@@ -759,7 +764,7 @@ const Render = {
     const rawFrame = reduceMotion ? 0 : activeAction === "walk"
       ? this.walkFrame(actor)
       : Math.floor(now / animation.speed) % 4;
-    // Idle chạy ping-pong (0-1-2-1) để cả nam và nữ chuyển động mềm, không giật khi lặp từ frame cuối về đầu.
+    // Idle alternates the open-eye pose with a brief blink on the same sprite row.
     const defaultCharacterSheet = !actor?.img || isBuiltInCharacter;
     const weaponStyle = this.weaponAttackStyle(actor);
     const attackPose = { sword: 2, saber: 1, staff: 3, heavy: 0, spear: 2, bow: 0, fist: 3 }[weaponStyle];
@@ -771,10 +776,16 @@ const Render = {
     const facingX = actor?.direction === "left" ? -1 : actor?.direction === "right" ? 1 : 0;
     const facingY = actor?.direction === "up" ? -1 : actor?.direction === "down" ? 1 : 0;
     const attackLean = { sword: 0.035, saber: 0.045, staff: -0.025, heavy: 0.075, spear: -0.035, bow: 0.02, fist: 0.06 }[weaponStyle];
+    const idleBlinkPhase = now % 2800;
+    const spriteColumns = actor?.animation?.kind === "grid"
+      ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
+      : 4;
+    const idleBlinkFrame = Math.min(2, spriteColumns - 1);
+    const idleFrame = idleBlinkPhase >= 2480 && idleBlinkPhase < 2640 ? idleBlinkFrame : 0;
     const frameIndex = reduceMotion
       ? (activeAction === "attack" ? (defaultCharacterSheet ? attackPose : 2) : ((activeAction === "cast" || activeAction === "hurt") ? 2 : 0))
       : (activeAction === "idle"
-        ? [0, 1, 2, 1][rawFrame]
+        ? idleFrame
         : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed))));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
@@ -786,12 +797,12 @@ const Render = {
     const idle = activeAction === "idle";
     // Continuous body movement bridges the discrete sprite poses and makes
     // the feet feel planted between frame changes.
-    const idlePhase = now * 0.0032;
+    const idlePhase = now * 0.0022;
     const bob = reduceMotion ? 0 : (walking
       ? 0.25 + (1 - Math.cos(walkPhase * 2)) * 0.88
-      : (idle ? Math.sin(idlePhase) * 0.08 : 0));
+      : (idle ? Math.sin(idlePhase) * 0.28 : 0));
     const sway = reduceMotion ? 0 : idle
-      ? Math.sin(idlePhase * 0.7) * 0.008
+      ? Math.sin(idlePhase * 0.7) * 0.012
       : (walking ? Math.sin(walkPhase) * 0.05 : 0);
     const footfall = walking ? Math.max(0, Math.sin(walkPhase * 2)) : 0;
     const attackPulse = !reduceMotion && actor === S.player && activeAction === "attack" ? Math.min(1, Math.max(0, S.atkCd / CFG.ATK_CD)) : 0;
@@ -1122,41 +1133,101 @@ const Render = {
     ctx.beginPath();
     ctx.ellipse(Math.round(sx), Math.round(sy + 7), 8, 2.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    const identity = `${npc.role || ""} ${npc.type || ""} ${npc.name || ""}`.toLowerCase();
-    const female = String(npc.gender || "").toUpperCase() === "FEMALE" || /nữ|tiên nữ|cô nương|dược sư/.test(identity);
-    const atlas = typeof npc.img === "string" && npc.img.trim().length > 0
-      ? npc.img
-      : NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()]
-        || `./assets/characters/cultivator-${female ? "female" : "male"}.png`;
+    const sprite = NPC_SPRITE_BY_ID[String(npc.id || "").toLowerCase()] || NPC_SPRITE_BY_ID.npc_huong_dan;
+    const customImage = typeof npc.img === "string"
+      && /^(?:\.\/|\/)?assets\/(?:npcs\/|characters\/npc-)[a-zA-Z0-9_/-]+\.png$/.test(npc.img)
+      ? npc.img : null;
+    const atlas = customImage || sprite.src;
     const frame = Math.floor(Date.now() / 620) % 4;
-    const drawn = this.drawSprite(atlas, sx, sy - 5, 20, 28, { col: frame, row: 0, cols: 4, rows: 4 });
+    const drawn = this.drawSprite(atlas, sx, sy - 5, 20, 28, { col: frame, row: customImage ? 0 : sprite.row, cols: 4, rows: 4 });
     if (!drawn) {
       ctx.fillStyle = npc.color || "#88aacc";
       ctx.fillRect(Math.round(sx - 7), Math.round(sy - 13), 14, 20);
     }
     const label = String(npc.name || "NPC");
-    ctx.font = "bold 7px monospace";
+    const parts = label.match(/^(Trưởng Thôn|Thợ Rèn|Dược Sư|Thương Nhân|Giáo Đầu|Tiên Trạm)\s+(.+)$/i);
+    const lines = parts ? [parts[1], parts[2]] : [label];
+    const scale = Math.max(1, Number(CFG.DS) || 1);
+    const fontSize = (cW < 600 ? 10 : 11) / scale;
+    const lineHeight = 14 / scale;
+    const padding = 3 / scale;
+    const maxWidth = Math.min(120, cW * .24) / scale;
+    ctx.save();
+    ctx.font = `600 ${fontSize}px "Segoe UI", sans-serif`;
     ctx.textAlign = "center";
-    const labelWidth = Math.ceil(ctx.measureText(label).width) + 4;
-    ctx.fillStyle = "rgba(7,10,14,.78)";
-    ctx.fillRect(Math.round(sx - labelWidth / 2), Math.round(sy - 33), labelWidth, 9);
-    ctx.fillStyle = "#fff";
-    ctx.fillText(label, sx, sy - 26);
+    ctx.textBaseline = "top";
+    const labels = lines.map((line) => {
+      let text = line;
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      while (text.length && ctx.measureText(text + "…").width > maxWidth) text = text.slice(0, -1);
+      return text + "…";
+    });
+    const labelWidth = Math.max(...labels.map((text) => ctx.measureText(text).width)) + padding * 2;
+    const top = sy - 21 - labels.length * lineHeight;
+    ctx.fillStyle = "rgba(7,10,14,.65)";
+    ctx.fillRect(sx - labelWidth / 2, top - padding, labelWidth, labels.length * lineHeight + padding);
+    labels.forEach((text, index) => {
+      ctx.fillStyle = parts && index === 0 ? "#dfc68b" : "#f3eddd";
+      ctx.fillText(text, sx, top + index * lineHeight);
+    });
+    ctx.restore();
   },
 
   portal(portal, cx, cy) {
     const sx = portal.x * CFG.TS + CFG.TS / 2 - cx, sy = portal.y * CFG.TS + CFG.TS / 2 - cy;
     const a = S.animT * 0.002;
     const pulse = 7 + Math.sin(a) * 1.5;
+
+    // 1. Cột sáng thiên thanh thẳng đứng chiếu lên trời (Light Beacon)
+    ctx.save();
+    const beamGrad = ctx.createLinearGradient(sx, sy + 4, sx, sy - 36);
+    beamGrad.addColorStop(0, `rgba(0, 210, 211, ${0.35 + Math.sin(a) * 0.1})`);
+    beamGrad.addColorStop(0.6, `rgba(124, 232, 235, ${0.15 + Math.sin(a) * 0.08})`);
+    beamGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = beamGrad;
+    ctx.fillRect(sx - 8, sy - 36, 16, 40);
+    ctx.restore();
+
+    // 2. Vòng trận đồ hình thoi xoay tại mặt đất
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.rotate(Math.PI / 4);
-    ctx.strokeStyle = `rgba(124,232,235,${0.65 + Math.sin(a) * 0.15})`;
+    ctx.rotate(Math.PI / 4 + a * 0.2);
+    ctx.strokeStyle = `rgba(124,232,235,${0.7 + Math.sin(a) * 0.15})`;
     ctx.shadowColor = "#00d2d3";
-    ctx.shadowBlur = 5;
-    ctx.lineWidth = 1;
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 1.2;
     ctx.strokeRect(-pulse, -pulse, pulse * 2, pulse * 2);
     ctx.restore();
+
+    // 3. Biển tên nổi lơ lửng phía trên cổng [ ⛩ Tên Map Đến ]
+    const mapName = portal.tenMapDen || portal.toMap;
+    if (mapName) {
+      ctx.save();
+      const label = `⛩ ${mapName}`;
+      ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 10;
+      const bh = 14;
+      const by = sy - 24;
+
+      ctx.fillStyle = "rgba(10, 16, 26, 0.78)";
+      ctx.strokeStyle = "rgba(240, 215, 127, 0.65)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(sx - bw / 2, by - bh / 2, bw, bh, 3);
+      } else {
+        ctx.rect(sx - bw / 2, by - bh / 2, bw, bh);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#fff4d7";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, sx, by + 0.5);
+      ctx.restore();
+    }
   },
 
   portalRiftImage() {

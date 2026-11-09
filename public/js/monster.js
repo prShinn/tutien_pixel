@@ -47,6 +47,7 @@ const Monster = {
   },
 
   update(m, dt) {
+    if (API.REAL_BACKEND_ONLY) return;
     if (m.dead) {
       if (!Net._isOnline) {
         m.respawnT -= dt / 16;

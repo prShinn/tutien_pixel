@@ -44,6 +44,7 @@ const Inventory = {
   },
 
   async use(idx) {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const entry = S.inventory[idx];
     const item = authToken ? GameData.itemWithCurrentDetails(entry) : entry;
     if (!item) return;
@@ -52,22 +53,37 @@ const Inventory = {
     }
     if (authToken && (item.type || item.loai) === "EQUIPMENT") {
       const targetSlot = item.slot === "helmet" ? "hat" : (item.slot || "weapon");
-      const result = await Net.mutate("POST", API.PATHS.player.equipItem, { itemCode: item.itemCode || item.id, slot: targetSlot });
+      const result = await Net.mutate("POST", API.PATHS.player.equipItem, {
+        itemId: item.id || item.itemCode,
+        itemCode: item.itemCode || item.id,
+        index: idx,
+        slot: targetSlot,
+      });
       if (!result?.player) return UI.log(result?.error || "KhÃ´ng thá»ƒ trang bá»‹ váº­t pháº©m.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "âš”ï¸"} ÄÃ£ trang bá»‹ ${item.name}`, "loot");
+      UI.renderEquipment(true);
       UI.buildInv();
       UI.update();
+      if (typeof Sound !== "undefined") Sound.play("click");
+      void Net.command("world.resync");
       return;
     }
     if (authToken) {
-      const result = await Net.mutate("POST", API.PATHS.player.useItem, { itemCode: item.itemCode || item.id });
+      const result = await Net.mutate("POST", API.PATHS.player.useItem, {
+        itemId: item.id || item.itemCode,
+        itemCode: item.itemCode || item.id,
+        index: idx,
+      });
       if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
       UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
       if (typeof Sound !== "undefined") Sound.play("item");
+      UI.renderEquipment(true);
       UI.buildInv();
       UI.update();
+      if (typeof Sound !== "undefined") Sound.play("click");
+      void Net.command("world.resync");
       return;
     }
     if (item.type === "LINDAN") {
@@ -109,5 +125,6 @@ const Inventory = {
     UI.log(`Đã tháo ${item.name || "trang bị"} vào túi đồ.`, "loot");
     if (typeof Sound !== "undefined") Sound.play("click");
     UI.buildInv(); UI.renderEquipment(true); UI.update();
+    void Net.command("world.resync");
   },
 };

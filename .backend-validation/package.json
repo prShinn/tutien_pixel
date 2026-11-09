@@ -1,0 +1,26 @@
+{
+  "name": "tu-tien-pixel-be",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modular monolith backend for Tu Tien Pixel webgame",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.5",
+    "socket.io": "^4.8.1"
+  }
+}

@@ -129,7 +129,7 @@ function makeTerrain(kind) {
         ground[y][x] = 4; objects[y][x] = -1; elevation[y][x] = 0;
       }
     }
-    for (const [x, y, radius] of [[20, 200, 20], [80, 200, 24], [340, 280, 30], [500, 110, 26]]) {
+    for (const [x, y, radius] of [[20, 200, 20], [80, 200, 24], [340, 280, 30], [500, 110, 26], [300, 375, 20]]) {
       clearCircle(ground, objects, elevation, x, y, radius, 0);
     }
   }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
     <link rel="stylesheet" href="./css/style.css?v=5" />
-    <link rel="stylesheet" href="./css/game-hub.css?v=6" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=10" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -252,6 +252,7 @@
         <div class="map-widget-head">
           <span class="eyebrow">THIÊN ĐỊA</span>
           <strong id="mini-map-name">Bản đồ</strong>
+          <button id="btn-controls-help" class="map-help-btn" type="button" aria-label="Hướng dẫn phím tắt" title="WASD / Mũi tên: Di chuyển&#10;Space: Đánh thường&#10;1-4: Kỹ năng chiến đấu&#10;Click quái: Khóa mục tiêu & áp sát&#10;Esc: Bỏ chọn mục tiêu">?</button>
         </div>
         <canvas id="mini-map" width="144" height="96"></canvas>
         <div class="map-widget-foot"><span class="map-dot player"></span> Vị trí hiện tại <span id="map-coords">—</span></div>
@@ -281,6 +282,7 @@
       <aside id="quest-tracker" class="quest-tracker" style="display:none;" aria-live="polite">
         <div class="quest-tracker-head">
           <button class="quest-tracker-open" type="button" onclick="QuestUI.openTrackerDetails()" title="Mở chi tiết nhiệm vụ"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span id="quest-tracker-open-label">MỞ SỔ</span></button>
+          <button class="quest-tracker-toggle" type="button" id="btn-quest-collapse" aria-label="Thu gọn nhiệm vụ" title="Thu gọn/mở rộng" onclick="QuestUI.toggleCollapse?.()">−</button>
           <button class="quest-tracker-close" type="button" aria-label="Bỏ theo dõi" onclick="QuestUI.untrack()">✕</button>
         </div>
         <strong id="quest-tracker-title"></strong>
@@ -360,13 +362,13 @@
       </div>
 
       <!-- 6. KPAH MODAL: MENU CHÍNH -->
-      <div id="kpah-menu-modal" class="kpah-modal" style="display:none;">
+      <div id="kpah-menu-modal" class="kpah-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="character-menu-title">
         <div class="kpah-modal-box">
           <div class="kpah-modal-header">
-            <span>Hành Trang & Thuộc Tính</span>
+            <span id="character-menu-title">Hành Trang & Thuộc Tính</span>
             <button class="kpah-close-btn" type="button" aria-label="Đóng hành trang" onclick="UI.toggleKpahMenu()">✕</button>
           </div>
-          <div class="kpah-modal-body">
+          <div class="kpah-modal-body" tabindex="0" role="region" aria-label="Nội dung nhân vật và hành trang">
             <div class="kpah-col-left">
               <div class="character-identity">
                 <div class="character-portrait sprite-portrait"><img id="ui-profile-avatar" class="sprite-atlas" src="./assets/characters/cultivator-male.png" alt="Nhân vật nam" /></div>
@@ -393,8 +395,6 @@
                 <button class="sbtn" onclick="Net.saveNow()">Lưu</button>
                 <button class="sbtn" onclick="Auth.logout()">Thoát</button>
               </div>
-              <div class="phead" style="margin-top:10px;">SỔ THẦN THÔNG</div>
-              <div id="skill-book-list" style="max-height:180px; overflow:auto; font-size:11px;"></div>
             </div>
             <div class="kpah-col-right">
               <div class="phead">TRANG BỊ</div>
@@ -416,7 +416,12 @@
               </div>
               <div id="inv-grid"></div>
               <div id="inv-selection" class="inv-selection" aria-live="polite">Chưa chọn vật phẩm</div>
+              <div id="inv-detail" class="item-detail" hidden aria-live="polite"></div>
             </div>
+            <section class="character-skills" aria-labelledby="character-skills-title">
+              <div class="phead" id="character-skills-title">SỔ THẦN THÔNG</div>
+              <div id="skill-book-list"></div>
+            </section>
           </div>
         </div>
       </div>
@@ -541,6 +546,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=32"></script>
+    <script src="./js/bootstrap.js?v=39"></script>
   </body>
 </html>

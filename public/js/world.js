@@ -39,23 +39,33 @@ const World = {
 
   loadMap(def, toX, toY, { silent = false } = {}) {
     if (!def) return;
-    World.pendingNpcId = null;
-    S.mapCode = (def.code || "").toLowerCase();
-    S.mapName = def.name ?? def.tenMap ?? S.mapCode;
-    S.mapVersion = Number(def.version || 0);
+    const nextMapCode = String(def.code || "").toLowerCase();
+    const nextMapVersion = Number(def.version || 0);
     const tiles =
       Array.isArray(def.jsonMap) && Array.isArray(def.jsonMap[0])
         ? def.jsonMap
         : Array.from({ length: Number(def.h || def.height || 1) }, () =>
             Array(Number(def.w || def.width || 1)).fill(0),
           );
+    const nextMapW = Number(def.w || def.width || (tiles[0]?.length || 600));
+    const nextMapH = Number(def.h || def.height || (tiles.length || 400));
+    const canReuseTerrain = Boolean(S.terrainCanvas && S.mapCode === nextMapCode
+      && Number(S.mapVersion || 0) === nextMapVersion && S.mapW === nextMapW && S.mapH === nextMapH);
+    World.pendingNpcId = null;
+    S.mapCode = nextMapCode;
+    S.mapName = def.name ?? def.tenMap ?? S.mapCode;
+    S.mapVersion = nextMapVersion;
     S.tiles = tiles;
-    S.mapW = Number(def.w || def.width || (tiles[0]?.length || 600));
-    S.mapH = Number(def.h || def.height || (tiles.length || 400));
+    S.mapW = nextMapW;
+    S.mapH = nextMapH;
     S.groundTiles = Array.isArray(def.layers?.ground?.[0]) ? def.layers.ground : null;
     S.objectTiles = Array.isArray(def.layers?.objects?.[0]) ? def.layers.objects : null;
     S.elevationTiles = Array.isArray(def.layers?.elevation?.[0]) ? def.layers.elevation : null;
-    if (typeof Render !== "undefined" && Render.buildTerrainCache) Render.buildTerrainCache();
+    if (!canReuseTerrain) {
+      S.terrainCanvas = null;
+      S.miniTerrainCanvas = null;
+      if (typeof Render !== "undefined" && Render.buildTerrainCache) Render.buildTerrainCache();
+    }
     if (S.player) {
       const clampX = Math.max(0, Math.min(S.mapW - 1, Math.round(Number(toX ?? S.player.x ?? 0))));
       const clampY = Math.max(0, Math.min(S.mapH - 1, Math.round(Number(toY ?? S.player.y ?? 0))));

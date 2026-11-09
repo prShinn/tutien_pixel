@@ -20,7 +20,7 @@ const gameClock = FixedStepClock.createFixedStepClock({ maxFrameDeltaMs: 100, ma
 function update(dt) {
   try {
     const p = S.player;
-    if (!p) return;
+    if (!p || !Net._isOnline) return;
     if (!p.dead && Number(p.hp) <= 0) {
       p.hp = 0;
       p.dead = true;
@@ -76,8 +76,7 @@ function update(dt) {
 
         if (S.target?.dead || !S.target) p._spaceApproachTargetId = null;
         if (Input.keys["Space"] && S.target && !S.target.dead) {
-          const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
-          if (dist(S.target.px, S.target.py, p.px, p.py) > attackRange) {
+          if (!Combat.canReachWithBasic(p, S.target)) {
             p._spaceApproachTargetId = S.target.id;
             if (World.shouldReplanCombatApproach(p, S.target, Date.now())) {
               World.planCombatApproach(p, S.target, Date.now());
@@ -87,12 +86,9 @@ function update(dt) {
 
         const spaceApproachTarget = S.target && p._spaceApproachTargetId === S.target.id ? S.target : null;
         const combatTarget = S.target && !S.target.dead && (S.autoFight || p.combatMove || spaceApproachTarget) ? S.target : null;
-        const stopRange = CFG.BASIC_ATTACK_RANGE * CFG.TS * 0.86;
+        const stopRange = Combat.basicRange(p) * 0.86;
         if (combatTarget) {
-          const targetDx = combatTarget.px - p.px;
-          const targetDy = combatTarget.py - p.py;
-          const targetDistance = Math.hypot(targetDx, targetDy);
-          if (targetDistance > stopRange) {
+          if (!Combat.canReachWithBasic(p, combatTarget, stopRange)) {
             if (World.shouldReplanCombatApproach(p, combatTarget, Date.now())) {
               World.planCombatApproach(p, combatTarget, Date.now());
             }
@@ -187,14 +183,14 @@ function update(dt) {
 
       let combatActionThisTick = false;
       if ((Input.keys["Space"] || p._spaceApproachTargetId) && S.atkCd <= 0) {
-        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
-        let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
+        const attackRange = Combat.basicRange(S.player);
+        let best = (S.target && !S.target.dead && Combat.canReachWithBasic(p, S.target)) ? S.target : null;
         if (!best && !p._spaceApproachTargetId) {
           let bd = attackRange;
           for (const m of S.monsters) {
             if (!m.dead) {
               const d = dist(m.px, m.py, p.px, p.py);
-              if (d < bd) { bd = d; best = m; }
+              if (d < bd && Combat.canReachWithBasic(p, m, bd)) { bd = d; best = m; }
             }
           }
         }
@@ -207,14 +203,14 @@ function update(dt) {
         }
       }
       if (S.autoFight) {
-        const attackRange = CFG.BASIC_ATTACK_RANGE * CFG.TS + (CFG.ATTACK_RANGE_PADDING || 0);
-        let best = (S.target && !S.target.dead && dist(S.target.px, S.target.py, p.px, p.py) <= attackRange) ? S.target : null;
+        const attackRange = Combat.basicRange(S.player);
+        let best = (S.target && !S.target.dead && Combat.canReachWithBasic(p, S.target)) ? S.target : null;
         if (!best) {
           let bd = attackRange;
           for (const m of S.monsters) {
             if (!m.dead) {
               const d = dist(m.px, m.py, p.px, p.py);
-              if (d < bd) { bd = d; best = m; }
+              if (d < bd && Combat.canReachWithBasic(p, m, bd)) { bd = d; best = m; }
             }
           }
         }
@@ -412,75 +408,8 @@ async function createCharacter() {
     }
   }
 
-  let defaultWorldDto;
-  try {
-    defaultWorldDto = await Net.get(API.PATHS.worlds.default);
-  } catch (error) {
-    alert(error?.message || "Không thể tải bản đồ khởi đầu.");
-    return;
-  }
-  if (!defaultWorldDto?.code) {
-    alert(defaultWorldDto?.error || "Không tải được bản đồ khởi đầu. Vui lòng thử lại sau.");
-    return;
-  }
-  const defaultMap = normalizeWorldDto(defaultWorldDto);
-  const spawnX = Number.isFinite(Number(defaultWorldDto.spawnX)) ? Number(defaultWorldDto.spawnX) : Math.floor(defaultMap.w / 2);
-  const spawnY = Number.isFinite(Number(defaultWorldDto.spawnY)) ? Number(defaultWorldDto.spawnY) : Math.floor(defaultMap.h / 2);
-
-  const trangBi = {
-    vuKhi: null, ao: null, giay: null, mu: null, tay: null, nhan: null, vong: null,
-  };
-  const assignedSkills = SkillSystem.assignSkills(S.creation.root.id);
-  const playerData = {
-    userId: S.session.user?.id || 0,
-    name,
-    linhCan: S.creation.root.id,
-    tenCanhGioi: defaultRealm.tenCanhGioi || defaultRealm.name || "",
-    tangTuVi: 1,
-    maCanhGioi: defaultRealm.code,
-    canhGioi: defaultRealm,
-    stats: { str, agi, vit, ene },
-    hp: GAME_BALANCE.base.hp + vit * GAME_BALANCE.stats.vit.maxHp,
-    maxHp: GAME_BALANCE.base.hp + vit * GAME_BALANCE.stats.vit.maxHp,
-    mp: 50 + ene * 8,
-    maxMp: 50 + ene * 8,
-    xu: 50,
-    tuViHienTai: 0,
-    tuViLenCap: Cultivation.calcTuNeeded(defaultRealm, 1),
-    tuViLinhCan: 0,
-    x: spawnX,
-    y: spawnY,
-    px: spawnX * CFG.TS + CFG.TS / 2,
-    py: spawnY * CFG.TS + CFG.TS / 2,
-    mapCode: defaultMap.code,
-    mapId: defaultMap.id || defaultMap.code,
-    trangBi,
-    iventoryIndex: 0,
-    attackCD: 0,
-    heal_hp: 0,
-    heal_mp: 0,
-    jsonIventory: JSON.stringify([]),
-    skills: assignedSkills.map(mapFESkillToBE),
-    crit: "0",
-    speed: 1,
-    gender: S.creation.gender,
-    img: S.creation.gender === "MALE" ? "./assets/char_male_anim-source.png" : "./assets/char_female_anim-source.png",
-    equip_slot: JSON.stringify(trangBi),
-  };
-  S.player = {
-    ...playerData,
-    root: S.creation.root,
-    realm: defaultRealm.stt || 0,
-    stage: 1,
-    skills: assignedSkills,
-    buffs: {},
-    equipment: {
-      weapon: null, armor: null, boots: null,
-      hat: null, gloves: null, ring: null, amulet: null,
-    },
-  };
-  S.inventory = [];
-  enterGame(defaultMap, playerData.x, playerData.y);
+  Auth._err("Hãy đăng nhập BE trước khi tạo nhân vật.");
+  showScreen("auth");
 }
 
 // ════════════════════════════════════════════════════════════
@@ -587,15 +516,19 @@ function showScreen(name) {
   // The label must describe the active data source accurately.
   const authStatus = document.getElementById("auth-status");
   if (authStatus) {
-    authStatus.textContent = (typeof MockBackend !== "undefined" && MockBackend?.enabled)
+    authStatus.textContent = (!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)
       ? "🧪 Đang dùng API mô phỏng trên trình duyệt"
       : health?.ok
         ? "✓ Đã kết nối máy chủ game"
         : "⚠ Chưa kết nối được máy chủ game";
     authStatus.title = API.BASE;
   }
-})();
-
+})().catch((error) => {
+  const panel = document.getElementById("client-boot-error");
+  const detail = document.getElementById("client-boot-error-detail");
+  if (detail) detail.textContent = error.message;
+  if (panel) panel.hidden = false;
+});
 function bindGenderButtons() {
   const male = document.getElementById("btn-gender-male");
   const female = document.getElementById("btn-gender-female");

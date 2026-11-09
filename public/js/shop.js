@@ -71,6 +71,13 @@ const Shop = {
       desc.className = "si-desc";
       desc.textContent = item.desc || "";
       info.append(name, desc);
+      const effects = document.createElement("div");
+      effects.className = "si-effects";
+      effects.textContent = UI.itemEffectSummary(item);
+      if (effects.textContent) info.appendChild(effects);
+      div.onmouseenter = (event) => UI.showTip(item, event);
+      div.onmousemove = (event) => UI.moveTip(event);
+      div.onmouseleave = () => UI.hideTip();
       const price = document.createElement("span");
       price.className = "si-price";
       price.textContent = `${item.giaMua} xu`;
@@ -110,6 +117,13 @@ const Shop = {
       name.className = "si-name";
       name.textContent = `${item.name || item.id} x${item.count || 1}`;
       info.appendChild(name);
+      const effects = document.createElement("div");
+      effects.className = "si-effects";
+      effects.textContent = UI.itemEffectSummary(item);
+      if (effects.textContent) info.appendChild(effects);
+      div.onmouseenter = (event) => UI.showTip(item, event);
+      div.onmousemove = (event) => UI.moveTip(event);
+      div.onmouseleave = () => UI.hideTip();
       const price = document.createElement("span");
       price.className = "si-sell";
       price.textContent = `${item.giaBan || 0} xu/cái`;
@@ -131,6 +145,7 @@ const Shop = {
   },
 
   async buy(id, quantity = 1) {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const item = CFG.ITEMS[id];
     if (!item) return;
     const amount = Number(quantity);
@@ -161,6 +176,7 @@ const Shop = {
   },
 
   async sell(idx, quantity = 1) {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const item = S.inventory[idx];
     if (!item) return;
     const amount = Number(quantity);

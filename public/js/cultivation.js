@@ -16,6 +16,7 @@ const Cultivation = {
   _pendingStatAllocations: new Set(),
 
   async allocateStat(stat) {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const player = S.player;
     const statKey = String(stat || "").toLowerCase();
     if (!player || !["str", "agi", "vit", "ene"].includes(statKey)) return;
@@ -140,6 +141,7 @@ const Cultivation = {
   },
 
   async absorbStone() {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const p = S.player;
     if (!p || this._absorbPending) return;
     const idx = S.inventory.findIndex(
@@ -196,6 +198,7 @@ const Cultivation = {
   },
 
   async tryBreakthrough() {
+    if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const p = S.player;
     if (!p || this._breakthroughPending) return;
     if (p.dead) return UI.notify("Không thể đột phá khi đang trọng thương.", "warning");

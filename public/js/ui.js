@@ -12,37 +12,52 @@
 //    - Tối ưu DOM repaint: Cache hash trang bị, chỉ vẽ lại trang bị khi mở modal hoặc có thay đổi.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
+const SKILL_ART_CODES = new Set([
+  "am_chu", "am_tam_phap", "am_thich", "am_thuc", "bac_hai_trieu_sinh", "bach_hoa_lao",
+  "bach_kiem_tran", "bang_lien_tran", "bang_tien", "bao_phong_tuyet_vuc", "cam_lo_hoi_sinh", "chan_hoa_chien_tam",
+  "co_moc_long_nha", "cuu_diem_phan_khong", "cuu_tang_phong", "cuu_thien_bang", "cuu_tieu_loi_kiep", "cuu_u_am_gioi",
+  "da_anh_tram", "dia_chan_lien_hoan", "dia_mach", "dien_lien", "han_tinh_thich", "han_tri",
+  "hoa_cau", "hoa_tam_phap", "hoa_vu_luu_tinh", "hoa_vuc", "hoa_yem", "huyen_am_ngung_than",
+  "huyen_nham_ho_the", "huyen_thuy_ho_mach", "kim_cuong_chien_y", "kim_kich", "kim_luan", "kim_sat_thanh",
+  "kim_tam_phap", "kim_tien_lien_xa", "lien_hoa", "loan_phong", "loi_dinh_ket_tran", "loi_ho",
+  "loi_kich", "loi_tam_phap", "loi_vuc", "luu_van_khinh_bo", "moc_duong", "moc_hon_don",
+  "moc_lao", "moc_tam_phap", "ngu_hanh_kich", "nham_thach_quyen", "nhat_diem", "nhat_quang_hoi_menh",
+  "pha_giap", "phan_thien", "phong_bo", "phong_liet_tram", "phong_lieu", "phong_nhan",
+  "phong_tam_phap", "quang_dao", "quang_tam_phap", "quang_toc", "re_moc", "sinh_truong",
+  "son_chan", "son_ha_dai_than", "thach_luyen", "thanh_dang_thich", "thanh_phong", "thanh_quang_tran",
+  "thanh_tam", "thanh_tay", "thien_canh", "thien_hoa_lien", "thien_loi", "thien_loi_kim_giap",
+  "thien_nhan_pha_khong", "thien_phong_truyen", "thien_quang", "thien_son_tran_nguc", "thien_tinh_giang_the", "thiet_ho",
+  "tho_giap", "tho_kich", "tho_tam_phap", "thuc_hon", "thuy_khien", "thuy_luu",
+  "thuy_tam_phap", "thuyet_hai", "tinh_loc", "tinh_quang_thich", "tu_dien_xuyen_tam", "u_hon_ket_gioi",
+  "u_minh", "van_hon_phe_tam", "van_kim_tram", "van_loi_thien_phat", "van_moc_thanh", "xich_diem_chi",
+]);
+
+// Preserve the BE skill ID; this alias only selects its existing artwork filename.
+const SKILL_ART_CODE_ALIASES = Object.freeze({ "cửu_u_am_gioi": "cuu_u_am_gioi" });
+
 const UI = {
   _lastEqHash: "",
   selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
   pixelIconClass(item = {}, slotHint = "") {
-    const values = [slotHint, item.slot, item.type, item.loai, item.id, item.name, item.effect, item.damageType, item.category]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase("vi")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-    if (/coin|money|currency|(^|\W)xu(\W|$)/.test(values)) return "icon-coins";
-    if (/mpd|restore.?mp|heal.?mp|mana|(^|\W)mp(\W|$)|linh khi/.test(values)) return "icon-potion-mp";
-    if (/hpd|restore.?hp|heal.?hp|(^|\W)heal(\W|$)|(^|\W)hp(\W|$)|sinh luc|hoi mau|dan duoc/.test(values)) return "icon-potion-hp";
-    if (/herb|thao duoc|duoc thao/.test(values)) return "icon-herb";
-    if (/pill|linh dan|vien dan/.test(values)) return "icon-pill";
-    if (/consume|potion|thuoc|elixir|(^|\W)dan(\W|$)/.test(values)) return "icon-potion-hp";
-    if (/weapon|sword|kiem|vu khi/.test(values)) return "icon-sword";
-    if (/helmet|hat|mu|non/.test(values)) return "icon-helmet";
-    if (/armor|robe|pants|giap|quan|ao/.test(values)) return "icon-armor";
-    if (/boot|giay/.test(values)) return "icon-boots";
-    if (/ring|nhan/.test(values)) return "icon-ring";
-    if (/lightning.?gem|gem.?lightning|loi thach|loi tinh/.test(values)) return "icon-lightning-gem";
-    if (/spear|thong/.test(values)) return "icon-spear";
-    if (/stone|linh thach|spirit stone/.test(values)) return "icon-spirit-stone";
-    if (/amulet|belt|gem|stone|tal|vong|dai|linh thach|nguyen to/.test(values)) return "icon-talisman";
-    if (/shield|def|phong thu|the luc/.test(values)) return "icon-shield";
-    if (/physical|melee|vat ly/.test(values)) return "icon-sword";
-    if (/passive|bi dong|buff|support|ho tro/.test(values)) return "icon-lotus";
-    if (/magic|phap|spell|skill/.test(values)) return "icon-talisman";
-    return "icon-bag";
+    if (slotHint === "skill") return "skill-art-icon";
+    // Classify only canonical fields. Names such as "thao" must never match "ao".
+    const slot = String(item.slot || slotHint).replace(/^slot-/, "").toLowerCase();
+    const slots = {
+      weapon: "icon-sword", hat: "icon-helmet", helmet: "icon-helmet",
+      armor: "icon-armor", pants: "icon-unknown", boots: "icon-boots",
+      ring: "icon-ring", amulet: "icon-talisman", belt: "icon-unknown", gem: "icon-spirit-stone",
+    };
+    if (slots[slot]) return slots[slot];
+    const type = String(item.type || item.loai || "").toUpperCase();
+    if (type === "STONE" || type === "ELEMSTONE") return "icon-spirit-stone";
+    if (type === "LINDAN" || type === "BREAKTHROUGH_PILL") return "icon-pill";
+    if (type === "POTION" || type === "CONSUME") {
+      if (Number(item.healHp) > 0) return "icon-potion-hp";
+      if (Number(item.healMp) > 0) return "icon-potion-mp";
+      return "icon-pill";
+    }
+    return "icon-unknown";
   },
   createPixelIcon(item, slotHint = "", extraClass = "") {
     const icon = document.createElement("span");
@@ -53,8 +68,8 @@ const UI = {
       return icon;
     }
     const customImg = item && (item.img || (typeof item.icon === "string" && (item.icon.includes("/") || item.icon.endsWith(".png") || item.icon.endsWith(".svg")) ? item.icon : ""));
-    const itemArtClass = customImg ? "" : " item-art-icon";
-    icon.className = `pixel-icon ${this.pixelIconClass(item, slotHint)}${itemArtClass}${extraClass ? ` ${extraClass}` : ""}`;
+    const artClass = customImg ? "item-image-icon" : `${this.pixelIconClass(item, slotHint)} item-art-icon`;
+    icon.className = `pixel-icon ${artClass}${extraClass ? ` ${extraClass}` : ""}`;
     icon.setAttribute("aria-hidden", "true");
     if (customImg && typeof customImg === "string") {
       icon.style.backgroundImage = `url("${customImg}")`;
@@ -64,11 +79,27 @@ const UI = {
     }
     return icon;
   },
-  applySkillIcon(element, skill) {
+  skillImageSource(skill) {
     const source = skill?.img;
-    const isAsset = typeof source === "string" && /^(?:\.\/|\/)?assets\/[a-zA-Z0-9_/-]+\.png$/.test(source);
+    const isAsset = typeof source === "string" && /^(?:\.\/|\/)?assets\/skills\/[a-zA-Z0-9_/-]+\.(?:png|svg)$/.test(source);
     const isGenerated = typeof source === "string" && source.length <= 24000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(source);
-    const img = isAsset || isGenerated ? source : "";
+    if (isAsset || isGenerated) return source;
+    const sourceCode = String(skill?.code || skill?.id || skill?.maNangLuc || "").toLowerCase();
+    const code = SKILL_ART_CODE_ALIASES[sourceCode] || sourceCode;
+    if (SKILL_ART_CODES.has(code)) return `./assets/skills/bank-v1/${code}.png`;
+    const effectArt = {
+      heal: "moc_duong", restore_mp: "thien_canh", cleanse: "thanh_tam",
+      shield: "thiet_ho", root: "re_moc", slow: "phong_bo", freeze: "han_tri",
+      stun: "dien_lien", armor_break: "pha_giap", buff_def: "tho_giap",
+      buff_atk: "kim_luan", buff_spd: "thanh_phong", passive: "thien_canh",
+    };
+    const effect = String(skill?.effect || skill?.sfx_code || "").toLowerCase();
+    const art = String(skill?.category).toUpperCase() === "PASSIVE"
+      ? "thien_canh" : (effectArt[effect] || "ngu_hanh_kich");
+    return `./assets/skills/bank-v1/${art}.png`;
+  },
+  applySkillIcon(element, skill) {
+    const img = skill ? this.skillImageSource(skill) : "";
     element.classList.toggle("skill-art-icon", Boolean(img));
     element.style.backgroundImage = img ? `url("${img}")` : "";
     element.style.backgroundPosition = img ? "center" : "";
@@ -323,16 +354,134 @@ const UI = {
     for (const slot of slots) {
       const el = document.getElementById(slot.id);
       if (!el) continue;
+      const isEquipped = Boolean(slot.item);
+      el.classList.toggle("equipped", isEquipped);
+      el.classList.toggle("empty", !isEquipped);
+
       const iconWrap = document.createElement("div");
-      iconWrap.className = "eicon";
+      iconWrap.className = isEquipped ? "eicon eicon-equipped" : "eicon eicon-empty";
       iconWrap.appendChild(this.createPixelIcon(slot.item || {}, slot.id));
-      const label = document.createElement("span");
-      label.textContent = slot.item?.name || slot.label;
-      el.replaceChildren(iconWrap, label);
-      el.classList.toggle("equipped", Boolean(slot.item));
-      el.title = slot.item ? `${slot.item.name || slot.label}\nClick để tháo` : `${slot.label}\nÔ trống`;
-      el.onclick = slot.item ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
+
+      const labelWrap = document.createElement("div");
+      labelWrap.className = "esl-info";
+      if (isEquipped) {
+        const nameSpan = document.createElement("strong");
+        nameSpan.className = "esl-name";
+        nameSpan.textContent = slot.item.name || slot.label;
+        const tag = document.createElement("span");
+        tag.className = "esl-badge";
+        tag.textContent = "ĐANG MẶC";
+        labelWrap.replaceChildren(nameSpan, tag);
+      } else {
+        const slotName = document.createElement("span");
+        slotName.className = "esl-slot-type";
+        slotName.textContent = slot.label;
+        const emptyHint = document.createElement("small");
+        emptyHint.className = "esl-empty-hint";
+        emptyHint.textContent = "[Trống]";
+        labelWrap.replaceChildren(slotName, emptyHint);
+      }
+
+      el.replaceChildren(iconWrap, labelWrap);
+      el.title = isEquipped
+        ? `${slot.item.name} (${slot.label})\nĐang trang bị · Nhấp để tháo vào túi đồ`
+        : `${slot.label}\nChưa trang bị (Ô trống)`;
+      el.onclick = isEquipped ? () => Inventory.unequip(slot.item, slot.id.replace("slot-", "")) : null;
+      el.onmouseenter = isEquipped ? (event) => this.showTip(slot.item, event) : null;
+      el.onmousemove = isEquipped ? (event) => this.moveTip(event) : null;
+      el.onmouseleave = () => this.hideTip();
     }
+  },
+
+  itemTypeLabel(item) {
+    const slots = { weapon: "Vũ khí", armor: "Giáp", pants: "Quần", boots: "Giày", hat: "Mũ / Khăn", gloves: "Găng tay", ring: "Nhẫn", amulet: "Vòng", belt: "Đai", gem: "Linh thạch" };
+    const type = item.type || item.loai;
+    if (type === "EQUIPMENT") return `Trang bị · ${slots[item.slot] || item.slot || "Chưa xác định vị trí"}`;
+    return { STONE: "Linh thạch", ELEMSTONE: "Đá nguyên tố", MAT: "Nguyên liệu", CONSUME: "Đan dược", POTION: "Đan dược", LINDAN: "Linh đan", BREAKTHROUGH_PILL: "Đan đột phá" }[type] || "Vật phẩm";
+  },
+
+  itemFacts(item) {
+    const labels = { pAtk: "Công vật lý", mAtk: "Công phép", pDef: "Thủ vật lý", mDef: "Thủ phép", maxHp: "HP tối đa", maxHP: "HP tối đa", maxMp: "MP tối đa", maxMP: "MP tối đa", str: "Sức mạnh", agi: "Nhanh nhẹn", vit: "Thể lực", ene: "Năng lượng", spd: "Tốc độ", crit: "Chí mạng", evasion: "Tránh né" };
+    const signed = (value) => `${Number(value) >= 0 ? "+" : ""}${Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 })}`;
+    const rows = [];
+    const notes = [];
+    const add = (label, value, kind = "stat") => rows.push({ label, value, kind });
+    if ((item.type || item.loai) === "EQUIPMENT") {
+      const attack = item.basicAttack;
+      if (attack) {
+        const style = { sword: "Kiếm cận chiến", staff: "Trượng tầm xa", bow: "Cung tầm xa", melee: "Cận chiến" }[attack.style];
+        if (style) add("Đòn thường", `${style} · ${attack.range} ô · ${attack.damageType === "MAGIC" ? "Phép" : "Vật lý"}`, "requirement");
+      }
+      const info = item.equipmentInfo;
+      if (info) {
+        for (const [key, value] of Object.entries(info.bonuses || {})) add(labels[key] || key, signed(value));
+        for (const [key, value] of Object.entries(info.ratingOnly || {})) add(`${labels[key] || key} · OVR`, signed(value));
+        add("Điểm trang bị", `${signed(info.ovr)} OVR`, "rating");
+        const current = GameData.itemWithCurrentDetails(S.player?.equipment?.[item.slot]);
+        if (!current || current.equipmentInfo) {
+          const difference = Number(info.ovr) - Number(current?.equipmentInfo?.ovr || 0);
+          add(current ? `So với ${current.name || "món đang mặc"}` : "So với ô trống", `${signed(difference)} OVR`, difference < 0 ? "lower" : "comparison");
+        }
+        notes.push(`OVR trang bị = ${signed(info.combatOvr)} từ chỉ số chiến đấu và ${signed(info.itemOvr)} từ thuộc tính. OVR tổng được làm tròn xuống.`);
+        if (Object.keys(info.ratingOnly || {}).length) notes.push("Dòng đánh dấu OVR hiện chỉ cộng lực chiến, chưa tăng chỉ số chiến đấu.");
+      } else {
+        for (const [key, value] of Object.entries(item.stats || {})) add(labels[key] || key, signed(value));
+        notes.push("Chưa tải được phân tích lực chiến. Các dòng trên là thuộc tính ghi trên vật phẩm.");
+      }
+      const realm = CFG.REALMS.find((entry) => Number(entry.stt) === Number(item.requiredRealmStt));
+      add("Yêu cầu", realm?.tenCanhGioi || realm?.name || `Cảnh giới bậc ${item.requiredRealmStt || 1}`, "requirement");
+    } else {
+      const type = item.type || item.loai;
+      if (["STONE", "ELEMSTONE"].includes(type) && item.giaTriTuVi > 0) add("Tu vi khi hấp thụ", signed(Math.floor(item.giaTriTuVi)));
+      if (type === "LINDAN" && item.tuViLinhCanVal > 0) add("Tu vi linh căn", signed(Math.floor(item.tuViLinhCanVal)));
+      if (["POTION", "CONSUME"].includes(type)) {
+        if (item.healHp > 0) add("Hồi HP", signed(Math.floor(item.healHp)));
+        if (item.healMp > 0) add("Hồi MP", signed(Math.floor(item.healMp)));
+        if (item.statBoost > 0) add(`${labels[item.statKey || "str"] || item.statKey} vĩnh viễn`, signed(Math.floor(item.statBoost)));
+      }
+      if (type === "BREAKTHROUGH_PILL") notes.push("Đan được tự động tiêu hao khi phá đại cảnh giới thành công.");
+    }
+    const quality = item.rarity || item.quality;
+    if (typeof quality === "string" && quality) add("Phẩm chất", quality, "quality");
+    return { rows, notes };
+  },
+
+  itemEffectSummary(item) {
+    return this.itemFacts(item).rows.filter((row) => row.kind === "stat" || row.kind === "rating")
+      .map((row) => `${row.label} ${row.value}`).join(" · ");
+  },
+
+  itemDetailsContent(item) {
+    const content = document.createDocumentFragment();
+    const description = document.createElement("p");
+    description.className = "item-description";
+    description.textContent = item.description || item.desc || item.moTa || "";
+    if (description.textContent) content.appendChild(description);
+    const { rows, notes } = this.itemFacts(item);
+    const facts = document.createElement("dl");
+    facts.className = "item-facts";
+    for (const row of rows) {
+      const line = document.createElement("div");
+      line.className = `item-fact item-fact-${row.kind}`;
+      const label = document.createElement("dt");
+      label.textContent = row.label;
+      const value = document.createElement("dd");
+      value.textContent = row.value;
+      line.append(label, value);
+      facts.appendChild(line);
+    }
+    content.appendChild(facts);
+    for (const text of notes) {
+      const note = document.createElement("p");
+      note.className = "item-detail-note";
+      note.textContent = text;
+      content.appendChild(note);
+    }
+    const price = document.createElement("p");
+    price.className = "item-detail-price";
+    price.textContent = `Giá bán ${Number(item.giaBan || 0).toLocaleString("vi-VN")} xu`;
+    content.appendChild(price);
+    return content;
   },
 
   showTip(item, e) {
@@ -342,35 +491,20 @@ const UI = {
       this.createPixelIcon(item, "", "tip-pixel-icon"),
       document.createTextNode(` ${item.name || item.id || "Vật phẩm"}`),
     );
-    document.getElementById("tip-type").textContent =
-      item.type === "STONE"
-        ? "Linh Thạch"
-        : item.type === "ELEMSTONE"
-          ? "Đá Nguyên Tố"
-          : item.type === "MAT"
-            ? "Nguyên Liệu"
-            : item.type === "CONSUME"
-              ? "Đan Dược"
-              : "Vật Phẩm";
-    const price = document.createElement("span");
-    price.style.color = "var(--text2)";
-    price.textContent = `Bán: ${item.giaBan || 0} xu`;
-    const cultivation = item.giaTriTuVi ? ` + ${item.giaTriTuVi}` : "";
-    document.getElementById("tip-body").replaceChildren(
-      document.createTextNode(`${item.description || item.desc || item.moTa || ""}${cultivation}`),
-      document.createElement("br"),
-      price,
-    );
+    document.getElementById("tip-type").textContent = this.itemTypeLabel(item);
+    document.getElementById("tip-body").replaceChildren(this.itemDetailsContent(item));
     tip.style.display = "block";
-    tip.style.left = e.clientX + 14 + "px";
-    tip.style.top = e.clientY - 10 + "px";
+    this.moveTip(e);
   },
 
   moveTip(e) {
     const tip = document.getElementById("tip");
     if (!tip || tip.style.display === "none") return;
-    tip.style.left = `${e.pageX + 12}px`;
-    tip.style.top = `${e.pageY + 12}px`;
+    const bounds = tip.getBoundingClientRect();
+    const x = Number(e.clientX ?? e.pageX ?? 0);
+    const y = Number(e.clientY ?? e.pageY ?? 0);
+    tip.style.left = `${Math.max(8, Math.min(x + 14, window.innerWidth - bounds.width - 8))}px`;
+    tip.style.top = `${Math.max(8, Math.min(y + 12, window.innerHeight - bounds.height - 8))}px`;
   },
 
   hideTip() {
@@ -389,6 +523,8 @@ const UI = {
       el.className = it ? "isl" : "isl empty";
       if (it) {
         el.title = (it.name || it.id) + (it.desc ? "\n" + it.desc : "");
+        const isEqItem = (it.type || it.loai) === "EQUIPMENT";
+        if (isEqItem) el.classList.add("isl-equipment");
         const icon = this.createPixelIcon(it, "", "inventory-pixel-icon");
         const count = document.createElement("span");
         count.className = "icnt";
@@ -406,12 +542,25 @@ const UI = {
       grid.appendChild(el);
     }
     const selected = GameData.itemWithCurrentDetails(S.inventory[this.selectedInventoryIndex]);
+    const detail = document.getElementById("inv-detail");
+    if (detail) {
+      detail.hidden = !selected;
+      detail.replaceChildren(...(selected ? [this.itemDetailsContent(selected)] : []));
+    }
     const selection = document.getElementById("inv-selection");
     const useBtn = document.getElementById("inv-use-btn");
-    if (selection) selection.textContent = selected ? `${selected.name || selected.id} · x${selected.count || 1} · nhấp đúp để dùng` : "Chưa chọn vật phẩm";
+    if (selection) {
+      if (selected) {
+        const isEq = (selected.type || selected.loai) === "EQUIPMENT";
+        const tag = isEq ? `[Trang bị: ${selected.slot || "Vũ khí"}]` : "[Vật phẩm]";
+        selection.textContent = `${selected.name || selected.id} · ${tag} · Nhấp đúp để ${isEq ? "trang bị" : "dùng"}`;
+      } else {
+        selection.textContent = "Chọn vật phẩm để xem thao tác";
+      }
+    }
     if (useBtn) {
       useBtn.disabled = !selected;
-      useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "Trang bị" : "Dùng";
+      useBtn.textContent = selected && (selected.type || selected.loai) === "EQUIPMENT" ? "⚔️ Trang bị" : "✦ Dùng";
     }
   },
 
@@ -421,7 +570,11 @@ const UI = {
     Inventory.selectedIndex = this.selectedInventoryIndex;
     this.buildInv();
     const item = GameData.itemWithCurrentDetails(S.inventory[this.selectedInventoryIndex]);
-    if (item) this.showTip(item, { clientX: window.innerWidth - 330, clientY: window.innerHeight - 190 });
+    if (item && window.matchMedia?.("(hover: hover)").matches) {
+      this.showTip(item, { clientX: window.innerWidth - 330, clientY: window.innerHeight - 190 });
+    } else {
+      this.hideTip();
+    }
   },
 
   useSelectedItem() {
@@ -568,6 +721,25 @@ const UI = {
     host.hidden = entries.length === 0;
   },
 
+  initializeChatAutoFade() {
+    const chatLogBox = document.getElementById("kpah-chat-log");
+    if (!chatLogBox || typeof chatLogBox.addEventListener !== "function") return;
+    const scheduleFade = () => {
+      clearTimeout(this._logFadeTimer);
+      this._logFadeTimer = setTimeout(() => {
+        chatLogBox.classList.add("idle-faded");
+      }, 6000);
+    };
+    chatLogBox.addEventListener("mouseenter", () => {
+      chatLogBox.classList.remove("idle-faded");
+      clearTimeout(this._logFadeTimer);
+    });
+    chatLogBox.addEventListener("mouseleave", () => {
+      scheduleFade();
+    });
+    scheduleFade();
+  },
+
   initializeHudLayout() {
     let saved = null;
     try { saved = localStorage.getItem("tutien.hud-layout.v1"); } catch { }
@@ -575,6 +747,7 @@ const UI = {
       ? window.matchMedia?.("(orientation: landscape) and (max-height: 520px)")?.matches === true
       : saved === "compact";
     this.setHudLayout(compact, false);
+    this.initializeChatAutoFade();
     return compact;
   },
 
@@ -637,6 +810,14 @@ const UI = {
     this._lastLog = { msg, cls: messageClass, at: now, node: p, count: 1 };
     area.scrollTop = area.scrollHeight;
     while (area.children.length > 150) area.removeChild(area.firstChild);
+    const chatLogBox = document.getElementById("kpah-chat-log");
+    if (chatLogBox) {
+      chatLogBox.classList.remove("idle-faded");
+      clearTimeout(this._logFadeTimer);
+      this._logFadeTimer = setTimeout(() => {
+        chatLogBox.classList.add("idle-faded");
+      }, 6000);
+    }
     return p;
   },
 };

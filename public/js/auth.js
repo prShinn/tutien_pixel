@@ -224,9 +224,12 @@ const Auth = {
     let initialMap = null;
     const mapCode = playerData.mapCode || playerData.mapId || "";
     let worldDto = mapCode ? await Net.get(API.PATHS.worlds.byCode(mapCode)) : null;
-    if (!worldDto?.code) worldDto = await Net.get(API.PATHS.worlds.default);
-    if (worldDto?.code) initialMap = normalizeWorldDto(worldDto);
-    else console.warn("[Auth] Không tải được map trước khi vào game; chờ world_init từ Socket.IO.", worldDto?.error || "");
+    initialMap = normalizeWorldDto(worldDto);
+    if (!initialMap) {
+      worldDto = await Net.get(API.PATHS.worlds.default);
+      initialMap = normalizeWorldDto(worldDto);
+    }
+    if (!initialMap) console.warn("[Auth] Không tải được map hợp lệ; chờ world_init từ Socket.IO.", worldDto?.error || "Map response thiếu dữ liệu ô.");
     enterGame(initialMap, S.player.x, S.player.y);
   },
 

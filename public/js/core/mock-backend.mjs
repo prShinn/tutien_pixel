@@ -20,9 +20,8 @@ function hashUsername(value) {
   return 10000 + ((hash >>> 0) % 1000000000);
 }
 
-export function mockBackendEnabled(search = "") {
-  try { return new URLSearchParams(String(search || "")).get("mockBackend") === "1"; }
-  catch { return false; }
+export function mockBackendEnabled() {
+  return false;
 }
 
 export function installMockBackend({

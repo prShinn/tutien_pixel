@@ -35,6 +35,12 @@ const Net = {
   _beforeUnloadBound: false,
   _savePromise: null,
   _mapChangeTimer: null,
+  _moveTimer: null,
+  _queuedMove: null,
+  _movesInFlight: new Set(),
+  _movementReady: false,
+  _nextMoveAt: 0,
+  MOVEMENT_INTERVAL_MS: 50,
   _autoLootElapsed: 0,
   _autoLootEnabled: AutoLoot.isEnabled(),
   COMMAND_TIMEOUT_MS: 8000,
@@ -318,7 +324,7 @@ const Net = {
   // ── Save ──
   async saveNow(event) {
     if (!authToken || !S.player) return { ok: true, skipped: true };
-    if (!(typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+    if (!(!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
       // BE không chấp nhận ghi đè snapshot từ client. Mutation REST và realtime là nguồn lưu state.
       return { ok: true, skipped: true, reason: "SERVER_AUTHORITATIVE_STATE" };
     }
@@ -338,7 +344,7 @@ const Net = {
 
   startAutoSave() {
     clearInterval(Net._saveTimer);
-    Net._saveTimer = typeof MockBackend !== "undefined" && MockBackend?.enabled
+    Net._saveTimer = !API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled
       ? setInterval(() => Net.saveNow(), API.AUTO_SAVE_MS)
       : null;
   },
@@ -346,7 +352,7 @@ const Net = {
   // ── Socket.io ──
   connectSocket() {
     if (!authToken) return;
-    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+    if ((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
       Net._isOnline = false;
       Net._setBadge(false);
       return;
@@ -363,6 +369,7 @@ const Net = {
       let hasConnected = false;
       let pendingItemChanges = null;
       socket.on("connect", () => {
+        Net._resetMovement();
         if (hasConnected) {
           const changes = pendingItemChanges = new Map();
           void GameData.loadItems(() => pendingItemChanges === changes).then((loaded) => {
@@ -379,19 +386,21 @@ const Net = {
         const p = S.player;
         if (p) {
           const mCode = p.mapCode || p.mapId || S.mapCode || "";
+          const hasCurrentMap = Boolean(S.tiles?.length && S.mapCode === String(mCode).toLowerCase());
           Net.command("world.join", {
           mapCode: mCode,
             x: p.x,
             y: p.y,
             mapVersion: S.mapVersion || 0,
-            hasMap: Boolean(S.tiles?.length && S.mapCode === String(mCode).toLowerCase()),
+            hasMap: hasCurrentMap,
           });
-          UI.showLoading();
+          if (!hasCurrentMap) UI.showLoading();
         }
         UI.log("🌐 Đã kết nối máy chủ!", "system");
       });
 
       socket.on("disconnect", () => {
+        Net._resetMovement();
         pendingItemChanges = null;
         S.combatPending = false;
         Net.cancelLocalCast();
@@ -430,6 +439,8 @@ const Net = {
 
       // ── World Init (Server Authoritative) ──
       socket.on("world_init", async (data) => {
+        Net._resetMovement();
+        let worldReady = false;
         try {
           console.log("[Net] Nhận world_init", { mapCode: data.mapCode || data.map?.code, players: data.players?.length || 0, monsters: data.monsters?.length || 0, mapIncluded: Boolean(data.map) });
           if (data.player && S.player) {
@@ -453,19 +464,27 @@ const Net = {
             try { S.inventory = typeof authoritative.jsonIventory === "string" ? JSON.parse(authoritative.jsonIventory || "[]") : (authoritative.inventory || S.inventory); } catch { }
           }
           const targetMapCode = String(data.mapCode || S.player?.mapCode || "").toLowerCase();
-          if (data.map) {
-            const map = normalizeWorldDto(data.map);
-            if (map && S.player) {
-              World.loadMap(map, S.player.x, S.player.y);
-              console.log("[Net] Bản đồ đã được nạp và chuẩn hóa.");
-            }
-          } else if (S.tiles?.length && S.mapCode === targetMapCode) {
-            // Bản đồ hiện tại đã khớp
-          } else if (targetMapCode) {
+          const targetMapVersion = Number(data.mapVersion || 0);
+          let map = data.map ? normalizeWorldDto(data.map) : null;
+          let hasCurrentMap = Boolean(S.tiles?.length && (!targetMapCode || S.mapCode === targetMapCode)
+            && (!targetMapVersion || Number(S.mapVersion || 0) >= targetMapVersion));
+          if (!map && !hasCurrentMap && targetMapCode) {
+            UI.showLoading();
             const mapDto = await Net.get(API.PATHS.worlds.byCode(targetMapCode));
-            const map = normalizeWorldDto(mapDto);
-            if (map && S.player) World.loadMap(map, S.player.x, S.player.y);
+            map = normalizeWorldDto(mapDto);
           }
+          if (map && ((targetMapCode && String(map.code).toLowerCase() !== targetMapCode)
+            || (targetMapVersion && Number(map.version || 0) < targetMapVersion))) map = null;
+          if (map && S.player) {
+            const sameOrNewerMapVersion = S.mapCode === String(map.code).toLowerCase()
+              && Number(S.mapVersion || 0) >= Number(map.version || 0)
+              && Boolean(S.terrainCanvas);
+            if (!sameOrNewerMapVersion) World.loadMap(map, S.player.x, S.player.y);
+            hasCurrentMap = Boolean(S.tiles?.length && (!targetMapCode || S.mapCode === targetMapCode)
+              && (!targetMapVersion || Number(S.mapVersion || 0) >= targetMapVersion));
+          }
+          if (!hasCurrentMap) throw new Error("BE không trả về dữ liệu map hợp lệ cho bản đồ hiện tại.");
+          worldReady = true;
           UI.hideLoading();
 
           // Nạp người chơi khác
@@ -488,7 +507,13 @@ const Net = {
           S.groundItems = Array.isArray(data.groundItems) ? data.groundItems : [];
 
           UI.update();
-        } catch (e) { console.error("world_init error:", e); }
+          Net._nextMoveAt = performance.now() + Net.MOVEMENT_INTERVAL_MS;
+          Net._movementReady = true;
+        } catch (e) {
+          UI.hideLoading();
+          console.error("world_init error:", e);
+          if (!worldReady) UI.notify("Không tải được bản đồ từ máy chủ. Hãy thử tải lại game.", "error");
+        }
       });
 
       socket.on("map_updated", async (data) => {
@@ -771,7 +796,7 @@ const Net = {
 
       socket.on("combat_result", (payload) => {
         S.combatPending = false;
-        const { attackerId, skillCode, skillName, mp, cooldownMs, gcdMs, loot } = payload;
+        const { attackerId, skillCode, skillName, attackStyle, mp, cooldownMs, gcdMs, loot } = payload;
         const actor = attackerId === socket.id ? S.player : S.players.get(attackerId);
         const vfx = typeof SkillVFX !== "undefined" ? SkillVFX : null;
         const skill = skillCode && vfx ? vfx.findSkill(skillCode, actor) : null;
@@ -805,7 +830,7 @@ const Net = {
           if (!skill && (!vfx || skillCode)) {
             Render.combatFx(m.px, m.py, missed ? "miss" : (hit.critical ? "crit" : "hit"), missed ? "#a8ff8a" : (hit.critical ? "#fff06a" : "#ff765c"), hit.critical ? 1.25 : 1);
           }
-          if (!skill && !skillCode && vfx) vfx.basicAttack(actor || { px: m.px - 20, py: m.py }, m, { miss: missed, critical: Boolean(hit.critical) });
+          if (!skill && !skillCode && vfx) vfx.basicAttack(actor || { px: m.px - 20, py: m.py }, m, { miss: missed, critical: Boolean(hit.critical), attackStyle });
           Render.floatDmg(m.px, m.py, -30, missed ? "MISS" : ((hit.critical ? "CRIT! " : "") + "-" + hit.damage), missed ? "#88ff88" : (hit.critical ? "#fff06a" : "#ff5555"), Boolean(hit.critical));
         }
         if (skill && vfx && visualHits.length) {
@@ -818,6 +843,14 @@ const Net = {
             if (skillName) Render.floatSkill(actor.px, actor.py, skillName);
           }
         } else if (actor) {
+          const target = visualHits[0];
+          if (target) {
+            const dx = target.px - actor.px;
+            const dy = target.py - actor.py;
+            actor.direction = Math.abs(dx) >= Math.abs(dy)
+              ? (dx < 0 ? "left" : "right")
+              : (dy < 0 ? "up" : "down");
+          }
           actor.animState = "attack";
           actor.animStartedAt = Date.now();
           actor.animUntil = actor.animStartedAt + 360;
@@ -930,26 +963,60 @@ const Net = {
     }
   },
 
-  emitMove(force = false) {
-    if (socket?.connected && S.player) {
-      const now = Date.now();
-      const wait = 50 - (now - Number(Net._lastMoveSentAt || 0));
-      if (!force && wait > 0) {
-        if (!Net._moveTimer) {
-          Net._moveTimer = setTimeout(() => {
-            Net._moveTimer = null;
-            Net.emitMove(true);
-          }, wait);
-        }
-        return;
-      }
-      Net._lastMoveSentAt = now;
-      Net.command("movement.intent", {
-        x: S.player.x,
-        y: S.player.y,
-        mapCode: S.mapCode,
-      });
+  emitMove() {
+    if (!socket?.connected || !S.player || !this._movementReady) {
+      return Promise.resolve({ ok: false, error: { code: "WORLD_NOT_JOINED" } });
     }
+    if (!this._queuedMove) {
+      let resolve;
+      const promise = new Promise((done) => { resolve = done; });
+      this._queuedMove = { promise, resolve };
+    }
+    const queued = this._queuedMove;
+    this._flushMovement();
+    return queued.promise;
+  },
+
+  _flushMovement() {
+    if (this._moveTimer || !this._queuedMove) return;
+    if (!socket?.connected || !S.player || !this._movementReady) {
+      this._resetMovement();
+      return;
+    }
+    const wait = this._nextMoveAt - performance.now();
+    if (wait > 0) {
+      this._moveTimer = setTimeout(() => {
+        this._moveTimer = null;
+        this._flushMovement();
+      }, Math.ceil(wait));
+      return;
+    }
+    const queued = this._queuedMove;
+    this._queuedMove = null;
+    this._movesInFlight.add(queued);
+    this._nextMoveAt = performance.now() + this.MOVEMENT_INTERVAL_MS;
+    // Read the latest position at dispatch. Stop and portal requests share this queue.
+    void this.command("movement.intent", {
+      x: S.player.x,
+      y: S.player.y,
+      mapCode: S.mapCode,
+    }).then(queued.resolve, () => queued.resolve({
+      ok: false, error: { code: "NETWORK_ERROR" },
+    })).finally(() => {
+      this._movesInFlight.delete(queued);
+    });
+  },
+
+  _resetMovement() {
+    clearTimeout(this._moveTimer);
+    this._moveTimer = null;
+    const response = { ok: false, error: { code: "WORLD_NOT_JOINED" } };
+    this._queuedMove?.resolve(response);
+    for (const pending of this._movesInFlight) pending.resolve(response);
+    this._queuedMove = null;
+    this._movesInFlight.clear();
+    this._movementReady = false;
+    this._nextMoveAt = 0;
   },
 
   initializeAutoLoot() {
@@ -972,7 +1039,7 @@ const Net = {
   },
 
   pickupLoot(itemId, { automatic = false, claimed = false } = {}) {
-    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) return this._pickupMockLoot(itemId);
+    if ((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) return this._pickupMockLoot(itemId);
     if (!socket?.connected) {
       if (!automatic) UI.notify("Cần kết nối máy chủ để nhặt vật phẩm.", "warning");
       return Promise.resolve({ ok: false, error: { code: "OFFLINE" } });
@@ -1036,7 +1103,7 @@ const Net = {
   },
 
   tickAutoLoot(dt) {
-    const mockMode = Boolean((typeof MockBackend !== "undefined" && MockBackend?.enabled));
+    const mockMode = Boolean((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled));
     if (!this._autoLootEnabled || (!mockMode && (!this._isOnline || !socket?.connected)) || !S.player) return null;
     this._autoLootElapsed += Math.max(0, Number(dt) || 0);
     if (this._autoLootElapsed < 320) return null;
@@ -1050,29 +1117,13 @@ const Net = {
   },
 
   _updateHost() {
-    if (!socket?.connected) {
-      S.isHost = true;
-      return;
-    }
-    const myId = socket.id;
-    const playerIds = [myId];
-    for (const [pid, p] of S.players) {
-      const opMap = (p.mapCode || "").toLowerCase();
-      const myMap = (S.mapCode || "").toLowerCase();
-      if (opMap === myMap) playerIds.push(pid);
-    }
-    playerIds.sort();
-    const newHost = (playerIds[0] === myId);
-    if (newHost !== S.isHost) {
-      S.isHost = newHost;
-      if (newHost) UI.log("👑 Bạn hiện là Host của bản đồ này", "system");
-    }
+    S.isHost = false;
   },
 
   emitMapChange(mapCode, x, y) {
     const px = Math.floor(x);
     const py = Math.floor(y);
-    if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+    if ((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
       UI.showLoading();
       void this.get(API.PATHS.worlds.byCode(mapCode)).then((world) => {
         if (!world?.code) throw new Error(world?.error || "Không tìm thấy bản đồ mô phỏng.");
@@ -1098,14 +1149,23 @@ const Net = {
     if (socket?.connected) {
       UI.showLoading(); // Hiển thị màn hình chờ khi chuyển map
       clearTimeout(Net._mapChangeTimer);
+      Net._mapChangeTimer = null;
       Net._clearOthers();
-      // Flush vị trí hiện tại trước: server phải xác nhận nhân vật đang chạm portal.
-      // Không nhảy client tới điểm đến khi server chưa trả world_init.
-      Net.command("movement.intent", { x: S.player?.x, y: S.player?.y, mapCode: S.mapCode });
-      Net._mapChangeTimer = setTimeout(() => {
+      Net._mapChangeTimer = setTimeout(async () => {
         Net._mapChangeTimer = null;
+        if (!socket?.connected) return;
+        // Portal validation must see the acknowledged authoritative position, not a fixed delay guess.
+        const movement = await Net.emitMove();
+        if (!movement?.ok) {
+          if (S.player) {
+            S.player.isTeleporting = false;
+            S.player.portalLocked = false;
+          }
+          UI.hideLoading();
+          return;
+        }
         if (socket?.connected) Net.command("map.change", { mapCode, x: px, y: py });
-      }, 65);
+      }, 0);
     }
   },
 
@@ -1120,7 +1180,8 @@ const Net = {
     if (socket?.connected) {
       Net.command("chat.send", { message: msg });
     } else {
-      UI.log(`[Tôi]: ${msg}`, "chat");
+      UI.notify("Chưa kết nối BE, tin nhắn chưa gửi.", "warning");
+      return;
     }
     inp.value = "";
     inp.blur();
@@ -1135,6 +1196,15 @@ const Net = {
       const response = await Net.mutate("POST", API.PATHS.player.respawn, {});
       if (!response?.player) throw new Error(response?.error || "Máy chủ chưa hỗ trợ hồi sinh.");
       Net.applyPlayerSnapshot(response.player, { render: false });
+      const isMock = !API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled;
+      if (!isMock && socket?.connected) {
+        const joined = await Net.command("world.join", {});
+        if (!joined?.ok) {
+          UI.notify("Đã lưu hồi sinh. Đang đồng bộ lại kết nối thế giới…", "warning");
+          socket.disconnect();
+          socket.connect();
+        }
+      }
       const player = S.player;
       player.dead = false;
       player.px = Number(player.x || 0) * CFG.TS + CFG.TS / 2;
@@ -1161,7 +1231,7 @@ const Net = {
   _setBadge(online) {
     const ob = document.getElementById("online-badge");
     if (ob) {
-      if ((typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
+      if ((!API.REAL_BACKEND_ONLY && typeof MockBackend !== "undefined" && MockBackend?.enabled)) {
         ob.textContent = "● Local Mock";
         ob.style.color = "#e2c46f";
         ob.title = "API đang dùng dữ liệu mô phỏng trên trình duyệt; không kết nối BE/Socket.";

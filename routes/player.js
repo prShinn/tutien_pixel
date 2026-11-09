@@ -128,10 +128,18 @@ function createPlayerRouter({
     if (!player) return res.status(404).json({ error: "Player not found" });
     let inventory = [];
     try { inventory = typeof player.jsonIventory === "string" ? JSON.parse(player.jsonIventory || "[]") : (player.inventory || []); } catch { inventory = []; }
-    const index = Number.isInteger(req.body?.index) ? req.body.index : inventory.findIndex((item) => item.id === req.body?.itemId);
+    const targetCode = String(req.body?.itemId || req.body?.itemCode || req.body?.id || "");
+    const index = Number.isInteger(req.body?.index)
+      ? req.body.index
+      : inventory.findIndex((item) => item && (
+        String(item.id) === targetCode ||
+        String(item.itemCode) === targetCode ||
+        String(item.maDo) === targetCode ||
+        String(item.code) === targetCode
+      ));
     const item = inventory[index];
     if (!item) return res.status(404).json({ error: "Item not found" });
-    const catalogItem = items.find((entry) => String(entry.id) === String(item.id));
+    const catalogItem = items.find((entry) => String(entry.id) === String(item.id) || String(entry.code) === String(item.id) || String(entry.id) === String(item.itemCode));
     if (!catalogItem) return res.status(400).json({ error: "Vật phẩm không còn trong danh mục sử dụng" });
     const count = Number(item.count ?? 1);
     if (!Number.isSafeInteger(count) || count < 1) return res.status(400).json({ error: "Số lượng vật phẩm không hợp lệ" });
@@ -380,10 +388,18 @@ function createPlayerRouter({
     const player = playerFor(req.userId);
     if (!player) return res.status(404).json({ error: "Player not found" });
     const inventory = readInventory(player);
-    const index = Number.isInteger(req.body?.index) ? req.body.index : inventory.findIndex((item) => item.id === req.body?.itemId);
+    const targetCode = String(req.body?.itemId || req.body?.itemCode || req.body?.id || "");
+    const index = Number.isInteger(req.body?.index)
+      ? req.body.index
+      : inventory.findIndex((item) => item && (
+        String(item.id) === targetCode ||
+        String(item.itemCode) === targetCode ||
+        String(item.maDo) === targetCode ||
+        String(item.code) === targetCode
+      ));
     const item = inventory[index];
     if (!item || (item.type || item.loai) !== "EQUIPMENT") return res.status(400).json({ error: "Vật phẩm không thể trang bị" });
-    const catalogItem = items.find((entry) => String(entry.id) === String(item.id));
+    const catalogItem = items.find((entry) => String(entry.id) === String(item.id) || String(entry.code) === String(item.id) || String(entry.id) === String(item.itemCode));
     if (!catalogItem || (catalogItem.type || catalogItem.loai) !== "EQUIPMENT") {
       return res.status(400).json({ error: "Trang bị không còn trong danh mục vật phẩm" });
     }
@@ -395,7 +411,7 @@ function createPlayerRouter({
         error: `Cần cảnh giới ${realmCheck.requiredRealmStt} trở lên để trang bị (hiện tại: ${realmCheck.currentRealmStt})`,
       });
     }
-    const slot = String(req.body?.slot || item.slot || "weapon");
+    const slot = String(req.body?.slot || item.slot || catalogItem.slot || "weapon");
     if (!EQUIPMENT_SLOTS.includes(slot)) return res.status(400).json({ error: "Ô trang bị không hợp lệ" });
     const equipment = normalizeEquipment(player.equipment);
     const previous = equipment[slot];

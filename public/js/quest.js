@@ -70,6 +70,14 @@ const QuestUI = {
     this.toggle();
   },
 
+  toggleCollapse() {
+    const tracker = document.getElementById("quest-tracker");
+    if (!tracker) return;
+    const isCollapsed = tracker.classList.toggle("collapsed");
+    const btn = document.getElementById("btn-quest-collapse");
+    if (btn) btn.textContent = isCollapsed ? "+" : "−";
+  },
+
   close() {
     const modal = document.getElementById("quest-modal");
     if (modal) modal.style.display = "none";

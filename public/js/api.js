@@ -1,53 +1,29 @@
 // Hợp đồng endpoint dùng chung cho browser client.
 function resolveApiBase() {
-  const query = typeof URLSearchParams === "undefined"
-    ? null
-    : new URLSearchParams(window.location.search || "");
-  const queryApiBase = query?.get("apiBase");
-  const trustedApiBase = window.TuTienConfig?.apiBase;
-  let rememberedApiBase = null;
-  try { rememberedApiBase = window.sessionStorage?.getItem("tu_tien_api_base"); } catch { /* session storage may be blocked */ }
-  const isLocal = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(window.location.origin);
-  const localAdminPage = isLocal && window.location.pathname?.startsWith("/admin");
-  if (!window.location.pathname?.startsWith("/admin") && query?.get("mockBackend") === "1") return window.location.origin;
-  const defaultBase = isLocal ? "http://localhost:3800" : window.location.origin;
-  const rememberedLegacyOrigin = isLocal && rememberedApiBase === window.location.origin;
-  const remembered = localAdminPage || rememberedLegacyOrigin ? null : rememberedApiBase;
-  const configured = trustedApiBase || queryApiBase || remembered;
-  if (!configured) return defaultBase;
-
-  try {
-    const target = new URL(configured, window.location.origin);
-    const current = new URL(window.location.origin);
-    const isLoopback = (host) => host === "localhost" || host === "127.0.0.1" || host === "[::1]";
-    const sameOrigin = target.origin === current.origin;
-    const localDevelopment = isLoopback(target.hostname) && isLoopback(current.hostname);
-    if (!["http:", "https:"].includes(target.protocol) || target.username || target.password || (!trustedApiBase && !sameOrigin && !localDevelopment)) {
-      throw new Error("API base phải dùng http(s), không chứa thông tin đăng nhập; apiBase trên URL chỉ được trỏ cùng origin hoặc localhost.");
-    }
-    if (queryApiBase && !trustedApiBase) {
-      try { window.sessionStorage?.setItem("tu_tien_api_base", target.origin); } catch { /* optional convenience */ }
-    }
-    return target.origin;
-  } catch (error) {
-    console.warn("[API] Bỏ qua apiBase không hợp lệ:", error.message);
-    return defaultBase;
+  const config = window.TuTienConfig;
+  if (config?.dataMode !== "real" || !config.apiBase) {
+    throw new Error("Thiếu cấu hình BE thật. Khởi động FE bằng npm start và kiểm tra BACKEND_URL.");
   }
+  const target = new URL(config.apiBase);
+  if (!["http:", "https:"].includes(target.protocol) || target.username || target.password
+      || target.pathname !== "/" || target.search || target.hash) {
+    throw new Error("BACKEND_URL phải là HTTP(S) origin hợp lệ.");
+  }
+  return target.origin;
 }
-
 const API_BASE = resolveApiBase();
 
 async function assertPersistentStorage() {
   let health;
   let readiness;
   try {
-    const healthResponse = await fetch(`${API_BASE}/api/health`, { cache: "no-store" });
+    const healthResponse = await fetch(`${API_BASE}/api/health`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
     health = await healthResponse.json();
     if (!healthResponse.ok || health?.service !== "tu-tien-pixel-be") {
-      throw new Error("Admin chỉ ghi dữ liệu qua Backend chính thức; API hiện tại không xác nhận đúng dịch vụ.");
+      throw new Error("API hiện tại không xác nhận đúng dịch vụ BE của project.");
     }
 
-    const readinessResponse = await fetch(`${API_BASE}/api/health/ready`, { cache: "no-store" });
+    const readinessResponse = await fetch(`${API_BASE}/api/health/ready`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
     readiness = await readinessResponse.json();
     if (!readinessResponse.ok || readiness?.dependencies?.mysql !== "ready") {
       throw new Error("MySQL chưa sẵn sàng. Dữ liệu chưa được ghi; hãy khởi động Backend và kiểm tra kết nối cơ sở dữ liệu.");
@@ -66,6 +42,7 @@ async function assertPersistentStorage() {
 
 const API = Object.freeze({
   BASE: API_BASE,
+  REAL_BACKEND_ONLY: true,
   assertPersistentStorage,
   SOCKET_URL: API_BASE,
   AUTO_SAVE_MS: 30000,

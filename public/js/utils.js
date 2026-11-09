@@ -57,6 +57,7 @@ function parseStringOrObj(val, fallback) {
 
 function normalizeWorldDto(dto) {
   if (!dto) return null;
+  if (!Array.isArray(dto) && (dto.ok === false || dto.error)) return null;
   console.log("[Utils] Chuẩn hóa map", dto.code || dto.maMap || dto.id, `${dto.w || dto.width || "?"}x${dto.h || dto.height || "?"}`);
   
   // Hỗ trợ cả trường hợp dto chính là mảng gạch (tiles)
@@ -66,6 +67,8 @@ function normalizeWorldDto(dto) {
   } else {
     tiles = parseStringOrObj(dto.jsonMap || dto.mapData || dto.tiles || dto.data, []);
   }
+
+  if (!Array.isArray(tiles) || !tiles.length || !Array.isArray(tiles[0]) || !tiles[0].length) return null;
 
   // Nếu tiles là mảng 2 chiều, tự động tính w, h nếu thiếu
   let w = dto.w || dto.width || (Array.isArray(tiles[0]) ? tiles[0].length : 0);

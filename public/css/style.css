@@ -1632,37 +1632,34 @@ body {
 .target-action-btn { border:1px solid rgba(231,161,125,.8); border-radius:6px; background:#5b2830; color:#ffe7cf; padding:5px 10px; font-weight:700; cursor:pointer; }
 .target-action-btn:hover { background:#7b3540; }
 #game-controls-hint {
-  position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:5;
-  padding:5px 10px; border:1px solid rgba(215,182,90,.24); border-radius:7px;
-  background:rgba(5,8,16,.7); color:#aaa9b6; font-size:10px; white-space:nowrap;
-  pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,.22);
+  display: none !important;
 }
-#game-controls-hint span { color:#f3d28a; font-weight:700; }
-#game-controls-hint i { color:#596174; padding:0 5px; font-style:normal; }
 
-/* Desktop webgame hotbar: skill ngang ở đáy màn hình, không dùng bố cục vòng mobile. */
+/* Desktop webgame hotbar: dạt gọn sang góc dưới bên phải, giải phóng 100% trục giữa. */
 #kpah-hud-bottomright {
-  left: 50%;
-  right: auto;
-  bottom: 16px;
-  transform: translateX(-50%);
+  left: auto !important;
+  right: 18px !important;
+  bottom: 18px !important;
+  transform: none !important;
   width: auto;
   pointer-events: none;
+  z-index: 40;
 }
 #kpah-hud-bottomright .kpah-skill-ring {
   width: auto;
-  min-height: 70px;
-  padding: 5px 7px;
+  min-height: 52px;
+  padding: 4px 6px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid rgba(215,182,90,.38);
-  border-radius: 7px;
-  background: rgba(7,10,20,.92);
-  box-shadow: 0 7px 18px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.05);
-  backdrop-filter: none;
+  border-radius: 8px;
+  background: rgba(12, 16, 26, 0.72);
+  box-shadow: 0 4px 16px rgba(0,0,0,.4), inset 0 1px rgba(255,255,255,.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
 }
 #kpah-hud-bottomright .sk-main,
@@ -1670,13 +1667,16 @@ body {
   position: relative;
   inset: auto;
   flex: 0 0 auto;
-  width: 58px;
-  height: 58px;
-  border-radius: 7px;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
 }
 #kpah-hud-bottomright .sk-main {
   order: 0;
+  width: 52px;
+  height: 52px;
   border-color: #e7a17d;
+  background: #542b34;
 }
 #kpah-hud-bottomright .sk-sub {
   order: 1;
@@ -2267,33 +2267,132 @@ body {
 .stat-line { border-bottom: 1px solid #3d3943 !important; }
 .stat-label { display: inline-flex; align-items: center; gap: 5px; }
 .stat-label .pixel-icon { width: 14px; height: 14px; }
-.equip-grid { gap: 4px; }
+.equip-grid { gap: 6px; }
 .esl,
 .isl {
-  border: 2px solid #625740 !important;
-  border-radius: 0 !important;
-  background: #17151d !important;
-  box-shadow: inset 2px 2px 0 #09080e;
+  border-radius: 4px !important;
   color: #c9c0ad;
 }
 .esl {
   min-height: 52px;
   height: auto;
-  padding: 4px 2px;
-  gap: 2px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   line-height: 1.15;
+  transition: all 0.15s ease;
+  user-select: none;
 }
-.esl .eicon { display: flex; align-items: center; justify-content: center; margin: 0; }
-.esl .eicon .pixel-icon { width: 21px; height: 21px; }
-.esl.equipped { border-color: var(--pixel-mint) !important; background: #26362f !important; color: #e2f1d7; }
+.esl .eicon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  flex-shrink: 0;
+}
+.esl .eicon .pixel-icon { width: 22px; height: 22px; }
+
+/* 1. Ô CHƯA TRANG BỊ (EMPTY) */
+.esl.empty,
+.esl:not(.equipped) {
+  border: 1px dashed rgba(140, 120, 95, 0.45) !important;
+  background: rgba(18, 16, 24, 0.45) !important;
+  box-shadow: inset 1px 1px 4px rgba(0, 0, 0, 0.5) !important;
+  opacity: 0.65;
+  cursor: default;
+}
+.esl.empty:hover,
+.esl:not(.equipped):hover {
+  opacity: 0.88;
+  border-color: rgba(215, 182, 90, 0.6) !important;
+}
+.esl.empty .eicon,
+.esl:not(.equipped) .eicon {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.esl-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.25;
+}
+.esl-slot-type {
+  font-size: 10px;
+  font-weight: 600;
+  color: #a89f91;
+}
+.esl-empty-hint {
+  font-size: 8px;
+  color: #796e62;
+  font-style: italic;
+}
+
+/* 2. Ô ĐÃ TRANG BỊ (EQUIPPED) */
+.esl.equipped {
+  border: 2px solid #5cdbd3 !important;
+  background: linear-gradient(135deg, rgba(22, 54, 52, 0.95), rgba(12, 24, 30, 0.98)) !important;
+  box-shadow: 0 0 10px rgba(92, 219, 211, 0.35), inset 0 0 8px rgba(92, 219, 211, 0.15) !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+.esl.equipped:hover {
+  border-color: #fadb14 !important;
+  box-shadow: 0 0 14px rgba(250, 219, 20, 0.5), inset 0 0 10px rgba(250, 219, 20, 0.2) !important;
+  transform: translateY(-1px);
+}
+.esl.equipped .eicon {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(124, 232, 235, 0.7));
+}
+.esl-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: #e6fffb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 86px;
+}
+.esl-badge {
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #135200;
+  color: #b7eb8f;
+  border: 1px solid #389e0d;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+}
+
+/* 3. TÚI ĐỒ: Vật phẩm trang bị có viền phân biệt */
+.isl.isl-equipment {
+  border-color: #597ef7 !important;
+}
+.isl.isl-equipment::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #5cdbd3;
+  box-shadow: 0 0 3px #5cdbd3;
+}
 .isl {
+  position: relative;
   height: 40px;
   font-size: 0;
   cursor: pointer;
   transition: none !important;
 }
-.isl:hover,
-.esl:hover { transform: none !important; border-color: var(--pixel-trim) !important; }
+.isl:hover { border-color: var(--pixel-trim) !important; }
 .isl.selected { border-color: #f1d277 !important; background: #39352d !important; box-shadow: inset 2px 2px 0 #514731, 2px 2px 0 #0a0910 !important; }
 .isl.empty { opacity: .48; }
 .inventory-pixel-icon { width: 24px; height: 24px; }
@@ -2656,3 +2755,85 @@ body {
 /* Keep every bottom-left action inside its panel and clear of the hotbar. */
 .bottom-btns { width: min(300px, calc(100vw - 24px)); max-width: calc(100vw - 24px); flex-wrap: wrap; }
 @media (max-width: 760px) { #kpah-hud-bottomleft { bottom: 164px; } }
+
+/* 4-Corner Clean Dock: Glassmorphism & Auto-fade styling */
+.map-help-btn {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--hub-trim, #716249);
+  background: #18202c;
+  color: #f0d77f;
+  font: 700 11px monospace;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+}
+.map-help-btn:hover {
+  background: #2a384e;
+  border-color: #f0d77f;
+}
+
+#kpah-chat-log {
+  border-radius: 6px !important;
+  background: rgba(12, 16, 26, 0.65) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(215, 182, 90, 0.3) !important;
+  transition: opacity 0.35s ease, background 0.35s ease, border-color 0.35s ease;
+}
+#kpah-chat-log.idle-faded {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+#kpah-chat-log.idle-faded #log-area {
+  opacity: 0.35;
+}
+#kpah-chat-log:hover,
+#kpah-chat-log:focus-within {
+  background: rgba(12, 16, 26, 0.85) !important;
+  border-color: rgba(215, 182, 90, 0.5) !important;
+}
+#kpah-chat-log:hover #log-area,
+#kpah-chat-log:focus-within #log-area {
+  opacity: 1 !important;
+}
+
+#quest-tracker {
+  border-radius: 6px !important;
+  background: rgba(12, 16, 26, 0.65) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(215, 182, 90, 0.3) !important;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+#quest-tracker.collapsed {
+  max-height: 38px;
+  overflow: hidden;
+  padding-bottom: 4px;
+}
+#quest-tracker.collapsed > *:not(.quest-tracker-head) {
+  display: none !important;
+}
+.quest-tracker-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hub-trim, #5f5848);
+  border-radius: 3px;
+  background: #25232a;
+  color: var(--hub-gold, #f0d77f);
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  line-height: 1;
+}
+.quest-tracker-toggle:hover {
+  background: #3b362e;
+}
