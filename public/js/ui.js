@@ -236,6 +236,16 @@ const UI = {
     if (hpBar) hpBar.style.width = `${Math.min(100, Math.max(0, Math.round((hp / maxHp) * 100)))}%`;
     const hpText = document.getElementById("target-hp-text");
     if (hpText) hpText.textContent = `${hp} / ${maxHp}`;
+    const statusEl = document.getElementById("target-status");
+    if (statusEl) {
+      const styles = typeof MONSTER_STATUS_STYLE !== "undefined" ? MONSTER_STATUS_STYLE : {};
+      const labels = (Array.isArray(target.statusEffects) ? target.statusEffects : [])
+        .map((effect) => styles[effect?.type]?.label)
+        .filter(Boolean);
+      const text = labels.join(" · ");
+      if (statusEl.textContent !== text) statusEl.textContent = text;
+      statusEl.hidden = !text;
+    }
   },
   update() {
     if (!S.player) return;
@@ -749,6 +759,53 @@ const UI = {
     this.setHudLayout(compact, false);
     this.initializeChatAutoFade();
     return compact;
+  },
+
+  toggleHudSettings(force) {
+    const panel = document.getElementById("hud-settings");
+    const button = document.getElementById("btn-hud-settings");
+    if (!panel || !button) return false;
+    const open = typeof force === "boolean" ? force : panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    button.classList.toggle("active", open);
+    if (open && !this._hudSettingsOutside) {
+      this._hudSettingsOutside = (event) => {
+        if (!panel.contains(event.target) && !button.contains(event.target)) this.toggleHudSettings(false);
+      };
+      document.addEventListener("pointerdown", this._hudSettingsOutside);
+    } else if (!open && this._hudSettingsOutside) {
+      document.removeEventListener("pointerdown", this._hudSettingsOutside);
+      this._hudSettingsOutside = null;
+    }
+    return open;
+  },
+
+  pressAttack(down, event) {
+    if (typeof Input === "undefined") return;
+    clearTimeout(this._attackReleaseTimer);
+    if (down) {
+      this._attackHeldAt = Date.now();
+      this._attackPointerDown = true;
+      Input.keys["Space"] = true;
+      if (event?.currentTarget?.setPointerCapture && event.pointerId != null) {
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      return;
+    }
+    if (!this._attackPointerDown) return; // pointerleave khi chỉ rê chuột: không đụng phím Space thật
+    this._attackPointerDown = false;
+    // Giữ tối thiểu 100ms để vòng lặp game kịp đọc một cú chạm ngắn.
+    const remain = 100 - (Date.now() - (this._attackHeldAt || 0));
+    if (remain > 0) this._attackReleaseTimer = setTimeout(() => { Input.keys["Space"] = false; }, remain);
+    else Input.keys["Space"] = false;
+  },
+
+  tapAttack(event) {
+    // Click từ chuột/chạm đã xử lý qua pointer; chỉ bàn phím (detail = 0) mới nhấn ngắn 100ms.
+    if (typeof Input === "undefined" || event?.detail > 0) return;
+    Input.keys["Space"] = true;
+    setTimeout(() => { Input.keys["Space"] = false; }, 100);
   },
 
   toggleHudLayout() {

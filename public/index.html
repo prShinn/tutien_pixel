@@ -272,6 +272,7 @@
               <div class="target-hp-fill" id="target-hp-bar" style="width: 100%;"></div>
               <div class="target-hp-text" id="target-hp-text">100 / 100</div>
             </div>
+            <div id="target-status" class="target-status" role="status" aria-live="polite" hidden></div>
           </div>
           <div class="target-actions">
             <button class="target-action-btn" onclick="Combat.attackTarget()">Đánh</button>
@@ -318,11 +319,6 @@
 
       <!-- 3. KPAH HUD: TOP RIGHT -->
       <div id="kpah-hud-topright">
-        <div class="hub-actions" aria-label="Lối tắt HUB">
-          <button class="hub-action" type="button" onclick="UI.toggleKpahMenu()" title="Mở nhân vật và hành trang"><span class="pixel-icon icon-profile" aria-hidden="true"></span>Nhân vật</button>
-          <button class="hub-action" type="button" onclick="UI.toggleContinent()" title="Mở bản đồ đại lục"><span class="pixel-icon icon-map" aria-hidden="true"></span>Đại lục</button>
-          <button class="hub-action" id="btn-sound-toggle" type="button" onclick="UI.toggleSound()" title="Bật/Tắt Âm thanh"><span id="sound-icon" aria-hidden="true">🔊</span><span id="sound-label">Âm thanh</span></button>
-        </div>
         <div class="online-badge" id="online-badge">● Offline</div>
         <div class="hud-xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
       </div>
@@ -344,20 +340,23 @@
           <button class="kpah-btn" type="button" aria-label="Mở bản đồ đại lục" title="Bản đồ đại lục" onclick="UI.toggleContinent()"><span class="pixel-icon icon-map" aria-hidden="true"></span><span class="hub-btn-label">Đại lục</span></button>
           <button class="kpah-btn" type="button" aria-label="Mở khung chat" title="Chat" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span><span class="hub-btn-label">Chat</span></button>
           <button class="kpah-btn" type="button" id="btn-auto" aria-label="Bật hoặc tắt tự động chiến đấu" title="Tự động chiến đấu" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span><span class="hub-btn-label">Tự Động</span></button>
-          <button class="kpah-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
-          <button class="kpah-btn persistent-effects-toggle active" type="button" id="btn-buff-effects" aria-pressed="true" aria-label="Hiệu ứng khi tung chiêu quanh nhân vật: đang hiện" title="Ẩn hiệu ứng khi tung chiêu quanh nhân vật" onclick="UI.toggleBuffEffects()"><span class="buff-effects-icon" aria-hidden="true">FX</span><span id="buff-effects-state">FX: HIỆN</span></button>
-          <button class="kpah-btn sound-toggle active" type="button" id="btn-sound-bar" aria-pressed="true" aria-label="Âm thanh game: đang bật" title="Bật hoặc tắt âm thanh game" onclick="UI.toggleSound()"><span id="sound-bar-icon" aria-hidden="true">🔊</span><span id="sound-bar-state">Âm: BẬT</span></button>
+          <button class="kpah-btn" type="button" id="btn-hud-settings" aria-label="Mở cài đặt nhanh" aria-haspopup="true" aria-expanded="false" aria-controls="hud-settings" title="Cài đặt nhanh: nhặt đồ, hiệu ứng, âm thanh" onclick="UI.toggleHudSettings()"><span class="hud-settings-icon" aria-hidden="true"></span><span class="hub-btn-label">Cài đặt</span></button>
+        <div id="hud-settings" class="hud-settings" role="group" aria-label="Cài đặt nhanh" hidden>
+          <button class="hud-setting-btn auto-loot-toggle active" type="button" id="btn-auto-loot" aria-pressed="true" aria-label="Tự nhặt vật phẩm gần: đang bật" title="Bật hoặc tắt tự nhặt vật phẩm gần" onclick="Net.toggleAutoLoot()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span id="auto-loot-state">Nhặt: BẬT</span></button>
+          <button class="hud-setting-btn persistent-effects-toggle active" type="button" id="btn-buff-effects" aria-pressed="true" aria-label="Hiệu ứng khi tung chiêu quanh nhân vật: đang hiện" title="Ẩn hiệu ứng khi tung chiêu quanh nhân vật" onclick="UI.toggleBuffEffects()"><span class="buff-effects-icon" aria-hidden="true">FX</span><span id="buff-effects-state">FX: HIỆN</span></button>
+          <button class="hud-setting-btn sound-toggle active" type="button" id="btn-sound-bar" aria-pressed="true" aria-label="Âm thanh game: đang bật" title="Bật hoặc tắt âm thanh game" onclick="UI.toggleSound()"><span id="sound-bar-icon" aria-hidden="true">🔊</span><span id="sound-bar-state">Âm: BẬT</span></button>
+        </div>
         </div>
       </div>
 
       <!-- 5. KPAH HUD: BOTTOM RIGHT (Skills) -->
       <div id="kpah-hud-bottomright">
         <div class="kpah-skill-ring">
-          <button class="sk-main" type="button" aria-label="Đánh thường, phím Space" onclick="Input.keys['Space'] = true; setTimeout(()=>Input.keys['Space']=false, 100)"><span class="skbar-key">Space</span><span class="pixel-icon icon-sword" aria-hidden="true"></span><strong>Đánh</strong></button>
-          <button class="sk-sub" type="button" id="skbar-slot-0" aria-label="Kỹ năng ô 1" onclick="SkillSystem.useSkill(0)">1<br/><span id="skbar-name-0" style="font-size:8px;">—</span></button>
-          <button class="sk-sub" type="button" id="skbar-slot-1" aria-label="Kỹ năng ô 2" onclick="SkillSystem.useSkill(1)">2<br/><span id="skbar-name-1" style="font-size:8px;">—</span></button>
-          <button class="sk-sub" type="button" id="skbar-slot-2" aria-label="Kỹ năng ô 3" onclick="SkillSystem.useSkill(2)">3<br/><span id="skbar-name-2" style="font-size:8px;">—</span></button>
-          <button class="sk-sub" type="button" id="skbar-slot-3" aria-label="Kỹ năng ô 4" onclick="SkillSystem.useSkill(3)">4<br/><span id="skbar-name-3" style="font-size:8px;">—</span></button>
+          <button class="sk-main" type="button" aria-label="Đánh thường, phím Space" onpointerdown="UI.pressAttack(true, event)" onpointerup="UI.pressAttack(false)" onpointercancel="UI.pressAttack(false)" onpointerleave="UI.pressAttack(false)" onclick="UI.tapAttack(event)"><span class="skbar-key">Space</span><span class="pixel-icon icon-sword" aria-hidden="true"></span><strong>Đánh</strong></button>
+          <button class="sk-sub" type="button" id="skbar-slot-0" aria-label="Kỹ năng ô 1" onclick="SkillSystem.useSkill(0)">1<br/><span id="skbar-name-0" class="skbar-name">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-1" aria-label="Kỹ năng ô 2" onclick="SkillSystem.useSkill(1)">2<br/><span id="skbar-name-1" class="skbar-name">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-2" aria-label="Kỹ năng ô 3" onclick="SkillSystem.useSkill(2)">3<br/><span id="skbar-name-2" class="skbar-name">—</span></button>
+          <button class="sk-sub" type="button" id="skbar-slot-3" aria-label="Kỹ năng ô 4" onclick="SkillSystem.useSkill(3)">4<br/><span id="skbar-name-3" class="skbar-name">—</span></button>
         </div>
       </div>
 
@@ -500,8 +499,9 @@
         <header class="kpah-modal-header"><span id="death-title">TRỌNG THƯƠNG</span></header>
         <div class="death-modal-content">
           <p>Ngươi đã gục ngã trên chiến trường.</p>
+          <p>Hồi sinh tại điểm xuất phát của bản đồ với 50% sinh lực và linh lực, tổn thất 5% tu vi hiện có.</p>
           <p id="death-message" role="status" aria-live="polite">Đang chờ hồi sinh…</p>
-          <button id="death-respawn-btn" type="button" class="sbtn" onclick="Net.respawnPlayer()">Hồi Sinh Về Làng</button>
+          <button id="death-respawn-btn" type="button" class="sbtn" onclick="Net.respawnPlayer()">Hồi Sinh</button>
         </div>
       </section>
     </div>

@@ -26,6 +26,16 @@ const TC = {
 
 const AUTOTILE_SIZE = 8;
 const AUTOTILE_VARIANTS = 4;
+// Trạng thái authoritative do BE gắn lên quái (monster.statusEffects); glyph + màu + tên để không chỉ dựa vào màu.
+const MONSTER_STATUS_STYLE = {
+  stun: { glyph: "!", color: "#ffe066", label: "Choáng" },
+  freeze: { glyph: "*", color: "#9be7ff", label: "Đóng băng" },
+  root: { glyph: "#", color: "#8fd16a", label: "Trói chân" },
+  slow: { glyph: "~", color: "#7aa8ff", label: "Làm chậm" },
+  burn: { glyph: "^", color: "#ff8a3d", label: "Thiêu đốt" },
+  curse: { glyph: "x", color: "#c38bff", label: "Nguyền rủa" },
+  armor_break: { glyph: "/", color: "#ff6b6b", label: "Phá giáp" },
+};
 const AUTOTILE_ATLAS_URL = "/assets/tilesets/temperate-47.svg";
 const ITEM_ATLAS_URL = "./assets/items/item-icons-v2.png";
 const NPC_ROLE_ATLAS_URL = "./assets/characters/npc-village-roles-v1.png";
@@ -1040,6 +1050,26 @@ const Render = {
       const barY = sy - spriteH / 2 - 6;
       ctx.fillStyle = "#111"; ctx.fillRect(sx - barW / 2, barY, barW, 3);
       ctx.fillStyle = "#cc2222"; ctx.fillRect(sx - barW / 2, barY, (barW * hp) / maxHp, 3);
+    }
+
+    const statuses = !m.dead && Array.isArray(m.statusEffects)
+      ? m.statusEffects.filter((effect) => MONSTER_STATUS_STYLE[effect?.type])
+      : [];
+    if (statuses.length) {
+      const iconY = sy - spriteH / 2 - 15;
+      let iconX = sx - (statuses.length * 9 - 1) / 2;
+      ctx.save();
+      ctx.font = "bold 6px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const effect of statuses) {
+        const style = MONSTER_STATUS_STYLE[effect.type];
+        ctx.fillStyle = "#111"; ctx.fillRect(iconX, iconY, 8, 8);
+        ctx.fillStyle = style.color; ctx.fillRect(iconX + 1, iconY + 1, 6, 6);
+        ctx.fillStyle = "#111"; ctx.fillText(style.glyph, iconX + 4, iconY + 4.5);
+        iconX += 9;
+      }
+      ctx.restore();
     }
   },
 

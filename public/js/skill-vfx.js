@@ -437,6 +437,11 @@ const SkillVFX = {
     } else {
       // Area damage can hit multiple enemies but the cast has one visual center.
       const visualTargets = mode === "impact" && profile.aoe ? targets.slice(0, 1) : targets;
+      if (mode === "impact" && profile.aoe && profile.aoeR > 0 && targets[0]) {
+        // Vòng vùng ảnh hưởng đúng bán kính BE (dienRong × SKILL_RANGE_SCALE ô) + tia đánh trúng từng mục tiêu phụ.
+        this.drawAreaRing(targets[0], profile.aoeR * this.areaRadiusScale, palette, progress);
+        for (const extra of targets.slice(1)) this.drawBurst(extra, palette, progress, 1, 0, 0.75);
+      }
       for (const target of visualTargets) {
         if (mode === "basic-attack" && profile.form === "slash") this.drawMelee(origin, target, palette, progress, target, profile.tier);
         else if (mode === "monster-attack") this.drawMonsterAttack(origin, target, profile, palette, progress, target);
@@ -782,6 +787,21 @@ const SkillVFX = {
       }
     }
     this.colorStamp(point.x, point.y - 5, 5, palette.accent, 0.95);
+  },
+
+  // Khớp SKILL_RANGE_SCALE ở BE (src/realtime/gameplay-service.js): bán kính trúng = dienRong × 6 ô.
+  areaRadiusScale: 6,
+
+  drawAreaRing(point, radius, palette, progress) {
+    if (!point || !(radius > 0)) return;
+    const grow = Math.min(1, progress / 0.35);
+    const r = radius * grow;
+    const alpha = Math.max(0.18, 0.85 - progress * 0.6);
+    const count = Math.max(16, Math.round(r * 1.6));
+    for (let i = 0; i < count; i += 1) {
+      const angle = (i / count) * Math.PI * 2;
+      this.colorStamp(point.x + Math.cos(angle) * r, point.y + Math.sin(angle) * r, 2, i % 2 ? palette.main : palette.light, alpha);
+    }
   },
 
   drawPixelRing(x, y, radius, color, alpha, size) {

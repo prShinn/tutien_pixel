@@ -697,7 +697,7 @@ const Net = {
         }
       });
 
-      socket.on("player_combat_result", ({ targetId, attackerId, damage, miss, hp, maxHp }) => {
+      socket.on("player_combat_result", ({ targetId, attackerId, damage, absorbed, miss, hp, maxHp }) => {
         const monster = S.monsters.find((entry) => entry.id === attackerId);
         const targetActor = targetId === socket.id ? S.player : S.players.get(targetId);
         if (monster && targetActor && typeof Monster !== "undefined") {
@@ -722,6 +722,7 @@ const Net = {
           if (typeof Sound !== "undefined") Sound.play("hurt");
         }
         Render.floatDmg(S.player.px, S.player.py, -36, miss ? "MISS" : `-${damage}`, miss ? "#88ff88" : "#ff4444");
+        if (!miss && Number(absorbed) > 0) Render.floatDmg(S.player.px, S.player.py, -46, `Khiên đỡ ${absorbed}`, "#72d7ff");
         if (S.player.hp <= 0) {
           const newlyDead = !S.player.dead;
           S.player.hp = 0;
@@ -1220,6 +1221,7 @@ const Net = {
       World.cancelPlayerMove(player);
       UI.hideDeathModal?.();
       UI.update();
+      if (Number(response.tuViLost) > 0) UI.log(`Tử vong: tổn thất ${response.tuViLost} tu vi.`, "combat");
       UI.notify("Đã hồi sinh tại điểm xuất phát.", "success");
     } catch (error) {
       UI.setDeathMessage?.(error.message || "Không thể hồi sinh. Vui lòng thử lại.");

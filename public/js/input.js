@@ -106,6 +106,7 @@ const Input = {
         const continent = document.getElementById("continent-modal");
         if (continent) continent.style.display = "none";
         QuestUI.close();
+        UI.toggleHudSettings?.(false);
       }
       if (e.code === "Enter") {
         const ci = document.getElementById("chat-inp");
