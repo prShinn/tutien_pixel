@@ -19,7 +19,7 @@
     { id: "cultivation", src: "./js/cultivation.js?v=4", dependsOn: ["network"] },
     { id: "inventory", src: "./js/inventory.js?v=4", dependsOn: ["network"] },
     { id: "shop", src: "./js/shop.js?v=5", dependsOn: ["inventory"] },
-    { id: "render", src: "./js/render.js?v=19", dependsOn: ["visual-effects"] },
+    { id: "render", src: "./js/render.js?v=20", dependsOn: ["visual-effects"] },
     { id: "skill-vfx", src: "./js/skill-vfx.js?v=23", dependsOn: ["api", "visual-effects"] },
     { id: "ui", src: "./js/ui.js?v=17", dependsOn: ["render", "visual-effects"] },
     { id: "quest", src: "./js/quest.js?v=4", dependsOn: ["network", "ui"] },

@@ -790,7 +790,9 @@ const Render = {
     }
     const reduceMotion = this._prefersReducedMotion;
     const actionElapsed = Math.max(0, now - Number(actor?.animStartedAt || now));
-    const rawFrame = reduceMotion ? 0 : activeAction === "walk"
+    // Chuyển khung sprite là phản hồi gameplay (giống quái), nên luôn chạy kể cả khi hệ điều hành
+    // bật "giảm chuyển động"; thiết lập đó chỉ tắt các hiệu ứng phụ (lắc, co giãn, bụi chân, giật lùi).
+    const rawFrame = activeAction === "walk"
       ? this.walkFrame(actor)
       : Math.floor(now / animation.speed) % 4;
     // Idle alternates the open-eye pose with a brief blink on the same sprite row.
@@ -817,11 +819,9 @@ const Render = {
     const idleFrame = blinking
       ? idleBlinkFrame
       : idleCycle[Math.floor(now / this.idleFrameMs) % idleCycle.length] % spriteColumns;
-    const frameIndex = reduceMotion
-      ? (activeAction === "attack" ? (defaultCharacterSheet ? attackPose : 2) : ((activeAction === "cast" || activeAction === "hurt") ? 2 : 0))
-      : (activeAction === "idle"
-        ? idleFrame
-        : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed))));
+    const frameIndex = activeAction === "idle"
+      ? idleFrame
+      : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed)));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
       : 0;
@@ -833,9 +833,10 @@ const Render = {
     // Continuous body movement bridges the discrete sprite poses and makes
     // the feet feel planted between frame changes.
     const idlePhase = now * 0.0022;
-    const bob = reduceMotion ? 0 : (walking
+    // Nhún tại chỗ (thở khi đứng, nhấp nhô theo bước) giữ cả khi giảm chuyển động: biên độ chỉ vài pixel.
+    const bob = walking
       ? 0.25 + (1 - Math.cos(walkPhase * 2)) * 0.88
-      : (idle ? (1 - Math.cos(idlePhase)) * 0.4 : 0));
+      : (idle ? (1 - Math.cos(idlePhase)) * 0.4 : 0);
     const sway = reduceMotion ? 0 : idle
       ? Math.sin(idlePhase * 0.7) * 0.012
       : (walking ? Math.sin(walkPhase) * 0.05 : 0);
