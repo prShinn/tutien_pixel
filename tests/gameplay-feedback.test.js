@@ -146,7 +146,14 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
     Chest: { open(npc) { opened.push({ type: "chest", id: npc.id }); } },
     DialogUI: { open(npc) { opened.push({ type: "dialog", id: npc.id }); } },
     Monster: { update() {} },
-    Combat: { attack(target) { attacks.push(target?.id); } },
+    Combat: {
+      attack(target) { attacks.push(target?.id); },
+      // update()/Input.onClick gọi hai hàm này mỗi frame; giữ đúng hợp đồng của combat.js khi không cầm vũ khí tầm xa.
+      basicRange() { return basicAttackRange; },
+      canReachWithBasic(actor, target, range = basicAttackRange) {
+        return Math.hypot(target.px - actor.px, target.py - actor.py) <= range;
+      },
+    },
     dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); },
     console: { error(...args) { errors.push(args); } },
   });
@@ -448,7 +455,8 @@ test("basic attacks stamp the start time so the attack sprite advances", () => {
     CFG: { BASIC_ATTACK_RANGE: 3, TS: 1, ATTACK_RANGE_PADDING: 0 },
     dist() { return 0; },
     socket: { connected: true },
-    Net: { command() {} },
+    // Combat.attack() chỉ gửi đòn khi socket và Net đều online.
+    Net: { command() {}, _isOnline: true },
     Date,
   });
   vm.runInContext(`${combatSource}\nglobalThis.__Combat = Combat;`, context, { filename: "combat.js" });
@@ -710,15 +718,18 @@ test("losing focus clears held keys and pending click movement", () => {
   assert.equal(player.targetMovePos, null);
   assert.deepEqual(Array.from(player.movePath), []);
   assert.equal(player.combatMove, false);
-  assert.deepEqual(Array.from(emitted), [true]);
+  // Net.emitMove() không còn tham số force: hàng đợi luôn gửi vị trí mới nhất khi dừng.
+  assert.equal(emitted.length, 1);
 });
 
 test("walk sprite frames follow traveled distance rather than wall-clock phase", () => {
   const render = renderHarness();
+  const step = render.walkFrameDistance;
   assert.equal(render.walkFrame({ walkDistance: 0 }), 0);
-  assert.equal(render.walkFrame({ walkDistance: 13 }), 1);
-  assert.equal(render.walkFrame({ walkDistance: 26 }), 2);
-  assert.equal(render.walkFrame({ walkDistance: 52 }), 0);
+  assert.equal(render.walkFrame({ walkDistance: step }), 1);
+  assert.equal(render.walkFrame({ walkDistance: step * 2 }), 2);
+  assert.equal(render.walkFrame({ walkDistance: step * 3 }), 3);
+  assert.equal(render.walkFrame({ walkDistance: step * 4 }), 0);
 });
 
 test("render camera follows the same interpolated player position as the sprite", () => {
@@ -727,9 +738,12 @@ test("render camera follows the same interpolated player position as the sprite"
   assert.equal(position.x, 95);
   assert.equal(position.y, 90);
 
-  render.__context.S.player = { previousPx: 90, previousPy: 80, px: 100, py: 100 };
+  // Đặt người chơi xa mép map để camera không bị kẹp về 0; khung nhìn logic phụ thuộc
+  // displayScale() (canvas nhỏ thì phóng nhỏ) nên tính tâm theo scale thực tế.
+  render.__context.S.player = { previousPx: 390, previousPy: 380, px: 400, py: 400 };
   render.frame(80, 0.5, 100);
-  const expectedCameraX = (95 - 50) * (1 - Math.exp(-1));
+  const halfViewW = render.__context.cW / render.displayScale() / 2;
+  const expectedCameraX = (395 - halfViewW) * (1 - Math.exp(-1));
   assert.ok(Math.abs(render.__context.S.cam.x - expectedCameraX) < 1e-8);
 });
 

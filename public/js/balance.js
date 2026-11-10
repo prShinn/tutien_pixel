@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════════════════════════
 // FILE: public/js/balance.js
 // 1. DÙNG ĐỂ LÀM GÌ:
-//    - Cân bằng chiến đấu phía Client (Client Combat Formulas): Bản sao đồng bộ của data/balance.js
+//    - Cân bằng chiến đấu phía Client (Client Combat Formulas): Bản sao đồng bộ của src/data/balance.js bên BE (tutien_pixel_be)
 //      phục vụ tính toán sát thương tức thời trên màn hình (Client Prediction), tính toán OVR lực chiến,
 //      vòng tròn Tương Sinh (Kim -> Thủy -> Mộc -> Hỏa -> Thổ) và Tương Khắc (Kim -> Mộc -> Thổ -> Thủy -> Hỏa).
 // 2. CẤU HÌNH LIÊN QUAN:

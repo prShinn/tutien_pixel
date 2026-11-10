@@ -1101,6 +1101,8 @@
 
   #map-widget {
     top: calc(56px + env(safe-area-inset-top));
+    /* style.css (≤700px) đặt bottom: 122px; neo top mà không bỏ bottom sẽ kéo widget cao hết màn. */
+    bottom: auto;
     right: calc(8px + env(safe-area-inset-right));
     width: 116px;
     padding: 5px;
@@ -1437,6 +1439,7 @@
 
   #map-widget {
     top: calc(8px + env(safe-area-inset-top));
+    bottom: auto;
     right: calc(8px + env(safe-area-inset-right));
     width: 108px;
     padding: 4px;

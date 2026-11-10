@@ -51,6 +51,7 @@ const UI = {
     if (slots[slot]) return slots[slot];
     const type = String(item.type || item.loai || "").toUpperCase();
     if (type === "STONE" || type === "ELEMSTONE") return "icon-spirit-stone";
+    if (type === "MATERIAL" || type === "HERB") return "icon-herb";
     if (type === "LINDAN" || type === "BREAKTHROUGH_PILL") return "icon-pill";
     if (type === "POTION" || type === "CONSUME") {
       if (Number(item.healHp) > 0) return "icon-potion-hp";
@@ -124,7 +125,7 @@ const UI = {
       button.disabled = false;
       button.focus();
     }
-    this.setDeathMessage("Ngươi đã trọng thương. Hồi sinh tại điểm xuất phát với 50% HP và MP.");
+    this.setDeathMessage("Bấm Hồi Sinh khi sẵn sàng.");
   },
   hideDeathModal() {
     const modal = document.getElementById("death-modal");

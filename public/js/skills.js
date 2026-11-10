@@ -101,6 +101,11 @@ const SkillSystem = {
   _book: null,
   _selected: new Set(),
 
+  // Ô kỹ năng có thể giữ nguyên DTO của BE (mpTieuHao) hoặc dạng FE đã map (mpCost).
+  mpCost(skill) {
+    return Math.max(0, Number(skill?.mpCost ?? skill?.mpTieuHao ?? 0) || 0);
+  },
+
   isOffensive(skill) {
     if (!skill) return false;
     return Number(skill.satThuong || 0) > 0
@@ -118,7 +123,7 @@ const SkillSystem = {
         const weaponKind = player.equipment?.weapon?.weaponKind || player.equipment?.weapon?.basicAttack?.style;
         if (!weaponKind || !skill.weaponKinds.includes(weaponKind)) continue;
       }
-      if (Number(skill.cdLeft || 0) > 0 || Number(player.mp || 0) < Number(skill.mpCost || 0)) continue;
+      if (Number(skill.cdLeft || 0) > 0 || Number(player.mp || 0) < this.mpCost(skill)) continue;
 
       const effect = String(skill.effect || "");
       let shouldCast = false;
@@ -508,7 +513,7 @@ const SkillSystem = {
       UI.log(`${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`, "system");
       return;
     }
-    if ((p.mp || 0) < skill.mpCost) {
+    if ((p.mp || 0) < this.mpCost(skill)) {
       UI.log("Không đủ linh lực!", "system");
       return;
     }

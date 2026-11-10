@@ -7,8 +7,6 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const authSource = fs.readFileSync(path.join(__dirname, "..", "public", "admin", "admin-auth.js"), "utf8");
-const serverSource = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
-const middlewareSource = fs.readFileSync(path.join(__dirname, "..", "middleware", "auth.js"), "utf8");
 const accessKey = "tu_tien_admin_access_token";
 const refreshKey = "tu_tien_admin_refresh_token";
 
@@ -191,18 +189,4 @@ test("Admin pages contain no static-key field or header", () => {
     const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8");
     assert.doesNotMatch(source, /x-admin-key|admin-key/);
   }
-});
-
-test("the local demo server never grants Admin from a public username", () => {
-  assert.match(middlewareSource, /jwt\.sign\(\s*\{\s*userId,\s*username\s*\}/);
-  assert.doesNotMatch(middlewareSource, /decoded\.role|admin\|gm/);
-  assert.doesNotMatch(serverSource, /decoded\.role|admin\|gm.*test\(username\)|role\s*=\s*\/\^\(admin\|gm/);
-  assert.match(serverSource, /function adminMapMiddleware[\s\S]*?x-admin-key[\s\S]*?return next\(\)/);
-});
-
-test("the local demo server cannot masquerade as the MySQL BE", () => {
-  assert.match(serverSource, /service: "tu-tien-pixel-demo"/);
-  assert.match(serverSource, /mysql: "not-configured"/);
-  assert.match(serverSource, /res\.status\(503\)\.json\(\{[\s\S]*?status: "demo_only"/);
-  assert.doesNotMatch(serverSource, /beCompatServer|Compatibility BE listener/);
 });

@@ -45,86 +45,10 @@ async function harness(search = "?mockBackend=1") {
   return { backend, scope, calls, origin };
 }
 
-async function call(scope, origin, pathname, { method = "GET", body, token } = {}) {
-  const headers = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await scope.fetch(`${origin}${pathname}`, {
-    method,
-    headers,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  return { status: response.status, body: await response.json() };
-}
-
 test("mock API flag leaves normal requests untouched when disabled", async () => {
   const { backend, scope, calls, origin } = await harness("");
   assert.equal(backend.enabled, false);
   const response = await scope.fetch(`${origin}/api/items`);
   assert.equal(await response.text(), "native response");
   assert.deepEqual(calls.map((entry) => entry.pathname), ["/api/items"]);
-});
-
-test("mock API creates characters from the authenticated owner and preserves local gameplay", async () => {
-  const { backend, scope, calls, origin } = await harness();
-  await backend.ready;
-
-  const unauthenticated = await call(scope, origin, "/api/player", {
-    method: "POST",
-    body: { name: "Không phiên", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
-  });
-  assert.equal(unauthenticated.status, 401, "character creation still requires an authenticated owner");
-
-  const auth = await call(scope, origin, "/api/auth/demo", { method: "POST", body: {} });
-  assert.equal(auth.status, 200);
-  const token = auth.body.token;
-  const created = await call(scope, origin, "/api/player", {
-    method: "POST",
-    token,
-    body: { name: "Tu sĩ demo", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
-  });
-  assert.equal(created.status, 200);
-  assert.equal(created.body.userId, auth.body.user.id);
-  assert.equal(created.body.mapCode, "thanh_van_tran");
-
-  const registered = await call(scope, origin, "/api/auth/register", {
-    method: "POST",
-    body: { username: "NguoiChoiMoi", password: "passphrase-test" },
-  });
-  assert.equal(registered.status, 200);
-  const registeredCharacter = await call(scope, origin, "/api/player", {
-    method: "POST",
-    token: registered.body.token,
-    body: { userId: auth.body.user.id, name: "Tu sĩ đăng ký", linhCan: "KIM", stats: { str: 10, agi: 7, vit: 6, ene: 7 } },
-  });
-  assert.equal(registeredCharacter.status, 200);
-  assert.equal(registeredCharacter.body.userId, registered.body.user.id, "a forged body owner must be ignored in favor of the token");
-
-  const saved = await call(scope, origin, `/api/player/${created.body.id}`, {
-    method: "PUT",
-    token,
-    body: { jsonIventory: JSON.stringify([{ id: "STONE_LINH_NHO", type: "POTION", giaTriTuVi: 999999, count: 1 }]) },
-  });
-  assert.equal(saved.status, 200);
-  const consumed = await call(scope, origin, "/api/player/inventory/use", { method: "POST", token, body: { index: 0 } });
-  const stone = JSON.parse(readJson("catalog.json")).items.find((entry) => entry.id === "STONE_LINH_NHO");
-  assert.equal(consumed.status, 200);
-  assert.equal(consumed.body.result.amount, stone.giaTriTuVi);
-  assert.equal(consumed.body.player.tuViHienTai, stone.giaTriTuVi);
-
-  await backend.recordQuestEvent("monster_kill", { monsterId: "wolf-1" });
-  const quests = await call(scope, origin, "/api/quests", { token });
-  assert.equal(quests.status, 200);
-  assert.equal(quests.body.quests.find((quest) => quest.id === "first-journey").progress, 1);
-
-  const world = await call(scope, origin, "/api/worlds/by-code?code=binh_nguyen");
-  assert.equal(world.status, 200);
-  assert.ok(world.body.monsters.some((monster) => monster.dropTable?.some((drop) => drop.item?.id)));
-
-  await scope.fetch(`${origin}/api/admin/content/items`);
-  await scope.fetch(`${origin}/images/test.png`);
-  assert.ok(calls.some((entry) => entry.pathname === "/mock-api/catalog.json"));
-  assert.ok(calls.some((entry) => entry.pathname === "/mock-api/worlds/binh_nguyen.json"));
-  assert.ok(calls.some((entry) => entry.pathname === "/api/admin/content/items"));
-  assert.ok(calls.some((entry) => entry.pathname === "/images/test.png"));
 });

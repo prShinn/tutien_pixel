@@ -31,6 +31,8 @@ function monsterHarness(player = {}) {
   };
   const context = vm.createContext({
     S: state,
+    // Monster.update() bỏ qua mô phỏng cục bộ khi chạy BE thật; tắt cờ để kiểm nhánh xử lý người chơi đã chết.
+    API: { REAL_BACKEND_ONLY: false },
     Net: { _isOnline: false },
     SkillSystem: {
       updateMonsterStatus() { events.push("status-update"); },

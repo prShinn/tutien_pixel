@@ -75,6 +75,11 @@ const Net = {
           if (["combat.attack", "combat.skill"].includes(type)) {
             S.combatPending = false;
             if (!payload.skillCode) Net.cancelLocalCast();
+            if (payload.skillCode) Net._throttleRejectedSkill(payload.skillCode, response.error);
+            // Đòn thường bị BE báo hồi chiêu: chờ đúng phần còn lại thay vì gửi lại mỗi frame.
+            else if (response.error.code === "COOLDOWN_ACTIVE" && Number(response.error.details?.remainingMs) > 0) {
+              S.atkCd = Math.max(Number(S.atkCd) || 0, Math.ceil(Number(response.error.details.remainingMs) / 16));
+            }
           }
           if (type === "map.change" && S.player) {
             S.player.isTeleporting = false;
@@ -91,6 +96,21 @@ const Net = {
         resolve(response);
       });
     });
+  },
+
+  _playerSkill(skillCode) {
+    const code = String(skillCode);
+    return S.player?.skills?.find((item) => String(item.code) === code || String(item.id) === code || String(item._beId) === code) || null;
+  },
+
+  // BE từ chối kỹ năng: đồng bộ hồi chiêu thật, hoặc tạm khóa ô để Tự Động không gửi lại mỗi frame.
+  _throttleRejectedSkill(skillCode, error = {}) {
+    const skill = Net._playerSkill(skillCode);
+    if (!skill) return;
+    const remainingMs = Number(error.details?.remainingMs);
+    if (error.code === "COOLDOWN_ACTIVE" && remainingMs > 0) skill.cdLeft = Math.ceil(remainingMs / 16);
+    else if (["SKILL_NOT_LEARNED", "SKILL_NOT_EQUIPPED", "SKILL_ROOT_MISMATCH"].includes(error.code)) skill.cdLeft = Math.ceil(10000 / 16);
+    else if (error.code === "INSUFFICIENT_MP") skill.cdLeft = Math.max(Number(skill.cdLeft) || 0, Math.ceil(1000 / 16));
   },
 
   _requestKey(method, path, body) {
@@ -484,6 +504,8 @@ const Net = {
               && (!targetMapVersion || Number(S.mapVersion || 0) >= targetMapVersion));
           }
           if (!hasCurrentMap) throw new Error("BE không trả về dữ liệu map hợp lệ cho bản đồ hiện tại.");
+          // Spawn/hồi sinh nằm trong bán kính cổng: khóa cổng tới khi người chơi bước ra (checkPortals mở lại ở >22).
+          if (S.player) World.lockPortalsIfSpawnedInside?.(S.player);
           worldReady = true;
           UI.hideLoading();
 
@@ -914,7 +936,9 @@ const Net = {
           SkillVFX.activateBuff(skill, effectDurationMs);
         }
         else Render.combatFx(S.player.px, S.player.py, "skill", effectColor(effect));
-        if (skill) skill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
+        // Hồi chiêu phải gắn vào kỹ năng trong ô của người chơi, không phải object VFX từ SkillVFX.findSkill.
+        const ownedSkill = Net._playerSkill(skillCode);
+        if (ownedSkill) ownedSkill.cdLeft = Math.floor((cooldownMs || 1000) / 16);
         if (skillName) Render.floatSkill(S.player.px, S.player.py, skillName, effectColor(effect));
         if (heal) UI.log(`${skill?.icon || "✦"} Hồi ${heal} HP`, "level");
         if (mpRestore) UI.log(`${skill?.icon || "✦"} Hồi ${mpRestore} MP`, "level");
@@ -922,8 +946,12 @@ const Net = {
           const labels = { shield: "khiên hộ thể", buff_atk: "sát thương", buff_def: "giáp", buff_crit: "chí mạng", buff_spd: "tốc độ", buff_cast: "tốc độ ra chiêu", buff_hp_regen: "hồi HP", buff_mp_regen: "hồi MP", buff_vitals: "sinh lực tối đa" };
           const label = labels[effect] || effect.replace(/^buff_/, "");
           const seconds = Math.max(1, Math.round(Number(effectDurationMs || 0) / 1000));
-          UI.log(`${skill?.icon || "✦"} ${skillName || "Kỹ năng"} đã kích hoạt · +${effectVal || 0} ${label} (${seconds}s)`, "level");
-          Render.floatSkill(S.player.px, S.player.py - 8, `+${effectVal || 0} ${label}`, effectColor(effect));
+          // Khiên là lớp hấp thụ: hiện số điểm đỡ BE trả về; buff còn lại là phần trăm.
+          const amount = effect === "shield" && Number(buffs?.shield?.absorb) > 0
+            ? `${buffs.shield.absorb}`
+            : `${effectVal || 0}%`;
+          UI.log(`${skill?.icon || "✦"} ${skillName || "Kỹ năng"} đã kích hoạt · +${amount} ${label} (${seconds}s)`, "level");
+          Render.floatSkill(S.player.px, S.player.py - 8, `+${amount} ${label}`, effectColor(effect));
         }
         UI.update();
       });

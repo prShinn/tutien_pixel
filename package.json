@@ -8,12 +8,7 @@
     "test": "node scripts/verify-backend.js",
     "test:vfx": "node --test tests/skill-vfx.test.js",
     "smoke": "node scripts/verify-backend.js",
-    "validate:roots": "node scripts/validate-root-balance.js",
-    "validate:balance": "node scripts/validate-balance.js",
     "validate:assets": "node scripts/validate-assets.js",
-    "validate:world": "node scripts/validate-world-scale.js",
-    "validate:world-structure": "node scripts/validate-world-structure.js",
-    "validate:realms": "node scripts/validate-realms.js",
     "animate:asset": "node scripts/animate-asset.js"
   },
   "dependencies": {

@@ -506,6 +506,14 @@ const World = {
     return { moved, reached: distance <= allowed + 1e-6 && moved >= distance - 1e-3 };
   },
 
+  lockPortalsIfSpawnedInside(p = S.player) {
+    if (!p || !Array.isArray(S.portals)) return false;
+    const inside = S.portals.some((portal) => (portal.denMap || portal.toMap)
+      && dist(p.px, p.py, portal.x * CFG.TS + CFG.TS / 2, portal.y * CFG.TS + CFG.TS / 2) < 22);
+    if (inside) p.portalLocked = true;
+    return inside;
+  },
+
   async checkPortals() {
     const p = S.player;
     if (!p) return;
