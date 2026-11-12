@@ -19,20 +19,33 @@
     quests: { title: "Nhiệm vụ mới", category: "side", giver: "Lão Tu Sĩ", location: "Bình Nguyên Hoang Dã", summary: "Mô tả nhiệm vụ.", objective: "Đánh bại yêu thú", target: 1, eventType: "monster_kill", initialStatus: "available", initialProgress: 0, rewards: [] },
     items: { maDo: "", tenDo: "Vật phẩm mới", name: "Vật phẩm mới", icon: "◇", loai: "MATERIAL", type: "MATERIAL", giaMua: 0, giaBan: 0, moTa: "" },
     skills: { code: "", name: "Kỹ năng mới", icon: "✦", linhCan: "COMMON", tier: 1, mpTieuHao: 0, hoiChieu: 1, range: 1, type: "COMMON", category: "ACTIVE", targetType: "ENEMY", scalingStat: "ene", satThuong: 1, dienRong: 0, effect: "", effectVal: 0, thoiGianBuff: 0, moTa: "" },
+    alchemyrecipes: { code: "", name: "Công thức mới", category: "BREAKTHROUGH", quality: "HA_PHAM", outputItemCode: "DAN_PHI_THANG", upgradedItemCode: "DAN_PHI_THANG_TRUNG", outputQuantity: 1, craftSuccessRate: 0.65, mutationChance: 0.05, requiredRealmStt: 1, costXu: 100, costLinhThach: 0, ingredients: [{ itemCode: "MAT_THAO_DUOC", quantity: 4 }, { itemCode: "STONE_LINH_NHO", quantity: 3 }] },
+    loottables: { entries: [{ itemId: "STONE_LINH_NHO", chance: 0.5, min: 1, max: 1 }] },
   };
 
   function createBlankRecord(collection, now = Date.now(), records = []) {
     const key = String(collection || "").toLowerCase();
     const fields = templates[key];
     if (!fields) throw new Error("Collection này chưa hỗ trợ tạo bản ghi");
-    const prefix = key === "items" ? "ITEM" : key === "skills" ? "SKILL" : key === "quests" ? "quest" : key.toUpperCase();
+    const prefix = key === "items"
+      ? "ITEM"
+      : key === "skills"
+        ? "SKILL"
+        : key === "quests"
+          ? "quest"
+          : key === "alchemyrecipes"
+            ? "REC"
+            : key === "loottables"
+              ? "loot"
+              : key.toUpperCase();
     const numericIds = key === "skills" ? records.map((record) => Number(record.id)).filter(Number.isSafeInteger) : [];
     const id = key === "skills"
       ? (numericIds.length ? Math.max(...numericIds) + 1 : Math.max(1, Number.isSafeInteger(now) ? now : Date.now()))
-      : `${prefix}_${key === "quests" ? "new" : "NEW"}_${now}`;
-    const record = { id, ...JSON.parse(JSON.stringify(fields)) };
+      : `${prefix}_${(key === "quests" || key === "loottables") ? "new" : "NEW"}_${now}`;
+    const record = { ...JSON.parse(JSON.stringify(fields)), id };
     if (key === "items") record.maDo = record.id;
     if (key === "skills") record.code = `SKILL_${record.id}`;
+    if (key === "alchemyrecipes") record.code = record.id;
     return record;
   }
 
@@ -97,12 +110,30 @@
     }
     if (containsUnsafeKey(fields)) throw new Error("Bản ghi chứa tên trường không được hỗ trợ.");
 
-    const recordId = String(expectedId ?? id ?? "").trim();
+    const recordId = String(expectedId ?? id ?? fields.code ?? "").trim();
     if (!ID_PATTERN.test(recordId)) throw new Error("Mã bản ghi chỉ được gồm chữ, số, gạch dưới hoặc gạch nối (tối đa 80 ký tự).");
-    const displayName = fields.name ?? fields.tenDo ?? fields.tenNangLuc ?? fields.title;
-    if (!String(displayName ?? "").trim()) throw new Error("Hãy nhập tên hiển thị cho bản ghi.");
-
     const key = String(collection || "").toLowerCase();
+    if (key !== "loottables") {
+      const displayName = fields.name ?? fields.tenDo ?? fields.tenNangLuc ?? fields.title;
+      if (!String(displayName ?? "").trim()) throw new Error("Hãy nhập tên hiển thị cho bản ghi.");
+    }
+    if (key === "alchemyrecipes") {
+      if (!String(fields.outputItemCode || "").trim()) throw new Error("Công thức luyện đan cần vật phẩm đầu ra.");
+      const rate = Number(fields.craftSuccessRate);
+      if (!Number.isFinite(rate) || rate <= 0 || rate > 0.7) throw new Error("Tỷ lệ thành công luyện đan phải nằm trong khoảng (0, 0.7].");
+      if (!Array.isArray(fields.ingredients) || fields.ingredients.length === 0) throw new Error("Công thức phải có ít nhất 1 nguyên liệu.");
+    }
+    if (key === "loottables") {
+      if (!Array.isArray(fields.entries)) throw new Error("Bảng rớt đồ cần trường entries là danh sách.");
+      for (const entry of fields.entries) {
+        const chance = Number(entry?.chance);
+        const min = Number(entry?.min ?? 1);
+        const max = Number(entry?.max ?? min);
+        if (!String(entry?.itemId || "").trim() || !Number.isFinite(chance) || chance <= 0 || chance > 1 || min < 1 || max < min) {
+          throw new Error("Dòng vật phẩm trong bảng rớt không hợp lệ.");
+        }
+      }
+    }
     if (key === "items") {
       if (!ID_PATTERN.test(String(fields.maDo || "").trim())) throw new Error("Mã vật phẩm cần là mã hợp lệ gồm chữ, số, gạch dưới hoặc gạch nối.");
       const type = String(fields.type || fields.loai || "").trim().toUpperCase();

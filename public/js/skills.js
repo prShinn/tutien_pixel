@@ -49,6 +49,7 @@ function mapBESkillToFE(sk) {
     weaponKinds: Array.isArray(sk.weaponKinds) ? sk.weaponKinds : [],
     linhCan: sk.linhCan || "",
     tier: sk.tier || 1,
+    autoAssigned: Boolean(sk.autoAssigned),   // ô 1: kỹ năng common BE tự gán theo vũ khí
     category: isPassive ? "PASSIVE" : "ACTIVE",
     targetType: sk.targetType || (Number(sk.satThuong || 0) > 0 ? "ENEMY" : "SELF"),
     scalingStat: sk.scalingStat || (damageType === "MAGIC" ? "ene" : "str"),
@@ -100,8 +101,99 @@ function mapFESkillToBE(sk) {
 const SkillSystem = {
   _book: null,
   _selected: new Set(),
+  _savedSelected: [],
+  _needsCleanup: false,
 
   // Ô kỹ năng có thể giữ nguyên DTO của BE (mpTieuHao) hoặc dạng FE đã map (mpCost).
+  // HUD: ô 1 = kỹ năng common tự gán theo vũ khí, ô 2..5 = tối đa 4 kỹ năng linh căn người chơi chọn.
+  SLOT_COUNT: 5,
+  ROOT_SLOT_LIMIT: 4,
+
+  normalizeSkill(raw, previousByCode = null) {
+    if (!raw || typeof raw !== "object") return null;
+    const mapped = (raw.mpTieuHao != null || raw.hoiChieu != null || !raw.damageType || raw.cd == null)
+      ? mapBESkillToFE(raw)
+      : { ...raw, cdLeft: raw.cdLeft ?? 0 };
+    const code = String(mapped.code || mapped.id || "");
+    const previous = previousByCode instanceof Map ? previousByCode.get(code) : null;
+    if (previous && Number(previous.cdLeft || 0) > 0 && !Number(raw.cdLeft || 0)) {
+      mapped.cdLeft = Number(previous.cdLeft);
+    }
+    return mapped;
+  },
+
+  syncPlayerSkills(target, incoming) {
+    if (!target || !incoming || typeof incoming !== "object") return target;
+    if (incoming.learnedSkills !== undefined) {
+      target.learnedSkills = Array.isArray(incoming.learnedSkills) ? [...incoming.learnedSkills] : [];
+    }
+    if (incoming.equippedSkills !== undefined) {
+      target.equippedSkills = Array.isArray(incoming.equippedSkills) ? [...incoming.equippedSkills] : [];
+    }
+    if (incoming.autoSkill !== undefined) {
+      target.autoSkill = incoming.autoSkill ?? null;
+    }
+    const rawSource = incoming.skills !== undefined ? incoming.skills : target.skills;
+    const parsedRaw = (() => {
+      if (Array.isArray(rawSource)) return rawSource;
+      if (typeof rawSource === "string") {
+        try { return JSON.parse(rawSource); } catch { return null; }
+      }
+      return null;
+    })();
+    if (!Array.isArray(parsedRaw)) return target;
+
+    const previousByCode = new Map(
+      (Array.isArray(target.skills) ? target.skills : [])
+        .filter(Boolean)
+        .map((skill) => [String(skill.code || skill.id || ""), skill]),
+    );
+    const learned = Array.isArray(target.learnedSkills) ? new Set(target.learnedSkills.map(String)) : null;
+    const equipped = Array.isArray(target.equippedSkills) ? new Set(target.equippedSkills.map(String)) : null;
+    const autoCode = target.autoSkill != null && target.autoSkill !== "" ? String(target.autoSkill) : null;
+
+    target.skills = parsedRaw
+      .map((entry) => this.normalizeSkill(entry, previousByCode))
+      .filter((skill) => {
+        if (!skill) return false;
+        const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
+        if (passive) return false;
+        const code = String(skill.code || skill.id || "");
+        if (skill.autoAssigned || (autoCode && code === autoCode)) return true;
+        return (!learned || learned.has(code)) && (!equipped || equipped.has(code));
+      });
+    return target;
+  },
+
+  // Kỹ năng hợp lệ ở ô i (null nếu ô trống hoặc dữ liệu cũ không còn đúng luật).
+  slotSkill(p, index) {
+    if (!p || !Number.isInteger(index) || index < 0 || index >= this.SLOT_COUNT) return null;
+    const skills = Array.isArray(p.skills) ? p.skills : [];
+    const isActiveSkill = (skill) => Boolean(skill) && String(skill.category || "ACTIVE").toUpperCase() !== "PASSIVE";
+    const learned = Array.isArray(p.learnedSkills) ? new Set(p.learnedSkills.map(String)) : null;
+    const equippedList = Array.isArray(p.equippedSkills) ? p.equippedSkills.map(String) : null;
+    const autoCode = p.autoSkill != null && p.autoSkill !== "" ? String(p.autoSkill) : null;
+
+    if (index === 0) {
+      const autoCandidate = skills.find((skill) => isActiveSkill(skill)
+        && (skill.autoAssigned || (autoCode && String(skill.code || skill.id || "") === autoCode)));
+      if (autoCandidate) return autoCandidate;
+      if (p.autoSkill === undefined && !equippedList && isActiveSkill(skills[0])) return skills[0];
+      return null;
+    }
+
+    if (equippedList) {
+      const slotCode = equippedList[index - 1];
+      if (!slotCode || (learned && !learned.has(slotCode))) return null;
+      return skills.find((skill) => isActiveSkill(skill) && String(skill.code || skill.id || "") === slotCode) || null;
+    }
+
+    const candidate = skills[index];
+    if (!isActiveSkill(candidate)) return null;
+    const code = String(candidate.code || candidate.id || "");
+    return !learned || learned.has(code) ? candidate : null;
+  },
+
   mpCost(skill) {
     return Math.max(0, Number(skill?.mpCost ?? skill?.mpTieuHao ?? 0) || 0);
   },
@@ -116,9 +208,9 @@ const SkillSystem = {
     const player = S.player;
       if (!player || player.dead || !target || target.dead || S.combatPending || S.combatGcd > 0) return false;
     const now = Date.now();
-    for (let slot = 0; slot < (player.skills || []).length; slot += 1) {
-      const skill = player.skills[slot];
-      if (!skill || String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") continue;
+    for (let slot = 0; slot < this.SLOT_COUNT; slot += 1) {
+      const skill = this.slotSkill(player, slot);
+      if (!skill) continue;
       if (skill.weaponKinds?.length) {
         const weaponKind = player.equipment?.weapon?.weaponKind || player.equipment?.weapon?.basicAttack?.style;
         if (!weaponKind || !skill.weaponKinds.includes(weaponKind)) continue;
@@ -177,26 +269,54 @@ const SkillSystem = {
     try {
       this._book = await Net.get(API.PATHS.data.skillCatalog);
       const catalog = Array.isArray(this._book.skills) ? this._book.skills : [];
-      const visible = catalog.filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player.linhCan);
-      const learned = new Set((this._book.learnedSkills || []).map(String));
+      // Sổ thần thông chỉ hiện kỹ năng của linh căn nhân vật; kỹ năng common do BE tự gán ở ô 1 theo vũ khí.
+      const visible = catalog.filter((skill) => skill.linhCan === S.player.linhCan);
+      if (this._book.autoSkill !== undefined) S.player.autoSkill = this._book.autoSkill ?? null;
+      const hasLearned = Array.isArray(this._book.learnedSkills);
+      const learned = hasLearned ? new Set(this._book.learnedSkills.map(String)) : null;
       const visibleByCode = new Map(visible.map((skill) => [String(skill.code || skill.id || ""), skill]));
       const requested = Array.isArray(this._book.equippedSkills)
         ? this._book.equippedSkills
         : (S.player.skills || []).map((skill) => skill.code || skill.id);
-      const selected = requested.map(String).filter((code) => {
+      const selected = [];
+      const seen = new Set();
+      for (const rawCode of requested) {
+        const code = String(rawCode || "");
+        if (!code || seen.has(code)) continue;
         const skill = visibleByCode.get(code);
-        return skill
-          && String(skill.category || "ACTIVE").toUpperCase() !== "PASSIVE"
-          && (!learned.size || learned.has(code));
-      });
+        if (!skill || String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") continue;
+        if (learned && !learned.has(code)) continue;
+        seen.add(code);
+        selected.push(code);
+        if (selected.length >= this.ROOT_SLOT_LIMIT) break;
+      }
       this._selected = new Set(selected);
-      if (selected.length < requested.length) {
+      this._savedSelected = [...selected];
+      this._needsCleanup = selected.length < requested.length;
+      if (this._needsCleanup) {
         UI.notify("Có kỹ năng trang bị cũ không còn phù hợp linh căn; hãy chọn lại rồi lưu loadout.", "warning");
       }
       this.renderSkillBook();
     } catch (error) {
       console.warn("[Skill] Không tải được sổ thần thông", error);
     }
+  },
+
+  isLoadoutDirty() {
+    if (this._needsCleanup) return true;
+    const current = Array.from(this._selected);
+    const saved = Array.isArray(this._savedSelected) ? this._savedSelected : [];
+    return current.length !== saved.length || current.some((code, index) => code !== saved[index]);
+  },
+
+  moveSlot(code, delta) {
+    const order = Array.from(this._selected);
+    const index = order.indexOf(code);
+    const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
+    [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
+    this._selected = new Set(order);
+    this.renderSkillBook();
   },
 
   async learnSkill(code) {
@@ -209,9 +329,13 @@ const SkillSystem = {
       if (!this._book) await this.loadBook();
       if (this._book) this._book.learnedSkills = result.learnedSkills;
       if (S.player) {
-        S.player.learnedSkills = result.learnedSkills;
+        this.syncPlayerSkills(S.player, result);
         if (Number.isFinite(Number(result.combatPower))) S.player.combatPower = Number(result.combatPower);
+        if (Number.isFinite(Number(result.maxHp))) S.player.maxHp = Number(result.maxHp);
+        if (Number.isFinite(Number(result.maxMp))) S.player.maxMp = Number(result.maxMp);
+        if (result.derivedStats && typeof result.derivedStats === "object") S.player.derivedStats = result.derivedStats;
       }
+      if (typeof UI !== "undefined" && typeof UI.update === "function") UI.update();
       this.renderSkillBook();
       UI.log("Đã lĩnh hội thần thông: " + (result.skill?.name || code), "level");
     } catch {
@@ -221,12 +345,9 @@ const SkillSystem = {
 
   toggleEquip(code) {
     if (this._selected.has(code)) this._selected.delete(code);
-    else if (this._selected.size < 4) this._selected.add(code);
-    else return UI.notify("Chỉ được trang bị tối đa 4 kỹ năng chủ động.", "warning");
+    else if (this._selected.size < this.ROOT_SLOT_LIMIT) this._selected.add(code);
+    else return UI.notify(`Chỉ được trang bị tối đa ${this.ROOT_SLOT_LIMIT} kỹ năng linh căn (ô 2–5); ô 1 tự gán theo vũ khí.`, "warning");
     this.renderSkillBook();
-    UI.notify(this._selected.has(code)
-      ? "Đã chọn kỹ năng. Bấm Lưu loadout để áp dụng."
-      : "Đã bỏ chọn kỹ năng. Bấm Lưu loadout để áp dụng.", "info");
   },
 
   async saveLoadout() {
@@ -238,9 +359,12 @@ const SkillSystem = {
     try {
       const result = await Net.mutate("PUT", API.PATHS.player.equipSkills, { skillCodes: [...this._selected] });
       if (result?.skills) {
-        S.player.skills = result.skills.map(mapBESkillToFE);
-        S.player.equippedSkills = result.equippedSkills;
+        this.syncPlayerSkills(S.player, result);
+        if (this._book) this._book.equippedSkills = result.equippedSkills || [...this._selected];
+        this._savedSelected = [...this._selected];
+        this._needsCleanup = false;
         UI.update();
+        this.renderSkillBook();
         UI.notify("Đã lưu kỹ năng trang bị.", "success");
       } else {
         UI.notify(result?.error || "Chưa lưu được kỹ năng, hãy thử lại.", "error");
@@ -249,7 +373,7 @@ const SkillSystem = {
       UI.notify("Mất kết nối khi lưu kỹ năng. Hãy thử lại.", "error");
     } finally {
       if (button?.isConnected) {
-        button.disabled = false;
+        button.disabled = !this.isLoadoutDirty();
         button.textContent = "Lưu loadout";
       }
     }
@@ -258,46 +382,168 @@ const SkillSystem = {
   renderSkillBook() {
     const host = document.getElementById("skill-book-list");
     if (!host || !this._book) return;
-    const learned = new Set(this._book.learnedSkills || []);
-    const visible = (this._book.skills || []).filter((skill) => skill.linhCan === "COMMON" || skill.linhCan === S.player?.linhCan);
+    const learned = new Set((this._book.learnedSkills || []).map(String));
+    const catalog = Array.isArray(this._book.skills) ? this._book.skills : [];
+    const visible = catalog.filter((skill) => skill.linhCan === S.player?.linhCan);
+    const visibleByCode = new Map(visible.map((skill) => [String(skill.code || skill.id || ""), skill]));
+    const selectedOrder = Array.from(this._selected);
+    const slotByCode = new Map(selectedOrder.map((code, idx) => [code, idx]));
+    const realmStt = Math.max(1, Number(S.player?.canhGioi?.stt || S.player?.realm || 1));
+    const weaponNames = { hammer: "Búa", mace: "Chùy", blade: "Đao", spear: "Thương", bow: "Cung", crossbow: "Nỏ" };
+
+    // Thanh 5 ô loadout trực quan: ô 1 tự gán common, ô 2..5 sắp thứ tự phím bấm.
+    const strip = document.createElement("div");
+    strip.className = "skill-loadout-strip";
+    const autoCode = this._book.autoSkill ?? S.player?.autoSkill ?? null;
+    const autoSkill = autoCode ? catalog.find((entry) => String(entry.code || entry.id || "") === String(autoCode)) : null;
+
+    const autoCard = document.createElement("div");
+    autoCard.className = "skill-loadout-slot auto";
+    const autoHead = document.createElement("div");
+    autoHead.className = "skill-loadout-head";
+    autoHead.innerHTML = `<span class="skill-slot-key">Phím 1</span><span class="skill-slot-tag">Tự gán</span>`;
+    const autoBody = document.createElement("div");
+    autoBody.className = "skill-loadout-body";
+    if (autoSkill) {
+      const autoTitle = document.createElement("span");
+      autoTitle.className = "skill-loadout-name";
+      autoTitle.append(UI.createPixelIcon(autoSkill, "skill", "skill-slot-icon"), document.createTextNode(autoSkill.name || autoSkill.code));
+      autoBody.appendChild(autoTitle);
+    } else {
+      const emptyAuto = document.createElement("span");
+      emptyAuto.className = "skill-loadout-empty";
+      emptyAuto.textContent = "Chưa có chiêu vũ khí";
+      autoBody.appendChild(emptyAuto);
+    }
+    autoCard.append(autoHead, autoBody);
+    strip.appendChild(autoCard);
+
+    for (let slotIndex = 0; slotIndex < this.ROOT_SLOT_LIMIT; slotIndex += 1) {
+      const code = selectedOrder[slotIndex] || null;
+      const skill = code ? visibleByCode.get(code) : null;
+      const card = document.createElement("div");
+      card.className = `skill-loadout-slot${skill ? " occupied" : " empty"}`;
+      const head = document.createElement("div");
+      head.className = "skill-loadout-head";
+      const keyBadge = document.createElement("span");
+      keyBadge.className = "skill-slot-key";
+      keyBadge.textContent = `Phím ${slotIndex + 2}`;
+      head.appendChild(keyBadge);
+
+      const body = document.createElement("div");
+      body.className = "skill-loadout-body";
+      if (skill) {
+        const title = document.createElement("span");
+        title.className = "skill-loadout-name";
+        title.append(UI.createPixelIcon(skill, "skill", "skill-slot-icon"), document.createTextNode(skill.name || code));
+        const tools = document.createElement("div");
+        tools.className = "skill-loadout-tools";
+
+        const leftBtn = document.createElement("button");
+        leftBtn.type = "button";
+        leftBtn.className = "skill-order-btn";
+        leftBtn.textContent = "←";
+        leftBtn.disabled = slotIndex === 0;
+        leftBtn.title = "Đẩy sang phím trước";
+        leftBtn.setAttribute("aria-label", `Đẩy ${skill.name || code} sang phím ${slotIndex + 1}`);
+        leftBtn.onclick = () => SkillSystem.moveSlot(code, -1);
+
+        const rightBtn = document.createElement("button");
+        rightBtn.type = "button";
+        rightBtn.className = "skill-order-btn";
+        rightBtn.textContent = "→";
+        rightBtn.disabled = slotIndex >= selectedOrder.length - 1;
+        rightBtn.title = "Đẩy sang phím sau";
+        rightBtn.setAttribute("aria-label", `Đẩy ${skill.name || code} sang phím ${slotIndex + 3}`);
+        rightBtn.onclick = () => SkillSystem.moveSlot(code, 1);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "skill-order-btn remove";
+        removeBtn.textContent = "✕";
+        removeBtn.title = "Gỡ khỏi ô";
+        removeBtn.setAttribute("aria-label", `Gỡ ${skill.name || code} khỏi phím ${slotIndex + 2}`);
+        removeBtn.onclick = () => SkillSystem.toggleEquip(code);
+
+        tools.append(leftBtn, rightBtn, removeBtn);
+        body.append(title, tools);
+      } else {
+        const empty = document.createElement("span");
+        empty.className = "skill-loadout-empty";
+        empty.textContent = "Ô trống";
+        body.appendChild(empty);
+      }
+      card.append(head, body);
+      strip.appendChild(card);
+    }
+
     const rows = visible.map((skill) => {
-      const known = learned.has(skill.code);
+      const code = String(skill.code || skill.id || "");
+      const known = learned.has(code);
       const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
-      const action = known ? (passive ? "TỰ ĐỘNG" : (this._selected.has(skill.code) ? "ĐANG DÙNG" : "TRANG BỊ")) : "HỌC";
+      const assignedIndex = slotByCode.has(code) ? slotByCode.get(code) : -1;
+      const requiredTier = Math.max(1, Number(skill.tier || 1));
+      const realmBlocked = !known && realmStt < requiredTier;
+      const atLimit = !this._selected.has(code) && this._selected.size >= this.ROOT_SLOT_LIMIT;
+
+      let action = "HỌC";
+      if (known) {
+        if (passive) action = "TỰ ĐỘNG";
+        else if (assignedIndex >= 0) action = `GỠ (Ô ${assignedIndex + 2})`;
+        else action = atLimit ? "ĐỦ 4 Ô" : "TRANG BỊ";
+      } else if (realmBlocked) {
+        action = `CẢNH GIỚI ${requiredTier}`;
+      }
+
       const damage = Number(skill.satThuong || 0);
-      const weaponNames = { hammer: "Búa", mace: "Chùy", blade: "Đao", spear: "Thương", bow: "Cung", crossbow: "Nỏ" };
       const weaponRequirement = skill.weaponKinds?.length
         ? ` · Vũ khí: ${skill.weaponKinds.map((kind) => weaponNames[kind] || kind).join("/")}`
         : "";
-      const details = `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0}${weaponRequirement} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
+      const details = passive
+        ? "Bị động cộng dồn trực tiếp"
+        : `${damage > 0 ? `Dame ×${damage}` : "Hỗ trợ"} · MP ${skill.mpTieuHao ?? skill.mpCost ?? 0}${weaponRequirement} · CD ${skill.hoiChieu ?? Math.round((skill.cd || 0) / 60)}s`;
       const row = document.createElement("div");
-      row.className = "skill-book-row";
+      row.className = `skill-book-row${assignedIndex >= 0 ? " is-equipped" : ""}${realmBlocked ? " is-locked" : ""}`;
       const info = document.createElement("div");
       info.className = "skill-book-info";
       const title = document.createElement("strong");
       const icon = UI.createPixelIcon(skill, "skill", "skill-book-icon");
-      title.append(icon, document.createTextNode(` ${skill.name || skill.code || "Kỹ năng"} `));
+      title.append(icon, document.createTextNode(` ${skill.name || code || "Kỹ năng"} `));
       const category = document.createElement("span");
       category.className = `skill-category ${passive ? "passive" : "active"}`;
       category.textContent = passive ? "BỊ ĐỘNG" : "CHỦ ĐỘNG";
       title.appendChild(category);
+      if (assignedIndex >= 0) {
+        const slotTag = document.createElement("span");
+        slotTag.className = "skill-slot-badge";
+        slotTag.textContent = `Phím ${assignedIndex + 2}`;
+        title.appendChild(slotTag);
+      }
       const summary = document.createElement("small");
-      summary.textContent = `T${skill.tier || 1} · ${details}`;
+      summary.textContent = `T${requiredTier} · ${details}`;
       const description = document.createElement("em");
       description.textContent = skill.description || skill.moTa || skill.desc || "";
       info.append(title, summary, description);
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = action;
-      button.disabled = known && passive;
-      if (!known) button.onclick = () => SkillSystem.learnSkill(skill.code);
-      else if (!passive) button.onclick = () => SkillSystem.toggleEquip(skill.code);
+      if (known && passive) {
+        button.disabled = true;
+      } else if (realmBlocked) {
+        button.disabled = true;
+        button.title = `Cần đạt đại cảnh giới bậc ${requiredTier} để lĩnh hội`;
+      } else if (!known) {
+        button.onclick = () => SkillSystem.learnSkill(code);
+      } else {
+        if (assignedIndex >= 0) button.classList.add("equipped");
+        button.onclick = () => SkillSystem.toggleEquip(code);
+      }
       const preview = document.createElement("button");
       preview.type = "button";
       preview.className = "skill-preview-btn";
       preview.textContent = "Xem";
-      preview.title = `Xem hiệu ứng ${skill.name || skill.code}`;
-      preview.setAttribute("aria-label", `Xem hiệu ứng kỹ năng ${skill.name || skill.code}`);
+      preview.title = `Xem hiệu ứng ${skill.name || code}`;
+      preview.setAttribute("aria-label", `Xem hiệu ứng kỹ năng ${skill.name || code}`);
       preview.onclick = () => {
         if (typeof SkillVFX !== "undefined") SkillVFX.preview(skill);
       };
@@ -307,197 +553,34 @@ const SkillSystem = {
       row.append(info, actions);
       return row;
     });
+
+    const saveBar = document.createElement("div");
+    saveBar.className = "skill-save-bar";
+    const dirty = this.isLoadoutDirty();
+    const stateNote = document.createElement("span");
+    stateNote.className = `skill-dirty-note${dirty ? " dirty" : ""}`;
+    stateNote.textContent = dirty
+      ? `Chưa lưu (${selectedOrder.length}/${this.ROOT_SLOT_LIMIT} ô linh căn)`
+      : `Đã đồng bộ (${selectedOrder.length}/${this.ROOT_SLOT_LIMIT} ô linh căn)`;
     const save = document.createElement("button");
+    save.type = "button";
     save.className = "sbtn skill-save-btn";
     save.textContent = "Lưu loadout";
+    save.disabled = !dirty;
     save.onclick = () => SkillSystem.saveLoadout();
-    host.replaceChildren(...rows, save);
-  },
-
-  // Gán kỹ năng ngẫu nhiên: 2 thấp (tier 1-2) và 2 cao (tier 3-4) theo kịch bản
-  assignSkills(linhCan) {
-    const tiers = CFG.SKILLS[linhCan];
-    if (!tiers || tiers.length === 0) return [];
-    
-    let result = [];
-    // 2 kỹ năng thấp (Tier 1 & 2)
-    const lowTiers = [0, 1]; 
-    lowTiers.forEach(tIdx => {
-      const arr = tiers[tIdx];
-      if (arr && arr.length) {
-        const sk = arr[randInt(0, arr.length - 1)];
-        result.push({ ...sk, level: 1, cdLeft: 0 });
-      }
-    });
-    
-    // 2 kỹ năng cao (Tier 3 & 4)
-    const highTiers = [2, 3];
-    highTiers.forEach(tIdx => {
-      const arr = tiers[tIdx];
-      if (arr && arr.length) {
-        const sk = arr[randInt(0, arr.length - 1)];
-        result.push({ ...sk, level: 1, cdLeft: 0 });
-      }
-    });
-
-    const allSkills = tiers.flat().filter(Boolean);
-    const attack = allSkills.find((sk) => Number(sk?.satThuong || 0) > 0
-      && sk.effect !== "heal"
-      && !String(sk.effect || "").startsWith("buff_"));
-    const aoe = allSkills.find((sk) => Number(sk?.satThuong || 0) > 0 && Number(sk.aoeR || 0) > 0);
-    for (const guaranteed of [attack, aoe]) {
-      if (guaranteed && !result.some((sk) => sk.id === guaranteed.id)) result.unshift({ ...guaranteed, level: 1, cdLeft: 0 });
-    }
-    return result.filter(Boolean).slice(0, 4);
-  },
-
-  // Logic Tương Khắc Ngũ Hành
-  getElementalMult(atkLC, defLC) {
-    return affinityMultiplier(atkLC, defLC);
-    /*
-    const counters = {
-      "KIM": "MOC",
-      "MOC": "THO",
-      "THO": "THUY",
-      "THUY": "HOA",
-      "HOA": "KIM"
-    };
-    if (counters[atkLC] === defLC) return 1.3; // Khắc hệ: +30% dmg
-    
-    const resisted = {
-      "MOC": "KIM",
-      "THO": "MOC",
-      "THUY": "THO",
-      "HOA": "THUY",
-      "KIM": "HOA"
-    };
-    if (resisted[atkLC] === defLC) return 0.7; // Bị khắc: -30% dmg
-    return 1.0; */
-  },
-
-  // Tính sát thương kỹ năng dựa trên thuộc tính, vai trò và ngũ hành
-  calcDmg(skill, target, areaSecondary = false) {
-    const p = S.player;
-    const stats = p.stats || { str: 5, agi: 5, vit: 5, ene: 5 };
-    
-    // 1. Xác định base sát thương
-    let baseDmg = skill.damageType === "MAGIC" ? Combat.mAtk() : Combat.pAtk();
-    const scalingStat = skill.scalingStat || (skill.damageType === "MAGIC" ? "ene" : "str");
-    const statVal = stats[scalingStat.toLowerCase()] || 0;
-    
-    // 2. Hệ số ngũ hành (Tương khắc)
-    const eleMult = affinityProfile(p.linhCan, target?.linhCan || target?.element, elementalStrength(p), elementalStrength(target)).multiplier;
-    
-    // 3. Công thức: ((BaseAtk * Hệ số) + (Chỉ số thuộc tính * 2)) * Ngũ Hành
-    const satThuong = skill.satThuong ?? 1;
-    const skillScale = satThuong * GAME_BALANCE.damage.skillMultiplier;
-    let dmg = Math.floor((baseDmg * skillScale + statVal * GAME_BALANCE.damage.skillStatScale) * eleMult * (areaSecondary ? GAME_BALANCE.damage.areaSecondaryMultiplier : 1));
-
-    // 4. Hệ số cộng thêm từ tu vi linh căn
-    const tvlcMult = 1 + (p.tuViLinhCan || 0) / 10000;
-    dmg = Math.floor(dmg * tvlcMult);
-
-    // 4. Giảm theo def quái (phép xuyên 50% giáp)
-    if (target) {
-      const def = skill.damageType === "MAGIC" ? (target.mDef ?? target.def ?? 0) : (target.pDef ?? target.def ?? 0);
-      const reduction = def / (100 + def);
-      dmg = Math.max(1, Math.floor(dmg * (1 - reduction)));
-    }
-
-    // 5. Chí mạng (Crit)
-    if (Math.random() < Combat.critChance(target)) {
-      dmg = Math.floor(dmg * (1.5 + Combat.critMultiplier()));
-    }
-
-    // 6. Random biến thiên (+- 8%)
-    const variance = Math.floor(dmg * 0.08);
-    return Math.max(1, dmg + randInt(-variance, variance));
-  },
-
-  effectName(e) {
-    return (
-      {
-        burn: "Thiêu Đốt",
-        freeze: "Đóng Băng",
-        slow: "Làm Chậm",
-        poison: "Trúng Độc",
-        stun: "Choáng",
-        root: "Trói",
-        bleed: "Chảy Máu",
-        weaken: "Suy Yếu",
-        drain: "Hút Sinh Lực",
-      }[e] || e
-    );
-  },
-
-  applyStatusToMonster(m, skill) {
-    const e = skill.effect;
-    if (!e || e.startsWith("buff_") || e === "heal") return;
-    if (!m.statusEffects) m.statusEffects = [];
-    m.statusEffects = m.statusEffects.filter((x) => x.type !== e);
-    m.statusEffects.push({
-      type: e,
-      duration: skill.effectDur || 120,
-      value: skill.effectVal || 0,
-      tickTimer: 0,
-    });
-  },
-
-  hitMonster(m, dmg, skill) {
-    m.hitUntil = Date.now() + 180;
-    const dmgColor = skill?.damageType === "MAGIC" ? "#ee88ff" : "#ff9966";
-    Render.floatDmg(m.px, m.py, -26, "-" + dmg, dmgColor);
-
-    m.hp -= dmg;
-    if (m.hp <= 0) {
-      m.dead = true;
-      m.respawnT = m.spawnCD || 10;
-      Combat.dropLoot(m);
-    }
-    
-    this.applyStatusToMonster(m, skill);
-    // Weapon proc effect
-    const weapEff = S.player.equipment?.weapon?.effect;
-    if (weapEff) {
-      if (!m.statusEffects) m.statusEffects = [];
-      if (!m.statusEffects.find((x) => x.type === weapEff))
-        m.statusEffects.push({ type: weapEff, duration: 120, value: 3, tickTimer: 0 });
-    }
-    if (m.hp <= 0 && !m.dead) {
-      m.dead = true;
-      m.respawnT = m.spawnCD;
-      Combat.dropLoot(m);
-    }
-  },
-
-  applyBuff(p, skill) {
-    if (!p.buffs) p.buffs = {};
-    const buffType = skill.effect.replace("buff_", "");
-    const buffKey = skill.effect.startsWith("buff_") ? skill.effect : buffType;
-    const duration = skill.effectDur || 240;
-    p.buffs[buffKey] = {
-      value: skill.effectVal,
-      duration,
-      expiresAt: Date.now() + duration * 16,
-    };
-    if (typeof SkillVFX !== "undefined") SkillVFX.activateBuff(skill, duration * 16);
-    UI.renderSkillEffects?.();
-    const names = { atk: "damage tay", def: "phòng thủ", spd: "tốc độ", cast: "tốc độ ra chiêu", crit: "chí mạng", hp_regen: "HP/giây", mp_regen: "MP/giây", vitals: "HP/MP tối đa" };
-    UI.log(
-      `${skill.icon} ${skill.name} → +${skill.effectVal} ${names[buffType] || buffType} (${Math.floor(skill.effectDur / 60)}s)`,
-      "level",
-    );
+    saveBar.append(stateNote, save);
+    host.replaceChildren(strip, ...rows, saveBar);
   },
 
   useSkill(slotIdx) {
     if (!socket?.connected || !Net._isOnline) return;
     const p = S.player;
-    if (!p?.skills?.[slotIdx] || p.dead) return;
+    const skill = this.slotSkill(p, slotIdx);
+    if (!skill || p?.dead) return;
     if (S.combatGcd > 0 || S.combatPending) return;
-    if (document.getElementById("shop-modal").classList.contains("open")) return;
-    if (document.getElementById("dialog-modal").classList.contains("open")) return;
+    if (document.getElementById("shop-modal")?.classList.contains("open")) return;
+    if (document.getElementById("dialog-modal")?.classList.contains("open")) return;
 
-    const skill = p.skills[slotIdx];
     if (String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE") {
       UI.log(`${skill.icon || "✦"} ${skill.name} là kỹ năng bị động và luôn có hiệu lực.`, "system");
       return;
@@ -518,130 +601,26 @@ const SkillSystem = {
       return;
     }
 
-    if (socket?.connected && !offensive) {
+    if (!offensive) {
       S.combatPending = true;
       Net.command("combat.skill", { skillCode: skill.code || skill.id || skill._beId });
       return;
     }
 
-    if (socket?.connected && offensive) {
-      const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
-      const canTarget = (monster) => monster && !monster.dead
-        && dist(monster.px, monster.py, p.px, p.py) <= maxRange
-        && (!skill.requiresLineOfSight || Combat.hasClearShot(p, monster));
-      const target = canTarget(S.target)
-        ? S.target
-        : S.monsters.filter(canTarget)
-            .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))[0];
-      if (!target) return UI.log(skill.requiresLineOfSight
-        ? "Không có mục tiêu trong tầm với đường bắn thông thoáng."
-        : "Không có mục tiêu trong tầm.", "system");
-      S.target = target;
-      S.combatPending = true;
-      Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
-      return;
-    }
-
-    const animate = () => {
-      this.animateCast(p, skill);
-      Render.floatSkill(p.px, p.py, skill.name, skill.damageType === "MAGIC" ? "#d99bff" : "#ffd166");
-    };
-    if (!offensive) animate();
-    p.mp -= skill.mpCost;
-    skill.cdLeft = skill.cd;
-
-    if (!offensive && !["heal", "restore_mp"].includes(skill.effect) && !skill.effect?.startsWith("buff_")) {
-      if (["shield", "speed"].includes(String(skill.effect || ""))) this.applyBuff(p, skill);
-      if (skill.effect === "cleanse") p.debuffs = {};
-      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
-      return;
-    }
-
-    // ── Heal (hồi máu) ──
-    if (skill.effect === "heal") {
-      const baseAtk = skill.damageType === "MAGIC" ? Combat.mAtk() : Combat.pAtk();
-      const healAmt = Math.floor(baseAtk * (skill.satThuong || 0.5) + (p.tuViLinhCan || 0) * 0.3);
-      p.hp = Math.min(p.maxHp, p.hp + healAmt);
-      Render.floatDmg(p.px, p.py, -40, "+" + healAmt, "#44ff88");
-      UI.log(`${skill.icon} ${skill.name} → Hồi ${healAmt} HP`, "level");
-      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
-      return;
-    }
-
-    if (skill.effect === "restore_mp") {
-      const restore = Number(skill.effectVal || 0);
-      p.mp = Math.min(p.maxMp, p.mp + restore);
-      Render.floatDmg(p.px, p.py, -40, "+" + restore, "#66ccff");
-      UI.log(`${skill.icon} ${skill.name} → Hồi ${restore} MP`, "level");
-      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
-      return;
-    }
-
-    // ── Buff bản thân ──
-    if (skill.effect?.startsWith("buff_")) {
-      this.applyBuff(p, skill);
-      if (typeof SkillVFX !== "undefined") SkillVFX.support(skill, p);
-      return;
-    }
-
     const maxRange = (skill.range || 5) * CFG.SKILL_RANGE_SCALE;
-
-    // ── AoE ──
-    if (skill.aoe) {
-      // Tìm tâm AoE = quái gần nhất trong tầm
-      let center = p;
-      let closestD = maxRange;
-      for (const m of S.monsters) {
-        if (m.dead) continue;
-        const d = dist(m.px, m.py, p.px, p.py);
-        if (d < closestD) { closestD = d; center = m; }
-      }
-      const aoeRange = (skill.aoeR || 3) * CFG.SKILL_RANGE_SCALE;
-      let hits = 0;
-      const hitTargets = [];
-      for (const m of S.monsters) {
-        if (m.dead) continue;
-        if (dist(m.px, m.py, center.px, center.py) < aoeRange) {
-          const dmg = this.calcDmg(skill, m, hits > 0);
-          this.hitMonster(m, dmg, skill);
-          hitTargets.push(m);
-          hits++;
-        }
-      }
-      if (hits === 0)
-        UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu!`, "system");
-      else {
-        animate();
-        if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, hitTargets);
-        UI.log(
-          `${skill.icon} ${skill.name} [${skill.damageType}] → ${hits} mục tiêu${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
-          "combat",
-        );
-      }
-    } else {
-      // ── Single target ──
-      let best = null;
-      let bd = maxRange;
-      for (const m of S.monsters) {
-        if (m.dead) continue;
-        const d = dist(m.px, m.py, p.px, p.py);
-        if (d < bd) { bd = d; best = m; }
-      }
-      if (!best) {
-        UI.log(`${skill.icon} ${skill.name} → Không có mục tiêu trong tầm!`, "system");
-        skill.cdLeft = Math.floor(skill.cd * 0.25); // Hoàn lại 75% CD
-        p.mp += skill.mpCost;                       // Hoàn lại MP
-        return;
-      }
-      const dmg = this.calcDmg(skill, best);
-      this.hitMonster(best, dmg, skill);
-      animate();
-      if (typeof SkillVFX !== "undefined") SkillVFX.impact(skill, p, [best]);
-      UI.log(
-        `${skill.icon} ${skill.name} [${skill.damageType}×${skill.satThuong}] → ${best.name} -${dmg}${skill.effect ? " [" + this.effectName(skill.effect) + "]" : ""}`,
-        "combat",
-      );
-    }
+    const canTarget = (monster) => monster && !monster.dead
+      && dist(monster.px, monster.py, p.px, p.py) <= maxRange
+      && (!skill.requiresLineOfSight || Combat.hasClearShot(p, monster));
+    const target = canTarget(S.target)
+      ? S.target
+      : S.monsters.filter(canTarget)
+          .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))[0];
+    if (!target) return UI.log(skill.requiresLineOfSight
+      ? "Không có mục tiêu trong tầm với đường bắn thông thoáng."
+      : "Không có mục tiêu trong tầm.", "system");
+    S.target = target;
+    S.combatPending = true;
+    Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
   },
 
   tickCooldowns(dt) {
@@ -668,17 +647,8 @@ const SkillSystem = {
     const p = S.player;
     if (!p?.skills || typeof document === "undefined") return;
     this._cooldownVisuals ||= new Map();
-    const learned = new Set((p.learnedSkills || []).map(String));
-    const equipped = new Set((p.equippedSkills || []).map(String));
-    for (let index = 0; index < 4; index += 1) {
-      const candidate = p.skills[index];
-      const code = candidate ? String(candidate.code || candidate.id || "") : "";
-      const skill = candidate
-        && String(candidate.category || "ACTIVE").toUpperCase() !== "PASSIVE"
-        && (!learned.size || learned.has(code))
-        && (!equipped.size || equipped.has(code))
-        ? candidate
-        : null;
+    for (let index = 0; index < this.SLOT_COUNT; index += 1) {
+      const skill = this.slotSkill(p, index);
       const slot = document.getElementById(`skbar-slot-${index}`);
       const wrap = document.getElementById(`skbar-cd-wrap-${index}`);
       const text = document.getElementById(`skbar-cd-text-${index}`);
@@ -758,21 +728,16 @@ const SkillSystem = {
     const p = S.player;
     const CIRC = 113; // 2 * π * r = 2 * π * 18 ≈ 113
 
-    for (let i = 0; i < 4; i++) {
-      const candidate = p?.skills?.[i];
-      const learned = new Set((p?.learnedSkills || []).map(String));
-      const equipped = new Set((p?.equippedSkills || []).map(String));
-      const candidateCode = candidate ? String(candidate.code || candidate.id || "") : "";
-      const sk = candidate
-        && String(candidate.category || "ACTIVE").toUpperCase() !== "PASSIVE"
-        && (!learned.size || learned.has(candidateCode))
-        && (!equipped.size || equipped.has(candidateCode))
-        ? candidate
-        : null;
+    for (let i = 0; i < this.SLOT_COUNT; i++) {
+      const sk = this.slotSkill(p, i);
       const slotEl = document.getElementById(`skbar-slot-${i}`);
       if (!slotEl) continue;
       slotEl.disabled = !sk;
-      slotEl.setAttribute("aria-label", sk ? `Kỹ năng ${i + 1}: ${sk.name}` : `Ô kỹ năng ${i + 1}, chưa gắn`);
+      slotEl.classList.toggle("auto-slot", i === 0);
+      slotEl.setAttribute("aria-label", sk
+        ? `Kỹ năng ${i + 1}${i === 0 ? " (tự gán theo vũ khí)" : ""}: ${sk.name}`
+        : `Ô kỹ năng ${i + 1}, chưa gắn`);
+      if (i === 0) slotEl.title = sk ? `${sk.name} — kỹ năng common tự gán theo vũ khí đang cầm` : "Ô kỹ năng tự gán theo vũ khí";
       const ensure = (selector, tag, className) => {
         let el = slotEl.querySelector(selector);
         if (!el) { el = document.createElement(tag); el.className = className; slotEl.appendChild(el); }
@@ -867,7 +832,7 @@ const SkillSystem = {
 
   // ── Tooltip khi hover vào slot ──
   showTooltip(slotIdx, event) {
-    const sk = S.player?.skills?.[slotIdx];
+    const sk = this.slotSkill(S.player, slotIdx);
     const el = document.getElementById('skill-tip');
     if (!el || !sk) return;
 

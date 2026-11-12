@@ -334,7 +334,14 @@ const Net = {
 
   applyPlayerSnapshot(player, { render = true } = {}) {
     if (!player || typeof player !== "object" || !S.player) return false;
+    const prevSkills = S.player.skills;
     Object.assign(S.player, player);
+    S.player.skills = prevSkills;
+    if (typeof SkillSystem !== "undefined" && typeof SkillSystem.syncPlayerSkills === "function") {
+      SkillSystem.syncPlayerSkills(S.player, player);
+    } else if (player.skills !== undefined) {
+      S.player.skills = player.skills;
+    }
     if (Array.isArray(player.inventory)) S.inventory = player.inventory;
     else if (typeof player.jsonIventory === "string") {
       try {
@@ -495,8 +502,12 @@ const Net = {
               ...(authoritative.derivedStats && typeof authoritative.derivedStats === "object" ? { derivedStats: authoritative.derivedStats } : {}),
               combatPower: authoritative.combatPower,
               learnedSkills: authoritative.learnedSkills, equippedSkills: authoritative.equippedSkills,
+              autoSkill: authoritative.autoSkill,
               equipment: authoritative.equipment || S.player.equipment,
             });
+            if (typeof SkillSystem !== "undefined" && typeof SkillSystem.syncPlayerSkills === "function") {
+              SkillSystem.syncPlayerSkills(S.player, authoritative);
+            }
             S.player.px = S.player.x * CFG.TS + CFG.TS / 2;
             S.player.py = S.player.y * CFG.TS + CFG.TS / 2;
             S.player.lastEmitX = S.player.x;
@@ -997,7 +1008,7 @@ const Net = {
         UI.update();
       });
 
-      socket.on("player_state_update", ({ hp, maxHp, mp, maxMp, buffs, stats, derivedStats, glowTier, enhanceMaxLevel, unspentStatPoints, xu, linhThach, inventoryCapacity, tuVi, tuViHienTai, tuViLenCap, tuViLinhCan, combatPower, realmCode, realmStage, tangTuVi, realm, canhGioi, tenCanhGioi }) => {
+      socket.on("player_state_update", ({ hp, maxHp, mp, maxMp, buffs, stats, derivedStats, learnedSkills, equippedSkills, autoSkill, skills, glowTier, enhanceMaxLevel, unspentStatPoints, xu, linhThach, inventoryCapacity, tuVi, tuViHienTai, tuViLenCap, tuViLinhCan, combatPower, realmCode, realmStage, tangTuVi, realm, canhGioi, tenCanhGioi }) => {
         if (!S.player) return;
         const prevCapacity = S.player.inventoryCapacity;
         if (typeof hp === "number") S.player.hp = hp;
@@ -1029,6 +1040,17 @@ const Net = {
         if (typeof tenCanhGioi === "string") S.player.tenCanhGioi = tenCanhGioi;
         else if (canhGioi && typeof canhGioi.tenCanhGioi === "string") S.player.tenCanhGioi = canhGioi.tenCanhGioi;
         if (typeof inventoryCapacity === "number" && inventoryCapacity !== prevCapacity) UI.buildInv?.();
+        if (learnedSkills !== undefined || equippedSkills !== undefined || autoSkill !== undefined || skills !== undefined) {
+          if (typeof SkillSystem !== "undefined" && typeof SkillSystem.syncPlayerSkills === "function") {
+            SkillSystem.syncPlayerSkills(S.player, { learnedSkills, equippedSkills, autoSkill, skills });
+            if (SkillSystem._book) {
+              if (learnedSkills !== undefined) SkillSystem._book.learnedSkills = [...learnedSkills];
+              if (equippedSkills !== undefined) SkillSystem._book.equippedSkills = [...equippedSkills];
+              if (autoSkill !== undefined) SkillSystem._book.autoSkill = autoSkill ?? null;
+              SkillSystem.renderSkillBook?.();
+            }
+          }
+        }
         UI.update();
       });
 

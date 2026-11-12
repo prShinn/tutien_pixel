@@ -59,6 +59,7 @@ const API = Object.freeze({
       contentItem: (collection, id) => `/api/admin/content/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
       skillVfx: "/api/admin/skill-vfx",
       skillVfxItem: (skillCode) => `/api/admin/skill-vfx/${encodeURIComponent(skillCode)}`,
+      mail: "/api/admin/mail/send",
       linkPortal: "/api/admin/portals/link",
       portal: (code, id) => `/api/admin/worlds/${encodeURIComponent(code)}/portals/${encodeURIComponent(id)}`,
     },

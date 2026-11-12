@@ -79,6 +79,7 @@
               <select id="map-biome">
                 <option value="RIVER_VALLEY">Sơn thủy</option><option value="PLAINS">Thảo nguyên</option>
                 <option value="FOREST">Rừng cổ</option><option value="MOUNTAINS">Quần sơn</option>
+                <option value="MOUNTAIN">Núi cao</option><option value="MOUNTAIN_FOOTHILL">Chân núi</option>
                 <option value="CITY">Thành trì</option>
               </select>
             </label>
@@ -167,6 +168,7 @@
             <label>Kiểu tương tác <select id="npc-type"><option value="dialog">Đối thoại</option><option value="shop">Cửa hàng</option><option value="chest">Rương</option></select></label>
             <label>Giới tính <select id="npc-gender"><option value="MALE">Nam</option><option value="FEMALE">Nữ</option></select></label>
           </div>
+          <label>Phân loại cửa hàng <select id="npc-shop-category" disabled><option value="ALL">Tổng hợp (ALL)</option><option value="EQUIPMENT">Tiệm Trang Bị (EQUIPMENT)</option><option value="ALCHEMY">Tiệm Đan Dược (ALCHEMY)</option></select></label>
           <div class="field-pair">
             <label>X <input id="npc-x" type="number" min="0" required /></label>
             <label>Y <input id="npc-y" type="number" min="0" required /></label>
@@ -193,6 +195,9 @@
             <label>Y đến <input id="portal-target-y" type="number" min="0" value="20" /></label>
           </div>
           <label>Tên hiển thị <input id="portal-label" placeholder="Tên vùng đích" /></label>
+          <label>Nhiệm vụ yêu cầu <input id="portal-required-quest" list="portal-quest-list" maxlength="64" autocomplete="off" placeholder="Để trống = không khóa cổng" /></label>
+          <datalist id="portal-quest-list"></datalist>
+          <label>Thông báo khi cổng bị khóa <input id="portal-locked-message" maxlength="200" placeholder="Hãy hoàn thành nhiệm vụ để mở cổng" /></label>
           <label class="check"><input id="portal-two-way" type="checkbox" checked /> Tạo luôn cổng quay về</label>
           <div class="portal-actions">
             <button id="new-portal" class="ghost">+ Mới</button>
@@ -213,7 +218,7 @@
           </div>
         </section>
         <section>
-          <h2>07 · Kiểm tra &amp; xuất bản</h2>
+          <h2>08 · Kiểm tra &amp; xuất bản</h2>
           <p>Trạng thái: <strong id="publish-status" class="status-badge">DRAFT</strong></p>
           <div class="publish-actions">
             <button id="validate-map" class="ghost">Kiểm tra</button>
@@ -227,6 +232,6 @@
     <script src="/runtime-config.js"></script>
     <script src="/js/api.js?v=7"></script>
     <script src="/admin/admin-auth.js?v=2"></script>
-    <script src="/admin/map-editor.js?v=14"></script>
+    <script src="/admin/map-editor.js?v=16"></script>
   </body>
 </html>

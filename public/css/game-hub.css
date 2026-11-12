@@ -930,8 +930,143 @@
   padding: 6px 12px;
 }
 
-#kpah-menu-modal .skill-save-btn {
+#kpah-menu-modal .skill-loadout-strip {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+#kpah-menu-modal .skill-loadout-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--hub-trim);
+  background: var(--hub-panel);
+}
+
+#kpah-menu-modal .skill-loadout-slot.auto {
+  border-color: var(--hub-gold);
+}
+
+#kpah-menu-modal .skill-loadout-slot.empty {
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+#kpah-menu-modal .skill-loadout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-size: 10px;
+}
+
+#kpah-menu-modal .skill-slot-key {
+  font-weight: 700;
+  color: var(--hub-gold);
+}
+
+#kpah-menu-modal .skill-slot-tag,
+#kpah-menu-modal .skill-slot-badge {
+  padding: 1px 6px;
+  border: 1px solid rgba(243, 210, 138, 0.35);
+  background: rgba(243, 210, 138, 0.12);
+  color: var(--hub-gold);
+  font-size: 10px;
+}
+
+#kpah-menu-modal .skill-loadout-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+#kpah-menu-modal .skill-loadout-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hub-text);
+  overflow-wrap: anywhere;
+}
+
+#kpah-menu-modal .skill-slot-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+#kpah-menu-modal .skill-loadout-empty {
+  font-size: 11px;
+  color: var(--hub-muted);
+}
+
+#kpah-menu-modal .skill-loadout-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#kpah-menu-modal .skill-order-btn {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--hub-trim);
+  background: var(--hub-raised);
+  color: var(--hub-text);
+  cursor: pointer;
+}
+
+#kpah-menu-modal .skill-order-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+#kpah-menu-modal .skill-order-btn.remove {
+  margin-left: auto;
+  color: #ff9c9c;
+}
+
+#kpah-menu-modal .skill-book-row.is-equipped {
+  border-color: rgba(243, 210, 138, 0.55);
+}
+
+#kpah-menu-modal .skill-book-row.is-locked {
+  opacity: 0.72;
+}
+
+#kpah-menu-modal .skill-book-actions button.equipped {
+  border-color: var(--hub-gold);
+  color: var(--hub-gold);
+}
+
+#kpah-menu-modal .skill-save-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+#kpah-menu-modal .skill-dirty-note {
+  font-size: 11px;
+  color: var(--hub-muted);
+}
+
+#kpah-menu-modal .skill-dirty-note.dirty {
+  color: var(--hub-gold);
+}
+
+#kpah-menu-modal .skill-save-btn {
   justify-self: end;
 }
 
@@ -944,6 +1079,15 @@
 
   #kpah-menu-modal #skill-book-list {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  #kpah-menu-modal .skill-loadout-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #kpah-menu-modal .skill-order-btn {
+    min-width: 36px;
+    min-height: 36px;
   }
 
   #kpah-menu-modal .skill-book-actions button,

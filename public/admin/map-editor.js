@@ -664,7 +664,7 @@ function refreshPortalTargets(selected = "") {
   const sourceCode = $("map-code").value.trim().toLowerCase();
   const maps = [...editor.mapCatalog.values()].filter((map) => map.code !== sourceCode);
   $("portal-target-map").innerHTML = '<option value="">Chọn map đích</option>'
-    + maps.map((map) => `<option value="${map.code}">${map.tenMap} · ${map.w}×${map.h}</option>`).join("");
+    + maps.map((map) => `<option value="${mapPackEscape(map.code)}">${mapPackEscape(map.tenMap)} · ${Number(map.w) || 0}×${Number(map.h) || 0}</option>`).join("");
   $("portal-target-map").value = selected;
 }
 
@@ -676,6 +676,8 @@ function resetPortalForm() {
   $("portal-target-x").value = 20;
   $("portal-target-y").value = 20;
   $("portal-label").value = "";
+  $("portal-required-quest").value = "";
+  $("portal-locked-message").value = "";
   $("portal-two-way").checked = true;
   $("delete-portal").disabled = true;
   renderPortalList();
@@ -692,6 +694,8 @@ function selectPortal(id) {
   $("portal-target-x").value = Number(portal.toX);
   $("portal-target-y").value = Number(portal.toY);
   $("portal-label").value = portal.tenMapDen || "";
+  $("portal-required-quest").value = portal.requiredQuestId || "";
+  $("portal-locked-message").value = portal.lockedMessage || "";
   $("portal-two-way").checked = Boolean(portal.bidirectional || portal.reverseId);
   $("delete-portal").disabled = false;
   renderPortalList();
@@ -711,7 +715,7 @@ function renderPortalList() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `portal-item${portal.id === editor.selectedPortalId ? " active" : ""}`;
-    button.textContent = `(${portal.x},${portal.y}) → ${target?.tenMap || portal.tenMapDen || portal.denMap}`;
+    button.textContent = `(${portal.x},${portal.y}) → ${target?.tenMap || portal.tenMapDen || portal.denMap}${portal.requiredQuestId ? ` · khóa: ${portal.requiredQuestId}` : ""}`;
     button.addEventListener("click", () => selectPortal(portal.id));
     host.appendChild(button);
   }
@@ -744,6 +748,9 @@ async function savePortalLink() {
       sourceName: $("map-name").value.trim(),
       targetName: $("portal-label").value.trim() || target?.tenMap || targetCode,
       twoWay: $("portal-two-way").checked,
+      // Luôn gửi cả khi rỗng: BE hiểu chuỗi rỗng là gỡ điều kiện khóa, thiếu khóa là giữ nguyên.
+      requiredQuestId: $("portal-required-quest").value.trim(),
+      lockedMessage: $("portal-locked-message").value.trim(),
     }),
   });
   const data = await response.json();
@@ -776,6 +783,8 @@ function resetNpcForm() {
   $("npc-name").value = "";
   $("npc-role").value = "GUIDE";
   $("npc-type").value = "dialog";
+  $("npc-shop-category").value = "ALL";
+  $("npc-shop-category").disabled = true;
   $("npc-gender").value = "MALE";
   $("npc-x").value = editor.spawnX;
   $("npc-y").value = editor.spawnY;
@@ -783,6 +792,10 @@ function resetNpcForm() {
   $("npc-dialog").value = "";
   $("npc-enabled").checked = true;
   renderNpcList();
+}
+
+function syncNpcShopCategory() {
+  $("npc-shop-category").disabled = $("npc-type").value !== "shop";
 }
 
 function selectNpc(id) {
@@ -793,6 +806,8 @@ function selectNpc(id) {
   $("npc-name").value = npc.name || "";
   $("npc-role").value = npc.role || "GUIDE";
   $("npc-type").value = npc.type || (npc.loaiNpc ? npc.loaiNpc.toLowerCase() : "dialog");
+  $("npc-shop-category").value = String(npc.shopCategory || "ALL").toUpperCase();
+  syncNpcShopCategory();
   $("npc-gender").value = String(npc.gender || "MALE").toUpperCase();
   $("npc-x").value = npc.x ?? 0;
   $("npc-y").value = npc.y ?? 0;
@@ -833,8 +848,10 @@ async function saveNpc() {
   if (![x, y].every(Number.isInteger) || x < 0 || x >= editor.width || y < 0 || y >= editor.height) throw new Error("Tọa độ NPC phải nằm trong bản đồ.");
   if (SOLID.has(editor.ground[y]?.[x]) || SOLID.has(editor.objects[y]?.[x])) throw new Error("NPC phải đứng trên ô đi được.");
   if (editor.npcs.some((npc) => npc.id === id && npc.id !== editor.selectedNpcId)) throw new Error("Mã NPC này đã được dùng trên map.");
+  const npcType = $("npc-type").value;
   const npc = {
-    id, mapCode: $("map-code").value.trim(), name, role, type: $("npc-type").value,
+    id, mapCode: $("map-code").value.trim(), name, role, type: npcType,
+    ...(npcType === "shop" ? { shopCategory: $("npc-shop-category").value || "ALL" } : {}),
     gender: $("npc-gender").value, color: $("npc-color").value, x, y,
     dialog: $("npc-dialog").value.trim(), enabled: $("npc-enabled").checked,
   };
@@ -943,6 +960,19 @@ function deleteMonsterPack() {
   setStatus("Đã gỡ bãi quái khỏi bản đang sửa. Bấm Lưu map để ghi thay đổi.", "ok");
 }
 
+// Gợi ý mã nhiệm vụ cho ô "Nhiệm vụ yêu cầu" của portal; lỗi tải gợi ý không chặn việc chỉnh map.
+async function refreshQuestOptions() {
+  try {
+    const response = await adminFetch(API.BASE + API.PATHS.admin.content("quests"), { headers: adminHeaders() });
+    const data = await response.json();
+    if (!response.ok || !Array.isArray(data.data)) return;
+    $("portal-quest-list").replaceChildren(...data.data.map((quest) => {
+      const option = new Option(quest.title || quest.id, quest.id);
+      return option;
+    }));
+  } catch { /* gợi ý là tùy chọn */ }
+}
+
 async function refreshMonsterCatalog() {
   const response = await fetch(API.BASE + API.PATHS.data.monsters, { cache: "no-store" }); const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Không tải được ngân hàng quái");
@@ -984,7 +1014,7 @@ async function refreshMapList(selected = "") {
   if (!response.ok) throw new Error(data.error || "Không tải được danh sách map");
   editor.knownMaps = new Set(data.map((map) => map.code));
   editor.mapCatalog = new Map(data.map((map) => [map.code, map]));
-  $("map-list").innerHTML = '<option value="">Map mới</option>' + data.map((map) => `<option value="${map.code}">[${map.status}] ${map.tenMap} · ${map.w}×${map.h}</option>`).join("");
+  $("map-list").innerHTML = '<option value="">Map mới</option>' + data.map((map) => `<option value="${mapPackEscape(map.code)}">[${mapPackEscape(map.status)}] ${mapPackEscape(map.tenMap)} · ${Number(map.w) || 0}×${Number(map.h) || 0}</option>`).join("");
   const queryMap = new URLSearchParams(window.location.search).get("map");
   $("map-list").value = selected || queryMap || "";
   refreshPortalTargets($("portal-target-map").value);
@@ -1357,7 +1387,8 @@ $("new-npc").addEventListener("click", () => {
 });
 $("save-npc").addEventListener("click", () => { void saveNpc().catch((error) => setStatus(error.message, "error")); });
 for (const id of ["npc-x", "npc-y"]) $(id).addEventListener("input", () => { editor.dirty = true; requestDraw(); });
-for (const id of ["npc-name", "npc-id", "npc-role", "npc-type", "npc-gender", "npc-color", "npc-dialog", "npc-enabled"]) {
+$("npc-type").addEventListener("change", syncNpcShopCategory);
+for (const id of ["npc-name", "npc-id", "npc-role", "npc-type", "npc-shop-category", "npc-gender", "npc-color", "npc-dialog", "npc-enabled"]) {
   $(id).addEventListener("input", () => { editor.dirty = true; });
   $(id).addEventListener("change", () => { editor.dirty = true; });
 }
@@ -1433,6 +1464,7 @@ async function initializeMapEditorData() {
     await loadMap();
   }
   await refreshMonsterCatalog();
+  void refreshQuestOptions();
   if (new URLSearchParams(window.location.search).has("monster")) {
     $("layer-tabs").querySelector('[data-layer="monster"]').click();
     $("monster-template").scrollIntoView({ block: "nearest" });

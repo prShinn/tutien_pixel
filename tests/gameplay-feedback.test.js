@@ -485,7 +485,8 @@ test("skill book drops stale, foreign-root, and passive codes from active slots"
     equippedSkills: ["COMMON_TRAIN", "THO_GIAP", "THO_PASSIVE", "KIM_OLD", "REMOVED_SKILL"],
   });
   await skills.loadBook();
-  assert.deepEqual(Array.from(skills._selected), ["COMMON_TRAIN", "THO_GIAP"]);
+  // Kỹ năng COMMON do ô 1 tự gán theo vũ khí, nên không còn nằm trong 4 ô linh căn được chọn.
+  assert.deepEqual(Array.from(skills._selected), ["THO_GIAP"]);
   assert.equal(notifications.length, 1);
   assert.equal(notifications[0].type, "warning");
   assert.match(notifications[0].message, /không còn phù hợp linh căn/);
@@ -913,4 +914,66 @@ test("death modal calculates xu penalty by realm without tu vi loss and stays sa
   context.S.player = { xu: 0, canhGioi: { stt: 3 } };
   context.__UI.showDeathModal();
   assert.match(message.textContent, /0 xu — hồi sinh miễn phí/);
+});
+
+test("SkillSystem normalizes BE skill snapshots, respects empty equippedSkills, preserves cdLeft, and reorders slots 2..5", async () => {
+  const { skills } = skillBookHarness({
+    autoSkill: "CUNG_LIEN_CHAU",
+    skills: [
+      { code: "CUNG_LIEN_CHAU", name: "Cung Liên Châu", linhCan: "COMMON", category: "ACTIVE", type: "PHYS", mpTieuHao: 12, hoiChieu: 9, satThuong: 1.2 },
+      { code: "THO_KICH", name: "Thổ Kích", linhCan: "THO", category: "ACTIVE", tier: 1, type: "PHYS", mpTieuHao: 5, hoiChieu: 2, satThuong: 1.0 },
+      { code: "THO_GIAP", name: "Thổ Giáp", linhCan: "THO", category: "ACTIVE", tier: 1, type: "PHYS", mpTieuHao: 8, hoiChieu: 8, satThuong: 0, effect: "buff_def" },
+    ],
+    learnedSkills: ["THO_KICH", "THO_GIAP"],
+    equippedSkills: ["THO_KICH", "THO_GIAP"],
+  });
+
+  await skills.loadBook();
+  assert.deepEqual(Array.from(skills._selected), ["THO_KICH", "THO_GIAP"]);
+  assert.equal(skills.isLoadoutDirty(), false);
+
+  skills.moveSlot("THO_GIAP", -1);
+  assert.deepEqual(Array.from(skills._selected), ["THO_GIAP", "THO_KICH"]);
+  assert.equal(skills.isLoadoutDirty(), true);
+
+  const target = {
+    skills: [{ id: "THO_KICH", code: "THO_KICH", cdLeft: 180 }],
+  };
+  skills.syncPlayerSkills(target, {
+    autoSkill: "CUNG_LIEN_CHAU",
+    learnedSkills: ["THO_KICH", "THO_GIAP"],
+    equippedSkills: ["THO_GIAP", "THO_KICH"],
+    skills: [
+      { code: "CUNG_LIEN_CHAU", name: "Cung Liên Châu", linhCan: "COMMON", category: "ACTIVE", type: "PHYS", mpTieuHao: 12, hoiChieu: 9, autoAssigned: true },
+      { code: "THO_GIAP", name: "Thổ Giáp", linhCan: "THO", category: "ACTIVE", type: "MAGIC", mpTieuHao: 8, hoiChieu: 8 },
+      { code: "THO_KICH", name: "Thổ Kích", linhCan: "THO", category: "ACTIVE", type: "PHYS", mpTieuHao: 5, hoiChieu: 2 },
+    ],
+  });
+  assert.equal(skills.slotSkill(target, 0).code, "CUNG_LIEN_CHAU");
+  assert.equal(skills.slotSkill(target, 0).mpCost, 12);
+  assert.equal(skills.slotSkill(target, 0).cd, 540);
+  assert.equal(skills.slotSkill(target, 1).code, "THO_GIAP");
+  assert.equal(skills.slotSkill(target, 1).damageType, "MAGIC");
+  assert.equal(skills.slotSkill(target, 2).code, "THO_KICH");
+  assert.equal(skills.slotSkill(target, 2).cdLeft, 180, "cdLeft must be preserved across BE skill snapshots");
+
+  // Khi tháo hết ô linh căn (equippedSkills: []), ô 2..5 phải trống; khi autoSkill === null ô 2 không tụt sang ô 1.
+  skills.syncPlayerSkills(target, {
+    autoSkill: null,
+    learnedSkills: ["THO_KICH"],
+    equippedSkills: [],
+    skills: [{ code: "THO_KICH", name: "Thổ Kích", linhCan: "THO", category: "ACTIVE", type: "PHYS", mpTieuHao: 5, hoiChieu: 2 }],
+  });
+  assert.equal(skills.slotSkill(target, 0), null);
+  assert.equal(skills.slotSkill(target, 1), null);
+  assert.equal(target.skills.length, 0);
+
+  skills.syncPlayerSkills(target, {
+    autoSkill: null,
+    learnedSkills: ["THO_KICH"],
+    equippedSkills: ["THO_KICH"],
+    skills: [{ code: "THO_KICH", name: "Thổ Kích", linhCan: "THO", category: "ACTIVE", type: "PHYS", mpTieuHao: 5, hoiChieu: 2 }],
+  });
+  assert.equal(skills.slotSkill(target, 0), null, "slot 1 must remain empty if autoSkill is null");
+  assert.equal(skills.slotSkill(target, 1).code, "THO_KICH", "root skill stays in slot 2");
 });

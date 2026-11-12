@@ -12,10 +12,10 @@
     { id: "item-fx", src: "./js/item-fx.js?v=1", dependsOn: ["visual-effects", "balance"] },
     { id: "game-data", src: "./js/gamedata.js?v=10", dependsOn: ["balance"] },
     { id: "network", src: "./js/net.js?v=15", dependsOn: ["socket-client", "api", "auto-loot"] },
-    { id: "auth", src: "./js/auth.js?v=3", dependsOn: ["network"] },
+    { id: "auth", src: "./js/auth.js?v=4", dependsOn: ["network"] },
     { id: "world", src: "./js/world.js?v=12", dependsOn: ["network"] },
     { id: "monster", src: "./js/monster.js?v=3", dependsOn: ["world"] },
-    { id: "skills", src: "./js/skills.js?v=12", dependsOn: ["world", "network"] },
+    { id: "skills", src: "./js/skills.js?v=13", dependsOn: ["world", "network"] },
     { id: "combat", src: "./js/combat.js?v=6", dependsOn: ["world", "network"] },
     { id: "cultivation", src: "./js/cultivation.js?v=4", dependsOn: ["network"] },
     { id: "inventory", src: "./js/inventory.js?v=5", dependsOn: ["network"] },
@@ -27,7 +27,7 @@
     { id: "ui", src: "./js/ui.js?v=19", dependsOn: ["render", "visual-effects", "item-fx"] },
     { id: "hub", src: "./js/hub.js?v=1", dependsOn: ["network", "ui"] },
     { id: "quest", src: "./js/quest.js?v=4", dependsOn: ["network", "ui"] },
-    { id: "input", src: "./js/input.js?v=9", dependsOn: ["world", "network"] },
+    { id: "input", src: "./js/input.js?v=10", dependsOn: ["world", "network"] },
     { id: "game-entry", src: "./js/game.js?v=15", dependsOn: ["socket-client", "api", "auto-loot", "visual-effects", "utils", "balance", "item-fx", "game-data", "network", "auth", "world", "monster", "skills", "combat", "cultivation", "inventory", "alchemy", "forge", "shop", "render", "skill-vfx", "ui", "hub", "quest", "input"] },
   ];
   const timeoutMs = 20000;

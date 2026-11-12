@@ -22,6 +22,25 @@ function mountMonsterStudio(form, saveMonster) {
       updateButton();
     },
   });
+  // Bảng rớt đồ do Admin tạo ở màn "Bảng rớt đồ"; tải khi đã đăng nhập, lỗi tải không chặn việc tạo quái.
+  const lootSelect = fields.namedItem("lootTableId");
+  async function loadLootTables() {
+    if (!lootSelect || lootSelect.dataset.loaded) return;
+    try {
+      const response = await AdminAuth.fetch(API.BASE + API.PATHS.admin.content("lootTables"));
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.data)) return;
+      const chosen = lootSelect.value;
+      lootSelect.replaceChildren(new Option("Không rớt đồ", ""), ...data.data.map(
+        (table) => new Option(`${table.id} (${(table.entries || []).length} món)`, table.id),
+      ));
+      lootSelect.value = chosen;
+      lootSelect.dataset.loaded = "1";
+    } catch { /* chưa đăng nhập hoặc BE tạm lỗi: thử lại khi người dùng mở danh sách */ }
+  }
+  void loadLootTables();
+  window.addEventListener("admin:authenticated", () => { void loadLootTables(); });
+  lootSelect?.addEventListener("focus", () => { void loadLootTables(); });
   fields.code.addEventListener("input", () => {
     download.download = `${fields.code.value.replace(/[^A-Z0-9_]/g, "") || "monster"}.png`;
     updateButton();
@@ -42,6 +61,7 @@ function mountMonsterStudio(form, saveMonster) {
       id: code, code, name, img, type: fields.type.value, linhCan, nguHanh: [linhCan],
       level: number("level"), hp, maxHp: hp, atk: number("atk"), def: number("def"),
       speed: number("speed"), respawnMs: number("respawn") * 1000,
+      ...(lootSelect?.value ? { lootTableId: lootSelect.value } : {}),
     };
     saving = true;
     updateButton();

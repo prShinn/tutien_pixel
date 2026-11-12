@@ -145,6 +145,7 @@ const Input = {
       if (!isFormControl && (e.code === "Digit2" || e.key === "2")) SkillSystem.useSkill(1);
       if (!isFormControl && (e.code === "Digit3" || e.key === "3")) SkillSystem.useSkill(2);
       if (!isFormControl && (e.code === "Digit4" || e.key === "4")) SkillSystem.useSkill(3);
+      if (!isFormControl && (e.code === "Digit5" || e.key === "5")) SkillSystem.useSkill(4);
     });
 
     window.addEventListener("keyup", (e) => {

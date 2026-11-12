@@ -43,15 +43,15 @@ function renderWorlds() {
   }).join("");
 }
 
-const contentLabels = { quests: "Quest", npcs: "NPC theo map", items: "Items & Loot", skills: "Skills", monsters: "Ngân hàng quái", accounts: "Tài khoản" };
+const contentLabels = { quests: "Quest", npcs: "NPC theo map", items: "Kho vật phẩm", skills: "Skills", monsters: "Ngân hàng quái", alchemyRecipes: "Công thức Luyện Đan", lootTables: "Bảng rớt đồ", accounts: "Tài khoản & Nhân vật" };
 let activeCollection = null;
 const contentManager = ContentAdmin.createController({ api: API, getJson, adminHeaders });
 const pagedCollections = new Set(["items", "monsters", "skills"]);
 const pixelArtCollections = new Set(["items", "skills", "monsters"]);
 const catalogPageSize = 24;
 let contentSearchTimer;
-const contentState = { page: 1, records: [], query: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
-const vfxState = { skills: [], selectedCode: "", profiles: {}, loaded: false, authorized: false, saving: false, previewStarted: performance.now() };
+const contentState = { page: 1, records: [], query: "", itemType: "", rarity: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
+const vfxState = { skills: [], selectedCode: "", profiles: {}, loaded: false, authorized: false, saving: false, previewStarted: performance.now(), previewActive: false };
 
 function vfxCode(skill) { return String(skill?.code || skill?.maNangLuc || skill?.id || ""); }
 function vfxName(skill) { return String(skill?.name || skill?.tenNangLuc || vfxCode(skill)); }
@@ -198,11 +198,12 @@ async function openSkillVfx() {
 
 function drawVfxPreview(now) {
   const canvas = $("vfx-preview");
-  if (!canvas) return;
+  if (!canvas) { vfxState.previewActive = false; return; }
   if (!$("skill-vfx-view").classList.contains("active")) {
-    window.requestAnimationFrame(drawVfxPreview);
+    vfxState.previewActive = false;
     return;
   }
+  vfxState.previewActive = true;
   const c = canvas.getContext("2d");
   window.ctx = c;
   c.imageSmoothingEnabled = false;
@@ -255,7 +256,18 @@ function drawVfxPreview(now) {
   c.fillStyle = "#d4c9a0";
   c.font = "12px monospace";
   c.fillText(label, 14, 24);
-  window.requestAnimationFrame(drawVfxPreview);
+  if ($("skill-vfx-view").classList.contains("active")) {
+    window.requestAnimationFrame(drawVfxPreview);
+  } else {
+    vfxState.previewActive = false;
+  }
+}
+
+function startVfxPreview() {
+  if (!vfxState.previewActive) {
+    vfxState.previewActive = true;
+    window.requestAnimationFrame(drawVfxPreview);
+  }
 }
 
 function setContentFeedback(message = "", kind = "success") {
@@ -388,6 +400,10 @@ function renderContent(collection, payload) {
   const sampleButton = $("open-sample-items");
   sampleButton.hidden = collection !== "items" || !ContentAdmin.EDITABLE_COLLECTIONS.has(collection);
   sampleButton.disabled = contentState.busy || !contentState.persisted;
+  $("open-item-studio").hidden = collection !== "items";
+  $("open-item-studio").disabled = contentState.busy || !contentState.persisted;
+  $("item-type-filter").hidden = collection !== "items";
+  $("item-rarity-filter").hidden = collection !== "items";
   $("open-monster-studio").hidden = collection !== "monsters";
   $("open-monster-studio").disabled = contentState.busy || !contentState.persisted;
   if (collection !== "items") {
@@ -401,24 +417,41 @@ function renderContent(collection, payload) {
   renderContentPager();
   const visibleRecords = pagination ? contentState.records : AdminContentUtils.filterRecords(contentState.records, contentState.query);
   if (!visibleRecords.length) {
-    const emptyMessage = (contentState.query.trim() || contentState.records.length) ? "Không tìm thấy bản ghi phù hợp." : "Collection chưa có bản ghi.";
+    const emptyMessage = (contentState.query.trim() || contentState.itemType || contentState.rarity || contentState.records.length)
+      ? "Không tìm thấy bản ghi phù hợp."
+      : "Collection chưa có bản ghi.";
     $("content-table").innerHTML = `${storageNote}<div class="empty">${AdminContentUtils.escapeHtml(emptyMessage)}</div>`;
     if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
     return;
   }
   const rows = visibleRecords.map((record) => {
     const recordIndex = contentState.records.indexOf(record);
-    const values = AdminContentUtils.summarizeRecord(record, 3).map(({ key, value }) =>
+    const values = AdminContentUtils.summarizeRecord(record, 4).map(({ key, value }) =>
       `<span class="content-field"><small>${AdminContentUtils.escapeHtml(key)}</small><span title="${AdminContentUtils.escapeHtml(value)}">${AdminContentUtils.escapeHtml(value)}</span></span>`).join("");
-    const id = AdminContentUtils.escapeHtml(collection === "skills" ? record.code || record.id : record.id);
-    const state = AdminContentUtils.escapeHtml(record.status || "Đang dùng");
+    const id = AdminContentUtils.escapeHtml(collection === "skills" ? record.code || record.id : (record.id ?? record.playerId ?? ""));
+    const rarityCode = String(record.rarity || "").toUpperCase();
+    const state = collection === "items" && rarityCode
+      ? AdminContentUtils.escapeHtml(`${rarityCode} · iLv.${record.itemLevel ?? (Number(record.requiredRealmStt || 1) * 10)}`)
+      : collection === "accounts"
+        ? AdminContentUtils.escapeHtml(`${record.role || "PLAYER"}${record.playerName ? ` · ${record.playerName}` : ""}`)
+        : AdminContentUtils.escapeHtml(record.status || "Đang dùng");
     const canEditRecord = canEdit;
     const asset = pagedCollections.has(collection) ? adminImage(record.img) || adminImage(record.icon) : "";
     const preview = asset ? `<img class="content-record-preview" src="${asset}" alt="" loading="lazy" />` : "";
-    const actions = canEditRecord
-      ? `<div class="content-record-actions"><button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">Sửa</button>${collection === "items" || collection === "skills" ? `<button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button>` : ""}</div>`
-      : `<span class="content-readonly">Chỉ xem</span>`;
-    return `<article class="content-record${pagedCollections.has(collection) ? " with-preview" : ""}" role="listitem">${preview || (pagedCollections.has(collection) ? '<span class="content-record-preview preview-placeholder" aria-hidden="true">—</span>' : "")}<div class="content-record-id"><b>${AdminContentUtils.escapeHtml(record.tenDo || record.name || record.title || record.id)}</b><small class="content-record-code">${id}</small><div class="content-record-fields">${values}</div></div><span class="table-status">${state}</span>${actions}</article>`;
+    let actions = `<span class="content-readonly">Chỉ xem</span>`;
+    if (canEditRecord) {
+      actions = `<div class="content-record-actions">`
+        + (collection === "items" ? `<button class="vfx-button primary" type="button" data-content-action="edit-studio" data-index="${recordIndex}">Sửa Studio</button>` : "")
+        + `<button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">${collection === "items" ? "Sửa JSON" : "Sửa"}</button>`
+        + (collection === "items" || collection === "skills" ? `<button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button>` : "")
+        + `</div>`;
+    } else if (collection === "accounts" && record.playerId) {
+      actions = `<div class="content-record-actions"><button class="vfx-button primary" type="button" data-content-action="mail" data-index="${recordIndex}">Gửi thư quà</button></div>`;
+    }
+    const displayName = collection === "accounts"
+      ? `${record.username || id}${record.playerName ? ` (${record.playerName})` : " (Chưa tạo nhân vật)"}`
+      : (record.tenDo || record.name || record.title || record.id);
+    return `<article class="content-record${pagedCollections.has(collection) ? " with-preview" : ""}" role="listitem">${preview || (pagedCollections.has(collection) ? '<span class="content-record-preview preview-placeholder" aria-hidden="true">—</span>' : "")}<div class="content-record-id"><b>${AdminContentUtils.escapeHtml(displayName)}</b><small class="content-record-code">${id}</small><div class="content-record-fields">${values}</div></div><span class="table-status">${state}</span>${actions}</article>`;
   }).join("");
   $("content-table").innerHTML = `${storageNote}<div class="content-record-list" role="list">${rows}</div>`;
   if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
@@ -429,11 +462,18 @@ async function openContent(collection, { feedback = "" } = {}) {
   if (activeCollection !== collection) {
     contentState.page = 1;
     contentState.query = "";
+    contentState.itemType = "";
+    contentState.rarity = "";
     $("content-search").value = "";
+    $("item-type-filter").value = "";
+    $("item-rarity-filter").value = "";
   }
   activeCollection = collection;
   const loadVersion = ++contentState.loadVersion;
   $("content-pagination").hidden = true;
+  $("open-item-studio").hidden = true;
+  $("item-type-filter").hidden = true;
+  $("item-rarity-filter").hidden = true;
   $("open-monster-studio").hidden = true;
   contentState.records = [];
   contentState.pagination = null;
@@ -449,7 +489,14 @@ async function openContent(collection, { feedback = "" } = {}) {
   else setContentFeedback();
   $("content-table").innerHTML = '<div class="loading" role="status">Đang tải dữ liệu…</div>';
   try {
-    const params = pagedCollections.has(collection) ? { page: contentState.page, limit: catalogPageSize, q: contentState.query.trim() } : null;
+    let params = null;
+    if (pagedCollections.has(collection)) {
+      params = { page: contentState.page, limit: catalogPageSize, q: contentState.query.trim() };
+      if (collection === "items") {
+        if (contentState.itemType) params.itemType = contentState.itemType;
+        if (contentState.rarity) params.rarity = contentState.rarity;
+      }
+    }
     const payload = params
       ? await fetchCatalog(collection, params)
       : await contentManager.list(collection);
@@ -498,7 +545,7 @@ async function openContentEditor(record = null) {
   let records = contentState.records;
   if (!editing && collection === "skills") records = [];
   const fields = editing ? { ...record } : AdminContentUtils.createBlankRecord(collection, Date.now(), records);
-  const recordId = String((editing && collection === "skills" ? fields.code || fields.id : fields.id) ?? "");
+  const recordId = String((collection === "skills" ? fields.code || fields.id : fields.id) ?? "");
   delete fields.id;
   delete fields.updatedAt;
   const usePixelEditor = pixelArtCollections.has(collection);
@@ -538,9 +585,14 @@ async function saveContent(event) {
     const id = $("content-record-id").value.trim();
     const json = $("content-record-json").value;
     const pixelArt = $("content-pixel-art");
-    const pixelImage = pixelArtCollections.has(collection) ? generatedEditorImage : undefined;
-    if (pixelImage === "" && (!wasEdit || pixelArt.elements.namedItem("source").files.length)) {
-      throw new Error("Hãy chọn ảnh nguồn và đợi ảnh pixel hiển thị trước khi lưu.");
+    const hasPickedFile = Boolean(pixelArt.elements?.namedItem?.("source")?.files?.length);
+    let pixelImage;
+    if (pixelArtCollections.has(collection)) {
+      if (generatedEditorImage) pixelImage = generatedEditorImage;
+      else if (hasPickedFile) throw new Error("Hãy chọn ảnh nguồn và đợi ảnh pixel hiển thị trước khi lưu.");
+      else if (collection === "monsters" && !wasEdit) {
+        throw new Error("Quái vật mới cần chọn ảnh PNG hoặc tạo từ Monster Studio.");
+      }
     }
     pixelArt.disabled = true;
     const result = await contentManager.save(collection, {
@@ -573,9 +625,19 @@ async function handleContentAction(event) {
   if (!button) return;
   const action = button.dataset.contentAction;
   if (action === "reload") return openContent(activeCollection);
-  if (!contentState.persisted) return;
   const record = contentState.records[Number(button.dataset.index)];
   if (!record || contentState.busy) return;
+  if (action === "mail") {
+    document.querySelector?.('.nav-item[data-view="mail-sender"]')?.click();
+    editorsHandle?.prefillMail?.(record.playerId);
+    return;
+  }
+  if (!contentState.persisted) return;
+  if (action === "edit-studio") {
+    itemStudioHandle?.loadRecord?.(record);
+    document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+    return;
+  }
   if (action === "edit") return openContentEditor(record);
   if (action === "preview") return;
   if (action !== "delete" || ["quests", "monsters"].includes(activeCollection) || !window.confirm(`Xóa bản ghi “${record.name || record.title || record.id}”?`)) return;
@@ -604,20 +666,25 @@ async function loadOverview() {
     state.worlds = worlds; state.realms = realms;
     renderStats(); renderWorlds();
   } catch (error) {
-    $("world-list").innerHTML = `<div class="empty">${error.message} · cần tài khoản GM/ADMIN.</div>`;
+    $("world-list").innerHTML = `<div class="empty">${AdminContentUtils.escapeHtml(error.message)} · cần tài khoản GM/ADMIN.</div>`;
   }
 }
 
 function reloadAdminViewAfterLogin() {
   void loadOverview();
   const active = document.querySelector('.nav-item.active[data-view]');
-  if (active?.dataset.view === "content") void openContent(active.dataset.collection);
-  if (active?.dataset.view === "skill-vfx") {
+  const view = active?.dataset.view;
+  if (view === "content") void openContent(active.dataset.collection);
+  if (view === "skill-vfx") {
     vfxState.loaded = false;
     vfxState.authorized = false;
     setVfxDisabled(true);
     void openSkillVfx();
   }
+  if (view === "alchemy-recipes") editorsHandle?.openAlchemy?.();
+  if (view === "loot-tables") editorsHandle?.openLootTables?.();
+  if (view === "mail-sender") editorsHandle?.openMailSender?.();
+  if (view === "balance-settings") editorsHandle?.openBalanceSettings?.();
 }
 window.addEventListener("admin:authenticated", reloadAdminViewAfterLogin);
 window.addEventListener("admin:unauthenticated", () => {
@@ -637,30 +704,81 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   if (item.classList.contains("disabled")) return;
   document.querySelectorAll(".nav-item").forEach((node) => node.classList.remove("active"));
   item.classList.add("active");
-  const isContent = item.dataset.view === "content";
-  const isVfx = item.dataset.view === "skill-vfx";
-  const isItemStudio = item.dataset.view === "item-studio";
-  const isMonsterStudio = item.dataset.view === "monster-studio";
-  $("overview").classList.toggle("hidden", isContent || isVfx || isItemStudio || isMonsterStudio);
+  const view = item.dataset.view;
+  const isContent = view === "content";
+  const isVfx = view === "skill-vfx";
+  const isItemStudio = view === "item-studio";
+  const isMonsterStudio = view === "monster-studio";
+  const isAlchemy = view === "alchemy-recipes";
+  const isLoot = view === "loot-tables";
+  const isMail = view === "mail-sender";
+  const isBalance = view === "balance-settings";
+  $("overview").classList.toggle("hidden", isContent || isVfx || isItemStudio || isMonsterStudio || isAlchemy || isLoot || isMail || isBalance);
   $("content-view").classList.toggle("active", isContent);
   $("skill-vfx-view").classList.toggle("active", isVfx);
   $("item-studio-view").hidden = !isItemStudio;
   $("monster-studio-view").hidden = !isMonsterStudio;
+  $("alchemy-recipes-view").hidden = !isAlchemy;
+  $("loot-tables-view").hidden = !isLoot;
+  $("mail-sender-view").hidden = !isMail;
+  $("balance-settings-view").hidden = !isBalance;
   $("placeholder").classList.remove("active");
-  const viewTitles = { "skill-vfx": "Hoạt ảnh kỹ năng", "item-studio": "Tạo vật phẩm từ ảnh", "monster-studio": "Tạo quái vật từ ảnh" };
-  $("view-title").textContent = isContent ? (contentLabels[item.dataset.collection] || "Content") : (viewTitles[item.dataset.view] || "Tổng quan thế giới");
+  const viewTitles = {
+    "skill-vfx": "Hoạt ảnh kỹ năng",
+    "item-studio": "Item Studio · Tạo & Sửa vật phẩm",
+    "monster-studio": "Tạo quái vật từ ảnh",
+    "alchemy-recipes": "Công thức Luyện Đan",
+    "loot-tables": "Bảng rớt đồ (Loot Tables)",
+    "mail-sender": "Gửi thư & Quà GM",
+    "balance-settings": "Cấu hình & Cân bằng Hệ thống",
+  };
+  $("view-title").textContent = isContent ? (contentLabels[item.dataset.collection] || "Content") : (viewTitles[view] || "Tổng quan thế giới");
   if (isContent) openContent(item.dataset.collection);
-  if (isVfx) openSkillVfx();
+  if (isVfx) {
+    startVfxPreview();
+    openSkillVfx();
+  }
+  if (isAlchemy) editorsHandle?.openAlchemy?.();
+  if (isLoot) editorsHandle?.openLootTables?.();
+  if (isMail) editorsHandle?.openMailSender?.();
+  if (isBalance) editorsHandle?.openBalanceSettings?.();
 }));
 
-ItemStudio.mount({
+const editorsHandle = typeof AdminEditors !== "undefined"
+  ? AdminEditors.mount({
+    api: API,
+    getJson,
+    adminHeaders,
+    contentManager,
+    escapeHtml: AdminContentUtils.escapeHtml,
+  })
+  : null;
+
+const itemStudioHandle = ItemStudio.mount({
   form: $("item-studio-form"),
-  async saveItem(record) {
+  async saveItem(record, existingId = null) {
     await API.assertPersistentStorage();
-    return contentManager.save("items", { id: record.id, json: JSON.stringify(record) });
+    return contentManager.save("items", {
+      id: existingId || record.id,
+      existingId,
+      json: JSON.stringify(record),
+    });
   },
-  openItems: () => document.querySelector('.nav-item[data-collection="items"]').click(),
+  openItems: () => document.querySelector?.('.nav-item[data-collection="items"]')?.click(),
 });
+
+$("open-item-studio").addEventListener("click", () => {
+  itemStudioHandle?.resetToCreate?.();
+  document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+});
+
+for (const [filterId, stateKey] of [["item-type-filter", "itemType"], ["item-rarity-filter", "rarity"]]) {
+  $(filterId).addEventListener("change", (event) => {
+    contentState[stateKey] = event.target.value;
+    contentState.page = 1;
+    if (activeCollection === "items") void openContent("items");
+  });
+}
 
 $("open-monster-studio").addEventListener("click", () => {
   document.querySelector('.nav-item[data-view="monster-studio"]').click();

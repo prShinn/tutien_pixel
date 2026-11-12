@@ -174,14 +174,16 @@ const Auth = {
             return { ...sk, cdLeft: sk.cdLeft ?? 0 };
           })
         : null;
-    const learnedSkillCodes = new Set((Array.isArray(playerData.learnedSkills) ? playerData.learnedSkills : []).map(String));
-    const equippedSkillCodes = new Set((Array.isArray(playerData.equippedSkills) ? playerData.equippedSkills : []).map(String));
+    const learnedSkillCodes = Array.isArray(playerData.learnedSkills) ? new Set(playerData.learnedSkills.map(String)) : null;
+    const equippedSkillCodes = Array.isArray(playerData.equippedSkills) ? new Set(playerData.equippedSkills.map(String)) : null;
     const visibleSkills = (savedSkills || []).filter((skill) => {
       const code = String(skill.code || skill.id || "");
-      const learned = !learnedSkillCodes.size || learnedSkillCodes.has(code);
-      const equipped = !equippedSkillCodes.size || equippedSkillCodes.has(code);
-      const passive = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
-      return learned && equipped && !passive;
+      const passiveSkill = String(skill.category || "ACTIVE").toUpperCase() === "PASSIVE";
+      if (passiveSkill) return false;
+      if (skill.autoAssigned || (playerData.autoSkill != null && code === String(playerData.autoSkill))) return true;
+      const learned = !learnedSkillCodes || learnedSkillCodes.has(code);
+      const equipped = !equippedSkillCodes || equippedSkillCodes.has(code);
+      return learned && equipped;
     });
     S.player = {
       ...playerData,
@@ -216,6 +218,9 @@ const Auth = {
       skills: visibleSkills,
       buffs: {},
     };
+    if (typeof SkillSystem !== "undefined" && typeof SkillSystem.syncPlayerSkills === "function") {
+      SkillSystem.syncPlayerSkills(S.player, playerData);
+    }
     const rawInventory = (() => {
       if (Array.isArray(playerData.inventory)) return playerData.inventory;
       if (typeof playerData.jsonIventory !== "string") return [];

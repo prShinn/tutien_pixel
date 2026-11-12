@@ -246,14 +246,14 @@ const ItemStudio = (() => {
     });
     for (const key of ["size", "colors", "removeBg", "outline"]) fields.namedItem(key).addEventListener("change", refreshPreview);
     if (enableSparklePreview) {
-      for (const key of ["sparklePreset", "sparkleColor", "sparkleIntensity", "rarity", "linhCan"]) {
+      for (const key of ["sparklePreset", "sparkleColor", "sparkleIntensity", "rarity", "linhCan", "hasLuck"]) {
         fields.namedItem(key)?.addEventListener("change", () => {
           paintPreviewFrame(performance.now());
           syncAnimLoop();
         });
       }
     }
-    return function resetImage() {
+    function resetImage() {
       version += 1;
       stopAnim();
       bitmap?.close();
@@ -261,7 +261,43 @@ const ItemStudio = (() => {
       fields.source.value = "";
       artStatus.textContent = "Chọn ảnh để xem trước icon.";
       refreshPreview();
+    }
+    resetImage.setExisting = function setExistingImage(url) {
+      const request = ++version;
+      stopAnim();
+      bitmap?.close();
+      bitmap = null;
+      fields.source.value = "";
+      bakedImg = url || "";
+      if (!bakedImg) {
+        bakeCanvas.width = 0;
+        bakeCanvas.height = 0;
+        preview.getContext("2d").clearRect(0, 0, preview.width, preview.height);
+        artStatus.textContent = "Chưa có ảnh PNG (đang dùng icon chữ). Chọn ảnh mới nếu muốn thay.";
+        onChange("");
+        return;
+      }
+      artStatus.textContent = "Đang dùng ảnh hiện tại. Chọn ảnh nguồn mới nếu muốn thay.";
+      onChange(bakedImg);
+      const previewSrc = /^(?:\.\/|\/)?assets\//i.test(bakedImg)
+        ? "/" + bakedImg.replace(/^(?:\.\/|\/)/, "")
+        : bakedImg;
+      if (typeof Image === "function") {
+        const existing = new Image();
+        existing.onload = () => {
+          if (request !== version) return;
+          const size = existing.width || 48;
+          bakeCanvas.width = size;
+          bakeCanvas.height = existing.height || size;
+          bakeCanvas.getContext("2d").drawImage(existing, 0, 0);
+          preview.width = preview.height = enableSparklePreview ? Math.max(96, size * 2) : size;
+          paintPreviewFrame(performance.now());
+          syncAnimLoop();
+        };
+        existing.src = previewSrc;
+      }
     };
+    return resetImage;
   }
 
   function mount({ form, saveItem, openItems }) {
@@ -269,15 +305,25 @@ const ItemStudio = (() => {
     const saveStatus = form.querySelector("#item-save-status");
     const save = form.querySelector("[type=submit]");
     const list = form.querySelector("#item-studio-list");
+    const modeBanner = form.querySelector("#item-studio-mode-banner");
+    const modeLabel = form.querySelector("#item-studio-mode-label");
+    const resetModeBtn = form.querySelector("#item-studio-new-mode");
     const typeGroups = form.querySelectorAll("[data-item-type]");
     let img = "";
     let saving = false;
     let saved = false;
     let customCode = false;
+    let editingId = null;
+    let editingRecord = null;
     const value = (key) => fields.namedItem(key)?.value ?? "";
     const number = (key) => Number(value(key) || 0);
-    const updateButton = () => { save.disabled = saving || saved || !img; };
-    mountImage(form, { onChange: (url) => { img = url; updateButton(); }, enableSparklePreview: true });
+    const updateButton = () => {
+      save.disabled = saving || saved || (!img && !editingId);
+      save.textContent = editingId ? "Lưu thay đổi vật phẩm" : "Lưu vào kho vật phẩm";
+      if (modeBanner) modeBanner.hidden = !editingId;
+      if (modeLabel && editingId) modeLabel.textContent = `Đang chỉnh sửa: ${editingRecord?.tenDo || editingRecord?.name || editingId} (${editingId})`;
+    };
+    const imageControl = mountImage(form, { onChange: (url) => { img = url; updateButton(); }, enableSparklePreview: true });
 
     function syncTypeGroups() {
       const currentType = value("type");
@@ -291,11 +337,87 @@ const ItemStudio = (() => {
     }
     syncTypeGroups();
 
+    function setField(key, val) {
+      const el = fields.namedItem(key);
+      if (!el) return;
+      if (el.type === "checkbox") el.checked = Boolean(val);
+      else el.value = val ?? "";
+    }
+
+    function loadRecord(record) {
+      if (!record || typeof record !== "object") return;
+      const id = String(record.id || record.maDo || "").trim();
+      if (!id) return;
+      editingId = id;
+      editingRecord = { ...record };
+      saved = false;
+      customCode = true;
+      if (fields.source) fields.source.required = false;
+      setField("itemName", record.tenDo || record.name || "");
+      setField("code", id);
+      if (fields.code) fields.code.readOnly = true;
+      setField("type", String(record.type || record.loai || "MATERIAL").toUpperCase());
+      setField("rarity", String(record.rarity || "NORMAL").toUpperCase());
+      setField("requiredRealmStt", record.requiredRealmStt ?? 1);
+      setField("itemLevel", record.itemLevel ?? 10);
+      setField("linhCan", record.linhCan || "");
+      setField("currency", String(record.currency || "XU").toUpperCase());
+      setField("giaMua", record.giaMua ?? 0);
+      setField("giaBan", record.giaBan ?? 0);
+      setField("hasLuck", Boolean(record.hasLuck));
+      setField("moTa", record.moTa || "");
+      const sparkle = record.sparkle || {};
+      setField("sparklePreset", record.sparkle
+        ? (sparkle.preset || (sparkle.enabled === false ? "NONE" : "SHIMMER"))
+        : "NONE");
+      setField("sparkleColor", /^#[0-9a-f]{6}$/i.test(sparkle.color || "") ? sparkle.color : "#ffd966");
+      setField("sparkleIntensity", String(sparkle.intensity || 2));
+      const stats = record.stats || {};
+      setField("slot", record.slot || "weapon");
+      setField("weaponKind", String(record.weaponKind || "sword").toLowerCase());
+      for (const statKey of ["pAtk", "mAtk", "pDef", "mDef", "maxHp", "maxMp", "spd", "crit", "str", "agi", "vit", "ene"]) {
+        setField(statKey, stats[statKey] ?? (statKey === "maxHp" ? stats.maxHP ?? 0 : statKey === "maxMp" ? stats.maxMP ?? 0 : 0));
+      }
+      setField("gemTier", record.gemTier || "BLESS");
+      setField("healHp", record.healHp ?? 0);
+      setField("healMp", record.healMp ?? 0);
+      setField("giaTriTuVi", record.giaTriTuVi ?? 120);
+      setField("elemTuVi", record.giaTriTuVi ?? 80);
+      setField("tuViLinhCanVal", record.tuViLinhCanVal ?? 120);
+      setField("bagSlots", record.bagSlots ?? 6);
+      setField("xuAmount", record.xuAmount ?? 1000);
+      setField("realmCode", record.realmCode || "TRUC_CO");
+      setField("quality", record.quality || "HA_PHAM");
+      setField("qualityLabel", record.qualityLabel || "Hạ phẩm");
+      setField("breakthroughRate", record.breakthroughRate ?? 0.7);
+      syncTypeGroups();
+      imageControl.setExisting(record.img || "");
+      saveStatus.textContent = "";
+      list.hidden = true;
+      updateButton();
+    }
+
+    function resetToCreate() {
+      editingId = null;
+      editingRecord = null;
+      saved = false;
+      customCode = false;
+      form.reset();
+      if (fields.code) fields.code.readOnly = false;
+      if (fields.source) fields.source.required = true;
+      syncTypeGroups();
+      imageControl();
+      saveStatus.textContent = "";
+      list.hidden = true;
+      updateButton();
+    }
+
+    resetModeBtn?.addEventListener("click", resetToCreate);
     fields.type.addEventListener("change", syncTypeGroups);
     fields.slot?.addEventListener("change", syncTypeGroups);
     fields.code.addEventListener("input", () => { customCode = Boolean(value("code")); });
     fields.itemName.addEventListener("input", () => {
-      if (customCode) return;
+      if (customCode || editingId) return;
       fields.code.value = value("itemName").toUpperCase().replace(/Đ/g, "D")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64);
     });
@@ -311,8 +433,8 @@ const ItemStudio = (() => {
     list.addEventListener("click", openItems);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (saving || saved || !img || !form.reportValidity()) return;
-      const id = value("code");
+      if (saving || saved || (!img && !editingId) || !form.reportValidity()) return;
+      const id = editingId || value("code").trim();
       const name = value("itemName").trim();
       const type = value("type");
       if (!name) {
@@ -328,8 +450,7 @@ const ItemStudio = (() => {
         tenDo: name,
         loai: type,
         type,
-        icon: "◇",
-        img,
+        icon: editingRecord?.icon || "◇",
         rarity: value("rarity") || "NORMAL",
         requiredRealmStt: Math.max(1, number("requiredRealmStt") || 1),
         itemLevel: Math.max(1, number("itemLevel") || 10),
@@ -340,6 +461,7 @@ const ItemStudio = (() => {
         giaMua: number("giaMua"),
         giaBan: number("giaBan"),
       };
+      if (img) record.img = img;
       const linhCan = value("linhCan").trim();
       if (linhCan) record.linhCan = linhCan;
       if (record.giaMua > 0 && record.giaBan > record.giaMua) {
@@ -361,6 +483,10 @@ const ItemStudio = (() => {
           maxMp: number("maxMp"),
           spd: number("spd"),
           crit: Math.round(number("crit") * 10000) / 10000,
+          str: number("str"),
+          agi: number("agi"),
+          vit: number("vit"),
+          ene: number("ene"),
         };
       } else if (type === "ENHANCE_GEM") {
         record.gemTier = value("gemTier") || "BLESS";
@@ -376,28 +502,44 @@ const ItemStudio = (() => {
         }
       } else if (type === "STONE") {
         record.giaTriTuVi = number("giaTriTuVi");
+      } else if (type === "ELEMSTONE") {
+        record.giaTriTuVi = number("elemTuVi");
       } else if (type === "LINDAN") {
         record.tuViLinhCanVal = number("tuViLinhCanVal");
+      } else if (type === "BAG_EXPAND") {
+        record.bagSlots = Math.max(1, number("bagSlots") || 6);
+      } else if (type === "EXCHANGE_XU") {
+        record.xuAmount = Math.max(1, number("xuAmount") || 1000);
+      } else if (type === "BREAKTHROUGH_PILL") {
+        record.realmCode = value("realmCode").trim() || "TRUC_CO";
+        record.quality = value("quality") || "HA";
+        if (value("qualityLabel").trim()) record.qualityLabel = value("qualityLabel").trim();
+        record.breakthroughRate = Math.max(0.01, Math.min(1, number("breakthroughRate") || 0.55));
       }
       saving = true;
       const controls = [...form.querySelectorAll("input, select, textarea")].filter((control) => !control.disabled);
       controls.forEach((control) => { control.disabled = true; });
       updateButton();
-      saveStatus.textContent = "Đang lưu vật phẩm…";
+      saveStatus.textContent = editingId ? "Đang cập nhật vật phẩm…" : "Đang lưu vật phẩm…";
       try {
-        await saveItem(record);
+        await saveItem(record, editingId);
         saved = true;
-        saveStatus.textContent = `Đã lưu ${name} (${id}) vào kho vật phẩm MySQL.`;
+        saveStatus.textContent = editingId
+          ? `Đã cập nhật ${name} (${id}) vào kho vật phẩm MySQL.`
+          : `Đã lưu ${name} (${id}) vào kho vật phẩm MySQL.`;
         list.hidden = false;
       } catch (error) {
         saveStatus.textContent = error.message || "Không lưu được vật phẩm.";
       } finally {
         controls.forEach((control) => { control.disabled = false; });
+        if (fields.code) fields.code.readOnly = Boolean(editingId);
         syncTypeGroups();
         saving = false;
         updateButton();
       }
     });
+
+    return { loadRecord, resetToCreate };
   }
 
   return { mount, mountImage, sparkleFromForm, validatePngPayloadSize };

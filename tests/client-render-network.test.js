@@ -23,6 +23,7 @@ function networkHarness({ fetchImpl, session = {}, globals = {} }) {
     fetch: fetchImpl,
     setTimeout,
     clearTimeout,
+    performance,
     Headers,
     Response,
     crypto: { randomUUID: () => "request-id-0001" },
@@ -117,6 +118,7 @@ test("map_updated reloads the map silently and asks BE for the latest room snaps
   assert.deepEqual(commands, ["world.resync"]);
   assert.equal(state.monsters[0].id, "wolf_live");
   assert.equal(state.groundItems[0].id, "loot_live");
+  assert.equal(Net._movementReady, true);
 });
 
 test("fixed-step clock gives the same 60 gameplay ticks at 240Hz and 20FPS", async () => {
@@ -369,4 +371,64 @@ test("a failed mutation retry reuses requestId and live autosave never writes sn
   const saved = await Net.saveNow({ type: "test" });
   assert.equal(saved.reason, "SERVER_AUTHORITATIVE_STATE");
   assert.equal(attempts, beforeSave);
+});
+
+test("applyPlayerSnapshot and player_state_update synchronize skills via SkillSystem", async () => {
+  const handlers = new Map();
+  const syncedPayloads = [];
+  let renderCount = 0;
+  const socket = {
+    id: "socket_self",
+    connected: true,
+    active: true,
+    on(name, callback) { handlers.set(name, callback); },
+    emit() {},
+  };
+  const state = {
+    player: { id: "p1", skills: [{ code: "OLD", cdLeft: 30 }] },
+    session: { user: null },
+    inventory: [],
+    players: new Map(),
+    monsters: [],
+    groundItems: [],
+  };
+  const { Net } = networkHarness({
+    session: { tu_tien_token: "access-token" },
+    fetchImpl: async () => new Response(JSON.stringify({}), { status: 200 }),
+    globals: {
+      S: state,
+      io: () => socket,
+      UI: { buildInv() {}, update() {}, hideLoading() {}, log() {} },
+      SkillSystem: {
+        _book: { learnedSkills: [], equippedSkills: [], autoSkill: null },
+        syncPlayerSkills(target, incoming) {
+          syncedPayloads.push(incoming);
+          target.autoSkill = incoming.autoSkill ?? null;
+          target.skills = incoming.skills || [];
+        },
+        renderSkillBook() { renderCount += 1; },
+      },
+    },
+  });
+
+  Net.applyPlayerSnapshot({
+    autoSkill: "CUNG_LIEN_CHAU",
+    equippedSkills: ["KIM_KICH"],
+    skills: [{ code: "CUNG_LIEN_CHAU" }, { code: "KIM_KICH" }],
+  }, { render: false });
+  assert.equal(syncedPayloads.length, 1);
+  assert.equal(state.player.autoSkill, "CUNG_LIEN_CHAU");
+
+  Net.connectSocket();
+  handlers.get("player_state_update")({
+    hp: 90,
+    maxHp: 100,
+    autoSkill: "DAO_LIET_NGUYET",
+    equippedSkills: ["KIM_KICH"],
+    learnedSkills: ["KIM_KICH"],
+    skills: [{ code: "DAO_LIET_NGUYET" }, { code: "KIM_KICH" }],
+  });
+  assert.equal(syncedPayloads.length, 2);
+  assert.equal(state.player.autoSkill, "DAO_LIET_NGUYET");
+  assert.equal(renderCount, 1);
 });

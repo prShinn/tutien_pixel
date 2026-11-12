@@ -8,7 +8,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function createContentManager(utils) {
   "use strict";
 
-  const EDITABLE_COLLECTIONS = new Set(["quests", "items", "skills", "monsters"]);
+  const EDITABLE_COLLECTIONS = new Set(["quests", "items", "skills", "monsters", "alchemyRecipes", "lootTables"]);
+  const EDITABLE_LOWER = new Set([...EDITABLE_COLLECTIONS].map((entry) => entry.toLowerCase()));
 
   function createController({ api, getJson, adminHeaders }) {
     if (!api || typeof getJson !== "function" || typeof adminHeaders !== "function") {
@@ -16,7 +17,7 @@
     }
 
     function ensureEditable(collection) {
-      if (!EDITABLE_COLLECTIONS.has(String(collection || "").toLowerCase())) {
+      if (!EDITABLE_LOWER.has(String(collection || "").toLowerCase())) {
         throw new Error("Collection này chỉ cho phép xem.");
       }
     }
