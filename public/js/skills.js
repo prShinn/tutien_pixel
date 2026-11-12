@@ -98,6 +98,18 @@ function mapFESkillToBE(sk) {
 // ════════════════════════════════════════════════════════════
 // SkillSystem
 // ════════════════════════════════════════════════════════════
+// Nhãn hiển thị cho thẻ mô tả kỹ năng (chỉ là nhãn đọc; số liệu lấy từ catalog kỹ năng).
+const SKILL_EFFECT_LABELS = Object.freeze({
+  heal: "Hồi phục sinh lực", buff_hp_regen: "Hồi sinh lực theo thời gian", buff_vitals: "Cường hóa thể trạng",
+  shield: "Lá chắn", cleanse: "Giải trừ trạng thái xấu", restore_mp: "Hồi linh lực",
+  stun: "Choáng", root: "Trói chân", slow: "Làm chậm", armor_break: "Phá giáp", burn: "Thiêu đốt", curse: "Nguyền rủa",
+  buff_atk: "Tăng công", buff_def: "Tăng thủ", buff_spd: "Tăng tốc", buff_crit: "Tăng bạo kích", buff_cast: "Cường hóa thi pháp",
+});
+const SKILL_ELEMENT_LABELS = Object.freeze({
+  KIM: "Kim", MOC: "Mộc", THUY: "Thủy", HOA: "Hỏa", THO: "Thổ", PHONG: "Phong", LOI: "Lôi", QUANG: "Quang", AM: "Âm", COMMON: "Phổ thông",
+});
+const SKILL_WEAPON_LABELS = Object.freeze({ hammer: "Búa", mace: "Chùy", blade: "Đao", spear: "Thương", bow: "Cung", crossbow: "Nỏ" });
+
 const SkillSystem = {
   _book: null,
   _selected: new Set(),
@@ -382,6 +394,7 @@ const SkillSystem = {
   renderSkillBook() {
     const host = document.getElementById("skill-book-list");
     if (!host || !this._book) return;
+    this.hideTooltip(true); // danh sách sắp được vẽ lại, nút đang ghim thẻ mô tả sẽ bị thay
     const learned = new Set((this._book.learnedSkills || []).map(String));
     const catalog = Array.isArray(this._book.skills) ? this._book.skills : [];
     const visible = catalog.filter((skill) => skill.linhCan === S.player?.linhCan);
@@ -541,15 +554,30 @@ const SkillSystem = {
       const preview = document.createElement("button");
       preview.type = "button";
       preview.className = "skill-preview-btn";
-      preview.textContent = "Xem";
+      preview.textContent = "Hiệu ứng";
       preview.title = `Xem hiệu ứng ${skill.name || code}`;
       preview.setAttribute("aria-label", `Xem hiệu ứng kỹ năng ${skill.name || code}`);
       preview.onclick = () => {
         if (typeof SkillVFX !== "undefined") SkillVFX.preview(skill);
       };
+      // Mô tả và thông số đầy đủ để người chơi cân nhắc trước khi học/trang bị.
+      const detail = document.createElement("button");
+      detail.type = "button";
+      detail.className = "skill-detail-btn";
+      detail.textContent = "Chi tiết";
+      detail.title = `Xem mô tả và thông số ${skill.name || code}`;
+      detail.setAttribute("aria-label", `Xem mô tả và thông số kỹ năng ${skill.name || code}`);
+      detail.setAttribute("aria-haspopup", "true");
+      detail.onclick = () => SkillSystem.toggleSkillCard(skill, detail);
+      title.addEventListener("pointerenter", (event) => {
+        if (event.pointerType === "mouse") SkillSystem.showSkillCard(skill, title);
+      });
+      title.addEventListener("pointerleave", (event) => {
+        if (event.pointerType === "mouse") SkillSystem.hideTooltip();
+      });
       const actions = document.createElement("div");
       actions.className = "skill-book-actions";
-      actions.append(preview, button);
+      actions.append(detail, preview, button);
       row.append(info, actions);
       return row;
     });
@@ -588,15 +616,18 @@ const SkillSystem = {
     if (skill.weaponKinds?.length) {
       const weaponKind = p.equipment?.weapon?.weaponKind || p.equipment?.weapon?.basicAttack?.style;
       if (!weaponKind || !skill.weaponKinds.includes(weaponKind)) {
+        this.playDeniedFeedback(slotIdx);
         return UI.log(`${skill.name} yêu cầu vũ khí: ${skill.weaponKinds.join(", ")}.`, "system");
       }
     }
     const offensive = this.isOffensive(skill);
     if (skill.cdLeft > 0) {
+      this.playDeniedFeedback(slotIdx);
       UI.log(`${skill.icon} ${skill.name} đang hồi chiêu! (${Math.ceil(skill.cdLeft / 60)}s)`, "system");
       return;
     }
     if ((p.mp || 0) < this.mpCost(skill)) {
+      this.playDeniedFeedback(slotIdx);
       UI.log("Không đủ linh lực!", "system");
       return;
     }
@@ -615,9 +646,12 @@ const SkillSystem = {
       ? S.target
       : S.monsters.filter(canTarget)
           .sort((a, b) => dist(a.px, a.py, p.px, p.py) - dist(b.px, b.py, p.px, p.py))[0];
-    if (!target) return UI.log(skill.requiresLineOfSight
-      ? "Không có mục tiêu trong tầm với đường bắn thông thoáng."
-      : "Không có mục tiêu trong tầm.", "system");
+    if (!target) {
+      this.playDeniedFeedback(slotIdx);
+      return UI.log(skill.requiresLineOfSight
+        ? "Không có mục tiêu trong tầm với đường bắn thông thoáng."
+        : "Không có mục tiêu trong tầm.", "system");
+    }
     S.target = target;
     S.combatPending = true;
     Net.command("combat.attack", { targetId: target.id, skillCode: skill.code || skill.id || skill._beId, mapCode: S.mapCode });
@@ -647,27 +681,97 @@ const SkillSystem = {
     const p = S.player;
     if (!p?.skills || typeof document === "undefined") return;
     this._cooldownVisuals ||= new Map();
+    this._cooldownPhase ||= new Map();
     for (let index = 0; index < this.SLOT_COUNT; index += 1) {
       const skill = this.slotSkill(p, index);
       const slot = document.getElementById(`skbar-slot-${index}`);
       const wrap = document.getElementById(`skbar-cd-wrap-${index}`);
       const text = document.getElementById(`skbar-cd-text-${index}`);
-      const ring = wrap?.querySelector(".cd-ring");
-      if (!slot || !wrap || !text || !ring) continue;
+      if (!slot || !wrap || !text) continue;
+      const passive = String(skill?.category || "ACTIVE").toUpperCase() === "PASSIVE";
       const active = Boolean(skill && skill.cdLeft > 0);
       const ratio = active ? Math.min(1, skill.cdLeft / Math.max(1, skill.cd || 1)) : 0;
-      const offset = active ? (113 * (1 - ratio)).toFixed(2) : "0";
-      const label = active ? `${Math.ceil(skill.cdLeft / 60)}s` : "";
-      const signature = `${active}:${offset}:${label}`;
+      const seconds = active ? skill.cdLeft / 60 : 0;
+      const label = !active ? "" : (seconds >= 10 ? String(Math.ceil(seconds)) : seconds.toFixed(1));
+      const affordable = !skill || passive || (Number(p.mp) || 0) >= this.mpCost(skill);
+      const signature = `${active}:${ratio.toFixed(3)}:${label}:${affordable}`;
       if (this._cooldownVisuals.get(index) === signature) continue;
       this._cooldownVisuals.set(index, signature);
+
+      const code = skill ? String(skill.code || skill.id || "") : "";
+      const phase = this._cooldownPhase.get(index);
+      this._cooldownPhase.set(index, { code, active });
+
       wrap.style.display = active ? "flex" : "none";
       slot.classList.toggle("on-cd", active);
+      slot.classList.toggle("is-ready", Boolean(skill) && !passive && !active && affordable);
+      slot.classList.toggle("is-no-mp", Boolean(skill) && !passive && !affordable);
       if (active) {
-        ring.setAttribute("stroke-dashoffset", offset);
+        slot.style.setProperty("--cd", ratio.toFixed(3));
         text.textContent = label;
       }
+      // Chỉ phản hồi khi chính chiêu đó đổi trạng thái: bỏ qua lần đọc đầu tiên và lúc đổi chiêu trong ô.
+      if (phase && phase.code === code && skill && !passive) {
+        if (!phase.active && active) this.playCastFeedback(index);
+        else if (phase.active && !active) this.playReadyFeedback(index);
+      }
     }
+  },
+
+  // ── Phản hồi khi dùng kỹ năng trên thanh kỹ năng ──
+  // Tung chiêu: tranh nảy lên, vòng sóng + loé sáng + tia lửa theo màu hệ. Hồi chiêu xong: ô nhún lên, vệt sáng quét qua.
+  // Bấm khi chưa dùng được: ô rung nhẹ. Khi người dùng chọn giảm chuyển động, CSS tự bỏ phần di chuyển và chỉ giữ loé sáng.
+  _restartSlotClass(slot, className, durationMs) {
+    slot.classList.remove(className);
+    void slot.offsetWidth; // buộc trình duyệt tính lại để animation chạy lại từ đầu
+    slot.classList.add(className);
+    const timerKey = `_timer_${className}`;
+    window.clearTimeout(slot[timerKey]);
+    slot[timerKey] = window.setTimeout(() => slot.classList.remove(className), durationMs);
+  },
+
+  playCastFeedback(index) {
+    const slot = document.getElementById(`skbar-slot-${index}`);
+    if (!slot) return;
+    this._restartSlotClass(slot, "is-cast", 420);
+    this.spawnCastBurst(slot);
+  },
+
+  playReadyFeedback(index) {
+    const slot = document.getElementById(`skbar-slot-${index}`);
+    if (!slot) return;
+    this._restartSlotClass(slot, "is-ready-pop", 650);
+  },
+
+  playDeniedFeedback(index) {
+    const slot = document.getElementById(`skbar-slot-${index}`);
+    if (!slot) return;
+    this._restartSlotClass(slot, "is-denied", 320);
+  },
+
+  spawnCastBurst(slot) {
+    slot.querySelector(".skbar-fx")?.remove(); // mỗi ô chỉ giữ lớp hiệu ứng mới nhất
+    const fx = document.createElement("span");
+    fx.className = "skbar-fx";
+    fx.setAttribute("aria-hidden", "true");
+    const flash = document.createElement("i");
+    flash.className = "fx-flash";
+    const ring = document.createElement("i");
+    ring.className = "fx-ring";
+    fx.append(flash, ring);
+    const sparkCount = 12;
+    for (let i = 0; i < sparkCount; i += 1) {
+      const angle = (i / sparkCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const distance = 28 + Math.random() * 24;
+      const spark = document.createElement("i");
+      spark.className = "fx-spark";
+      spark.style.setProperty("--dx", `${Math.round(Math.cos(angle) * distance)}px`);
+      spark.style.setProperty("--dy", `${Math.round(Math.sin(angle) * distance)}px`);
+      spark.style.setProperty("--delay", `${Math.round(Math.random() * 60)}ms`);
+      fx.appendChild(spark);
+    }
+    slot.appendChild(fx);
+    window.setTimeout(() => fx.remove(), 800);
   },
 
   updateMonsterStatus(m, dt) {
@@ -724,9 +828,35 @@ const SkillSystem = {
     );
   },
 
+  // Màu nhấn theo hệ, bậc chiêu (số viên ngọc) và huy hiệu loại chiêu của một ô; chỉ dựng lại khi chiêu trong ô đổi.
+  decorateSkillSlot(slotEl, sk) {
+    const tier = sk ? Math.max(1, Math.min(4, Number(sk.tier || 1))) : 0;
+    const hasArt = sk ? Boolean(UI.skillImageSource(sk)) : false;
+    const signature = sk ? `${sk.code || sk.id}|${tier}|${hasArt ? 1 : 0}` : "";
+    if (slotEl.dataset.decoration === signature) return;
+    slotEl.dataset.decoration = signature;
+    const tone = sk ? UI.skillTone(sk) : null;
+    for (const [prop, key] of [["--skill-accent", "mid"], ["--skill-accent-light", "light"], ["--skill-accent-dark", "bg"]]) {
+      if (tone) slotEl.style.setProperty(prop, tone[key]);
+      else slotEl.style.removeProperty(prop);
+    }
+    const ensure = (className) => {
+      let el = slotEl.querySelector(`.${className}`);
+      if (!el) { el = document.createElement("span"); el.className = className; el.setAttribute("aria-hidden", "true"); slotEl.appendChild(el); }
+      return el;
+    };
+    const tierEl = ensure("skbar-tier");
+    tierEl.hidden = !sk;
+    tierEl.replaceChildren(...Array.from({ length: tier }, () => document.createElement("i")));
+    // Tranh riêng đã đủ nhận diện; chiêu dùng ô icon theo hệ thì bản thân tranh đã là huy hiệu loại chiêu.
+    const badge = ensure("skbar-badge");
+    badge.hidden = !sk || !hasArt;
+    badge.style.backgroundImage = sk && hasArt ? `url("${UI.skillGlyphUri(sk)}")` : "";
+  },
+
   renderSkillBar() {
     const p = S.player;
-    const CIRC = 113; // 2 * π * r = 2 * π * 18 ≈ 113
+    this.bindSkillTips();
 
     for (let i = 0; i < this.SLOT_COUNT; i++) {
       const sk = this.slotSkill(p, i);
@@ -734,10 +864,12 @@ const SkillSystem = {
       if (!slotEl) continue;
       slotEl.disabled = !sk;
       slotEl.classList.toggle("auto-slot", i === 0);
+      // Thông tin chi tiết nằm ở thẻ mô tả (hover/focus/giữ chạm), nên không đặt thêm title gốc để tránh hai tooltip chồng nhau.
+      slotEl.removeAttribute("title");
+      const skillPassive = sk && String(sk.category || "ACTIVE").toUpperCase() === "PASSIVE";
       slotEl.setAttribute("aria-label", sk
-        ? `Kỹ năng ${i + 1}${i === 0 ? " (tự gán theo vũ khí)" : ""}: ${sk.name}`
+        ? `Kỹ năng ${i + 1}${i === 0 ? " (tự gán theo vũ khí)" : ""}: ${sk.name}, ${skillPassive ? "bị động" : `${sk.mpCost || 0} MP, hồi chiêu ${this.skillCooldownSeconds(sk)} giây`}`
         : `Ô kỹ năng ${i + 1}, chưa gắn`);
-      if (i === 0) slotEl.title = sk ? `${sk.name} — kỹ năng common tự gán theo vũ khí đang cầm` : "Ô kỹ năng tự gán theo vũ khí";
       const ensure = (selector, tag, className) => {
         let el = slotEl.querySelector(selector);
         if (!el) { el = document.createElement(tag); el.className = className; slotEl.appendChild(el); }
@@ -754,13 +886,14 @@ const SkillSystem = {
       mpEl.id = `skbar-mp-${i}`;
       const cdWrap = ensure(`#skbar-cd-wrap-${i}`, 'span', 'skbar-cd-wrap');
       cdWrap.id = `skbar-cd-wrap-${i}`;
-      const cdText = ensure(`#skbar-cd-text-${i}`, 'span', 'skbar-cd-text');
-      cdText.id = `skbar-cd-text-${i}`;
-      let cdRing = cdWrap.querySelector('.cd-ring');
-      if (!cdRing) { cdRing = document.createElement('span'); cdRing.className = 'cd-ring'; cdWrap.appendChild(cdRing); }
+      // Số giây hồi chiêu nằm trong lớp quét hồi chiêu (là phần tử con của ô sẽ bị luật `.sk-sub > :not(...)` ẩn đi).
+      let cdText = slotEl.querySelector(`#skbar-cd-text-${i}`);
+      if (!cdText) { cdText = document.createElement('span'); cdText.className = 'skbar-cd-text'; cdText.id = `skbar-cd-text-${i}`; }
+      if (cdText.parentElement !== cdWrap) cdWrap.appendChild(cdText);
 
       // ── Cập nhật nội dung slot ──
       if (!iconEl || !nameEl || !mpEl || !slotEl) continue;
+      this.decorateSkillSlot(slotEl, sk);
 
       if (sk) {
         const passive = String(sk.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
@@ -769,7 +902,6 @@ const SkillSystem = {
         categoryEl.textContent = passive ? 'BỊ ĐỘNG' : 'CHỦ ĐỘNG';
         categoryEl.className = `sk-category ${passive ? 'passive' : 'active'}`;
         slotEl.classList.toggle('passive-skill', passive);
-        slotEl.title = passive ? `${sk.name} · Bị động (tự động)` : `${sk.name} · Chủ động · phím ${i + 1}`;
         iconEl.className = `skbar-icon pixel-icon ${UI.pixelIconClass(sk, "skill")}`;
         iconEl.replaceChildren();
         UI.applySkillIcon(iconEl, sk);
@@ -810,62 +942,193 @@ const SkillSystem = {
         if (categoryEl) categoryEl.remove();
         slotEl.classList.remove('passive-skill');
         slotEl.classList.remove('skill-magic', 'skill-physical');
-        slotEl.title = '';
       }
+    }
+    // Quét hồi chiêu, trạng thái sẵn sàng / thiếu MP và phản hồi khi tung chiêu dùng chung một nơi cập nhật.
+    this.updateCooldownVisuals();
+  },
 
-      // ── Circular Cooldown SVG ──
-      if (sk?.cdLeft > 0) {
-        const ratio = Math.min(1, sk.cdLeft / (sk.cd || 1));
-        // dashoffset = CIRC khi đầy (không thấy ring) → 0 khi hết
-        // Ta muốn ring "thu nhỏ" theo thời gian đếm ngược
-        const offset = CIRC * (1 - ratio);
-        cdRing.setAttribute('stroke-dashoffset', offset.toFixed(2));
-        cdText.textContent = Math.ceil(sk.cdLeft / 60) + 's';
-        cdWrap.style.display = 'flex';
-        slotEl.classList.add('on-cd');
-      } else {
-        cdWrap.style.display = 'none';
-        slotEl.classList.remove('on-cd');
-      }
+  // ── Thẻ mô tả kỹ năng ──
+  // Hiện khi rê chuột / focus bàn phím lên ô kỹ năng, giữ chạm (cảm ứng), hoặc bấm "Chi tiết" trong Sổ Thần Thông,
+  // để người chơi đọc mô tả và thông số trước khi chọn kỹ năng.
+  skillCooldownSeconds(skill) {
+    if (skill?.hoiChieu !== undefined && skill?.hoiChieu !== null) return Number(skill.hoiChieu) || 0;
+    return Math.round((Number(skill?.cd) || 0) / 60);
+  },
+
+  estimateSkillDamage(skill, magic) {
+    try {
+      const baseAtk = magic ? Combat.mAtk() : Combat.pAtk();
+      const stat = String(skill.scalingStat || (magic ? 'ene' : 'str')).toLowerCase();
+      const statVal = Number(S.player?.stats?.[stat] || 0);
+      const estimate = Math.floor(baseAtk * (skill.satThuong ?? 1) * GAME_BALANCE.damage.skillMultiplier + statVal * GAME_BALANCE.damage.skillStatScale);
+      return Number.isFinite(estimate) ? estimate : null;
+    } catch {
+      return null;
     }
   },
 
-  // ── Tooltip khi hover vào slot ──
-  showTooltip(slotIdx, event) {
-    const sk = this.slotSkill(S.player, slotIdx);
-    const el = document.getElementById('skill-tip');
-    if (!el || !sk) return;
+  describeSkill(skill, extraNote = '') {
+    const passive = String(skill.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
+    const magic = String(skill.damageType || skill.type || '').toUpperCase() === 'MAGIC';
+    const damage = Number(skill.satThuong || 0);
+    const element = String(skill.linhCan || '').toUpperCase();
+    const tags = [{ text: passive ? 'Bị động' : 'Chủ động', kind: passive ? 'passive' : 'active' }];
+    if (!passive) tags.push(damage > 0 ? { text: magic ? 'Pháp thuật' : 'Vật lý', kind: magic ? 'magic' : 'phys' } : { text: 'Hỗ trợ', kind: 'support' });
+    tags.push({ text: `Hệ ${SKILL_ELEMENT_LABELS[element] || SKILL_ELEMENT_LABELS.COMMON}`, kind: 'element' });
 
-    document.getElementById('stip-name').replaceChildren(
-      UI.createPixelIcon(sk, 'skill', 'tip-pixel-icon'),
-      document.createTextNode(` ${sk.name}`),
-    );
+    const rows = [];
+    if (!passive) {
+      if (damage > 0) {
+        const estimate = this.estimateSkillDamage(skill, magic);
+        rows.push(['Sát thương', estimate === null ? `×${damage}` : `×${damage} · ước tính ~${estimate}`]);
+      }
+      rows.push(['Linh lực', `${skill.mpCost ?? skill.mpTieuHao ?? 0} MP`]);
+      rows.push(['Hồi chiêu', `${this.skillCooldownSeconds(skill)}s`]);
+      const aoeRadius = Number(skill.aoeR ?? skill.dienRong ?? 0);
+      const rangeScale = Number(CFG?.SKILL_RANGE_SCALE) || 1;
+      rows.push(['Tầm đánh', aoeRadius > 0 || skill.aoe === true ? `Diện rộng r${aoeRadius}` : `${Number(skill.range || 0) * rangeScale} ô`]);
+      if (skill.targetType === 'SELF') rows.push(['Mục tiêu', 'Bản thân']);
+      else if (skill.targetType === 'ENEMY') rows.push(['Mục tiêu', 'Kẻ địch']);
+      const effect = String(skill.effect || skill.sfx_code || '').toLowerCase();
+      const effectLabel = SKILL_EFFECT_LABELS[effect] || (effect.startsWith('buff_') ? 'Cường hóa' : '');
+      if (effectLabel) {
+        const seconds = skill.thoiGianBuff !== undefined ? Number(skill.thoiGianBuff) : Math.round((Number(skill.effectDur) || 0) / 60);
+        rows.push(['Hiệu ứng', seconds > 0 ? `${effectLabel} · ${seconds}s` : effectLabel]);
+      }
+    }
 
-    const passive = String(sk.category || 'ACTIVE').toUpperCase() === 'PASSIVE';
-    const typeLabel = passive ? 'BỊ ĐỘNG · Tự động' : `CHỦ ĐỘNG · ${sk.damageType === 'MAGIC' ? 'Pháp thuật' : 'Vật lý'}`;
-    const typeEl = document.getElementById('stip-type');
-    typeEl.textContent = typeLabel;
-    typeEl.className   = passive ? 'sv stip-type-passive' : (sk.damageType === 'MAGIC' ? 'sv stip-type-magic' : 'sv stip-type-phys');
+    const notes = [];
+    const tier = Math.max(1, Number(skill.tier || 1));
+    if (tier > 1) notes.push(`Cần cảnh giới bậc ${tier}`);
+    const weapons = (Array.isArray(skill.weaponKinds) ? skill.weaponKinds : []).map((kind) => SKILL_WEAPON_LABELS[kind] || kind);
+    if (weapons.length) notes.push(`Vũ khí: ${weapons.join('/')}`);
+    if (extraNote) notes.push(extraNote);
 
-    const baseAtk = sk.damageType === 'MAGIC' ? Combat.mAtk() : Combat.pAtk();
-    const scalingStat = sk.scalingStat || (sk.damageType === 'MAGIC' ? 'ene' : 'str');
-    const statVal = Number(S.player?.stats?.[scalingStat.toLowerCase()] || 0);
-    const estDmg = Math.floor(baseAtk * (sk.satThuong ?? 1) * GAME_BALANCE.damage.skillMultiplier + statVal * GAME_BALANCE.damage.skillStatScale);
-    document.getElementById('stip-dmg').textContent = `Burst ×${sk.satThuong ?? 1} (~${estDmg})`;
-    document.getElementById('stip-mp').textContent    = sk.mpCost + ' MP';
-    document.getElementById('stip-cd').textContent    = Math.round((sk.cd || 0) / 60) + 's';
-    document.getElementById('stip-range').textContent = (sk.aoe ? `AoE r${sk.aoeR}` : `${Number(sk.range) * CFG.SKILL_RANGE_SCALE} ô`);
-    document.getElementById('stip-desc').textContent  = sk.desc || '';
-
-    // Vị trí tooltip: bên trái cursor, trên skill bar
-    const x = Math.min(event.clientX - 10, window.innerWidth - 270);
-    el.style.left    = x + 'px';
-    el.style.display = 'block';
+    return { tags, rows, notes, desc: String(skill.desc ?? skill.description ?? skill.moTa ?? '').trim() };
   },
 
-  hideTooltip() {
+  renderSkillCard(skill, extraNote = '') {
     const el = document.getElementById('skill-tip');
-    if (el) el.style.display = 'none';
+    if (!el || !skill) return null;
+    const info = this.describeSkill(skill, extraNote);
+
+    const icon = document.getElementById('stip-icon');
+    icon.className = `stip-icon pixel-icon ${UI.pixelIconClass(skill, 'skill')}`;
+    UI.applySkillIcon(icon, skill);
+    document.getElementById('stip-name').textContent = skill.name || skill.code || 'Kỹ năng';
+    document.getElementById('stip-tags').replaceChildren(...info.tags.map((tag) => {
+      const chip = document.createElement('span');
+      chip.className = `stip-tag stip-tag--${tag.kind}`;
+      chip.textContent = tag.text;
+      return chip;
+    }));
+
+    const desc = document.getElementById('stip-desc');
+    desc.textContent = info.desc || 'Chưa có mô tả cho kỹ năng này.';
+    desc.classList.toggle('is-empty', !info.desc);
+
+    const grid = document.getElementById('stip-grid');
+    grid.replaceChildren(...info.rows.flatMap(([label, value]) => {
+      const term = document.createElement('dt');
+      term.textContent = label;
+      const detail = document.createElement('dd');
+      detail.textContent = value;
+      return [term, detail];
+    }));
+    grid.hidden = info.rows.length === 0;
+
+    const note = document.getElementById('stip-note');
+    note.textContent = info.notes.join(' · ');
+    note.hidden = info.notes.length === 0;
+    return el;
+  },
+
+  positionSkillCard(anchor) {
+    const el = document.getElementById('skill-tip');
+    if (!el || !anchor?.getBoundingClientRect) return;
+    el.style.display = 'block';
+    el.setAttribute('aria-hidden', 'false');
+    const rect = anchor.getBoundingClientRect();
+    const margin = 8;
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    const left = Math.max(margin, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - margin));
+    let top = rect.top - height - margin;
+    if (top < margin) top = Math.min(rect.bottom + margin, window.innerHeight - height - margin);
+    el.style.left = `${Math.round(left)}px`;
+    el.style.top = `${Math.round(Math.max(margin, top))}px`;
+  },
+
+  showSkillCard(skill, anchor, pinned = false, extraNote = '') {
+    if (!this.renderSkillCard(skill, extraNote)) return;
+    this._tipPinned = pinned;
+    this._tipAnchor = anchor;
+    this.positionSkillCard(anchor);
+  },
+
+  showTooltip(slotIdx, anchor, pinned = false) {
+    const sk = this.slotSkill(S.player, slotIdx);
+    if (!sk) return;
+    this.showSkillCard(sk, anchor, pinned, slotIdx === 0 ? 'Ô 1 tự gán theo vũ khí đang cầm' : '');
+  },
+
+  toggleSkillCard(skill, anchor) {
+    const visible = document.getElementById('skill-tip')?.style.display === 'block';
+    if (visible && this._tipPinned && this._tipAnchor === anchor) return this.hideTooltip(true);
+    this.showSkillCard(skill, anchor, true);
+  },
+
+  hideTooltip(force = false) {
+    if (this._tipPinned && !force) return;
+    const el = document.getElementById('skill-tip');
+    if (el) {
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+    }
+    this._tipPinned = false;
+    this._tipAnchor = null;
+  },
+
+  // Gắn một lần cho 5 ô kỹ năng: chuột rê vào, bàn phím focus, cảm ứng giữ ~0,45s (giữ xong không kích hoạt chiêu).
+  bindSkillTips() {
+    if (this._tipsBound || typeof document === 'undefined') return;
+    this._tipsBound = true;
+    for (let i = 0; i < this.SLOT_COUNT; i += 1) {
+      const slot = document.getElementById(`skbar-slot-${i}`);
+      if (!slot) continue;
+      let pressTimer = 0;
+      const cancelPress = () => window.clearTimeout(pressTimer);
+      slot.addEventListener('pointerenter', (event) => { if (event.pointerType === 'mouse') this.showTooltip(i, slot); });
+      slot.addEventListener('pointerleave', (event) => { if (event.pointerType === 'mouse') this.hideTooltip(); });
+      slot.addEventListener('focus', () => { if (slot.matches(':focus-visible')) this.showTooltip(i, slot); });
+      slot.addEventListener('blur', () => this.hideTooltip());
+      slot.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        cancelPress();
+        pressTimer = window.setTimeout(() => {
+          this._longPressSlot = i;
+          this.showTooltip(i, slot, true);
+        }, 450);
+      });
+      slot.addEventListener('pointerup', cancelPress);
+      slot.addEventListener('pointercancel', cancelPress);
+      slot.addEventListener('contextmenu', (event) => { if (this._longPressSlot === i) event.preventDefault(); });
+      // Giữ xong rồi nhả tay chỉ để đọc mô tả, không tung chiêu.
+      slot.addEventListener('click', (event) => {
+        if (this._longPressSlot !== i) return;
+        this._longPressSlot = -1;
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }, true);
+    }
+    document.addEventListener('pointerdown', (event) => {
+      // Bấm lên chính nút đang ghim thì để toggleSkillCard tự đóng; bấm chỗ khác thì đóng thẻ.
+      if (this._tipPinned && !event.target?.closest?.('#skill-tip') && !this._tipAnchor?.contains(event.target)) this.hideTooltip(true);
+    }, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this._tipPinned) this.hideTooltip(true);
+    });
   },
 
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
     <link rel="stylesheet" href="./css/style.css?v=5" />
-    <link rel="stylesheet" href="./css/game-hub.css?v=12" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=19" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -280,21 +280,17 @@
           </div>
         </div>
       </div>
-      <aside id="quest-tracker" class="quest-tracker" style="display:none;" aria-live="polite">
-        <div class="quest-tracker-head">
-          <button class="quest-tracker-open" type="button" onclick="QuestUI.openTrackerDetails()" title="Mở chi tiết nhiệm vụ"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span id="quest-tracker-open-label">MỞ SỔ</span></button>
-          <button class="quest-tracker-toggle" type="button" id="btn-quest-collapse" aria-label="Thu gọn nhiệm vụ" title="Thu gọn/mở rộng" onclick="QuestUI.toggleCollapse?.()">−</button>
-          <button class="quest-tracker-close" type="button" aria-label="Bỏ theo dõi" onclick="QuestUI.untrack()">✕</button>
-        </div>
-        <strong id="quest-tracker-title"></strong>
-        <span id="quest-tracker-state" class="quest-tracker-state"></span>
-        <span id="quest-tracker-objective" class="quest-tracker-objective"></span>
-        <span id="quest-tracker-location" class="quest-tracker-location"></span>
-        <span id="quest-tracker-guide" class="quest-tracker-guide"></span>
-        <div class="quest-tracker-progress"><span id="quest-tracker-fill"></span></div>
-        <small id="quest-tracker-count"></small>
-      </aside>
-      <!-- 2. KPAH HUD: TOP LEFT -->
+      <!-- 3. KPAH HUD: TOP RIGHT -->
+      <div id="kpah-hud-topright">
+        <div class="online-badge" id="online-badge">● Offline</div>
+        <div class="hud-xu" title="Xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
+        <div class="hud-xu hud-linh-thach" title="Linh Thạch"><span aria-hidden="true">💠</span><span id="ui-linh-thach">0</span></div>
+      </div>
+
+      <button id="btn-hud-layout" class="hud-layout-toggle" type="button" aria-expanded="true" aria-controls="kpah-chat-log map-widget quest-tracker game-controls-hint" aria-label="Thu gọn giao diện" title="Thu gọn giao diện" onclick="UI.toggleHudLayout()">HUD −</button>
+
+      <!-- 2 + 4. KPAH HUD: CỘT TRÁI — khung nhân vật, nhiệm vụ và nút thao tác xếp chồng trong một cột để không đè nhau -->
+      <div id="kpah-hud-left">
       <div id="kpah-hud-topleft">
         <div class="hud-avatar sprite-portrait">
           <img id="ui-avatar" class="sprite-atlas" src="./assets/characters/cultivator-male.png" alt="Nhân vật nam" />
@@ -317,14 +313,20 @@
         </div>
       </div>
 
-      <!-- 3. KPAH HUD: TOP RIGHT -->
-      <div id="kpah-hud-topright">
-        <div class="online-badge" id="online-badge">● Offline</div>
-        <div class="hud-xu" title="Xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
-        <div class="hud-xu hud-linh-thach" title="Linh Thạch"><span aria-hidden="true">💠</span><span id="ui-linh-thach">0</span></div>
-      </div>
-
-      <button id="btn-hud-layout" class="hud-layout-toggle" type="button" aria-expanded="true" aria-controls="kpah-chat-log map-widget quest-tracker game-controls-hint" aria-label="Thu gọn giao diện" title="Thu gọn giao diện" onclick="UI.toggleHudLayout()">HUD −</button>
+      <aside id="quest-tracker" class="quest-tracker" style="display:none;" aria-live="polite">
+        <div class="quest-tracker-head">
+          <button class="quest-tracker-open" type="button" onclick="QuestUI.openTrackerDetails()" title="Mở chi tiết nhiệm vụ"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span id="quest-tracker-open-label">MỞ SỔ</span></button>
+          <button class="quest-tracker-toggle" type="button" id="btn-quest-collapse" aria-label="Thu gọn nhiệm vụ" title="Thu gọn/mở rộng" onclick="QuestUI.toggleCollapse?.()">−</button>
+          <button class="quest-tracker-close" type="button" aria-label="Bỏ theo dõi" onclick="QuestUI.untrack()">✕</button>
+        </div>
+        <strong id="quest-tracker-title"></strong>
+        <span id="quest-tracker-state" class="quest-tracker-state"></span>
+        <span id="quest-tracker-objective" class="quest-tracker-objective"></span>
+        <span id="quest-tracker-location" class="quest-tracker-location"></span>
+        <span id="quest-tracker-guide" class="quest-tracker-guide"></span>
+        <div class="quest-tracker-progress"><span id="quest-tracker-fill"></span></div>
+        <small id="quest-tracker-count"></small>
+      </aside>
 
       <!-- 4. KPAH HUD: BOTTOM LEFT (Menu / Chat) -->
       <div id="kpah-hud-bottomleft">
@@ -354,6 +356,7 @@
         </div>
         </div>
       </div>
+      </div><!-- /#kpah-hud-left -->
 
       <!-- 5. KPAH HUD: BOTTOM RIGHT (Skills) -->
       <div id="kpah-hud-bottomright">
@@ -680,15 +683,18 @@
       <div id="tip-body"></div>
     </div>
 
-    <!-- Skill tooltip (hover trên skbar-slot) -->
-    <div id="skill-tip">
-      <div class="stip-name" id="stip-name"></div>
-      <div class="stip-row"><span>Loại</span><span class="sv" id="stip-type"></span></div>
-      <div class="stip-row"><span>Sát thương</span><span class="sv" id="stip-dmg"></span></div>
-      <div class="stip-row"><span>MP tiêu hao</span><span class="sv" id="stip-mp"></span></div>
-      <div class="stip-row"><span>Hồi chiêu</span><span class="sv" id="stip-cd"></span></div>
-      <div class="stip-row"><span>Tầm đánh</span><span class="sv" id="stip-range"></span></div>
-      <div class="stip-desc" id="stip-desc"></div>
+    <!-- Thẻ mô tả kỹ năng: hover/focus/giữ chạm trên thanh kỹ năng, nút "Chi tiết" trong Sổ Thần Thông -->
+    <div id="skill-tip" role="tooltip" aria-hidden="true">
+      <div class="stip-head">
+        <span id="stip-icon" class="stip-icon pixel-icon" aria-hidden="true"></span>
+        <div class="stip-title">
+          <div class="stip-name" id="stip-name"></div>
+          <div class="stip-tags" id="stip-tags"></div>
+        </div>
+      </div>
+      <p class="stip-desc" id="stip-desc"></p>
+      <dl class="stip-grid" id="stip-grid"></dl>
+      <div class="stip-note" id="stip-note" hidden></div>
     </div>
 
     <!-- Màn hình chờ nạp bản đồ -->
@@ -714,6 +720,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=48"></script>
+    <script src="./js/bootstrap.js?v=53"></script>
   </body>
 </html>

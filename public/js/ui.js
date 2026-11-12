@@ -12,6 +12,7 @@
 //    - Tối ưu DOM repaint: Cache hash trang bị, chỉ vẽ lại trang bị khi mở modal hoặc có thay đổi.
 // ════════════════════════════════════════════════════════════════════════════════════════
 
+// Bộ tranh kỹ năng bank-v1: mỗi chiêu một tranh riêng (64×64). Chiêu chưa có tranh dùng ô icon theo hệ ở dưới.
 const SKILL_ART_CODES = new Set([
   "am_chu", "am_tam_phap", "am_thich", "am_thuc", "bac_hai_trieu_sinh", "bach_hoa_lao",
   "bach_kiem_tran", "bang_lien_tran", "bang_tien", "bao_phong_tuyet_vuc", "cam_lo_hoi_sinh", "chan_hoa_chien_tam",
@@ -34,6 +35,55 @@ const SKILL_ART_CODES = new Set([
 
 // Preserve the BE skill ID; this alias only selects its existing artwork filename.
 const SKILL_ART_CODE_ALIASES = Object.freeze({ "cửu_u_am_gioi": "cuu_u_am_gioi" });
+
+// ── Icon kỹ năng ────────────────────────────────────────────────────────────
+// Ô nền phẳng theo hệ (linh căn) + một biểu tượng đơn giản cho biết chiêu thức thuộc loại nào
+// (chém, tên, búa, thương, cầu phép, nổ diện rộng, hồi phục, lá chắn, khống chế...).
+// Mỗi hệ chỉ dùng 3 tông màu dịu để nhìn rõ ở cỡ nhỏ; tên và mô tả đầy đủ nằm ở thẻ chi tiết kỹ năng.
+const SKILL_ICON_TONES = Object.freeze({
+  KIM: { bg: "#272a33", mid: "#8f98aa", light: "#e6eaf2" },
+  MOC: { bg: "#1d2d20", mid: "#58935a", light: "#d2ebc2" },
+  THUY: { bg: "#1a2b39", mid: "#4a8db3", light: "#c4e4f3" },
+  HOA: { bg: "#34211f", mid: "#c0644c", light: "#f6d2b4" },
+  THO: { bg: "#30261a", mid: "#a07f45", light: "#efdcae" },
+  PHONG: { bg: "#1b302f", mid: "#4aa596", light: "#c8f0e6" },
+  LOI: { bg: "#292641", mid: "#8670d0", light: "#e3dafb" },
+  QUANG: { bg: "#38311c", mid: "#c9a73a", light: "#fff0b9" },
+  AM: { bg: "#231f2d", mid: "#7b629d", light: "#d4c6ea" },
+  COMMON: { bg: "#26272b", mid: "#8c8e98", light: "#e8e6df" },
+});
+
+const SKILL_ICON_GLYPHS = Object.freeze({
+  blade: (t) => `<path d="M10 18L23 5L28 4L27 9L14 22Z" fill="${t.light}"/><path d="M9 15L17 23L15 25L7 17Z" fill="${t.mid}"/><path d="M10 22L12 24L7 29L5 27Z" fill="${t.mid}"/>`,
+  crescent: (t) => `<path d="M24 4C14 5 7 12 7 20C7 25 11 29 17 29C12 26 11 20 14 15C16 11 20 8 24 4Z" fill="${t.light}"/><path d="M26 9C21 12 18 16 18 20C18 23 19 25 21 27C25 26 28 22 28 17C28 14 27 11 26 9Z" fill="${t.mid}"/>`,
+  orb: (t) => `<circle cx="17" cy="15" r="9.5" fill="${t.mid}"/><circle cx="17" cy="15" r="6" fill="${t.light}"/><circle cx="14.5" cy="12.5" r="2" fill="${t.mid}" opacity=".55"/><path d="M4 28L9 22L11 24Z" fill="${t.mid}"/><path d="M8 29L12 25L13.5 26.5Z" fill="${t.mid}" opacity=".7"/>`,
+  arrow: (t) => `<path d="M5 25L7 27L22 12L20 10Z" fill="${t.mid}"/><path d="M28 4L17 7L25 15Z" fill="${t.light}"/><path d="M4 20L12 28L4 28Z" fill="${t.mid}"/>`,
+  hammer: (t) => `<g transform="rotate(35 16 16)"><rect x="14" y="12" width="4" height="17" fill="${t.mid}"/><rect x="7" y="4" width="18" height="10" fill="${t.light}"/><rect x="7" y="11" width="18" height="3" fill="${t.mid}"/></g>`,
+  spear: (t) => `<path d="M4 26L6 28L23 11L21 9Z" fill="${t.mid}"/><path d="M29 3L17 7L25 15Z" fill="${t.light}"/><path d="M12 22L9 17L7 19Z" fill="${t.mid}"/>`,
+  burst: (t) => `<path d="M27 16L20.6 17.9L23.8 23.8L17.9 20.6L16 27L14.1 20.6L8.2 23.8L11.4 17.9L5 16L11.4 14.1L8.2 8.2L14.1 11.4L16 5L17.9 11.4L23.8 8.2L20.6 14.1Z" fill="${t.mid}"/><circle cx="16" cy="16" r="4" fill="${t.light}"/>`,
+  flame: (t) => `<path d="M16 4C20 10 25 13 25 19C25 24 21 28 16 28C11 28 7 24 7 19C7 15 10 13 11 10C13 12 14 13 15 13C15 10 15 7 16 4Z" fill="${t.mid}"/><path d="M16 15C18 18 21 19 21 22C21 25 19 26 16 26C13 26 11 25 11 22C11 19 14 18 16 15Z" fill="${t.light}"/>`,
+  heal: (t) => `<path d="M13 5h6v8h8v6h-8v8h-6v-8H5v-6h8z" fill="${t.light}"/><rect x="24" y="5" width="3" height="3" fill="${t.mid}"/><rect x="5" y="24" width="3" height="3" fill="${t.mid}"/>`,
+  shield: (t) => `<path d="M16 4L26 8V16C26 21 21 25 16 28C11 25 6 21 6 16V8Z" fill="${t.mid}"/><path d="M16 8L22 10.5V16C22 19 19.5 21.5 16 24C12.5 21.5 10 19 10 16V10.5Z" fill="${t.light}"/>`,
+  buff: (t) => `<path d="M16 5L26 14L22 18L16 12.5L10 18L6 14Z" fill="${t.light}"/><path d="M16 14L26 23L22 27L16 21.5L10 27L6 23Z" fill="${t.mid}"/>`,
+  curse: (t) => `<path d="M7 14A9 9 0 0 1 25 14V18A3 3 0 0 1 22 21V26H10V21A3 3 0 0 1 7 18Z" fill="${t.light}"/><rect x="11" y="12" width="4" height="5" fill="${t.bg}"/><rect x="17" y="12" width="4" height="5" fill="${t.bg}"/><path d="M16 18L14.5 21H17.5Z" fill="${t.bg}"/><rect x="13" y="23" width="1.2" height="3" fill="${t.bg}"/><rect x="17.8" y="23" width="1.2" height="3" fill="${t.bg}"/>`,
+  stun: (t) => `<path d="M18 3L8 17H15L13 29L24 13H17Z" fill="${t.light}"/><rect x="5" y="6" width="3" height="3" fill="${t.mid}"/><rect x="24" y="22" width="3" height="3" fill="${t.mid}"/>`,
+  chain: (t) => `<g fill="none" stroke-width="3.2"><rect x="3.5" y="16" width="16" height="9" rx="4.5" transform="rotate(-45 11.5 20.5)" stroke="${t.mid}"/><rect x="12.5" y="7" width="16" height="9" rx="4.5" transform="rotate(-45 20.5 11.5)" stroke="${t.light}"/></g>`,
+  slow: (t) => `<path d="M8 4H24V7C24 12 19 14 16 16C19 18 24 20 24 25V28H8V25C8 20 13 18 16 16C13 14 8 12 8 7Z" fill="${t.mid}"/><path d="M11 7H21C21 10 18 12 16 13C14 12 11 10 11 7Z" fill="${t.light}"/><path d="M11 25H21C21 22 18 20 16 19C14 20 11 22 11 25Z" fill="${t.light}"/>`,
+  breakArmor: (t) => `<path d="M16 4L26 8V16C26 21 21 25 16 28C11 25 6 21 6 16V8Z" fill="${t.mid}"/><path d="M17.5 5L13 13L18 15L12.5 25" fill="none" stroke="${t.bg}" stroke-width="2.4"/><path d="M17.5 5L13 13L18 15L12.5 25" fill="none" stroke="${t.light}" stroke-width=".8"/>`,
+  drop: (t) => `<path d="M16 4C20 10 24 14 24 19C24 24 20 28 16 28C12 28 8 24 8 19C8 14 12 10 16 4Z" fill="${t.mid}"/><ellipse cx="12.6" cy="19.5" rx="1.8" ry="3.4" fill="${t.light}"/>`,
+  ring: (t) => `<path d="M16 5A11 11 0 1 1 8.2 8.2" fill="none" stroke="${t.mid}" stroke-width="3.2"/><circle cx="16" cy="16" r="4" fill="${t.light}"/><rect x="5" y="4" width="3" height="3" fill="${t.mid}"/>`,
+});
+
+// Hiệu ứng đặc trưng của chiêu → biểu tượng. Chiêu có dạng vũ khí/VFX riêng (tên, búa, thương...) ưu tiên dạng đó.
+const SKILL_EFFECT_GLYPHS = Object.freeze({
+  heal: "heal", buff_hp_regen: "heal", buff_vitals: "heal", shield: "shield", cleanse: "drop", restore_mp: "drop",
+  stun: "stun", root: "chain", slow: "slow", armor_break: "breakArmor", burn: "flame", curse: "curse",
+});
+const SKILL_FORM_GLYPHS = Object.freeze({
+  arrow: "arrow", "arrow-volley": "arrow", "crossbow-bolt": "arrow", bow: "arrow", crossbow: "arrow",
+  "piercing-thrust": "spear", spear: "spear", "mountain-slam": "hammer", hammer: "hammer", mace: "hammer",
+  crescent: "crescent", blade: "blade", shatter: "burst", fireball: "orb",
+});
 
 const UI = {
   _lastEqHash: "",
@@ -102,19 +152,46 @@ const UI = {
     const sourceCode = String(skill?.code || skill?.id || skill?.maNangLuc || "").toLowerCase();
     const code = SKILL_ART_CODE_ALIASES[sourceCode] || sourceCode;
     if (SKILL_ART_CODES.has(code)) return `./assets/skills/bank-v1/${code}.png`;
-    const effectArt = {
-      heal: "moc_duong", restore_mp: "thien_canh", cleanse: "thanh_tam",
-      shield: "thiet_ho", root: "re_moc", slow: "phong_bo", freeze: "han_tri",
-      stun: "dien_lien", armor_break: "pha_giap", buff_def: "tho_giap",
-      buff_atk: "kim_luan", buff_spd: "thanh_phong", passive: "thien_canh",
-    };
-    const effect = String(skill?.effect || skill?.sfx_code || "").toLowerCase();
-    const art = String(skill?.category).toUpperCase() === "PASSIVE"
-      ? "thien_canh" : (effectArt[effect] || "ngu_hanh_kich");
-    return `./assets/skills/bank-v1/${art}.png`;
+    // Chưa có tranh riêng: không mượn tranh của chiêu khác (dễ nhầm lẫn), dùng ô icon theo hệ + loại chiêu (skillGlyphUri).
+    return "";
+  },
+  // Tông màu theo hệ của chiêu: dùng làm màu nhấn (viền, ánh sáng, tia lửa) trên thanh kỹ năng.
+  skillTone(skill) {
+    const element = String(skill?.linhCan || skill?.element || "").toUpperCase();
+    return SKILL_ICON_TONES[element] || SKILL_ICON_TONES.COMMON;
+  },
+  // Chọn biểu tượng theo cách chiêu thức hoạt động: dạng vũ khí/VFX → hiệu ứng đặc trưng → cầu phép/chém, đơn/diện rộng.
+  skillGlyphKey(skill = {}) {
+    const category = String(skill.category || "").toUpperCase();
+    const effect = String(skill.effect || skill.sfx_code || "").toLowerCase();
+    if (category === "PASSIVE" || effect === "passive") return "ring";
+    const weapon = Array.isArray(skill.weaponKinds) ? String(skill.weaponKinds[0] || "").toLowerCase() : "";
+    const form = SKILL_FORM_GLYPHS[String(skill.vfxForm || "").toLowerCase()] || SKILL_FORM_GLYPHS[weapon];
+    if (form) return form;
+    if (SKILL_EFFECT_GLYPHS[effect]) return SKILL_EFFECT_GLYPHS[effect];
+    if (effect.startsWith("buff_")) return "buff";
+    const magic = String(skill.damageType || skill.type || "").toUpperCase() === "MAGIC";
+    const aoe = Number(skill.aoeR ?? skill.dienRong ?? 0) > 0 || skill.aoe === true;
+    if (aoe) return magic ? "burst" : "crescent";
+    return magic ? "orb" : "blade";
+  },
+  skillGlyphUri(skill) {
+    const element = String(skill?.linhCan || skill?.element || "").toUpperCase();
+    const toneKey = SKILL_ICON_TONES[element] ? element : "COMMON";
+    const glyphKey = this.skillGlyphKey(skill);
+    const cacheKey = `${toneKey}:${glyphKey}`;
+    this._skillGlyphCache ||= new Map();
+    let uri = this._skillGlyphCache.get(cacheKey);
+    if (!uri) {
+      const tone = SKILL_ICON_TONES[toneKey];
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="3" fill="${tone.bg}" stroke="${tone.mid}" stroke-opacity=".5"/>${SKILL_ICON_GLYPHS[glyphKey](tone)}</svg>`;
+      uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      this._skillGlyphCache.set(cacheKey, uri);
+    }
+    return uri;
   },
   applySkillIcon(element, skill) {
-    const img = skill ? this.skillImageSource(skill) : "";
+    const img = skill ? (this.skillImageSource(skill) || this.skillGlyphUri(skill)) : "";
     element.classList.toggle("skill-art-icon", Boolean(img));
     element.style.backgroundImage = img ? `url("${img}")` : "";
     element.style.backgroundPosition = img ? "center" : "";

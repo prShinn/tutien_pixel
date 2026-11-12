@@ -2749,3 +2749,803 @@
     max-height: 185px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   HUD TRÁI — một cột xếp chồng: khung nhân vật → nhiệm vụ → nút thao tác.
+   Trước đây ba khối tự định vị (top/bottom cố định) nên đè nhau khi khung nhân vật
+   cao thêm (dòng hiệu ứng buff) hoặc khi màn hình thấp. Cột flex này giữ đúng thứ tự
+   và chỉ co phần nhiệm vụ (cuộn được) khi hết chỗ, nên không còn chồng chéo.
+   ═══════════════════════════════════════════════════════════════ */
+#kpah-hud-left {
+  --hud-left-bottom: calc(14px + env(safe-area-inset-bottom));
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  bottom: var(--hud-left-bottom);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: min(360px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+#kpah-hud-left > #kpah-hud-topleft,
+#kpah-hud-left > #quest-tracker,
+#kpah-hud-left > #kpah-hud-bottomleft {
+  position: static !important;
+  transform: none !important;
+  margin: 0 !important;
+  pointer-events: auto;
+}
+
+#kpah-hud-left > #kpah-hud-topleft,
+#kpah-hud-left > #quest-tracker {
+  max-width: 100%;
+}
+
+#kpah-hud-left > #kpah-hud-topleft {
+  flex: 0 0 auto;
+}
+
+#kpah-hud-left > #quest-tracker {
+  flex: 0 1 auto;
+  min-height: 38px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#kpah-hud-left > #quest-tracker:not(.collapsed) {
+  max-height: none;
+}
+
+#kpah-hud-left > #quest-tracker.collapsed {
+  overflow: hidden;
+}
+
+#kpah-hud-left > #kpah-hud-bottomleft {
+  flex: 0 0 auto;
+  margin-top: auto !important;
+}
+
+@media (max-width: 760px) {
+  #kpah-hud-left {
+    --hud-left-bottom: calc(108px + env(safe-area-inset-bottom));
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    width: min(276px, calc(100vw - 16px));
+  }
+}
+
+/* Màn hình desktop thấp: nút thao tác thu thành lưới 6 cột chỉ có biểu tượng (giống bản mobile)
+   để cột trái còn chỗ cho thông tin nhiệm vụ. Tên nút vẫn có ở aria-label và tooltip title. */
+@media (min-width: 761px) and (max-height: 700px) {
+  #kpah-hud-left .bottom-btns {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    width: min(100%, 300px);
+    max-width: none;
+  }
+
+  #kpah-hud-left .bottom-btns > .kpah-btn {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  #kpah-hud-left .bottom-btns > .kpah-btn .hub-btn-label,
+  #kpah-hud-left .bottom-btns > .kpah-btn kbd {
+    display: none;
+  }
+
+  #kpah-hud-left .bottom-btns > .kpah-btn .hub-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    font-size: 8px;
+  }
+
+  #kpah-hud-left .bottom-btns > .kpah-btn .hub-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+  }
+}
+
+#kpah-hud-left .bottom-btns > .kpah-btn > span[aria-hidden="true"]:not(.pixel-icon):not(.hud-settings-icon) {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Chế độ chỉ biểu tượng (mobile và desktop thấp): icon emoji phải có cỡ chữ riêng. Nút từng đặt font-size: 0
+   để ẩn nhãn nên 🔥 ⚒️ ✉️ 🎁 💠 biến mất; giờ nhãn ẩn bằng display và icon luôn hiện, cỡ lớn hơn để dễ nhận. */
+@media (max-width: 760px), (min-width: 761px) and (max-height: 700px) {
+  #kpah-hud-left .bottom-btns > .kpah-btn > span[aria-hidden="true"]:not(.pixel-icon):not(.hud-settings-icon) {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  #kpah-hud-left .bottom-btns > .kpah-btn .pixel-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KỸ NĂNG — tranh riêng cho từng chiêu, ô thanh kỹ năng đọc được và có phản hồi khi tung chiêu.
+   Ô chỉ giữ phím tắt, tranh lớn và tên; MP, loại, mô tả nằm ở thẻ mô tả (#skill-tip).
+   Màu nhấn theo hệ (--skill-accent, đặt từ skills.js) dùng cho viền, ánh sáng và tia lửa.
+   ═══════════════════════════════════════════════════════════════ */
+.skill-art-icon {
+  image-rendering: auto;
+  border-radius: 3px;
+}
+
+#kpah-hud-bottomright .kpah-skill-ring {
+  gap: 6px !important;
+  padding: 6px 8px !important;
+}
+
+#kpah-hud-bottomright .sk-sub {
+  --ico: 46px;
+  --pad: 3px;
+  --skill-accent: #8c8e98;
+  --skill-accent-light: #e8e6df;
+  --skill-accent-dark: #26272b;
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  width: 56px !important;
+  min-width: 56px !important;
+  height: 82px !important;
+  min-height: 82px !important;
+  padding: var(--pad) var(--pad) 4px !important;
+  border: 2px solid #5f5848 !important;
+  border: 2px solid color-mix(in srgb, var(--skill-accent) 60%, #15131a) !important;
+  border-radius: 5px !important;
+  background: linear-gradient(180deg, var(--skill-accent-dark), #12111a) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), 0 2px 0 rgba(0, 0, 0, .6) !important;
+  font-size: 0; /* chữ số phím nằm trực tiếp trong <button> chỉ là dự phòng; phím hiển thị ở .skbar-key */
+  overflow: visible;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform .12s ease, filter .15s ease;
+}
+
+#kpah-hud-bottomright .sk-main {
+  width: 58px !important;
+  height: 82px !important;
+  border-radius: 5px !important;
+}
+
+#kpah-hud-bottomright .sk-main .pixel-icon {
+  width: 34px;
+  height: 34px;
+}
+
+@media (hover: hover) {
+  #kpah-hud-bottomright .sk-sub:not(:disabled):hover {
+    transform: translateY(-3px);
+    filter: brightness(1.12);
+  }
+}
+
+#kpah-hud-bottomright .sk-sub:not(:disabled):active {
+  transform: translateY(0) scale(.94);
+  filter: brightness(1.25);
+}
+
+/* Ánh sáng nền của ô: thở nhẹ khi chiêu sẵn sàng */
+#kpah-hud-bottomright .sk-sub::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 8px;
+  box-shadow: 0 0 14px 3px var(--skill-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#kpah-hud-bottomright .sk-sub.is-ready::before {
+  animation: sk-breathe 2.8s ease-in-out infinite;
+}
+
+/* Vệt sáng quét qua tranh khi hồi chiêu xong */
+#kpah-hud-bottomright .sk-sub::after {
+  content: "";
+  position: absolute;
+  top: var(--pad);
+  left: 50%;
+  width: var(--ico);
+  height: var(--ico);
+  margin-left: calc(var(--ico) / -2);
+  border-radius: 4px;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .75) 50%, transparent 62%) no-repeat;
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+#kpah-hud-bottomright .sk-sub.is-ready-pop {
+  animation: sk-ready-hop .38s cubic-bezier(.3, 1.6, .5, 1);
+}
+
+#kpah-hud-bottomright .sk-sub.is-ready-pop::after {
+  animation: sk-shine .6s ease-out;
+}
+
+#kpah-hud-bottomright .sk-sub.is-cast .skbar-icon {
+  animation: sk-pop .36s cubic-bezier(.2, 1.7, .4, 1);
+}
+
+#kpah-hud-bottomright .sk-sub.is-cast .skbar-name {
+  color: var(--skill-accent-light);
+}
+
+#kpah-hud-bottomright .sk-sub.is-denied {
+  animation: sk-shake .3s linear;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-icon {
+  order: 1;
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  width: var(--ico);
+  height: var(--ico);
+  margin: 0;
+  font-size: 18px;
+  line-height: var(--ico);
+  text-align: center;
+  color: rgba(255, 255, 255, .3);
+  background-color: rgba(0, 0, 0, .25);
+  border-radius: 4px;
+  filter: saturate(.92);
+  transition: filter .2s ease;
+}
+
+#kpah-hud-bottomright .sk-sub.on-cd .skbar-icon {
+  filter: brightness(.8) saturate(.8);
+}
+
+#kpah-hud-bottomright .sk-sub.is-no-mp .skbar-icon {
+  filter: grayscale(.75) brightness(.65) saturate(.7);
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-name {
+  order: 2;
+  flex: 0 0 auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 100%;
+  max-width: 100%;
+  height: 2.2em;
+  margin: 0;
+  color: #efe6cf;
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 0 #000;
+  transition: color .25s ease;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-key {
+  top: 4px;
+  left: 4px;
+  z-index: 5;
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-mp {
+  top: 4px;
+  right: 4px;
+  bottom: auto;
+  z-index: 5;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(8, 10, 18, .8);
+  color: #bfe3ff;
+  font: 700 9px/1 "Courier New", monospace;
+  white-space: nowrap;
+}
+
+#kpah-hud-bottomright .sk-sub.is-no-mp .skbar-mp {
+  color: #ff8f86;
+}
+
+#kpah-hud-bottomright .sk-sub .sk-type,
+#kpah-hud-bottomright .sk-sub .sk-category {
+  display: none !important;
+}
+
+/* Bậc chiêu: mỗi viên ngọc là một bậc; loại chiêu: huy hiệu nhỏ ở góc dưới phải tranh */
+#kpah-hud-bottomright .sk-sub .skbar-tier {
+  position: absolute;
+  left: 7px;
+  top: calc(var(--pad) + var(--ico) - 10px);
+  z-index: 4;
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-tier[hidden],
+#kpah-hud-bottomright .sk-sub .skbar-badge[hidden] {
+  display: none;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-tier i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border: 1px solid rgba(0, 0, 0, .8);
+  background: var(--skill-accent-light);
+  box-shadow: 0 0 3px var(--skill-accent);
+  transform: rotate(45deg);
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-badge {
+  display: block;
+  position: absolute;
+  right: 5px;
+  top: calc(var(--pad) + var(--ico) - 16px);
+  z-index: 4;
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgba(0, 0, 0, .75);
+  border-radius: 3px;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
+
+#kpah-hud-bottomright .sk-sub:disabled {
+  opacity: .55;
+  border-style: dashed !important;
+  cursor: default;
+}
+
+#kpah-hud-bottomright .sk-sub:disabled .skbar-icon {
+  border: 1px dashed rgba(255, 255, 255, .2);
+}
+
+/* Quét hồi chiêu dạng kim đồng hồ: phần tối thu nhỏ dần theo chiều kim đồng hồ (--cd = tỉ lệ còn lại) */
+#kpah-hud-bottomright .sk-sub .skbar-cd-wrap {
+  inset: auto;
+  top: var(--pad);
+  left: 50%;
+  width: var(--ico);
+  height: var(--ico);
+  margin-left: calc(var(--ico) / -2);
+  border-radius: 4px;
+  background: conic-gradient(from 0deg, rgba(8, 8, 14, 0) calc((1 - var(--cd, 1)) * 360deg), rgba(8, 8, 14, .8) 0);
+  z-index: 3;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-cd-wrap .cd-ring {
+  display: none;
+}
+
+#kpah-hud-bottomright .sk-sub .skbar-cd-text {
+  position: static;
+  color: #fff;
+  font: 700 14px/1 "Courier New", monospace;
+  text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 8px #000;
+}
+
+/* Phản hồi khi tung chiêu: vòng sóng, loé sáng và tia lửa theo màu hệ (tạo từ skills.js: spawnCastBurst) */
+#kpah-hud-bottomright .sk-sub .skbar-fx {
+  display: block;
+  position: absolute;
+  top: calc(var(--pad) + var(--ico) / 2);
+  left: 50%;
+  width: 0;
+  height: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.skbar-fx .fx-ring,
+.skbar-fx .fx-flash {
+  position: absolute;
+  left: calc(var(--ico) / -2);
+  top: calc(var(--ico) / -2);
+  width: var(--ico);
+  height: var(--ico);
+  box-sizing: border-box;
+  opacity: 0;
+}
+
+.skbar-fx .fx-ring {
+  border: 3px solid var(--skill-accent-light);
+  border-radius: 50%;
+  animation: sk-ring .55s ease-out forwards;
+}
+
+.skbar-fx .fx-flash {
+  border-radius: 6px;
+  background: radial-gradient(circle, var(--skill-accent-light) 0%, var(--skill-accent) 45%, transparent 72%);
+  mix-blend-mode: screen;
+  animation: sk-flash .4s ease-out forwards;
+}
+
+.skbar-fx .fx-spark {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  background: var(--skill-accent-light);
+  box-shadow: 0 0 6px 2px var(--skill-accent);
+  opacity: 0;
+  animation: sk-spark .6s cubic-bezier(.12, .7, .3, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes sk-breathe {
+  0%, 100% { opacity: 0; }
+  50% { opacity: .5; }
+}
+
+@keyframes sk-pop {
+  0% { transform: scale(1); }
+  22% { transform: scale(.8); }
+  58% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes sk-ready-hop {
+  0% { translate: 0 0; }
+  40% { translate: 0 -6px; }
+  100% { translate: 0 0; }
+}
+
+@keyframes sk-shine {
+  0% { opacity: 1; background-position: 100% 0; }
+  100% { opacity: 0; background-position: 0% 0; }
+}
+
+@keyframes sk-shake {
+  0%, 100% { translate: 0 0; }
+  20% { translate: -4px 0; }
+  40% { translate: 4px 0; }
+  60% { translate: -3px 0; }
+  80% { translate: 3px 0; }
+}
+
+@keyframes sk-ring {
+  0% { opacity: .95; transform: scale(.55); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+
+@keyframes sk-flash {
+  0% { opacity: .95; transform: scale(.6); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes sk-spark {
+  0% { opacity: 1; transform: translate(0, 0) scale(1.2); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.3); }
+}
+
+@keyframes sk-flash-still {
+  0% { opacity: .85; }
+  100% { opacity: 0; }
+}
+
+/* Người dùng chọn giảm chuyển động: vẫn có loé sáng và viền sáng (chỉ đổi độ sáng), bỏ nảy, rung, vệt quét và tia lửa bay. */
+@media (prefers-reduced-motion: reduce) {
+  #kpah-hud-bottomright .sk-sub.is-cast .skbar-icon,
+  #kpah-hud-bottomright .sk-sub.is-ready-pop,
+  #kpah-hud-bottomright .sk-sub.is-ready-pop::after,
+  #kpah-hud-bottomright .sk-sub.is-denied {
+    animation: none;
+  }
+
+  #kpah-hud-bottomright .sk-sub.is-ready::before {
+    animation: none;
+    opacity: .3;
+  }
+
+  #kpah-hud-bottomright .sk-sub.is-ready-pop::before {
+    animation: sk-flash-still .5s ease-out;
+  }
+
+  .skbar-fx .fx-ring,
+  .skbar-fx .fx-spark {
+    display: none;
+  }
+
+  .skbar-fx .fx-flash {
+    animation: sk-flash-still .35s ease-out forwards;
+  }
+}
+
+@media (max-width: 760px) {
+  #kpah-hud-bottomright .sk-sub {
+    --ico: 38px;
+    --pad: 2px;
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    gap: 2px;
+  }
+
+  #kpah-hud-bottomright .sk-main {
+    width: 50px !important;
+    height: 68px !important;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-name {
+    font-size: 8px;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-mp {
+    display: none;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-key {
+    top: 3px;
+    left: 3px;
+    font-size: 8px;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-tier {
+    left: 5px;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-badge {
+    right: 3px;
+    width: 13px;
+    height: 13px;
+    top: calc(var(--pad) + var(--ico) - 14px);
+  }
+}
+
+@media (max-width: 360px) {
+  #kpah-hud-bottomright .sk-sub {
+    --ico: 34px;
+    width: 42px !important;
+    min-width: 42px !important;
+  }
+
+  #kpah-hud-bottomright .sk-main {
+    width: 46px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (min-width: 761px) {
+  #kpah-hud-bottomright .sk-sub {
+    --ico: 40px;
+    width: 52px !important;
+    min-width: 52px !important;
+    height: 66px !important;
+    min-height: 66px !important;
+  }
+
+  #kpah-hud-bottomright .sk-sub .skbar-name {
+    -webkit-line-clamp: 1;
+    height: 1.2em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  #kpah-hud-bottomright .sk-main {
+    height: 66px !important;
+  }
+}
+
+/* Thẻ mô tả kỹ năng */
+#skill-tip {
+  position: fixed;
+  z-index: 500;
+  bottom: auto;
+  width: min(300px, calc(100vw - 16px));
+  min-width: 0;
+  max-width: none;
+  padding: 10px 12px 11px;
+  border: 2px solid var(--hub-trim);
+  border-radius: 0;
+  background: var(--hub-panel);
+  box-shadow: 3px 3px 0 var(--hub-ink), inset 2px 2px 0 var(--hub-raised);
+  color: var(--hub-paper);
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+#skill-tip::before {
+  display: none;
+}
+
+.stip-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stip-icon {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .5);
+}
+
+.stip-title {
+  min-width: 0;
+}
+
+.stip-name {
+  margin: 0 0 4px;
+  color: var(--hub-gold);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.stip-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stip-tag {
+  padding: 1px 6px;
+  border: 1px solid #5f5848;
+  background: #1c1a23;
+  color: #d8cda9;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.stip-tag--active {
+  border-color: #347e9f;
+  color: #b9e7ff;
+}
+
+.stip-tag--passive {
+  border-color: #3d9258;
+  color: #b7efc5;
+}
+
+.stip-tag--phys {
+  border-color: #8a5a3c;
+  color: #f0b08f;
+}
+
+.stip-tag--magic {
+  border-color: #6b57a8;
+  color: #c9b2ff;
+}
+
+.stip-tag--support {
+  border-color: #4f7d6e;
+  color: #9bcbb9;
+}
+
+#skill-tip .stip-desc {
+  margin: 9px 0 8px;
+  padding: 0;
+  border: 0;
+  color: var(--hub-paper);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+#skill-tip .stip-desc.is-empty {
+  color: var(--hub-muted);
+  font-style: italic;
+}
+
+.stip-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  margin: 0;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(255, 255, 255, .14);
+  font-size: 11px;
+}
+
+.stip-grid[hidden],
+.stip-note[hidden] {
+  display: none;
+}
+
+.stip-grid dt {
+  color: var(--hub-muted);
+}
+
+.stip-grid dd {
+  margin: 0;
+  color: var(--hub-paper);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.stip-note {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, .14);
+  color: #e9c58b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Sổ Thần Thông: mô tả đọc được (trước đây 8px, cắt một dòng) và có nút Chi tiết */
+#kpah-menu-modal .skill-book-info strong {
+  font-size: 12px;
+}
+
+#kpah-menu-modal .skill-book-info small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+#kpah-menu-modal .skill-book-info em {
+  display: -webkit-box;
+  max-width: none;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #c3bdd3;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.skill-book-row .skill-detail-btn {
+  border-color: #8a6f3a;
+  background: #2a2316;
+  color: #f0d77f;
+}
+
+#kpah-menu-modal .skill-book-info strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+#kpah-menu-modal .skill-book-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), 0 2px 5px rgba(0, 0, 0, .45);
+}
+
+#kpah-menu-modal .skill-slot-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .7);
+}
+
+.hud-skill-effect-icon.skill-art-icon {
+  image-rendering: auto;
+}
