@@ -36,6 +36,18 @@ const Input = {
     }
   },
 
+  _hasBlockingModal() {
+    const mailOpen = typeof GameHub !== "undefined" && Boolean(GameHub.isMailOpen?.());
+    const hubOpen = typeof GameHub !== "undefined" && Boolean(GameHub.isHubOpen?.());
+    const shopOpen = Boolean(document.getElementById("shop-modal")?.classList.contains("open"));
+    const alchemyOpen = Boolean(document.getElementById("alchemy-modal")?.classList.contains("open"));
+    const breakthroughOpen = Boolean(document.getElementById("breakthrough-modal")?.classList.contains("open"));
+    const dialogOpen = Boolean(document.getElementById("dialog-modal")?.classList.contains("open"));
+    const kpahOpen = document.getElementById("kpah-menu-modal")?.style.display === "flex";
+    const continentOpen = document.getElementById("continent-modal")?.style.display === "flex";
+    return mailOpen || hubOpen || shopOpen || alchemyOpen || breakthroughOpen || dialogOpen || kpahOpen || continentOpen;
+  },
+
   init() {
     if (Input._initialized) return;
     Input._initialized = true;
@@ -51,21 +63,50 @@ const Input = {
     };
 
     window.addEventListener("keydown", (e) => {
-      Input.keys[e.code] = true;
-      if (e.key) Input.keys[e.key.toLowerCase()] = true;
       const active = document.activeElement;
       const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && active.id === "chat-inp" && active.offsetParent !== null;
       const isFormControl = active?.matches?.("input, textarea, select, [contenteditable='true']");
-      if (e.code === "Escape" && isInput) {
-        e.preventDefault();
-        active.blur();
-        Input.stopMovement();
+      if (e.code === "Escape") {
+        if (isInput) {
+          e.preventDefault();
+          active.blur();
+          Input.stopMovement();
+          return;
+        }
+        const hubOrMailOpen = typeof GameHub !== "undefined" && (GameHub.isMailOpen?.() || GameHub.isHubOpen?.());
+        if (hubOrMailOpen) {
+          e.preventDefault();
+          GameHub.closeMail?.();
+          GameHub.closeHub?.();
+          Input.stopMovement();
+          return;
+        }
+        S.target = null;
+        if (S.player) {
+          World.clearPendingNpcInteraction?.();
+          World.cancelPlayerMove(S.player);
+          S.player.combatMove = false;
+        }
+        Shop.close();
+        if (typeof AlchemyUI !== "undefined") AlchemyUI.close?.();
+        if (typeof Cultivation !== "undefined") Cultivation.closeBreakthroughModal?.();
+        DialogUI.close();
+        const menu = document.getElementById("kpah-menu-modal");
+        if (menu) menu.style.display = "none";
+        const continent = document.getElementById("continent-modal");
+        if (continent) continent.style.display = "none";
+        QuestUI.close();
+        if (typeof GameHub !== "undefined") GameHub.closeAll();
+        UI.toggleHudSettings?.(false);
         return;
       }
-      if (!isInput && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
+      if (isInput) return;
+      if (Input._hasBlockingModal()) return;
+      Input.keys[e.code] = true;
+      if (e.key) Input.keys[e.key.toLowerCase()] = true;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
         e.preventDefault();
       }
-      if (isInput) return;
       if (e.code === "KeyQ" && !e.repeat && !isFormControl) {
         e.preventDefault();
         QuestUI.toggle();
@@ -74,6 +115,10 @@ const Input = {
       if (!e.repeat && !isFormControl && ["KeyB", "KeyC"].includes(e.code)) {
         e.preventDefault();
         UI.toggleKpahMenu();
+      }
+      if (!e.repeat && !isFormControl && e.code === "KeyL" && typeof AlchemyUI !== "undefined") {
+        e.preventDefault();
+        AlchemyUI.toggle?.();
       }
       if (!e.repeat && e.code === "Tab" && !isFormControl) {
         e.preventDefault();
@@ -92,30 +137,14 @@ const Input = {
           UI.updateTargetHud(S.target);
         }
       }
-      if (e.code === "Escape") {
-        S.target = null;
-        if (S.player) {
-          World.clearPendingNpcInteraction?.();
-          World.cancelPlayerMove(S.player);
-          S.player.combatMove = false;
-        }
-        Shop.close();
-        DialogUI.close();
-        const menu = document.getElementById("kpah-menu-modal");
-        if (menu) menu.style.display = "none";
-        const continent = document.getElementById("continent-modal");
-        if (continent) continent.style.display = "none";
-        QuestUI.close();
-        UI.toggleHudSettings?.(false);
-      }
-      if (e.code === "Enter") {
+      if (e.code === "Enter" && !isFormControl) {
         const ci = document.getElementById("chat-inp");
         if (ci) ci.focus();
       }
-      if (e.code === "Digit1" || e.key === "1") SkillSystem.useSkill(0);
-      if (e.code === "Digit2" || e.key === "2") SkillSystem.useSkill(1);
-      if (e.code === "Digit3" || e.key === "3") SkillSystem.useSkill(2);
-      if (e.code === "Digit4" || e.key === "4") SkillSystem.useSkill(3);
+      if (!isFormControl && (e.code === "Digit1" || e.key === "1")) SkillSystem.useSkill(0);
+      if (!isFormControl && (e.code === "Digit2" || e.key === "2")) SkillSystem.useSkill(1);
+      if (!isFormControl && (e.code === "Digit3" || e.key === "3")) SkillSystem.useSkill(2);
+      if (!isFormControl && (e.code === "Digit4" || e.key === "4")) SkillSystem.useSkill(3);
     });
 
     window.addEventListener("keyup", (e) => {
@@ -146,9 +175,7 @@ const Input = {
     if (document.activeElement && typeof document.activeElement.blur === "function" && document.activeElement !== canvas) {
       document.activeElement.blur();
     }
-    if (document.getElementById("shop-modal")?.classList.contains("open"))
-      return;
-    if (document.getElementById("dialog-modal")?.classList.contains("open"))
+    if (Input._hasBlockingModal())
       return;
     if (!canvas) return;
     const r = canvas.getBoundingClientRect();

@@ -45,7 +45,9 @@ function update(dt) {
       Boolean(document.getElementById("shop-modal")?.classList.contains("open")) ||
       Boolean(document.getElementById("dialog-modal")?.classList.contains("open")) ||
       (document.getElementById("kpah-menu-modal")?.style.display === "flex") ||
-      (document.getElementById("quest-modal")?.style.display === "flex");
+      (document.getElementById("quest-modal")?.style.display === "flex") ||
+      (document.getElementById("mail-modal")?.style.display === "flex") ||
+      (document.getElementById("hub-modal")?.style.display === "flex");
     if (!p.dead && !modalOpen && !isTyping) {
       const movementInput = World.movementVector(Input.keys);
       let dx = movementInput.dx;
@@ -451,6 +453,7 @@ function enterGame(map, x, y) {
   UI.log("💡 Đủ tu vi → Phá cảnh giới. F → Tương tác NPC.", "chat");
   Net.connectSocket();
   if (S.session?.user?.id && typeof QuestUI !== "undefined") void QuestUI.refresh();
+  if (authToken && typeof GameHub !== "undefined") void GameHub.refreshSummary();
   Net.startAutoSave();
 
   // Chỉ snapshot cho demo mock; BE lưu qua mutation/API gameplay authority.

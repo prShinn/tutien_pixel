@@ -872,11 +872,31 @@ const Render = {
         }
         ctx.restore();
       }
-      // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
+      // Bóng chân giữ nhân vật bám mặt đất.
       ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
       ctx.ellipse(sx, sy + 0.8, walking ? 5.1 + footfall * 1.3 : 5.8, walking ? 1.05 + footfall * 0.3 : 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
+      if (typeof ItemFX !== "undefined") {
+        let glowTier = Number(actor?.glowTier ?? actor?.derivedStats?.glowTier);
+        if (!Number.isFinite(glowTier)) {
+          const eq = actor?.equipment || {};
+          const weaponLvl = Math.max(0, Math.min(15, Math.floor(Number(eq.weapon?.enhanceLevel || 0))));
+          const armorSlots = ["hat", "armor", "pants", "boots", "gloves"];
+          let armorSum = 0;
+          let armorCount = 0;
+          for (const slot of armorSlots) {
+            if (!eq[slot]) continue;
+            armorSum += Math.max(0, Math.min(15, Math.floor(Number(eq[slot].enhanceLevel || 0))));
+            armorCount += 1;
+          }
+          const avgArmor = armorCount > 0 ? Math.floor(armorSum / armorCount) : 0;
+          glowTier = ItemFX.enhanceGlowTier(Math.max(weaponLvl, avgArmor));
+        }
+        if (glowTier > 0) {
+          ItemFX.drawCharacterEnhanceAura(ctx, sx, sy - actorH * 0.35, glowTier, now, 12);
+        }
+      }
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
       // chạm đúng chân, trong khi collision vẫn dùng cùng tọa độ world.
@@ -1130,11 +1150,19 @@ const Render = {
     const sy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2 - cy;
     const ds = this.displayScale();
     if (sx < -24 || sy < -24 || sx > cW / ds + 24 || sy > cH / ds + 24) return;
-    const item = drop.item || drop.itemData || {
+    const rawItem = drop.item || drop.itemData || {
       id: drop.itemId || drop.itemCode,
+      itemCode: drop.itemCode || drop.itemId,
       name: drop.itemName || drop.name,
       type: drop.type || drop.loai,
+      rarity: drop.rarity,
+      hasLuck: drop.hasLuck,
+      enhanceLevel: drop.enhanceLevel,
+      sparkle: drop.sparkle,
     };
+    const item = drop.kind !== "xu" && typeof GameData?.itemWithCurrentDetails === "function"
+      ? GameData.itemWithCurrentDetails(rawItem)
+      : rawItem;
     const pulse = 0.7 + Math.sin(S.animT * 0.006 + sx) * 0.2;
     ctx.save();
     ctx.globalAlpha = pulse;
@@ -1158,15 +1186,20 @@ const Render = {
         ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
       }
     }
+    if (drop.kind !== "xu" && typeof ItemFX !== "undefined") {
+      ItemFX.drawSparkleOverlayCanvas(ctx, sx - 8, sy - 9, 16, item, Number(S.animT) || Date.now());
+    }
     const rawLabel = drop.kind === "xu"
       ? `${Math.max(0, Number(drop.xu || drop.amount || 0))} xu`
       : (item.name || drop.itemName || drop.name || item.itemCode || drop.itemCode || "Vật phẩm");
     const count = Number(drop.count || drop.quantity || 1);
     const suffix = drop.kind === "xu" || count <= 1 ? "" : ` x${count}`;
     const label = `${String(rawLabel).slice(0, 16)}${suffix}`;
-    const rarity = String(item.rarity || drop.rarity || "").toLowerCase();
+    const rarityUpper = String(item.rarity || drop.rarity || "").toUpperCase();
+    const rarityLower = rarityUpper.toLowerCase();
     const rarityColors = { common: "#d9d5c9", uncommon: "#8edc9a", rare: "#77c9ff", epic: "#d39cff", legendary: "#ffd46e" };
-    const labelColor = drop.kind === "xu" ? "#f4d982" : (rarityColors[rarity] || "#d8eee6");
+    const fxColor = typeof ItemFX !== "undefined" ? ItemFX.RARITY_META?.[rarityUpper]?.color : null;
+    const labelColor = drop.kind === "xu" ? "#f4d982" : (fxColor || rarityColors[rarityLower] || "#d8eee6");
     ctx.font = "bold 6px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

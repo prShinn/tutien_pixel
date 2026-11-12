@@ -15,6 +15,7 @@
 const GAME_BALANCE = {
   stats: { str: { pAtk: 4 }, agi: { pAtk: 0.5, crit: 0.003, evasion: 0.004, speed: 0.25 }, vit: { pDef: 2, maxHp: 12 }, ene: { mAtk: 4, mDef: 1.5, maxMp: 8 } },
   base: { pAtk: 8, mAtk: 8, pDef: 3, mDef: 3, hp: 100, mp: 50 },
+  death: { xuPerRealmStt: 20, maxXuLoss: 500 },
   damage: {
     defenseBase: 100,
     critMultiplier: 1.5,
@@ -31,7 +32,78 @@ const GAME_BALANCE = {
   polarity: { KIM: "YANG", MOC: "YIN", THUY: "YIN", HOA: "YANG", THO: "BALANCED", QUANG: "YANG", AM: "YIN", PHONG: "YANG", LOI: "YANG" },
   special: { QUANG: { AM: 1.1 }, AM: { QUANG: 0.9 }, LOI: { PHONG: 1.08 }, PHONG: { LOI: 0.92 } },
   progression: { realmWeight: 1000, stageWeight: 90, masteryWeight: 70, skillWeight: 18, linhCan: { itemCap: 1000, itemScale: 0.00008, maxItemBonus: 0.08, realmBonus: 0.012, stageBonus: 0.002, ovrItemWeight: 0.04 }, cultivation: { overcapOvrWeight: 180, maxOvercapOvr: 360, elementalPerCap: 0.04, maxElementalBonus: 0.08 } },
+  itemTaxonomy: {
+    rarities: {
+      NORMAL: { key: "NORMAL", tier: 1, label: "Thường", color: "#e6edf3", glow: "NONE", maxExl: 0, sellMult: 1 },
+      MAGIC: { key: "MAGIC", tier: 2, label: "Tinh Luyện", color: "#69b8ff", glow: "DEWDROP", maxExl: 1, sellMult: 1.35 },
+      EXL: { key: "EXL", tier: 3, label: "Hoàn Hảo", color: "#5ef2a8", glow: "SHIMMER", maxExl: 3, sellMult: 2.0 },
+      ANCIENT: { key: "ANCIENT", tier: 4, label: "Thần Khí", color: "#ffd369", glow: "MYTHIC_PRISM", maxExl: 4, sellMult: 3.0 },
+    },
+  },
+  exlOptions: {
+    DMG_PCT: { code: "DMG_PCT", group: "OFFENSE", label: "Sát thương +{val}%", val: 3 },
+    EXL_CRIT_DMG: { code: "EXL_CRIT_DMG", group: "OFFENSE", label: "Đòn Hoàn Hảo +{val}%", val: 5 },
+    HP_ON_KILL_PCT: { code: "HP_ON_KILL_PCT", group: "OFFENSE", label: "Hồi {val}% HP khi hạ quái", val: 3 },
+    MP_ON_KILL_PCT: { code: "MP_ON_KILL_PCT", group: "OFFENSE", label: "Hồi {val}% MP khi hạ quái", val: 3 },
+    ARMOR_PIERCE_PCT: { code: "ARMOR_PIERCE_PCT", group: "OFFENSE", label: "Xuyên giáp +{val}%", val: 5 },
+    DMG_REDUCE_PCT: { code: "DMG_REDUCE_PCT", group: "DEFENSE", label: "Giảm sát thương -{val}%", val: 4 },
+    REFLECT_PCT: { code: "REFLECT_PCT", group: "DEFENSE", label: "Phản sát thương {val}%", val: 4 },
+    MAX_HP_PCT: { code: "MAX_HP_PCT", group: "DEFENSE", label: "Sinh lực tối đa +{val}%", val: 5 },
+    EVASION_PCT: { code: "EVASION_PCT", group: "DEFENSE", label: "Né tránh +{val}%", val: 3 },
+  },
+  enhance: {
+    maxLevel: 15,
+    luckRateBonus: 0.15,
+    luckSuccessBonus: 0.15,
+    luckCombatCritBonus: 0.05,
+    protectionItemCode: "CHARM_BAO_VE",
+    broadcastMinLevel: 11,
+  },
 };
+
+function enhanceStatMultiplier(level = 0) {
+  const safe = Math.max(0, Math.min(15, Math.floor(Number(level) || 0)));
+  if (safe <= 0) return 1;
+  return 1 + safe * 0.08 + (safe >= 10 ? (safe - 9) * 0.04 : 0);
+}
+
+function readEquipmentStat(item, ...keys) {
+  for (const key of keys) {
+    const direct = Number(item?.[key]);
+    if (Number.isFinite(direct) && direct !== 0) return direct;
+    const nested = Number(item?.stats?.[key]);
+    if (Number.isFinite(nested) && nested !== 0) return nested;
+  }
+  return 0;
+}
+
+function scaledEquipmentStats(item = {}) {
+  const mult = enhanceStatMultiplier(item?.enhanceLevel || 0);
+  const scaleInt = (value) => (value ? Math.round(value * mult) : 0);
+  return {
+    pAtk: scaleInt(readEquipmentStat(item, "pAtk")),
+    mAtk: scaleInt(readEquipmentStat(item, "mAtk")),
+    pDef: scaleInt(readEquipmentStat(item, "pDef")),
+    mDef: scaleInt(readEquipmentStat(item, "mDef")),
+    maxHp: scaleInt(readEquipmentStat(item, "maxHp", "maxHP")),
+    maxMp: scaleInt(readEquipmentStat(item, "maxMp", "maxMP")),
+    spd: scaleInt(readEquipmentStat(item, "spd")),
+    str: scaleInt(readEquipmentStat(item, "str")),
+    agi: scaleInt(readEquipmentStat(item, "agi")),
+    vit: scaleInt(readEquipmentStat(item, "vit")),
+    ene: scaleInt(readEquipmentStat(item, "ene")),
+    crit: Number(readEquipmentStat(item, "crit")) || 0,
+  };
+}
+
+function calcEquipmentSellPrice(baseSellPrice = 0, enhanceLevel = 0, rarity = "NORMAL") {
+  const safeBase = Math.max(0, Math.floor(Number(baseSellPrice) || 0));
+  if (safeBase <= 0) return 0;
+  const lvl = Math.max(0, Math.min(15, Math.floor(Number(enhanceLevel) || 0)));
+  const rarities = GAME_BALANCE.itemTaxonomy?.rarities || {};
+  const rarityInfo = rarities[String(rarity || "NORMAL").toUpperCase()] || rarities.NORMAL || { sellMult: 1 };
+  return Math.floor(safeBase * Number(rarityInfo.sellMult || 1) * (1 + lvl * 0.15));
+}
 
 function affinityMultiplier(attacker, defender, attackerStrength = 1, defenderStrength = 1) {
   return affinityProfile(attacker, defender, attackerStrength, defenderStrength).multiplier;
@@ -76,12 +148,96 @@ function affinityProfile(attacker, defender, attackerStrength = 1, defenderStren
 }
 
 function deriveCombatStats(stats = {}, equipment = {}) {
-  const s = { str: Number(stats.str) || 0, agi: Number(stats.agi) || 0, vit: Number(stats.vit) || 0, ene: Number(stats.ene) || 0 };
+  let maxHpPct = 0;
+  let evasionPct = 0;
   const e = Object.values(equipment || {}).reduce((out, item) => {
-    for (const key of ["pAtk", "mAtk", "pDef", "mDef", "maxHP", "maxMP"]) out[key] += Number(item?.[key] || item?.stats?.[key] || 0);
+    if (!item) return out;
+    const scaled = scaledEquipmentStats(item);
+    out.pAtk += scaled.pAtk;
+    out.mAtk += scaled.mAtk;
+    out.pDef += scaled.pDef;
+    out.mDef += scaled.mDef;
+    out.maxHP += scaled.maxHp;
+    out.maxMP += scaled.maxMp;
+    out.spd += scaled.spd;
+    out.str += scaled.str;
+    out.agi += scaled.agi;
+    out.vit += scaled.vit;
+    out.ene += scaled.ene;
+    out.crit += scaled.crit + (item.hasLuck ? GAME_BALANCE.enhance.luckCombatCritBonus : 0);
+    for (const opt of Array.isArray(item.exlOptions) ? item.exlOptions : []) {
+      const code = String(opt?.code || "").toUpperCase();
+      if (code === "MAX_HP_PCT") {
+        maxHpPct += Math.max(0, Number(opt?.val || 5)) / 100;
+      } else if (code === "EVASION_PCT") {
+        evasionPct += Math.max(0, Number(opt?.val || 3)) / 100;
+      }
+    }
     return out;
-  }, { pAtk: 0, mAtk: 0, pDef: 0, mDef: 0, maxHP: 0, maxMP: 0 });
-  return { pAtk: 8 + s.str * 4 + s.agi * 0.5 + e.pAtk, mAtk: 8 + s.ene * 4 + s.agi * 0.5 + e.mAtk, pDef: 3 + s.vit * 2 + s.agi * 0.25 + e.pDef, mDef: 3 + s.ene * 1.5 + s.vit * 0.25 + e.mDef, maxHp: 100 + s.vit * 12 + e.maxHP, maxMp: 50 + s.ene * 8 + e.maxMP };
+  }, { pAtk: 0, mAtk: 0, pDef: 0, mDef: 0, maxHP: 0, maxMP: 0, spd: 0, str: 0, agi: 0, vit: 0, ene: 0, crit: 0 });
+  const s = {
+    str: (Number(stats.str) || 0) + e.str,
+    agi: (Number(stats.agi) || 0) + e.agi,
+    vit: (Number(stats.vit) || 0) + e.vit,
+    ene: (Number(stats.ene) || 0) + e.ene,
+  };
+  const maxHp = Math.round((100 + s.vit * 12 + e.maxHP) * (1 + Math.min(0.6, maxHpPct)));
+  return {
+    pAtk: 8 + s.str * 4 + s.agi * 0.5 + e.pAtk,
+    mAtk: 8 + s.ene * 4 + s.agi * 0.5 + e.mAtk,
+    pDef: 3 + s.vit * 2 + s.agi * 0.25 + e.pDef,
+    mDef: 3 + s.ene * 1.5 + s.vit * 0.25 + e.mDef,
+    maxHp,
+    maxMp: 50 + s.ene * 8 + e.maxMP,
+    spd: e.spd,
+    crit: Math.min(0.6, 0.05 + s.agi * 0.003 + e.crit),
+    evasion: Math.min(0.45, 0.03 + s.agi * 0.004 + Math.min(0.25, evasionPct)),
+  };
+}
+
+function combatStatPower(derived) {
+  return derived.pAtk + derived.mAtk + (derived.pDef + derived.mDef) * 1.5 + derived.maxHp * 0.1 + derived.maxMp * 0.1;
+}
+
+function equipmentStatPower(equipment = {}) {
+  return Object.values(equipment || {}).reduce((sum, item) => {
+    if (!item) return sum;
+    const baseStats = Object.values(item.stats || {}).reduce((n, value) => n + Number(value || 0), 0);
+    const enhanceLevel = Math.max(0, Math.floor(Number(item.enhanceLevel || 0)));
+    const exlBonus = (Array.isArray(item.exlOptions) ? item.exlOptions.length : 0) * 18;
+    const luckBonus = item.hasLuck ? 12 : 0;
+    return sum + Math.round(baseStats * enhanceStatMultiplier(enhanceLevel)) + enhanceLevel * 8 + exlBonus + luckBonus;
+  }, 0);
+}
+
+function describeEquipment(item = {}) {
+  const base = deriveCombatStats();
+  const equipped = deriveCombatStats({}, { preview: item });
+  const bonuses = {};
+  for (const key of ["pAtk", "mAtk", "pDef", "mDef", "maxHp", "maxMp", "spd"]) {
+    const delta = equipped[key] - base[key];
+    if (delta !== 0) bonuses[key] = delta;
+  }
+  const appliedKeys = new Set(["pAtk", "mAtk", "pDef", "mDef", "maxHp", "maxHP", "maxMp", "maxMP", "spd"]);
+  const mult = enhanceStatMultiplier(item?.enhanceLevel || 0);
+  const ratingOnly = Object.fromEntries(
+    Object.entries(item.stats || {})
+      .filter(([key, value]) => !appliedKeys.has(key) && Number(value) !== 0)
+      .map(([key, value]) => [key, key === "crit" ? Number(value) : Math.round(Number(value) * mult)]),
+  );
+  const combatOvr = combatStatPower(equipped) - combatStatPower(base);
+  const itemOvr = equipmentStatPower({ preview: item });
+  return {
+    bonuses,
+    ratingOnly,
+    combatOvr,
+    itemOvr,
+    ovr: combatOvr + itemOvr,
+    enhanceLevel: Math.max(0, Math.floor(Number(item?.enhanceLevel || 0))),
+    rarity: String(item?.rarity || "NORMAL").toUpperCase(),
+    hasLuck: Boolean(item?.hasLuck),
+    exlOptions: Array.isArray(item?.exlOptions) ? item.exlOptions : [],
+  };
 }
 
 function combatTier(entity = {}) {
@@ -106,8 +262,30 @@ function calcCombatPower(player = {}) {
   const overflowRatio = Math.max(0, Number(player.tuViHienTai || 0) / cap - 1);
   const overflowPower = Math.min(GAME_BALANCE.progression.cultivation.maxOvercapOvr, overflowRatio * GAME_BALANCE.progression.cultivation.overcapOvrWeight);
   const statPower = d.pAtk + d.mAtk + (d.pDef + d.mDef) * 1.5 + d.maxHp * 0.1 + d.maxMp * 0.1;
-  const equipmentPower = Object.values(player.equipment || {}).reduce((sum, item) => sum + Object.values(item?.stats || {}).reduce((n, value) => n + Number(value || 0), 0), 0);
+  const equipmentPower = Object.values(player.equipment || {}).reduce((sum, item) => {
+    if (!item) return sum;
+    const baseStats = Object.values(item.stats || {}).reduce((n, value) => n + Number(value || 0), 0);
+    const enhanceLevel = Math.max(0, Math.floor(Number(item.enhanceLevel || 0)));
+    const exlBonus = (Array.isArray(item.exlOptions) ? item.exlOptions.length : 0) * 18;
+    const luckBonus = item.hasLuck ? 12 : 0;
+    return sum + Math.round(baseStats * enhanceStatMultiplier(enhanceLevel)) + enhanceLevel * 8 + exlBonus + luckBonus;
+  }, 0);
   const skillPower = (player.learnedSkills || player.skills || []).length * GAME_BALANCE.progression.skillWeight;
   const linhCanPower = Math.min(GAME_BALANCE.progression.linhCan.itemCap * GAME_BALANCE.progression.linhCan.ovrItemWeight, Math.max(0, Number(player.tuViLinhCan || 0)) * GAME_BALANCE.progression.linhCan.ovrItemWeight);
   return Math.floor(realm * progression.realmWeight + stage * progression.stageWeight + mastery * progression.masteryWeight + overflowPower + statPower + equipmentPower + skillPower + linhCanPower);
 }
+
+function calcDeathXuPenalty(currentXu = 0, realmStt = 1) {
+  const safeXu = Math.max(0, Math.floor(Number(currentXu) || 0));
+  const safeRealmStt = Math.max(1, Math.floor(Number(realmStt) || 1));
+  const rawFee = Math.min(GAME_BALANCE.death.maxXuLoss, GAME_BALANCE.death.xuPerRealmStt * safeRealmStt);
+  return Math.min(safeXu, rawFee);
+}
+
+Object.assign(GAME_BALANCE, {
+  enhanceStatMultiplier,
+  scaledEquipmentStats,
+  calcEquipmentSellPrice,
+  deriveCombatStats,
+  describeEquipment,
+});

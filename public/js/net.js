@@ -305,7 +305,15 @@ const Net = {
     };
     try {
       const result = await this._fetch(path, options);
-      if (!result?.error) {
+      const shouldPreserveForRetry = Boolean(
+        result?.error && (
+          result?.retryable
+          || result?.code === "NETWORK_ERROR"
+          || Number(result?.httpStatus) >= 500
+          || Number(result?.httpStatus) === 429
+        ),
+      );
+      if (!shouldPreserveForRetry) {
         this._pendingMutationIds.delete(fingerprint);
         this._persistPendingMutationIds();
       }
@@ -468,12 +476,24 @@ const Net = {
             Object.assign(S.player, {
               hp: authoritative.hp, maxHp: authoritative.maxHp, mp: authoritative.mp, maxMp: authoritative.maxMp,
               xu: authoritative.xu,
+              linhThach: Number(authoritative.linhThach ?? S.player.linhThach ?? 0),
+              inventoryCapacity: Number(authoritative.inventoryCapacity ?? S.player.inventoryCapacity ?? (CFG.INV_BASE || 40)),
+              unspentStatPoints: Number(authoritative.unspentStatPoints ?? S.player.unspentStatPoints ?? 0),
               x: Number.isFinite(Number(authoritative.x)) ? Number(authoritative.x) : S.player.x,
               y: Number.isFinite(Number(authoritative.y)) ? Number(authoritative.y) : S.player.y,
               mapCode: authoritative.mapCode || S.player.mapCode,
-              tuViHienTai: authoritative.tuViHienTai, tuViLenCap: authoritative.tuViLenCap,
+              tuVi: authoritative.tuVi ?? authoritative.tuViHienTai,
+              tuViHienTai: authoritative.tuViHienTai ?? authoritative.tuVi,
+              tuViLenCap: authoritative.tuViLenCap,
               tuViLinhCan: authoritative.tuViLinhCan, tangTuVi: authoritative.tangTuVi,
-              stats: authoritative.stats, combatPower: authoritative.combatPower,
+              realmCode: authoritative.realmCode ?? S.player.realmCode,
+              realmStage: Number(authoritative.realmStage ?? authoritative.tangTuVi ?? S.player.realmStage ?? 1),
+              realm: Number(authoritative.realm ?? authoritative.canhGioi?.stt ?? S.player.realm ?? 1),
+              canhGioi: authoritative.canhGioi || S.player.canhGioi,
+              tenCanhGioi: authoritative.tenCanhGioi || authoritative.canhGioi?.tenCanhGioi || S.player.tenCanhGioi,
+              stats: authoritative.stats,
+              ...(authoritative.derivedStats && typeof authoritative.derivedStats === "object" ? { derivedStats: authoritative.derivedStats } : {}),
+              combatPower: authoritative.combatPower,
               learnedSkills: authoritative.learnedSkills, equippedSkills: authoritative.equippedSkills,
               equipment: authoritative.equipment || S.player.equipment,
             });
@@ -608,6 +628,8 @@ const Net = {
           }
 
           const op = S.players.get(pid);
+          if (typeof data.glowTier === "number") op.glowTier = data.glowTier;
+          if (typeof data.enhanceMaxLevel === "number") op.enhanceMaxLevel = data.enhanceMaxLevel;
           const prevX = op.tx ?? op.x ?? data.x;
           const prevY = op.ty ?? op.y ?? data.y;
           const moveDx = Number(data.x) - Number(prevX);
@@ -643,6 +665,8 @@ const Net = {
         const newMapCode = data.mapCode || data.mapId;
         if (S.players.has(pid)) {
           const op = S.players.get(pid);
+          if (typeof data.glowTier === "number") op.glowTier = data.glowTier;
+          if (typeof data.enhanceMaxLevel === "number") op.enhanceMaxLevel = data.enhanceMaxLevel;
           if ((newMapCode || "").toLowerCase() !== (S.mapCode || "").toLowerCase()) {
             S.players.delete(pid);
           } else {
@@ -656,6 +680,20 @@ const Net = {
             if (typeof EntitySnapshots !== "undefined") EntitySnapshots.reset(op, op.px, op.py);
           }
         }
+      });
+
+      socket.on("player_appearance_update", (data) => {
+        if (!data || !data.id) return;
+        const pid = data.id;
+        if (socket?.id && pid === socket.id && S.player) {
+          if (typeof data.glowTier === "number") S.player.glowTier = data.glowTier;
+          if (typeof data.enhanceMaxLevel === "number") S.player.enhanceMaxLevel = data.enhanceMaxLevel;
+          return;
+        }
+        const op = S.players.get(pid);
+        if (!op) return;
+        if (typeof data.glowTier === "number") op.glowTier = data.glowTier;
+        if (typeof data.enhanceMaxLevel === "number") op.enhanceMaxLevel = data.enhanceMaxLevel;
       });
 
       // ── Monster Synchronization ──
@@ -889,8 +927,11 @@ const Net = {
           if (Array.isArray(loot?.items)) {
             for (const item of loot.items) {
               const existing = S.inventory.find((entry) => entry.id === item.id);
+              const invBase = CFG.INV_BASE || 40;
+              const invMax = CFG.INV_MAX || 80;
+              const maxSlots = Math.min(invMax, Math.max(invBase, Number(S.player?.inventoryCapacity || invBase)));
               if (existing) existing.count = Math.min(99, Number(existing.count || 0) + Number(item.count || 1));
-              else if (S.inventory.length < CFG.INV_MAX) S.inventory.push({ ...item });
+              else if (S.inventory.length < maxSlots) S.inventory.push({ ...item });
               UI.log(`Nhặt được ${item.icon || "✦"} ${item.name} x${item.count || 1}`, "loot");
             }
             UI.buildInv();
@@ -956,13 +997,38 @@ const Net = {
         UI.update();
       });
 
-      socket.on("player_state_update", ({ hp, maxHp, mp, maxMp, buffs }) => {
+      socket.on("player_state_update", ({ hp, maxHp, mp, maxMp, buffs, stats, derivedStats, glowTier, enhanceMaxLevel, unspentStatPoints, xu, linhThach, inventoryCapacity, tuVi, tuViHienTai, tuViLenCap, tuViLinhCan, combatPower, realmCode, realmStage, tangTuVi, realm, canhGioi, tenCanhGioi }) => {
         if (!S.player) return;
+        const prevCapacity = S.player.inventoryCapacity;
         if (typeof hp === "number") S.player.hp = hp;
         if (typeof maxHp === "number") S.player.maxHp = maxHp;
         if (typeof mp === "number") S.player.mp = mp;
         if (typeof maxMp === "number") S.player.maxMp = maxMp;
         if (buffs) S.player.buffs = buffs;
+        if (stats && typeof stats === "object") S.player.stats = stats;
+        if (derivedStats && typeof derivedStats === "object") S.player.derivedStats = derivedStats;
+        if (typeof glowTier === "number") S.player.glowTier = glowTier;
+        if (typeof enhanceMaxLevel === "number") S.player.enhanceMaxLevel = enhanceMaxLevel;
+        if (typeof unspentStatPoints === "number") S.player.unspentStatPoints = unspentStatPoints;
+        if (typeof xu === "number") S.player.xu = xu;
+        if (typeof linhThach === "number") S.player.linhThach = linhThach;
+        if (typeof inventoryCapacity === "number") S.player.inventoryCapacity = inventoryCapacity;
+        if (typeof tuVi === "number") S.player.tuVi = tuVi;
+        if (typeof tuViHienTai === "number") S.player.tuViHienTai = tuViHienTai;
+        else if (typeof tuVi === "number") S.player.tuViHienTai = tuVi;
+        if (typeof tuViLenCap === "number") S.player.tuViLenCap = tuViLenCap;
+        if (typeof tuViLinhCan === "number") S.player.tuViLinhCan = tuViLinhCan;
+        if (typeof combatPower === "number") S.player.combatPower = combatPower;
+        if (typeof realmCode === "string") S.player.realmCode = realmCode;
+        if (typeof realmStage === "number") S.player.realmStage = realmStage;
+        if (typeof tangTuVi === "number") S.player.tangTuVi = tangTuVi;
+        else if (typeof realmStage === "number") S.player.tangTuVi = realmStage;
+        if (canhGioi && typeof canhGioi === "object") S.player.canhGioi = canhGioi;
+        if (typeof realm === "number") S.player.realm = realm;
+        else if (canhGioi && typeof canhGioi.stt === "number") S.player.realm = canhGioi.stt;
+        if (typeof tenCanhGioi === "string") S.player.tenCanhGioi = tenCanhGioi;
+        else if (canhGioi && typeof canhGioi.tenCanhGioi === "string") S.player.tenCanhGioi = canhGioi.tenCanhGioi;
+        if (typeof inventoryCapacity === "number" && inventoryCapacity !== prevCapacity) UI.buildInv?.();
         UI.update();
       });
 
@@ -984,6 +1050,13 @@ const Net = {
 
       socket.on("server_msg", ({ text }) => {
         UI.log(text, "system");
+      });
+
+      socket.on("server_announcement", (payload) => {
+        const msg = payload?.message || payload?.text || "";
+        if (!msg) return;
+        UI.notify(`📢 ${msg}`, "success");
+        UI.log(`📢 ${msg}`, "level");
       });
 
     } catch (e) {
@@ -1247,9 +1320,16 @@ const Net = {
       S.combatPending = false;
       World.clearPendingNpcInteraction?.();
       World.cancelPlayerMove(player);
+      const xuLost = Math.max(0, Math.floor(Number(response?.result?.xuLost ?? response?.xuLost ?? 0)));
+      const xuAfter = Number(response?.result?.xu);
+      if (Number.isFinite(xuAfter) && S.player) S.player.xu = Math.max(0, Math.floor(xuAfter));
+      const notice = xuLost > 0
+        ? `Đã hồi sinh tại điểm xuất phát (-${xuLost} xu lộ phí, giữ nguyên tu vi).`
+        : "Đã hồi sinh tại điểm xuất phát (0 xu lộ phí, giữ nguyên tu vi).";
       UI.hideDeathModal?.();
       UI.update();
-      UI.notify("Đã hồi sinh tại điểm xuất phát.", "success");
+      UI.log?.(`🏥 ${notice}`, "system");
+      UI.notify(notice, "success");
     } catch (error) {
       UI.setDeathMessage?.(error.message || "Không thể hồi sinh. Vui lòng thử lại.");
     } finally {

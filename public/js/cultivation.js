@@ -197,7 +197,115 @@ const Cultivation = {
     UI.update();
   },
 
-  async tryBreakthrough() {
+  _selectedBreakthroughPill: null,
+
+  getAvailableBreakthroughPills(p = S.player) {
+    const groupCode = p?.canhGioi?.danPhaCanh;
+    if (!groupCode) return [];
+    const results = [];
+    for (const entry of S.inventory || []) {
+      const count = Math.max(0, Number(entry.count ?? entry.quantity ?? 0));
+      if (count <= 0) continue;
+      const item = typeof GameData !== "undefined" ? GameData.itemWithCurrentDetails(entry) : entry;
+      const id = String(item.itemCode || item.id || "");
+      const pillGroup = item.pillGroup || id;
+      if (pillGroup !== groupCode) continue;
+      const rate = Number(item.breakthroughRate || 0) || (item.quality === "CUC_PHAM" ? 1 : item.quality === "THUONG_PHAM" ? 0.9 : item.quality === "TRUNG_PHAM" ? 0.8 : 0.7);
+      results.push({
+        id,
+        name: item.name || id,
+        icon: item.icon || "💊",
+        quality: item.quality || "HA_PHAM",
+        qualityTier: Number(item.qualityTier || (rate >= 1 ? 4 : rate >= 0.9 ? 3 : rate >= 0.8 ? 2 : 1)),
+        qualityLabel: item.qualityLabel || (rate >= 1 ? "Cực phẩm" : rate >= 0.9 ? "Thượng phẩm" : rate >= 0.8 ? "Trung phẩm" : "Hạ phẩm"),
+        breakthroughRate: rate,
+        count,
+      });
+    }
+    return results.sort((a, b) => b.qualityTier - a.qualityTier);
+  },
+
+  openBreakthroughModal(pills, p = S.player) {
+    const modal = document.getElementById("breakthrough-modal");
+    if (!modal || !pills.length) {
+      return this.executeBreakthrough(pills[0]?.id || null);
+    }
+    this._selectedBreakthroughPill = pills[0].id;
+    const realmStt = Number(p?.canhGioi?.stt || p?.realm || 1);
+    const nextRealm = (CFG.REALMS || []).find((r) => Number(r.stt) === realmStt + 1);
+    const targetEl = document.getElementById("breakthrough-target-label");
+    if (targetEl) {
+      targetEl.textContent = `${p.canhGioi?.tenCanhGioi || p.tenCanhGioi || "Cảnh giới"} Tầng ${p.tangTuVi} → ${nextRealm?.tenCanhGioi || "Cảnh giới kế tiếp"} Tầng 1`;
+    }
+    const listEl = document.getElementById("breakthrough-pill-list");
+    if (listEl) {
+      listEl.replaceChildren();
+      for (const pill of pills) {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = `bt-pill-option${pill.id === this._selectedBreakthroughPill ? " selected" : ""}`;
+        option.onclick = () => {
+          this._selectedBreakthroughPill = pill.id;
+          listEl.querySelectorAll(".bt-pill-option").forEach((el) => el.classList.remove("selected"));
+          option.classList.add("selected");
+        };
+        const title = document.createElement("div");
+        title.className = "bt-pill-name";
+        title.textContent = `${pill.name} (${pill.qualityLabel}) · x${pill.count}`;
+        const rate = document.createElement("div");
+        rate.className = "bt-pill-rate";
+        rate.textContent = `Tỷ lệ đột phá thành công: ${Math.round(pill.breakthroughRate * 100)}%`;
+        option.append(title, rate);
+        listEl.appendChild(option);
+      }
+    }
+    modal.classList.add("open");
+  },
+
+  closeBreakthroughModal() {
+    document.getElementById("breakthrough-modal")?.classList.remove("open");
+  },
+
+  confirmBreakthrough() {
+    const selected = this._selectedBreakthroughPill;
+    this.closeBreakthroughModal();
+    return this.executeBreakthrough(selected);
+  },
+
+  async executeBreakthrough(pillCode = null) {
+    const p = S.player;
+    if (!p || this._breakthroughPending) return;
+    this._breakthroughPending = true;
+    try {
+      const payload = pillCode ? { pillCode } : {};
+      const result = await Net.mutate("POST", API.PATHS.player.breakthrough, payload);
+      if (!result?.player) return UI.notify(result?.error || result?.message || "Không thể đột phá.", "error");
+      Net.applyPlayerSnapshot(result.player, { render: false });
+      const outcome = result.result || {};
+      if (outcome.success === false || outcome.type === "realm_breakthrough_failed") {
+        const ratePct = Math.round(Number(outcome.breakthroughRate || 0.7) * 100);
+        const realmName = S.player.canhGioi?.tenCanhGioi || S.player.tenCanhGioi || outcome.toRealmCode || "";
+        const ltPart = Number(outcome.linhThachLost || 0) > 0 ? ` & ${outcome.linhThachLost} Linh Thạch` : "";
+        const msg = `Phá cảnh thất bại (${ratePct}%)! Lùi về ${realmName} tầng ${outcome.toStage || S.player.tangTuVi}, mất đan, ${outcome.xuLost || 0} Xu${ltPart}.`;
+        UI.notify(msg, "error");
+        UI.log(`⚠️ ${msg}`, "system");
+        if (typeof Sound !== "undefined") Sound.play("hit");
+      } else {
+        const major = Boolean(result.major ?? outcome.major);
+        UI.notify(major ? "🌟 Thăng đại cảnh giới thành công!" : `⚡ Đột phá tầng ${S.player.tangTuVi} thành công!`, "success");
+        if (typeof Sound !== "undefined") Sound.play(major ? "breakthrough" : "levelUp");
+        this.showBreakthroughEffect(major);
+      }
+      UI.buildInv();
+      UI.update();
+    } catch (error) {
+      UI.notify(error.message || "Không kết nối được máy chủ để đột phá.", "error");
+    } finally {
+      this._breakthroughPending = false;
+    }
+  },
+
+  async tryBreakthrough(explicitPillCode = null) {
     if (!authToken) return UI.notify("Hãy đăng nhập BE.", "warning");
     const p = S.player;
     if (!p || this._breakthroughPending) return;
@@ -212,52 +320,18 @@ const Cultivation = {
       return;
     }
 
-    if (authToken) {
-      const majorAttempt = Number(p.tangTuVi) >= Number(p.canhGioi?.soTang || 9);
-      const pillCode = majorAttempt ? p.canhGioi?.danPhaCanh : null;
-      if (pillCode && !(S.inventory || []).some((item) => (item.itemCode || item.id) === pillCode && Number(item.count ?? item.quantity ?? 0) > 0)) {
-        const pillName = CFG.ITEMS?.[pillCode]?.name || pillCode;
-        return UI.notify(`Cần 1 ${pillName} trong túi để phá đại cảnh giới. Đan được tự tiêu hao khi đột phá thành công.`, "warning");
-      }
-      this._breakthroughPending = true;
-      try {
-        const result = await Net.mutate("POST", API.PATHS.player.breakthrough, {});
-        if (!result?.player) return UI.notify(result?.error || "Không thể đột phá.", "error");
-        Net.applyPlayerSnapshot(result.player, { render: false });
-        const major = Boolean(result.major ?? result.result?.major);
-        UI.notify(major ? "Thăng cảnh giới thành công!" : `Đột phá tầng ${S.player.tangTuVi} thành công!`, "success");
-        if (typeof Sound !== "undefined") Sound.play(major ? "breakthrough" : "levelUp");
-        this.showBreakthroughEffect(major);
-        UI.update();
-      } catch (error) {
-        UI.notify(error.message || "Không kết nối được máy chủ để đột phá.", "error");
-      } finally { this._breakthroughPending = false; }
-      return;
+    const majorAttempt = Number(p.tangTuVi) >= Number(p.canhGioi?.soTang || 9);
+    if (!majorAttempt || !p.canhGioi?.danPhaCanh) {
+      return this.executeBreakthrough(null);
     }
-
-    p.tuViHienTai -= p.tuViLenCap;
-    let major = false;
-    if (p.tangTuVi < 9) {
-      p.tangTuVi++;
-      this.applyBreakthroughStats(p, false);
-      UI.log(`⚡ Đột Phá ${p.tenCanhGioi} Tầng ${p.tangTuVi}!`, "level");
-    } else {
-      major = true;
-      const res = await Net.get(`${API.PATHS.data.realms}/stt/${p.canhGioi.stt + 1}`);
-      p.canhGioi = res;
-      p.realm = res.stt || p.realm + 1;
-      p.tangTuVi = 1;
-      this.applyBreakthroughStats(p, true);
-      UI.log(`🌟 THĂNG CẢNH GIỚI → ${res.tenCanhGioi} Tầng 1!`, "level");
-      p.maCanhGioi = res.code;
+    if (explicitPillCode) {
+      return this.executeBreakthrough(explicitPillCode);
     }
-    p.tuViLenCap = Cultivation.calcTuNeeded(p.canhGioi, p.tangTuVi);
-    S.player = { ...p };
-    Net.saveNow({
-      type: "breakthrough",
-      data: { realm: p.realm, tangTuVi: p.tangTuVi },
-    });
-    this.showBreakthroughEffect(major);
-    UI.update();
+    const ownedPills = this.getAvailableBreakthroughPills(p);
+    if (!ownedPills.length) {
+      const basePillName = CFG.ITEMS?.[p.canhGioi.danPhaCanh]?.name || p.canhGioi.danPhaCanh;
+      return UI.notify(`Cần ${basePillName} (Hạ/Trung/Thượng/Cực phẩm) trong túi để phá đại cảnh giới. Hãy mở Lò Luyện Đan để luyện!`, "warning");
+    }
+    return this.openBreakthroughModal(ownedPills, p);
   },
 };

@@ -92,6 +92,7 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
   const movement = (await import(movementPath)).MovementFeedback;
   const errors = [];
   const sentMoves = [];
+  const mapChanges = [];
   const attacks = [];
   const autoSkillAttempts = [];
   const canvas = { getBoundingClientRect() { return { left: 0, top: 0 }; } };
@@ -136,7 +137,9 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
       _isOnline: true,
       emitMove(force) { sentMoves.push(Boolean(force)); },
       tickAutoLoot() {},
+      emitMapChange(mapCode) { mapChanges.push(mapCode); },
     },
+    setTimeout() {},
     SkillSystem: {
       tickCooldowns() {},
       tryAutoSkill(target) { autoSkillAttempts.push(target?.id); return false; },
@@ -159,7 +162,7 @@ async function gameplayHarness(tiles, player, { basicAttackRange = 24, tileSize 
   });
   const opened = [];
   vm.runInContext(`${inputSource}\n${worldSource}\n${updateSource}\nglobalThis.__Input = Input; globalThis.__World = World; globalThis.__update = update;`, context, { filename: "gameplay-movement.js" });
-  return { state, input: context.__Input, world: context.__World, update: context.__update, sentMoves, attacks, autoSkillAttempts, errors, opened };
+  return { state, input: context.__Input, world: context.__World, update: context.__update, sentMoves, attacks, autoSkillAttempts, errors, opened, mapChanges };
 }
 
 function netHarness(drops = []) {
@@ -815,4 +818,99 @@ test("short landscape starts with compact HUD and the toggle restores all panels
   assert.equal(screen.classList.contains("hud-compact"), false);
   assert.equal(button.getAttribute("aria-expanded"), "true");
   assert.equal(hudPreferences.get("tutien.hud-layout.v1"), "expanded");
+});
+
+test("a portal next to the spawn point stays locked until the player walks away from the spawn or the portal", async () => {
+  const tiles = Array.from({ length: 10 }, () => Array(40).fill(0));
+  const portal = { x: 18, y: 5, toMap: "alpha", toX: 1, toY: 1 };
+  const setup = async () => {
+    const player = { x: 10, y: 5, px: 10.5, py: 5.5, stats: { agi: 0 }, buffs: {}, movePath: [] };
+    const game = await gameplayHarness(tiles, player);
+    game.state.portals = [portal];
+    return { player, game };
+  };
+
+  // Spawn is 8 tiles from the portal, inside the 14-tile trigger: no instant teleport on arrival.
+  let { player, game } = await setup();
+  assert.equal(game.world.lockPortalsIfSpawnedInside(player), true);
+  await game.world.checkPortals();
+  assert.equal(player.portalLocked, true);
+  assert.deepEqual(game.mapChanges, []);
+
+  // Walking a few tiles toward the portal keeps it locked...
+  player.px = 16.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, []);
+  // ...but walking 12 tiles from the spawn reaches the portal and teleports (the player really went there).
+  player.px = 22.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, ["alpha"]);
+
+  // Walking away from both the spawn and the portal clears the lock without teleporting; coming back then works.
+  ({ player, game } = await setup());
+  game.world.lockPortalsIfSpawnedInside(player);
+  player.px = 1.5;
+  await game.world.checkPortals();
+  assert.equal(player.portalLocked, true, "still within 22 tiles of the portal");
+  player.px = 0.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, []);
+  player.px = 38.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, []);
+  player.px = 18.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, ["alpha"]);
+});
+
+test("arriving through a portal keeps the strict lock so a held key cannot bounce straight back", async () => {
+  const tiles = Array.from({ length: 10 }, () => Array(40).fill(0));
+  const player = { x: 10, y: 5, px: 10.5, py: 5.5, stats: { agi: 0 }, buffs: {}, movePath: [], portalLocked: false, _portalArrivalAt: Date.now() };
+  const game = await gameplayHarness(tiles, player);
+  game.state.portals = [{ x: 18, y: 5, toMap: "back", toX: 1, toY: 1 }];
+
+  assert.equal(game.world.lockPortalsIfSpawnedInside(player), true);
+  assert.equal(player._portalLockOrigin, undefined, "no spawn-origin shortcut after a map change");
+  player.px = 22.5;
+  await game.world.checkPortals();
+  assert.deepEqual(game.mapChanges, [], "walking onto the portal we just came through must not teleport back");
+  player.px = 45;
+  await game.world.checkPortals();
+  assert.equal(player.portalLocked, false, "the lock clears once the player is clear of every portal");
+});
+
+test("death modal calculates xu penalty by realm without tu vi loss and stays safe at zero xu", () => {
+  const balanceSource = fs.readFileSync(path.join(root, "public", "js", "balance.js"), "utf8");
+  const modal = { style: { display: "none" } };
+  const button = { disabled: true, focused: false, focus() { this.focused = true; } };
+  const message = { textContent: "" };
+  const elements = new Map([
+    ["death-modal", modal],
+    ["death-respawn-btn", button],
+    ["death-message", message],
+  ]);
+  const context = vm.createContext({
+    S: { player: { xu: 100, realm: 2 } },
+    VisualEffects: { arePersistentEffectsEnabled() { return false; } },
+    localStorage: { getItem() { return null; }, setItem() {} },
+    window: { matchMedia: () => ({ matches: false }) },
+    document: { getElementById(id) { return elements.get(id) || null; } },
+    setTimeout, clearTimeout, Date, console,
+  });
+  vm.runInContext(`${balanceSource}\n${uiSource}\nglobalThis.__calcDeathXuPenalty = calcDeathXuPenalty;\nglobalThis.__UI = UI;`, context, { filename: "ui-death.js" });
+
+  assert.equal(context.__calcDeathXuPenalty(100, 1), 20);
+  assert.equal(context.__calcDeathXuPenalty(15, 2), 15);
+  assert.equal(context.__calcDeathXuPenalty(0, 4), 0);
+  assert.equal(context.__calcDeathXuPenalty(999, 30), 500);
+
+  context.__UI.showDeathModal();
+  assert.equal(modal.style.display, "flex");
+  assert.equal(button.disabled, false);
+  assert.match(message.textContent, /-40 xu/);
+  assert.match(message.textContent, /giữ nguyên tu vi/);
+
+  context.S.player = { xu: 0, canhGioi: { stt: 3 } };
+  context.__UI.showDeathModal();
+  assert.match(message.textContent, /0 xu — hồi sinh miễn phí/);
 });

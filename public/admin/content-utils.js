@@ -7,7 +7,12 @@
 
   const ID_PATTERN = /^[a-zA-Z0-9_-]{1,80}$/;
   const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  const ITEM_TYPES = new Set(["STONE", "POTION", "CONSUME", "LINDAN", "MATERIAL", "EQUIPMENT", "BREAKTHROUGH_PILL"]);
+  const ITEM_TYPES = new Set([
+    "EQUIPMENT", "ENHANCE_GEM", "PROTECT_CHARM", "STONE", "ELEMSTONE", "POTION",
+    "CONSUME", "LINDAN", "MATERIAL", "MAT", "BREAKTHROUGH_PILL", "BAG_EXPAND", "STAT_RESET", "EXCHANGE_XU",
+  ]);
+  const ITEM_RARITIES = new Set(["NORMAL", "MAGIC", "EXL", "ANCIENT"]);
+  const SPARKLE_PRESETS = new Set(["NONE", "DEWDROP", "SHIMMER", "MYTHIC_PRISM", "ELEMENTAL"]);
   const SKILL_TYPES = new Set(["COMMON", "PHYS", "MAGIC"]);
   const SKILL_CATEGORIES = new Set(["ACTIVE", "PASSIVE"]);
   const templates = {
@@ -104,8 +109,14 @@
       if (!type) throw new Error("Vật phẩm cần có loại (type hoặc loai).");
       if (!ITEM_TYPES.has(type)) throw new Error("Loại vật phẩm không được hỗ trợ.");
       if (fields.type && fields.loai && String(fields.type).toUpperCase() !== String(fields.loai).toUpperCase()) throw new Error("type và loai phải thống nhất.");
-      for (const field of ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp"]) {
+      for (const field of ["giaMua", "giaBan", "giaTriTuVi", "tuViLinhCanVal", "healHp", "healMp", "itemLevel", "requiredRealmStt"]) {
         if (fields[field] !== undefined && (!Number.isFinite(Number(fields[field])) || Number(fields[field]) < 0)) throw new Error(`Trường ${field} phải là số không âm.`);
+      }
+      if (fields.rarity !== undefined && !ITEM_RARITIES.has(String(fields.rarity).toUpperCase())) {
+        throw new Error("Phẩm chất vật phẩm phải là NORMAL, MAGIC, EXL hoặc ANCIENT.");
+      }
+      if (fields.sparkle !== undefined && (!fields.sparkle || typeof fields.sparkle !== "object" || !SPARKLE_PRESETS.has(String(fields.sparkle.preset || "NONE").toUpperCase()))) {
+        throw new Error("Cấu hình hiệu ứng lấp lánh 2D không hợp lệ.");
       }
     }
     if (key === "quests") {

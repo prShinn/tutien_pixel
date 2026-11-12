@@ -196,6 +196,8 @@ const Auth = {
       mp: playerData.mp,
       maxMp: playerData.maxMp,
       xu: playerData.xu,
+      linhThach: Number(playerData.linhThach || 0),
+      inventoryCapacity: Math.min(CFG.INV_MAX || 80, Math.max(CFG.INV_BASE || 40, Number(playerData.inventoryCapacity || CFG.INV_BASE || 40))),
       tuViHienTai: playerData.tuViHienTai || 0,
       tuViLenCap:
         playerData.tuViLenCap ||
@@ -249,6 +251,7 @@ const Auth = {
       S.session.user = null;
       S.player = null;
       S.inventory = [];
+      if (typeof ForgeUI !== "undefined") ForgeUI.reset?.();
       if (socket) {
         socket.disconnect();
         socket = null;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Vạn Cổ Đế Tôn</title>
     <link rel="stylesheet" href="./css/style.css?v=5" />
-    <link rel="stylesheet" href="./css/game-hub.css?v=11" />
+    <link rel="stylesheet" href="./css/game-hub.css?v=12" />
   </head>
   <body>
     <!-- ══════════════════════════════════════ SCREEN: AUTH -->
@@ -320,7 +320,8 @@
       <!-- 3. KPAH HUD: TOP RIGHT -->
       <div id="kpah-hud-topright">
         <div class="online-badge" id="online-badge">● Offline</div>
-        <div class="hud-xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
+        <div class="hud-xu" title="Xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><span id="ui-xu">0</span></div>
+        <div class="hud-xu hud-linh-thach" title="Linh Thạch"><span aria-hidden="true">💠</span><span id="ui-linh-thach">0</span></div>
       </div>
 
       <button id="btn-hud-layout" class="hud-layout-toggle" type="button" aria-expanded="true" aria-controls="kpah-chat-log map-widget quest-tracker game-controls-hint" aria-label="Thu gọn giao diện" title="Thu gọn giao diện" onclick="UI.toggleHudLayout()">HUD −</button>
@@ -337,6 +338,11 @@
         <div class="bottom-btns" role="group" aria-label="Thao tác nhanh trong game">
           <button class="kpah-btn" type="button" aria-label="Mở nhân vật và hành trang" title="Nhân vật và hành trang" onclick="UI.toggleKpahMenu()"><span class="pixel-icon icon-bag" aria-hidden="true"></span><span class="hub-btn-label">Hành Trang</span></button>
           <button class="kpah-btn" type="button" aria-label="Mở sổ nhiệm vụ" title="Nhiệm vụ (Q)" onclick="QuestUI.toggle()"><span class="pixel-icon icon-quest" aria-hidden="true"></span><span class="hub-btn-label">Nhiệm Vụ</span><kbd>Q</kbd></button>
+          <button class="kpah-btn" type="button" aria-label="Mở Lò Luyện Đan" title="Lò Luyện Đan (L)" onclick="AlchemyUI.open()"><span aria-hidden="true">🔥</span><span class="hub-btn-label">Luyện Đan</span><kbd>L</kbd></button>
+          <button class="kpah-btn" type="button" aria-label="Mở Lò Rèn Cường Hóa" title="Lò Rèn Cường Hóa" onclick="ForgeUI.open()"><span aria-hidden="true">⚒️</span><span class="hub-btn-label">Lò Rèn</span></button>
+          <button class="kpah-btn" type="button" aria-label="Mở hộp thư" title="Hộp Thư Tu Sĩ" onclick="GameHub.openMail()"><span aria-hidden="true">✉️</span><span class="hub-btn-label">Hộp Thư</span><span class="hub-badge" id="mail-badge" hidden>0</span></button>
+          <button class="kpah-btn" type="button" aria-label="Mở phúc lợi và điểm danh" title="Phúc Lợi · Điểm Danh" onclick="GameHub.openHub('checkin')"><span aria-hidden="true">🎁</span><span class="hub-btn-label">Phúc Lợi</span><span class="hub-dot" id="hub-badge" hidden></span></button>
+          <button class="kpah-btn" type="button" aria-label="Mở Kỳ Trân Các" title="Kỳ Trân Các (Linh Thạch)" onclick="GameHub.openHub('premium')"><span aria-hidden="true">💠</span><span class="hub-btn-label">Kỳ Trân</span></button>
           <button class="kpah-btn" type="button" aria-label="Mở bản đồ đại lục" title="Bản đồ đại lục" onclick="UI.toggleContinent()"><span class="pixel-icon icon-map" aria-hidden="true"></span><span class="hub-btn-label">Đại lục</span></button>
           <button class="kpah-btn" type="button" aria-label="Mở khung chat" title="Chat" onclick="UI.toggleChat()"><span class="pixel-icon icon-chat" aria-hidden="true"></span><span class="hub-btn-label">Chat</span></button>
           <button class="kpah-btn" type="button" id="btn-auto" aria-label="Bật hoặc tắt tự động chiến đấu" title="Tự động chiến đấu" onclick="toggleAuto()"><span class="pixel-icon icon-auto" aria-hidden="true"></span><span class="hub-btn-label">Tự Động</span></button>
@@ -391,6 +397,8 @@
               <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
                 <button class="sbtn" onclick="Cultivation.absorbStone()">Hấp Thu</button>
                 <button class="sbtn" onclick="Cultivation.tryBreakthrough()">Phá Cảnh</button>
+                <button class="sbtn" onclick="UI.toggleKpahMenu(); AlchemyUI.open()">Luyện Đan</button>
+                <button class="sbtn" onclick="UI.toggleKpahMenu(); ForgeUI.open()">Lò Rèn</button>
                 <button class="sbtn" onclick="Net.saveNow()">Lưu</button>
                 <button class="sbtn" onclick="Auth.logout()">Thoát</button>
               </div>
@@ -401,6 +409,7 @@
                 <div class="esl" id="slot-weapon"><div class="eicon"><span class="pixel-icon icon-sword" aria-hidden="true"></span></div>Vũ Khí</div>
                 <div class="esl" id="slot-helmet"><div class="eicon"><span class="pixel-icon icon-helmet" aria-hidden="true"></span></div>Mũ</div>
                 <div class="esl" id="slot-armor"><div class="eicon"><span class="pixel-icon icon-armor" aria-hidden="true"></span></div>Giáp</div>
+                <div class="esl" id="slot-gloves"><div class="eicon"><span class="pixel-icon icon-armor" aria-hidden="true"></span></div>Găng Tay</div>
                 <div class="esl" id="slot-pants"><div class="eicon"><span class="pixel-icon icon-armor" aria-hidden="true"></span></div>Quần</div>
                 <div class="esl" id="slot-boots"><div class="eicon"><span class="pixel-icon icon-boots" aria-hidden="true"></span></div>Giày</div>
                 <div class="esl" id="slot-ring"><div class="eicon"><span class="pixel-icon icon-ring" aria-hidden="true"></span></div>Nhẫn</div>
@@ -462,19 +471,107 @@
       </div>
 
     <!-- SHOP -->
-    <div id="shop-modal">
-      <div class="modal-box" style="width: 540px">
+    <div id="shop-modal" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+      <div class="modal-box shop-modal-box">
         <div class="modal-header">
           <span class="modal-title" id="shop-title">Cửa Hàng</span>
           <span class="modal-xu"><span class="pixel-icon icon-coins" aria-hidden="true"></span><em id="shop-xu">0</em> xu</span>
-          <button class="modal-close-btn" onclick="Shop.close()">✕ Đóng</button>
+          <button class="modal-close-btn" type="button" onclick="Shop.close()">✕ Đóng</button>
         </div>
-        <div class="shop-cols" style="height: 280px">
+        <div id="shop-greeting" class="shop-greeting" hidden></div>
+        <div id="shop-tabs" class="shop-tabs" role="tablist" aria-label="Danh mục cửa hàng">
+          <button type="button" class="sbtn shop-tab-btn" data-shop-cat="ALL" onclick="Shop.setCategory('ALL')">Tất Cả</button>
+          <button type="button" class="sbtn shop-tab-btn" data-shop-cat="EQUIPMENT" onclick="Shop.setCategory('EQUIPMENT')">Trang Bị</button>
+          <button type="button" class="sbtn shop-tab-btn" data-shop-cat="ALCHEMY" onclick="Shop.setCategory('ALCHEMY')">Đan & Nguyên Liệu</button>
+          <button type="button" id="shop-alchemy-shortcut" class="sbtn shop-alchemy-btn" onclick="Shop.close(); AlchemyUI.open()">🔥 Lò Luyện Đan</button>
+        </div>
+        <div class="shop-cols">
           <div class="shop-col" id="shop-buy-list">
             <div class="shop-col-head">MUA VẬT PHẨM</div>
           </div>
           <div class="shop-col" id="shop-sell-list">
             <div class="shop-col-head">BÁN VẬT PHẨM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALCHEMY FURNACE -->
+    <div id="alchemy-modal" role="dialog" aria-modal="true" aria-labelledby="alchemy-title">
+      <div class="modal-box alchemy-modal-box">
+        <div class="modal-header">
+          <span class="modal-title" id="alchemy-title">🔥 Lò Luyện Đan</span>
+          <div class="alchemy-wallet">
+            <span class="modal-xu">🪙 <em id="alchemy-xu">0</em> Xu</span>
+            <span class="modal-lt">💠 <em id="alchemy-linhthach">0</em> Linh Thạch</span>
+          </div>
+          <button class="modal-close-btn" type="button" onclick="AlchemyUI.close()">✕ Đóng</button>
+        </div>
+        <div class="alchemy-toolbar">
+          <div class="alchemy-tabs" role="tablist" aria-label="Nhóm công thức luyện đan">
+            <button type="button" class="sbtn alchemy-tab-btn" data-alchemy-tab="PHI_THANG" onclick="AlchemyUI.setTab('PHI_THANG')">🌟 Đan Phi Thăng</button>
+            <button type="button" class="sbtn alchemy-tab-btn" data-alchemy-tab="BREAKTHROUGH" onclick="AlchemyUI.setTab('BREAKTHROUGH')">12 Đan Phá Cảnh</button>
+            <button type="button" class="sbtn alchemy-tab-btn" data-alchemy-tab="SUPPORT" onclick="AlchemyUI.setTab('SUPPORT')">Bổ Trợ & Tu Vi</button>
+            <button type="button" class="sbtn alchemy-tab-btn" data-alchemy-tab="ALL" onclick="AlchemyUI.setTab('ALL')">Tất Cả</button>
+            <button type="button" class="sbtn alchemy-tab-btn" data-alchemy-tab="HISTORY" onclick="AlchemyUI.setTab('HISTORY')">📜 Lịch Sử</button>
+          </div>
+          <div class="alchemy-filters">
+            <button type="button" class="sbtn alchemy-q-btn" data-alchemy-quality="ALL" onclick="AlchemyUI.setQuality('ALL')">Mọi phẩm</button>
+            <button type="button" class="sbtn alchemy-q-btn" data-alchemy-quality="HA_PHAM" onclick="AlchemyUI.setQuality('HA_PHAM')">Hạ</button>
+            <button type="button" class="sbtn alchemy-q-btn" data-alchemy-quality="TRUNG_PHAM" onclick="AlchemyUI.setQuality('TRUNG_PHAM')">Trung</button>
+            <button type="button" class="sbtn alchemy-q-btn" data-alchemy-quality="THUONG_PHAM" onclick="AlchemyUI.setQuality('THUONG_PHAM')">Thượng</button>
+            <button type="button" class="sbtn alchemy-q-btn" data-alchemy-quality="CUC_PHAM" onclick="AlchemyUI.setQuality('CUC_PHAM')">Cực</button>
+            <input id="alchemy-search" class="alchemy-search" type="search" placeholder="Tìm đan phương..." oninput="AlchemyUI.setSearch(this.value)" aria-label="Tìm kiếm đan phương" />
+          </div>
+        </div>
+        <div id="alchemy-recipes-view" class="alchemy-body">
+          <div id="alchemy-recipe-list" class="alchemy-list" aria-label="Danh sách công thức"></div>
+          <div id="alchemy-recipe-detail" class="alchemy-detail" aria-live="polite"></div>
+        </div>
+        <div id="alchemy-history-view" class="alchemy-history" hidden></div>
+      </div>
+    </div>
+
+    <!-- EQUIPMENT FORGE -->
+    <div id="forge-modal" role="dialog" aria-modal="true" aria-labelledby="forge-title">
+      <div class="modal-box forge-modal-box">
+        <div class="modal-header">
+          <span class="modal-title" id="forge-title">⚒️ Lò Rèn Cường Hóa (+0 → +15)</span>
+          <div class="alchemy-wallet">
+            <span class="modal-xu">🪙 <em id="forge-xu">0</em> Xu</span>
+            <span class="modal-lt">💠 <em id="forge-linhthach">0</em> Linh Thạch</span>
+          </div>
+          <button class="modal-close-btn" type="button" onclick="ForgeUI.close()">✕ Đóng</button>
+        </div>
+        <div class="forge-toolbar">
+          <div class="forge-tabs" role="tablist" aria-label="Lọc trang bị cường hóa">
+            <button type="button" class="sbtn forge-filter-btn active" data-forge-filter="ALL" onclick="ForgeUI.setFilter('ALL')">Tất Cả</button>
+            <button type="button" class="sbtn forge-filter-btn" data-forge-filter="EQUIPPED" onclick="ForgeUI.setFilter('EQUIPPED')">Đang Mặc</button>
+            <button type="button" class="sbtn forge-filter-btn" data-forge-filter="BAG" onclick="ForgeUI.setFilter('BAG')">Trong Túi</button>
+          </div>
+          <span class="forge-hint">Thất bại +4..+7 rớt 1 cấp · +8..+15 về +0 (không mất đồ)</span>
+        </div>
+        <div class="forge-body">
+          <div id="forge-equip-list" class="forge-list" aria-label="Danh sách trang bị"></div>
+          <div id="forge-detail" class="forge-detail" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BREAKTHROUGH QUALITY PICKER -->
+    <div id="breakthrough-modal" role="dialog" aria-modal="true" aria-labelledby="breakthrough-modal-title">
+      <div class="modal-box bt-modal-box">
+        <div class="modal-header">
+          <span class="modal-title" id="breakthrough-modal-title">⚡ Chọn Đan Phá Cảnh</span>
+          <button class="modal-close-btn" type="button" onclick="Cultivation.closeBreakthroughModal()">✕ Đóng</button>
+        </div>
+        <div class="bt-modal-body">
+          <p id="breakthrough-target-label" class="bt-target-label"></p>
+          <div id="breakthrough-pill-list" class="bt-pill-list"></div>
+          <p class="bt-warning">⚠️ Nếu đột phá thất bại: tiêu hao viên đan đã chọn, bị lùi 1 tiểu tầng cảnh giới và mất Xu + Linh Thạch phí phá cảnh.</p>
+          <div class="bt-actions">
+            <button type="button" class="sbtn" onclick="Cultivation.closeBreakthroughModal()">Hủy</button>
+            <button type="button" class="sbtn bt-confirm-btn" onclick="Cultivation.confirmBreakthrough()">⚡ Bắt Đầu Phá Cảnh</button>
           </div>
         </div>
       </div>
@@ -494,12 +591,82 @@
       </div>
     </div>
 
+    <div id="mail-modal" class="kpah-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="mail-modal-title">
+      <section class="kpah-modal-box hub-modal-box">
+        <header class="kpah-modal-header">
+          <span id="mail-modal-title">✉️ HỘP THƯ TU SĨ</span>
+          <button class="kpah-close-btn" type="button" aria-label="Đóng hộp thư" onclick="GameHub.closeMail()">✕</button>
+        </header>
+        <div class="hub-modal-body">
+          <div class="hub-toolbar">
+            <span id="mail-unclaimed-label">0 thư chưa nhận quà</span>
+            <button type="button" class="sbtn" onclick="GameHub.loadMail(true)">↻ Làm mới</button>
+          </div>
+          <div id="mail-list" class="hub-scroll-list"></div>
+          <div class="hub-footer-actions">
+            <button id="mail-load-more" type="button" class="sbtn" hidden onclick="GameHub.loadMail(false)">Tải thêm thư</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="hub-modal" class="kpah-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="hub-modal-title">
+      <section class="kpah-modal-box hub-modal-box hub-modal-wide">
+        <header class="kpah-modal-header">
+          <span id="hub-modal-title">🏮 TIÊN DUYÊN CÁC</span>
+          <button class="kpah-close-btn" type="button" aria-label="Đóng Tiên Duyên Các" onclick="GameHub.closeHub()">✕</button>
+        </header>
+        <div class="hub-tabs" role="tablist" aria-label="Phân mục Tiên Duyên Các">
+          <button type="button" role="tab" data-hub-tab="checkin" aria-selected="true" onclick="GameHub.switchTab('checkin')">🎁 Điểm Danh 7 Ngày</button>
+          <button type="button" role="tab" data-hub-tab="premium" aria-selected="false" onclick="GameHub.switchTab('premium')">💠 Kỳ Trân Các</button>
+          <button type="button" role="tab" data-hub-tab="ledger" aria-selected="false" onclick="GameHub.switchTab('ledger')">📜 Sổ Cái Ví</button>
+        </div>
+        <div class="hub-modal-body">
+          <section data-hub-pane="checkin" class="hub-pane">
+            <div class="hub-card">
+              <div class="hub-card-head">
+                <strong>📅 Điểm Danh 7 Ngày</strong>
+                <small id="checkin-cycle-label">Chu kỳ #1 · Reset 00:00 (UTC+7)</small>
+              </div>
+              <div id="checkin-grid" class="checkin-grid"></div>
+              <div class="hub-card-actions">
+                <button id="checkin-claim-btn" type="button" class="sbtn" onclick="GameHub.claimCheckin()">✓ Điểm danh hôm nay</button>
+              </div>
+            </div>
+          </section>
+
+          <section data-hub-pane="premium" class="hub-pane" hidden>
+            <div class="hub-toolbar">
+              <span>Kỳ Trân Các · Chi tiêu bằng Linh Thạch</span>
+              <strong>💠 <span id="premium-wallet-lt">0</span> Linh Thạch</strong>
+            </div>
+            <div id="premium-shop-list" class="hub-scroll-list"></div>
+          </section>
+
+          <section data-hub-pane="ledger" class="hub-pane" hidden>
+            <div class="hub-toolbar">
+              <div class="hub-filter-group">
+                <button type="button" class="sbtn active" data-ledger-currency="ALL" aria-pressed="true" onclick="GameHub.loadLedger(true, 'ALL')">Tất cả</button>
+                <button type="button" class="sbtn" data-ledger-currency="XU" aria-pressed="false" onclick="GameHub.loadLedger(true, 'XU')">Xu</button>
+                <button type="button" class="sbtn" data-ledger-currency="LINH_THACH" aria-pressed="false" onclick="GameHub.loadLedger(true, 'LINH_THACH')">Linh Thạch</button>
+              </div>
+              <small id="ledger-wallet-summary"></small>
+            </div>
+            <div id="ledger-list" class="hub-scroll-list"></div>
+            <div class="hub-footer-actions">
+              <button id="ledger-load-more" type="button" class="sbtn" hidden onclick="GameHub.loadLedger(false)">Tải thêm</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+
     <div id="death-modal" class="kpah-modal death-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="death-title">
       <section class="kpah-modal-box death-modal-box">
         <header class="kpah-modal-header"><span id="death-title">TRỌNG THƯƠNG</span></header>
         <div class="death-modal-content">
           <p>Ngươi đã gục ngã trên chiến trường.</p>
-          <p>Hồi sinh tại điểm xuất phát của bản đồ khởi đầu với đầy sinh lực và linh lực.</p>
+          <p>Hồi sinh tại điểm xuất phát với đầy sinh lực và linh lực. <strong>Tu vi được giữ nguyên</strong>; chỉ khấu trừ lộ phí <strong>20 xu × bậc cảnh giới</strong> (tối đa <strong>500 xu</strong>, 0 xu vẫn hồi sinh miễn phí).</p>
           <p id="death-message" role="status" aria-live="polite">Đang chờ hồi sinh…</p>
           <button id="death-respawn-btn" type="button" class="sbtn" onclick="Net.respawnPlayer()">Hồi Sinh</button>
         </div>
@@ -546,6 +713,6 @@
         <button type="button" onclick="window.location.reload()">Tải lại game</button>
       </section>
     </div>
-    <script src="./js/bootstrap.js?v=42"></script>
+    <script src="./js/bootstrap.js?v=47"></script>
   </body>
 </html>

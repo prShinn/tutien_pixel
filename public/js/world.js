@@ -510,7 +510,15 @@ const World = {
     if (!p || !Array.isArray(S.portals)) return false;
     const inside = S.portals.some((portal) => (portal.denMap || portal.toMap)
       && dist(p.px, p.py, portal.x * CFG.TS + CFG.TS / 2, portal.y * CFG.TS + CFG.TS / 2) < 22);
-    if (inside) p.portalLocked = true;
+    if (inside) {
+      // Vào game/hồi sinh gần cổng: nhớ điểm xuất hiện để mở khóa khi người chơi chủ động đi đủ xa khỏi đó
+      // (checkPortals), vì cổng nằm sát điểm xuất hiện nên bước ra khỏi vùng 22 là không thể đi tới cổng.
+      // Vừa qua cổng (checkPortals đánh dấu _portalArrivalAt) thì giữ luật chặt: không cho đi ngược lại cổng vừa qua.
+      const arrivedThroughPortal = Date.now() - Number(p._portalArrivalAt || 0) < 10000;
+      if (!arrivedThroughPortal) p._portalLockOrigin = { px: p.px, py: p.py };
+      p.portalLocked = true;
+    }
+    p._portalArrivalAt = 0;
     return inside;
   },
 
@@ -523,18 +531,27 @@ const World = {
       return dist(p.px, p.py, px, py) < 14 && (portal.denMap || portal.toMap);
     });
     if (p.portalLocked) {
-      // Chỉ mở khóa khi đã bước ra xa cổng ít nhất 22 pixel
-      const nearAnyPortal = S.portals.some((portal) => {
-        const px = portal.x * CFG.TS + CFG.TS / 2;
-        const py = portal.y * CFG.TS + CFG.TS / 2;
-        return dist(p.px, p.py, px, py) < 22;
-      });
-      if (!nearAnyPortal) p.portalLocked = false;
-      return;
+      const origin = p._portalLockOrigin;
+      if (origin && dist(p.px, p.py, origin.px, origin.py) >= 12) {
+        // Đã chủ động đi khỏi điểm xuất hiện: cho phép bước vào cổng nằm gần đó.
+        p.portalLocked = false;
+        p._portalLockOrigin = null;
+      } else {
+        // Chỉ mở khóa khi đã bước ra xa cổng ít nhất 22 pixel
+        const nearAnyPortal = S.portals.some((portal) => {
+          const px = portal.x * CFG.TS + CFG.TS / 2;
+          const py = portal.y * CFG.TS + CFG.TS / 2;
+          return dist(p.px, p.py, px, py) < 22;
+        });
+        if (!nearAnyPortal) { p.portalLocked = false; p._portalLockOrigin = null; }
+        return;
+      }
     }
     if (p.isTeleporting || !touching) return;
     p.isTeleporting = true;
     p.portalLocked = true;
+    p._portalLockOrigin = null;
+    p._portalArrivalAt = Date.now();
     Net.emitMapChange(touching.denMap || touching.toMap, touching.toX, touching.toY);
     setTimeout(() => { p.isTeleporting = false; }, 2500);
   },

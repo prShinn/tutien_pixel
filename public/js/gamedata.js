@@ -65,7 +65,7 @@ const GameData = {
 			img: item.img || "",
 			type: item.type || item.loai,
 			// Tu vi stones
-			giaTriTuVi: item.giaTriTuVi || item.tuVal || 0,
+			giaTriTuVi: item.giaTriTuVi || item.tuVal || item.tuVi || 0,
 			// Elem stones
 			giaTriTang: item.giaTriTang || item.statVal || 0,
 			statKey: item.statKey || null,
@@ -81,6 +81,10 @@ const GameData = {
 			healMp: item.healMp || item.mpHoi || 0,
 			statBoost: item.statBoost || 0,
 			// Economy
+			currency: String(item.currency || "XU").toUpperCase() === "LINH_THACH" ? "LINH_THACH" : "XU",
+			shopTab: item.shopTab || null,
+			bagSlots: Number(item.bagSlots || 0),
+			xuAmount: Number(item.xuAmount || 0),
 			giaMua: item.giaMua ?? item.buyPrice ?? 0,
 			giaBan: item.giaBan ?? item.sell ?? 0,
 			buyPrice: item.giaMua ?? item.buyPrice ?? 0,
@@ -91,7 +95,17 @@ const GameData = {
 			equipmentInfo: item.equipmentInfo || null,
 			basicAttack: item.basicAttack || null,
 			rarity: item.rarity || "",
+			itemLevel: Math.max(1, Math.floor(Number(item.itemLevel || ((Number(item.requiredRealmStt || 1)) * 10)))),
+			weaponKind: item.weaponKind || null,
+			gemTier: item.gemTier ? String(item.gemTier).trim().toUpperCase() : null,
+			hasLuck: Boolean(item.hasLuck),
+			sparkle: item.sparkle || (item.sparklePreset ? { preset: item.sparklePreset, color: item.sparkleColor || "", intensity: Number(item.sparkleIntensity ?? 1) } : null),
 			quality: item.quality || "",
+			qualityTier: Number(item.qualityTier || 0),
+			qualityLabel: item.qualityLabel || "",
+			pillGroup: item.pillGroup || "",
+			breakthroughRate: item.breakthroughRate != null ? Number(item.breakthroughRate) : null,
+			shopCategory: item.shopCategory || "",
 			requiredRealmStt: Number(item.requiredRealmStt || 1),
 			// Desc
 			desc: item.moTa || item.desc || item.description || "",
@@ -115,7 +129,9 @@ const GameData = {
 	},
 
 	refreshShopCatalog() {
-		CFG.SHOP_SELL = Object.values(CFG.ITEMS).filter((item) => item.giaMua > 0).map((item) => item.id);
+		CFG.SHOP_SELL = Object.values(CFG.ITEMS)
+			.filter((item) => item.giaMua > 0 && item.currency !== "LINH_THACH")
+			.map((item) => item.id);
 	},
 
 	itemWithCurrentDetails(entry) {
@@ -123,8 +139,24 @@ const GameData = {
 		if (!id) return entry;
 		const current = this.itemRecords.get(id) || (Object.hasOwn(CFG.ITEMS, id) ? CFG.ITEMS[id] : null);
 		if (!current) return entry;
-		const { id: _catalogCode, recordId: _recordId, ...details } = current;
-		return { ...entry, ...details };
+		const { id: _catalogCode, recordId: _recordId, equipmentInfo: catalogEquipInfo, ...details } = current;
+		const merged = {
+			...entry,
+			...details,
+			...(entry.equipmentInfo ? { equipmentInfo: entry.equipmentInfo } : catalogEquipInfo ? { equipmentInfo: catalogEquipInfo } : {}),
+			...(entry.instanceId !== undefined ? { instanceId: entry.instanceId } : {}),
+			...(entry.isInstance !== undefined ? { isInstance: Boolean(entry.isInstance) } : {}),
+			...(entry.rarity ? { rarity: entry.rarity } : {}),
+			...(entry.enhanceLevel !== undefined ? { enhanceLevel: Number(entry.enhanceLevel || 0) } : {}),
+			...(entry.hasLuck !== undefined ? { hasLuck: Boolean(entry.hasLuck) } : {}),
+			...(Array.isArray(entry.exlOptions) ? { exlOptions: entry.exlOptions } : {}),
+		};
+		if (String(merged.type || merged.loai || "").toUpperCase() === "EQUIPMENT"
+			&& typeof GAME_BALANCE !== "undefined"
+			&& typeof GAME_BALANCE?.describeEquipment === "function") {
+			merged.equipmentInfo = GAME_BALANCE.describeEquipment(merged);
+		}
+		return merged;
 	},
 
 	async loadItems(isCurrent = () => true) {
@@ -254,6 +286,12 @@ const GameData = {
 		console.info(`[GameData] SKILLS: ${total} kỹ năng cho ${lcs} linh căn đã tải.`);
 	},
 
+	async loadBalance() {
+		const data = await this._get(API.PATHS.data.balance);
+		if (data && typeof data === "object") CFG.BALANCE = data;
+		return data;
+	},
+
 	// ════ Load tất cả song song ════
 	async load() {
 		console.info("[GameData] Đang tải dữ liệu game từ server...");
@@ -263,6 +301,7 @@ const GameData = {
 			this.loadItems(),
 			this.loadSkills(),
 			this.loadMonsters(),
+			this.loadBalance(),
 		]);
 		console.info("[GameData] Hoàn tất tải dữ liệu.");
 	},

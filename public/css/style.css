@@ -1206,6 +1206,7 @@ body {
   line-height: 1.8;
   color: var(--text);
   font-size: 12px;
+  white-space: pre-line;
 }
 .dialog-close-wrap {
   padding: 10px 14px;
@@ -2837,3 +2838,134 @@ body {
 .quest-tracker-toggle:hover {
   background: #3b362e;
 }
+
+/* 2D Sparkle FX & Rarity / Enhancement Badges */
+.fx-slot {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--fx-color, rgba(255, 255, 255, 0.14));
+}
+.fx-slot img {
+  image-rendering: pixelated;
+}
+.fx-rarity-magic {
+  box-shadow: inset 0 0 8px rgba(88, 166, 255, 0.25);
+}
+.fx-rarity-exl {
+  box-shadow: inset 0 0 10px rgba(63, 185, 80, 0.35), 0 0 6px rgba(63, 185, 80, 0.25);
+}
+.fx-rarity-ancient {
+  box-shadow: inset 0 0 12px rgba(240, 179, 66, 0.45), 0 0 8px rgba(240, 179, 66, 0.35);
+}
+.fx-enh-t1 {
+  box-shadow: inset 0 0 8px rgba(136, 198, 255, 0.35), 0 0 4px rgba(136, 198, 255, 0.25);
+}
+.fx-enh-t2 {
+  box-shadow: inset 0 0 10px rgba(88, 166, 255, 0.45), 0 0 6px rgba(88, 166, 255, 0.35);
+}
+.fx-enh-t3 {
+  box-shadow: inset 0 0 12px rgba(210, 168, 255, 0.55), 0 0 8px rgba(210, 168, 255, 0.45);
+}
+.fx-enh-t4 {
+  box-shadow: inset 0 0 14px rgba(255, 215, 0, 0.65), 0 0 10px rgba(255, 190, 60, 0.55);
+}
+.fx-enh-badge {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  padding: 0 3px;
+  background: rgba(10, 12, 18, 0.88);
+  border: 1px solid rgba(255, 215, 110, 0.7);
+  color: #ffe27a;
+  font: 700 8px/1.2 monospace;
+  z-index: 3;
+  pointer-events: none;
+}
+.fx-luck-badge {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  color: #7ee787;
+  font-size: 9px;
+  line-height: 1;
+  text-shadow: 0 0 4px #1f6feb;
+  z-index: 3;
+  pointer-events: none;
+}
+.fx-sparkle-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.fx-animated.fx-sparkle-dewdrop .fx-sparkle-layer::before,
+.fx-animated.fx-sparkle-shimmer .fx-sparkle-layer::before,
+.fx-animated.fx-sparkle-mythic_prism .fx-sparkle-layer::before,
+.fx-animated.fx-sparkle-elemental .fx-sparkle-layer::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(125deg, transparent 36%, var(--fx-color, rgba(255, 255, 255, 0.65)) 50%, transparent 64%);
+  opacity: 0.35;
+  transform: translateX(-120%);
+  animation: fxShimmerSweep 2.6s ease-in-out infinite;
+}
+.fx-animated .fx-sparkle-layer .fx-star {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--fx-color, #fff4b8);
+  box-shadow: 0 0 4px var(--fx-color, #fff4b8);
+  animation: fxSparkleTwinkle 1.5s ease-in-out infinite;
+}
+.fx-animated .fx-sparkle-layer .fx-star.s1 { top: 3px; right: 3px; }
+.fx-animated .fx-sparkle-layer .fx-star.s2 { bottom: 4px; right: 5px; animation-delay: 0.45s; background: var(--fx-secondary, #ffffff); }
+.fx-animated .fx-sparkle-layer .fx-star.s3 { top: 45%; left: 3px; animation-delay: 0.9s; }
+.fx-animated .fx-sparkle-layer::after {
+  content: "✦";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--fx-color, #fff4b8);
+  text-shadow: 0 0 5px var(--fx-color, #fff4b8);
+  animation: fxSparkleTwinkle 1.6s ease-in-out infinite;
+}
+.fx-animated.fx-sparkle-mythic_prism .fx-sparkle-layer::after,
+.fx-animated.fx-sparkle-mythic_prism .fx-sparkle-layer .fx-star {
+  animation: fxSparkleTwinkle 1.1s ease-in-out infinite, fxPrismHue 2.8s linear infinite;
+}
+@keyframes fxShimmerSweep {
+  0%, 35% { transform: translateX(-115%); opacity: 0; }
+  55% { opacity: 0.42; }
+  80%, 100% { transform: translateX(115%); opacity: 0; }
+}
+@keyframes fxSparkleTwinkle {
+  0%, 100% { transform: scale(0.75) rotate(0deg); opacity: 0.45; }
+  50% { transform: scale(1.18) rotate(22deg); opacity: 1; }
+}
+@keyframes fxPrismHue {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-animated .fx-sparkle-layer::before,
+  .fx-animated .fx-sparkle-layer::after,
+  .fx-animated .fx-sparkle-layer .fx-star,
+  .fx-animated.fx-sparkle-mythic_prism .fx-sparkle-layer .fx-star {
+    animation: none !important;
+  }
+}
+
+.tip-badge {
+  display: inline-block;
+  margin: 2px 4px 4px 0;
+  padding: 1px 5px;
+  font-size: 9px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+.tip-scale { color: #9ecbff; font-size: 10px; }
+.tip-luck { color: #79c0ff; font-size: 10px; font-weight: 700; margin-top: 2px; }
+.tip-exl { color: #56d364; font-size: 10px; line-height: 1.4; }

@@ -89,6 +89,21 @@ const ItemStudio = (() => {
     return preview.toDataURL("image/png");
   }
 
+  function validatePngPayloadSize(dataUrl, size) {
+    if (!dataUrl) return dataUrl;
+    if (dataUrl.length > 24000) {
+      throw new Error(`Ảnh ${size}×${size} (${dataUrl.length} ký tự) vượt giới hạn 24.000 ký tự. Hãy chọn kích thước 32×32 hoặc ít màu hơn.`);
+    }
+    return dataUrl;
+  }
+
+  function sparkleFromForm(fields) {
+    const preset = String(fields?.sparklePreset?.value || "NONE").toUpperCase();
+    const color = fields?.sparkleColor?.value || "#ffd966";
+    const intensity = Math.max(1, Math.min(3, Math.floor(Number(fields?.sparkleIntensity?.value || 2))));
+    return { enabled: preset !== "NONE", preset, color, intensity };
+  }
+
   async function loadBitmap(file, pngOnly) {
     if (file.size > 8 * 1024 * 1024) throw new Error("Ảnh vượt quá 8 MB.");
     const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
@@ -108,29 +123,108 @@ const ItemStudio = (() => {
     return bitmap;
   }
 
-  function mountImage(form, { onChange, pngOnly = false }) {
+  function mountImage(form, { onChange, pngOnly = false, enableSparklePreview = false }) {
     const fields = form.elements;
     const preview = form.querySelector("canvas");
     const artStatus = form.querySelector("[data-art-status]");
+    const bakeCanvas = document.createElement("canvas");
     let bitmap = null;
+    let bakedImg = "";
     let version = 0;
+    let rafId = 0;
+
+    function stopAnim() {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    }
+
+    function paintPreviewFrame(nowMs = performance.now()) {
+      const ctx = preview.getContext("2d");
+      ctx.clearRect(0, 0, preview.width, preview.height);
+      if (!bakedImg || !bakeCanvas.width) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bakeCanvas, 0, 0, preview.width, preview.height);
+      if (enableSparklePreview && typeof ItemFX !== "undefined" && fields?.sparklePreset) {
+        const sparkle = sparkleFromForm(fields);
+        const rarity = fields?.rarity?.value || "NORMAL";
+        const linhCan = fields?.linhCan?.value || "COMMON";
+        ItemFX.drawSparkleOverlayCanvas(
+          ctx,
+          0,
+          0,
+          preview.width,
+          { rarity, linhCan, sparkle, hasLuck: Boolean(fields?.hasLuck?.checked) },
+          nowMs,
+          { forceAnimate: true },
+        );
+      }
+    }
+
+    let hiddenObserver = null;
+    function watchVisibility() {
+      if (hiddenObserver || typeof MutationObserver === "undefined") return;
+      const hiddenHost = form.closest("[hidden]")?.parentElement || form.parentElement;
+      if (!hiddenHost) return;
+      hiddenObserver = new MutationObserver(() => {
+        if (!form.isConnected) {
+          hiddenObserver.disconnect();
+          hiddenObserver = null;
+          return;
+        }
+        if (form.closest("[hidden]")) {
+          stopAnim();
+        } else {
+          syncAnimLoop();
+        }
+      });
+      hiddenObserver.observe(hiddenHost, { attributes: true, subtree: true, attributeFilter: ["hidden", "class", "style"] });
+    }
+
+    function syncAnimLoop() {
+      stopAnim();
+      if (!enableSparklePreview || !bakedImg || typeof ItemFX === "undefined" || !fields?.sparklePreset) return;
+      const sparkle = sparkleFromForm(fields);
+      if (!sparkle.enabled) return;
+      watchVisibility();
+      if (!form.isConnected || form.closest("[hidden]")) return;
+      const tick = (nowMs) => {
+        if (!form.isConnected || form.closest("[hidden]")) {
+          rafId = 0;
+          return;
+        }
+        paintPreviewFrame(nowMs);
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    }
 
     function refreshPreview() {
-      let img = "";
+      stopAnim();
+      bakedImg = "";
       preview.getContext("2d").clearRect(0, 0, preview.width, preview.height);
       if (bitmap) {
         try {
           const size = Number(fields.size.value);
-          img = drawIcon(bitmap, preview, {
+          const rawUrl = drawIcon(bitmap, bakeCanvas, {
             size, colors: Number(fields.colors.value), removeBg: fields.removeBg.checked, outline: fields.outline.checked,
           });
-          artStatus.textContent = `${pngOnly ? "Sprite" : "Icon"} PNG · ${size} × ${size} px · nền trong suốt`;
+          bakedImg = validatePngPayloadSize(rawUrl, size);
+          preview.width = preview.height = enableSparklePreview ? Math.max(96, size * 2) : size;
+          paintPreviewFrame(performance.now());
+          const sparkleLabel = enableSparklePreview && fields?.sparklePreset?.value !== "NONE"
+            ? ` · lấp lánh 2D (${fields.sparklePreset.value})`
+            : "";
+          artStatus.textContent = `${pngOnly ? "Sprite" : "Icon"} PNG · ${size} × ${size} px (${Math.round(bakedImg.length / 1024)} KB)${sparkleLabel}`;
+          syncAnimLoop();
         } catch (error) {
+          bakedImg = "";
           preview.getContext("2d").clearRect(0, 0, preview.width, preview.height);
           artStatus.textContent = error.message;
         }
       }
-      onChange(img);
+      onChange(bakedImg);
     }
 
     fields.source.addEventListener("change", async () => {
@@ -151,8 +245,17 @@ const ItemStudio = (() => {
       }
     });
     for (const key of ["size", "colors", "removeBg", "outline"]) fields.namedItem(key).addEventListener("change", refreshPreview);
+    if (enableSparklePreview) {
+      for (const key of ["sparklePreset", "sparkleColor", "sparkleIntensity", "rarity", "linhCan"]) {
+        fields.namedItem(key)?.addEventListener("change", () => {
+          paintPreviewFrame(performance.now());
+          syncAnimLoop();
+        });
+      }
+    }
     return function resetImage() {
       version += 1;
+      stopAnim();
       bitmap?.close();
       bitmap = null;
       fields.source.value = "";
@@ -171,21 +274,30 @@ const ItemStudio = (() => {
     let saving = false;
     let saved = false;
     let customCode = false;
-    const value = (key) => fields.namedItem(key).value;
-    const number = (key) => Number(value(key));
+    const value = (key) => fields.namedItem(key)?.value ?? "";
+    const number = (key) => Number(value(key) || 0);
     const updateButton = () => { save.disabled = saving || saved || !img; };
-    mountImage(form, { onChange: (url) => { img = url; updateButton(); } });
+    mountImage(form, { onChange: (url) => { img = url; updateButton(); }, enableSparklePreview: true });
 
-    fields.type.addEventListener("change", () => {
+    function syncTypeGroups() {
+      const currentType = value("type");
       for (const group of typeGroups) {
-        group.hidden = group.disabled = group.dataset.itemType !== value("type");
+        group.hidden = group.disabled = group.dataset.itemType !== currentType;
       }
-    });
+      if (fields.weaponKind) {
+        const isWeapon = currentType === "EQUIPMENT" && value("slot") === "weapon";
+        fields.weaponKind.disabled = !isWeapon;
+      }
+    }
+    syncTypeGroups();
+
+    fields.type.addEventListener("change", syncTypeGroups);
+    fields.slot?.addEventListener("change", syncTypeGroups);
     fields.code.addEventListener("input", () => { customCode = Boolean(value("code")); });
     fields.itemName.addEventListener("input", () => {
       if (customCode) return;
       fields.code.value = value("itemName").toUpperCase().replace(/Đ/g, "D")
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80);
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64);
     });
     function markEdited() {
       if (saving) return;
@@ -208,19 +320,52 @@ const ItemStudio = (() => {
         fields.itemName.focus();
         return;
       }
+      const sparkle = sparkleFromForm(fields);
       const record = {
-        id, maDo: id, name, tenDo: name, loai: type, type, icon: "◇", img,
-        moTa: value("moTa").trim(), giaMua: number("giaMua"), giaBan: number("giaBan"),
+        id,
+        maDo: id,
+        name,
+        tenDo: name,
+        loai: type,
+        type,
+        icon: "◇",
+        img,
+        rarity: value("rarity") || "NORMAL",
+        requiredRealmStt: Math.max(1, number("requiredRealmStt") || 1),
+        itemLevel: Math.max(1, number("itemLevel") || 10),
+        currency: value("currency") || "XU",
+        hasLuck: Boolean(fields.hasLuck?.checked),
+        sparkle,
+        moTa: value("moTa").trim(),
+        giaMua: number("giaMua"),
+        giaBan: number("giaBan"),
       };
+      const linhCan = value("linhCan").trim();
+      if (linhCan) record.linhCan = linhCan;
       if (record.giaMua > 0 && record.giaBan > record.giaMua) {
         saveStatus.textContent = "Giá bán lại phải nhỏ hơn hoặc bằng giá mua.";
         fields.giaBan.focus();
         return;
       }
       if (type === "EQUIPMENT") {
-        record.slot = value("slot");
-        record.requiredRealmStt = number("requiredRealmStt");
-        record.stats = { pAtk: number("pAtk"), pDef: number("pDef"), maxHP: number("maxHP") };
+        record.slot = value("slot") || "weapon";
+        if (record.slot === "weapon" && value("weaponKind")) {
+          record.weaponKind = value("weaponKind");
+        }
+        record.stats = {
+          pAtk: number("pAtk"),
+          mAtk: number("mAtk"),
+          pDef: number("pDef"),
+          mDef: number("mDef"),
+          maxHp: number("maxHp"),
+          maxMp: number("maxMp"),
+          spd: number("spd"),
+          crit: Math.round(number("crit") * 10000) / 10000,
+        };
+      } else if (type === "ENHANCE_GEM") {
+        record.gemTier = value("gemTier") || "BLESS";
+      } else if (type === "PROTECT_CHARM") {
+        record.gemTier = "PROTECT";
       } else if (type === "POTION") {
         record.healHp = number("healHp");
         record.healMp = number("healMp");
@@ -248,11 +393,12 @@ const ItemStudio = (() => {
         saveStatus.textContent = error.message || "Không lưu được vật phẩm.";
       } finally {
         controls.forEach((control) => { control.disabled = false; });
+        syncTypeGroups();
         saving = false;
         updateButton();
       }
     });
   }
 
-  return { mount, mountImage };
+  return { mount, mountImage, sparkleFromForm, validatePngPayloadSize };
 })();
