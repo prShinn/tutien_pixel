@@ -86,9 +86,19 @@ const Render = {
     const base = Math.max(1, Math.floor(Number(CFG.DS) || 3));
     const width = Math.max(0, Number(cW) || 0);
     const height = Math.max(0, Number(cH) || 0);
-    if (width >= 640 && height >= 360) return base;
-    if (base >= 2 && width >= 360 && height >= 240) return Math.min(base, 2);
-    return 1;
+    const scale = width >= 640 && height >= 360
+      ? base
+      : (base >= 2 && width >= 360 && height >= 240 ? Math.min(base, 2) : 1);
+    // Map nhỏ hơn khung nhìn: phóng vừa phủ kín canvas để map co giãn theo màn hình,
+    // không để viền đen. Làm tròn lên bước 0.5 cho pixel đều; map lớn giữ nguyên scale gốc.
+    const ts = Math.max(1, Number(CFG.TS) || 1);
+    const mapW = typeof S !== "undefined" ? Number(S?.mapW) * ts : 0;
+    const mapH = typeof S !== "undefined" ? Number(S?.mapH) * ts : 0;
+    if (mapW > 0 && mapH > 0 && width > 0 && height > 0) {
+      const cover = Math.max(width / mapW, height / mapH);
+      if (cover > scale) return Math.ceil(cover * 2) / 2;
+    }
+    return scale;
   },
 
   interpolatePlayerPosition(player, alpha = 1) {
@@ -269,8 +279,10 @@ const Render = {
     // Camera bám cùng mẫu vị trí đang vẽ để không đuổi trước nhân vật một fixed tick.
     S.cam.x = lerp(S.cam.x, localPosition.x - lcW / 2, cameraFollow);
     S.cam.y = lerp(S.cam.y, localPosition.y - lcH / 2, cameraFollow);
-    S.cam.x = Math.max(0, Math.min(S.mapW * ts - lcW, S.cam.x));
-    S.cam.y = Math.max(0, Math.min(S.mapH * ts - lcH, S.cam.y));
+    // Map nhỏ hơn khung nhìn (vd. map alpha 160×120 ở DS=3): căn giữa thay vì dồn về góc trên trái.
+    const mapPxW = S.mapW * ts, mapPxH = S.mapH * ts;
+    S.cam.x = mapPxW <= lcW ? (mapPxW - lcW) / 2 : Math.max(0, Math.min(mapPxW - lcW, S.cam.x));
+    S.cam.y = mapPxH <= lcH ? (mapPxH - lcH) / 2 : Math.max(0, Math.min(mapPxH - lcH, S.cam.y));
     
     const shakePower = S.cameraShake?.until > Date.now() ? Number(S.cameraShake.power || 0) : 0;
     const cx = S.cam.x + (shakePower ? (Math.random() - 0.5) * shakePower : 0);
@@ -595,18 +607,25 @@ const Render = {
     }
   },
 
+  // Quãng đường (đơn vị world, TS=1) cho mỗi khung đi bộ. Nhân vật rộng ~14 đơn vị và đi ~44 đơn vị/s,
+  // nên 5 đơn vị/khung ≈ 9 khung/s: một lần click ngắn vẫn thấy đủ vòng bước chân.
+  walkFrameDistance: 5,
+  // Nhịp đứng yên: thứ tự khung mở mắt của hàng idle và thời gian mỗi khung (quái dùng 220ms).
+  idleCycle: [0, 1, 3, 1],
+  idleFrameMs: 240,
+
   walkCycle(actor) {
     // Keep quarter-stride timing for the body motion and footfall effects.
-    return Math.max(0, Number(actor?.walkDistance || 0)) / 13;
+    return Math.max(0, Number(actor?.walkDistance || 0)) / this.walkFrameDistance;
   },
 
   walkFrame(actor) {
     const columns = actor?.animation?.kind === "grid"
       ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
       : 4;
-    const alternatePose = Math.min(2, columns - 1);
-    // Two opposite-foot poses span one ~52px stride; 2-column sheets use 0/1.
-    return Math.floor(this.walkCycle(actor) / 2) % 2 === 0 ? 0 : alternatePose;
+    // Chạy đủ các khung của hàng đi bộ (0→1→2→3): khung 1 và 3 là hai bước chân dài,
+    // mỗi khung ứng với 1/4 sải bước nên chân đổi đúng nhịp nhún của thân (walkPhase).
+    return Math.floor(this.walkCycle(actor)) % columns;
   },
 
   walkPhase(actor) {
@@ -771,7 +790,9 @@ const Render = {
     }
     const reduceMotion = this._prefersReducedMotion;
     const actionElapsed = Math.max(0, now - Number(actor?.animStartedAt || now));
-    const rawFrame = reduceMotion ? 0 : activeAction === "walk"
+    // Chuyển khung sprite là phản hồi gameplay (giống quái), nên luôn chạy kể cả khi hệ điều hành
+    // bật "giảm chuyển động"; thiết lập đó chỉ tắt các hiệu ứng phụ (lắc, co giãn, bụi chân, giật lùi).
+    const rawFrame = activeAction === "walk"
       ? this.walkFrame(actor)
       : Math.floor(now / animation.speed) % 4;
     // Idle alternates the open-eye pose with a brief blink on the same sprite row.
@@ -791,12 +812,16 @@ const Render = {
       ? Math.max(1, Math.floor(Number(actor.animation.cols) || 4))
       : 4;
     const idleBlinkFrame = Math.min(2, spriteColumns - 1);
-    const idleFrame = idleBlinkPhase >= 2480 && idleBlinkPhase < 2640 ? idleBlinkFrame : 0;
-    const frameIndex = reduceMotion
-      ? (activeAction === "attack" ? (defaultCharacterSheet ? attackPose : 2) : ((activeAction === "cast" || activeAction === "hurt") ? 2 : 0))
-      : (activeAction === "idle"
-        ? idleFrame
-        : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed))));
+    // Đứng yên giống quái: lần lượt các khung mở mắt của hàng idle (nhịp thở, tay/chân nhích nhẹ);
+    // khung 2 (nhắm mắt) chỉ dùng cho cú chớp mắt định kỳ.
+    const idleCycle = this.idleCycle;
+    const blinking = idleBlinkPhase >= 2480 && idleBlinkPhase < 2640;
+    const idleFrame = blinking
+      ? idleBlinkFrame
+      : idleCycle[Math.floor(now / this.idleFrameMs) % idleCycle.length] % spriteColumns;
+    const frameIndex = activeAction === "idle"
+      ? idleFrame
+      : (activeAction === "walk" ? rawFrame : activeAction === "attack" && defaultCharacterSheet ? attackPose : Math.min(3, Math.floor(actionElapsed / animation.speed)));
     const hurtProgress = activeAction === "hurt"
       ? Math.max(0, Math.min(1, (260 - (Number(actor.animUntil || now) - now)) / 260))
       : 0;
@@ -808,9 +833,10 @@ const Render = {
     // Continuous body movement bridges the discrete sprite poses and makes
     // the feet feel planted between frame changes.
     const idlePhase = now * 0.0022;
-    const bob = reduceMotion ? 0 : (walking
+    // Nhún tại chỗ (thở khi đứng, nhấp nhô theo bước) giữ cả khi giảm chuyển động: biên độ chỉ vài pixel.
+    const bob = walking
       ? 0.25 + (1 - Math.cos(walkPhase * 2)) * 0.88
-      : (idle ? Math.sin(idlePhase) * 0.28 : 0));
+      : (idle ? (1 - Math.cos(idlePhase)) * 0.4 : 0);
     const sway = reduceMotion ? 0 : idle
       ? Math.sin(idlePhase * 0.7) * 0.012
       : (walking ? Math.sin(walkPhase) * 0.05 : 0);
@@ -846,11 +872,31 @@ const Render = {
         }
         ctx.restore();
       }
-      // Bóng chân giữ nhân vật bám mặt đất; không vẽ aura quanh thân.
+      // Bóng chân giữ nhân vật bám mặt đất.
       ctx.fillStyle = "rgba(0,0,0,.34)";
       ctx.beginPath();
       ctx.ellipse(sx, sy + 0.8, walking ? 5.1 + footfall * 1.3 : 5.8, walking ? 1.05 + footfall * 0.3 : 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
+      if (typeof ItemFX !== "undefined") {
+        let glowTier = Number(actor?.glowTier ?? actor?.derivedStats?.glowTier);
+        if (!Number.isFinite(glowTier)) {
+          const eq = actor?.equipment || {};
+          const weaponLvl = Math.max(0, Math.min(15, Math.floor(Number(eq.weapon?.enhanceLevel || 0))));
+          const armorSlots = ["hat", "armor", "pants", "boots", "gloves"];
+          let armorSum = 0;
+          let armorCount = 0;
+          for (const slot of armorSlots) {
+            if (!eq[slot]) continue;
+            armorSum += Math.max(0, Math.min(15, Math.floor(Number(eq[slot].enhanceLevel || 0))));
+            armorCount += 1;
+          }
+          const avgArmor = armorCount > 0 ? Math.floor(armorSum / armorCount) : 0;
+          glowTier = ItemFX.enhanceGlowTier(Math.max(weaponLvl, avgArmor));
+        }
+        if (glowTier > 0) {
+          ItemFX.drawCharacterEnhanceAura(ctx, sx, sy - actorH * 0.35, glowTier, now, 12);
+        }
+      }
       ctx.save();
       // `sy` là điểm chạm đất/chân. Sprite được neo lên trên để mép nước
       // chạm đúng chân, trong khi collision vẫn dùng cùng tọa độ world.
@@ -1104,11 +1150,19 @@ const Render = {
     const sy = Number(drop.y || 0) * CFG.TS + CFG.TS / 2 - cy;
     const ds = this.displayScale();
     if (sx < -24 || sy < -24 || sx > cW / ds + 24 || sy > cH / ds + 24) return;
-    const item = drop.item || drop.itemData || {
+    const rawItem = drop.item || drop.itemData || {
       id: drop.itemId || drop.itemCode,
+      itemCode: drop.itemCode || drop.itemId,
       name: drop.itemName || drop.name,
       type: drop.type || drop.loai,
+      rarity: drop.rarity,
+      hasLuck: drop.hasLuck,
+      enhanceLevel: drop.enhanceLevel,
+      sparkle: drop.sparkle,
     };
+    const item = drop.kind !== "xu" && typeof GameData?.itemWithCurrentDetails === "function"
+      ? GameData.itemWithCurrentDetails(rawItem)
+      : rawItem;
     const pulse = 0.7 + Math.sin(S.animT * 0.006 + sx) * 0.2;
     ctx.save();
     ctx.globalAlpha = pulse;
@@ -1132,15 +1186,20 @@ const Render = {
         ctx.fillText(drop.kind === "xu" ? "$" : "✦", sx, sy + 2.5);
       }
     }
+    if (drop.kind !== "xu" && typeof ItemFX !== "undefined") {
+      ItemFX.drawSparkleOverlayCanvas(ctx, sx - 8, sy - 9, 16, item, Number(S.animT) || Date.now());
+    }
     const rawLabel = drop.kind === "xu"
       ? `${Math.max(0, Number(drop.xu || drop.amount || 0))} xu`
       : (item.name || drop.itemName || drop.name || item.itemCode || drop.itemCode || "Vật phẩm");
     const count = Number(drop.count || drop.quantity || 1);
     const suffix = drop.kind === "xu" || count <= 1 ? "" : ` x${count}`;
     const label = `${String(rawLabel).slice(0, 16)}${suffix}`;
-    const rarity = String(item.rarity || drop.rarity || "").toLowerCase();
+    const rarityUpper = String(item.rarity || drop.rarity || "").toUpperCase();
+    const rarityLower = rarityUpper.toLowerCase();
     const rarityColors = { common: "#d9d5c9", uncommon: "#8edc9a", rare: "#77c9ff", epic: "#d39cff", legendary: "#ffd46e" };
-    const labelColor = drop.kind === "xu" ? "#f4d982" : (rarityColors[rarity] || "#d8eee6");
+    const fxColor = typeof ItemFX !== "undefined" ? ItemFX.RARITY_META?.[rarityUpper]?.color : null;
+    const labelColor = drop.kind === "xu" ? "#f4d982" : (fxColor || rarityColors[rarityLower] || "#d8eee6");
     ctx.font = "bold 6px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

@@ -39,6 +39,11 @@ const UI = {
   _lastEqHash: "",
   selectedInventoryIndex: -1,
   _lastLog: { msg: "", at: 0, node: null, count: 0 },
+  inventoryCapacity(player = S.player) {
+    const invBase = CFG.INV_BASE || 40;
+    const invMax = CFG.INV_MAX || 80;
+    return Math.min(invMax, Math.max(invBase, Number(player?.inventoryCapacity || invBase)));
+  },
   pixelIconClass(item = {}, slotHint = "") {
     if (slotHint === "skill") return "skill-art-icon";
     // Classify only canonical fields. Names such as "thao" must never match "ao".
@@ -51,6 +56,7 @@ const UI = {
     if (slots[slot]) return slots[slot];
     const type = String(item.type || item.loai || "").toUpperCase();
     if (type === "STONE" || type === "ELEMSTONE") return "icon-spirit-stone";
+    if (type === "MATERIAL" || type === "HERB") return "icon-herb";
     if (type === "LINDAN" || type === "BREAKTHROUGH_PILL") return "icon-pill";
     if (type === "POTION" || type === "CONSUME") {
       if (Number(item.healHp) > 0) return "icon-potion-hp";
@@ -58,6 +64,14 @@ const UI = {
       return "icon-pill";
     }
     return "icon-unknown";
+  },
+  itemImageSource(source) {
+    if (typeof source !== "string") return "";
+    const trimmed = source.trim();
+    if (!trimmed) return "";
+    if (/^(?:\.\/|\/)?assets\/[A-Za-z0-9_/-]+\.(?:png|svg|webp)$/.test(trimmed)) return trimmed;
+    if (trimmed.length <= 24000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(trimmed)) return trimmed;
+    return "";
   },
   createPixelIcon(item, slotHint = "", extraClass = "") {
     const icon = document.createElement("span");
@@ -67,11 +81,12 @@ const UI = {
       this.applySkillIcon(icon, item);
       return icon;
     }
-    const customImg = item && (item.img || (typeof item.icon === "string" && (item.icon.includes("/") || item.icon.endsWith(".png") || item.icon.endsWith(".svg")) ? item.icon : ""));
+    const rawCustom = item && (item.img || (typeof item.icon === "string" && (item.icon.includes("/") || item.icon.endsWith(".png") || item.icon.endsWith(".svg")) ? item.icon : ""));
+    const customImg = this.itemImageSource(rawCustom);
     const artClass = customImg ? "item-image-icon" : `${this.pixelIconClass(item, slotHint)} item-art-icon`;
     icon.className = `pixel-icon ${artClass}${extraClass ? ` ${extraClass}` : ""}`;
     icon.setAttribute("aria-hidden", "true");
-    if (customImg && typeof customImg === "string") {
+    if (customImg) {
       icon.style.backgroundImage = `url("${customImg}")`;
       icon.style.backgroundPosition = "center center";
       icon.style.backgroundSize = "contain";
@@ -124,7 +139,18 @@ const UI = {
       button.disabled = false;
       button.focus();
     }
-    this.setDeathMessage("Ngươi đã trọng thương. Hồi sinh tại điểm xuất phát với 50% HP và MP.");
+    const currentPlayer = typeof S !== "undefined" ? S?.player : null;
+    const currentXu = Math.max(0, Math.floor(Number(currentPlayer?.xu || 0)));
+    const realmStt = Math.max(1, Math.floor(Number(currentPlayer?.canhGioi?.stt || currentPlayer?.realm || 1)));
+    const fee = typeof calcDeathXuPenalty === "function"
+      ? calcDeathXuPenalty(currentXu, realmStt)
+      : Math.min(currentXu, Math.min(500, 20 * realmStt));
+    const msg = currentPlayer
+      ? (fee > 0
+        ? `Lộ phí hồi sinh dự kiến: -${fee} xu (giữ nguyên tu vi). Bấm Hồi Sinh khi sẵn sàng.`
+        : "Hành trang đang 0 xu — hồi sinh miễn phí, giữ nguyên tu vi. Bấm Hồi Sinh khi sẵn sàng.")
+      : "Bấm Hồi Sinh khi sẵn sàng.";
+    this.setDeathMessage(msg);
   },
   hideDeathModal() {
     const modal = document.getElementById("death-modal");
@@ -156,7 +182,36 @@ const UI = {
       const regions = document.getElementById("continent-regions");
       document.getElementById("continent-name").textContent = data.name || "Đại lục";
       document.getElementById("continent-summary").textContent = data.description || "Địa đồ đang được cập nhật.";
-      regions.innerHTML = (data.regions || []).map((region) => `<section class="continent-region"><div class="region-title"><b>${region.name}</b><span>${region.description || ""}</span></div><div class="continent-maps">${(region.maps || []).map((map) => `<div class="continent-map ${map.playable ? "playable" : "planned"}"><span class="map-status">${map.playable ? "Đang mở" : "Quy hoạch"}</span><b>${map.name}</b><small>${map.type} · Lv ${map.level}</small></div>`).join("")}</div></section>`).join("");
+      const regionNodes = (data.regions || []).map((region) => {
+        const sec = document.createElement("section");
+        sec.className = "continent-region";
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "region-title";
+        const titleBold = document.createElement("b");
+        titleBold.textContent = String(region?.name || "");
+        const titleDesc = document.createElement("span");
+        titleDesc.textContent = String(region?.description || "");
+        titleDiv.append(titleBold, titleDesc);
+
+        const mapsDiv = document.createElement("div");
+        mapsDiv.className = "continent-maps";
+        for (const map of region?.maps || []) {
+          const mapCard = document.createElement("div");
+          mapCard.className = `continent-map ${map?.playable ? "playable" : "planned"}`;
+          const badge = document.createElement("span");
+          badge.className = "map-status";
+          badge.textContent = map?.playable ? "Đang mở" : "Quy hoạch";
+          const mapName = document.createElement("b");
+          mapName.textContent = String(map?.name || "");
+          const mapMeta = document.createElement("small");
+          mapMeta.textContent = `${String(map?.type || "")} · Lv ${Number(map?.level || 1)}`;
+          mapCard.append(badge, mapName, mapMeta);
+          mapsDiv.appendChild(mapCard);
+        }
+        sec.append(titleDiv, mapsDiv);
+        return sec;
+      });
+      regions.replaceChildren(...regionNodes);
       this._continentLoaded = true;
     } catch (error) {
       document.getElementById("continent-summary").textContent = "Không tải được địa đồ máy chủ.";
@@ -192,7 +247,7 @@ const UI = {
     if (mpText) mpText.textContent = `${mp}/${maxMp}`;
     if (mpBar) mpBar.style.width = `${Math.min(100, Math.max(0, Math.floor((mp / maxMp) * 100)))}%`;
 
-    const cultivation = Number(p.tuViHienTai ?? p.cultivation) || 0;
+    const cultivation = Number(p.tuViHienTai ?? p.tuVi ?? p.cultivation) || 0;
     const cultivationMax = Math.max(1, Number(p.tuViLenCap ?? p.cultivationMax) || 100);
     const cultivationText = document.getElementById("ui-tu");
     const cultivationBar = document.getElementById("b-tu");
@@ -200,6 +255,8 @@ const UI = {
     if (cultivationBar) cultivationBar.style.width = `${Math.min(100, Math.max(0, Math.floor((cultivation / cultivationMax) * 100)))}%`;
     const xu = document.getElementById("ui-xu");
     if (xu) xu.textContent = Math.floor(Number(p.xu) || 0).toLocaleString();
+    const linhThach = document.getElementById("ui-linh-thach");
+    if (linhThach) linhThach.textContent = Math.floor(Number(p.linhThach) || 0).toLocaleString();
   },
   updatePosition(values = null) {
     const p = values || S.player;
@@ -333,14 +390,15 @@ const UI = {
     setTxt("r-matk", _i(Combat.mAtk()));
     setTxt("r-def", _i(Combat.pDef()));
     setTxt("r-spd", _i(3 + _i(s.agi) * 0.5));
-    setTxt("r-eva", Combat.evasion().toFixed(1) + "%");
+    setTxt("r-eva", (Combat.evasion() * 100).toFixed(1) + "%");
     setTxt("r-tvlc", p.tuViLinhCan || 0);
-    setTxt("inv-head", `✦ TÚI ĐỒ (${S.inventory.length}/${CFG.INV_MAX})`);
+    setTxt("inv-head", `✦ TÚI ĐỒ (${S.inventory.length}/${this.inventoryCapacity(p)})`);
 
     this.updateTargetHud();
 
     this.renderEquipment();
     SkillSystem.renderSkillBar();
+    if (typeof AlchemyUI !== "undefined") AlchemyUI.onPlayerSync?.();
   },
 
   renderEquipment(force = false) {
@@ -354,6 +412,7 @@ const UI = {
       { id: "slot-weapon", label: "Vũ Khí", item: eq.weapon },
       { id: "slot-helmet", label: "Mũ", item: eq.hat },
       { id: "slot-armor", label: "Giáp", item: eq.armor },
+      { id: "slot-gloves", label: "Găng Tay", item: eq.gloves || null },
       { id: "slot-pants", label: "Quần", item: eq.pants || null },
       { id: "slot-boots", label: "Giày", item: eq.boots },
       { id: "slot-ring", label: "Nhẫn", item: eq.ring },
@@ -371,13 +430,19 @@ const UI = {
       const iconWrap = document.createElement("div");
       iconWrap.className = isEquipped ? "eicon eicon-equipped" : "eicon eicon-empty";
       iconWrap.appendChild(this.createPixelIcon(slot.item || {}, slot.id));
+      if (isEquipped && typeof ItemFX !== "undefined") {
+        ItemFX.decorateSlotElement(iconWrap, slot.item);
+      }
 
       const labelWrap = document.createElement("div");
       labelWrap.className = "esl-info";
       if (isEquipped) {
         const nameSpan = document.createElement("strong");
         nameSpan.className = "esl-name";
-        nameSpan.textContent = slot.item.name || slot.label;
+        const enhLevel = Math.max(0, Number(slot.item.enhanceLevel || 0));
+        const rarityMeta = typeof ItemFX !== "undefined" ? ItemFX.RARITY_META[slot.item.rarity] : null;
+        if (rarityMeta && slot.item.rarity && slot.item.rarity !== "NORMAL") nameSpan.style.color = rarityMeta.color;
+        nameSpan.textContent = `${slot.item.name || slot.label}${enhLevel > 0 ? ` +${enhLevel}` : ""}`;
         const tag = document.createElement("span");
         tag.className = "esl-badge";
         tag.textContent = "ĐANG MẶC";
@@ -407,7 +472,22 @@ const UI = {
     const slots = { weapon: "Vũ khí", armor: "Giáp", pants: "Quần", boots: "Giày", hat: "Mũ / Khăn", gloves: "Găng tay", ring: "Nhẫn", amulet: "Vòng", belt: "Đai", gem: "Linh thạch" };
     const type = item.type || item.loai;
     if (type === "EQUIPMENT") return `Trang bị · ${slots[item.slot] || item.slot || "Chưa xác định vị trí"}`;
-    return { STONE: "Linh thạch", ELEMSTONE: "Đá nguyên tố", MAT: "Nguyên liệu", CONSUME: "Đan dược", POTION: "Đan dược", LINDAN: "Linh đan", BREAKTHROUGH_PILL: "Đan đột phá" }[type] || "Vật phẩm";
+    return {
+      STONE: "Linh thạch",
+      ELEMSTONE: "Đá nguyên tố",
+      ENHANCE_GEM: "Ngọc cường hóa",
+      PROTECT_CHARM: "Bùa bảo vệ",
+      MAT: "Nguyên liệu",
+      MATERIAL: "Nguyên liệu",
+      CONSUME: "Đan dược",
+      POTION: "Đan dược",
+      LINDAN: "Linh đan",
+      CULTIVATION: "Đan tu luyện",
+      BREAKTHROUGH_PILL: "Đan đột phá",
+      BAG_EXPAND: "Pháp bảo mở túi",
+      STAT_RESET: "Đan tẩy điểm",
+      EXCHANGE_XU: "Ngân phiếu",
+    }[type] || "Vật phẩm";
   },
 
   itemFacts(item) {
@@ -417,6 +497,9 @@ const UI = {
     const notes = [];
     const add = (label, value, kind = "stat") => rows.push({ label, value, kind });
     if ((item.type || item.loai) === "EQUIPMENT") {
+      if (Number(item.enhanceLevel || 0) > 0) add("Cường hóa", `+${Number(item.enhanceLevel)} / 15`, "quality");
+      if (item.itemLevel) add("Cấp trang bị", `iLvl ${Number(item.itemLevel)}`, "requirement");
+      if (item.linhCan) add("Ngũ hành", String(item.linhCan), "requirement");
       const attack = item.basicAttack;
       if (attack) {
         const style = { sword: "Kiếm cận chiến", staff: "Trượng tầm xa", bow: "Cung tầm xa", melee: "Cận chiến" }[attack.style];
@@ -442,16 +525,26 @@ const UI = {
       add("Yêu cầu", realm?.tenCanhGioi || realm?.name || `Cảnh giới bậc ${item.requiredRealmStt || 1}`, "requirement");
     } else {
       const type = item.type || item.loai;
-      if (["STONE", "ELEMSTONE"].includes(type) && item.giaTriTuVi > 0) add("Tu vi khi hấp thụ", signed(Math.floor(item.giaTriTuVi)));
+      if (["STONE", "ELEMSTONE", "CULTIVATION"].includes(type) && item.giaTriTuVi > 0) add("Tu vi khi hấp thụ", signed(Math.floor(item.giaTriTuVi)));
       if (type === "LINDAN" && item.tuViLinhCanVal > 0) add("Tu vi linh căn", signed(Math.floor(item.tuViLinhCanVal)));
       if (["POTION", "CONSUME"].includes(type)) {
         if (item.healHp > 0) add("Hồi HP", signed(Math.floor(item.healHp)));
         if (item.healMp > 0) add("Hồi MP", signed(Math.floor(item.healMp)));
         if (item.statBoost > 0) add(`${labels[item.statKey || "str"] || item.statKey} vĩnh viễn`, signed(Math.floor(item.statBoost)));
       }
-      if (type === "BREAKTHROUGH_PILL") notes.push("Đan được tự động tiêu hao khi phá đại cảnh giới thành công.");
+      if (type === "BAG_EXPAND" && item.bagSlots > 0) add("Mở rộng túi", `+${Math.floor(item.bagSlots)} ô (tối đa 80)`);
+      if (type === "STAT_RESET") notes.push("Hoàn trả toàn bộ điểm tiềm năng đã cộng vượt mức 5 về điểm chưa phân bổ.");
+      if (type === "EXCHANGE_XU" && item.xuAmount > 0) add("Quy đổi", `+${Math.floor(item.xuAmount)} Xu`);
+      if (type === "BREAKTHROUGH_PILL") {
+        const ratePct = item.breakthroughRate != null ? Math.round(Number(item.breakthroughRate) * 100) : null;
+        if (ratePct != null) add("Tỷ lệ phá cảnh", `${ratePct}%`, "quality");
+        notes.push("Tiêu hao khi phá đại cảnh giới. Nếu thất bại sẽ lùi 1 tiểu tầng và mất đan + Xu/Linh Thạch.");
+      }
+      if (type === "ENHANCE_GEM") notes.push("Dùng tại Lò Rèn để cường hóa trang bị (+0 → +15).");
+      if (type === "PROTECT_CHARM") notes.push("Dùng kèm khi cường hóa để giữ nguyên cấp nếu thất bại từ +4 trở lên.");
     }
-    const quality = item.rarity || item.quality;
+    const rarityLabel = typeof ItemFX !== "undefined" && item.rarity && ItemFX.RARITY_META[item.rarity] ? ItemFX.RARITY_META[item.rarity].label : null;
+    const quality = item.qualityLabel || rarityLabel || item.rarity || item.quality;
     if (typeof quality === "string" && quality) add("Phẩm chất", quality, "quality");
     return { rows, notes };
   },
@@ -463,6 +556,23 @@ const UI = {
 
   itemDetailsContent(item) {
     const content = document.createDocumentFragment();
+    const rarityMeta = typeof ItemFX !== "undefined" ? ItemFX.RARITY_META[item.rarity] : null;
+    if (rarityMeta && ((item.type || item.loai) === "EQUIPMENT" || (item.rarity && item.rarity !== "NORMAL"))) {
+      const badgeWrap = document.createElement("div");
+      const rBadge = document.createElement("span");
+      rBadge.className = "tip-badge";
+      rBadge.style.color = rarityMeta.color;
+      rBadge.textContent = rarityMeta.label;
+      badgeWrap.appendChild(rBadge);
+      if (Number(item.enhanceLevel || 0) > 0) {
+        const eBadge = document.createElement("span");
+        eBadge.className = "tip-badge";
+        eBadge.style.color = "#ffe27a";
+        eBadge.textContent = `+${Number(item.enhanceLevel)}`;
+        badgeWrap.appendChild(eBadge);
+      }
+      content.appendChild(badgeWrap);
+    }
     const description = document.createElement("p");
     description.className = "item-description";
     description.textContent = item.description || item.desc || item.moTa || "";
@@ -481,6 +591,26 @@ const UI = {
       facts.appendChild(line);
     }
     content.appendChild(facts);
+    if (item.hasLuck) {
+      const luck = document.createElement("p");
+      luck.className = "tip-luck";
+      luck.textContent = "✦ Dòng May Mắn (+5% Chí mạng · +15% tỷ lệ cường hóa)";
+      content.appendChild(luck);
+    }
+    const exlList = Array.isArray(item.exlOptions) ? item.exlOptions : [];
+    if (exlList.length) {
+      const exlDict = typeof GAME_BALANCE !== "undefined" && GAME_BALANCE?.exlOptions ? GAME_BALANCE.exlOptions : {};
+      for (const opt of exlList) {
+        const code = typeof opt === "string" ? opt : opt?.code;
+        const def = exlDict[code];
+        const val = (typeof opt === "object" ? (opt?.val ?? opt?.value) : null) ?? def?.val ?? "";
+        const rawLabel = def?.label || code || "Tùy chọn Hoàn Hảo";
+        const line = document.createElement("div");
+        line.className = "tip-exl";
+        line.textContent = `❖ ${rawLabel.replace("{val}", String(val))}`;
+        content.appendChild(line);
+      }
+    }
     for (const text of notes) {
       const note = document.createElement("p");
       note.className = "item-detail-note";
@@ -489,7 +619,9 @@ const UI = {
     }
     const price = document.createElement("p");
     price.className = "item-detail-price";
-    price.textContent = `Giá bán ${Number(item.giaBan || 0).toLocaleString("vi-VN")} xu`;
+    price.textContent = item.currency === "LINH_THACH"
+      ? `Kỳ Trân Các · ${Number(item.giaMua || 0).toLocaleString("vi-VN")} Linh Thạch (không bán lại)`
+      : `Giá bán ${Number(item.giaBan || 0).toLocaleString("vi-VN")} xu`;
     content.appendChild(price);
     return content;
   },
@@ -497,9 +629,12 @@ const UI = {
   showTip(item, e) {
     const tip = document.getElementById("tip");
     const tipName = document.getElementById("tip-name");
+    const enhLevel = Math.max(0, Number(item.enhanceLevel || 0));
+    const rarityMeta = typeof ItemFX !== "undefined" ? ItemFX.RARITY_META[item.rarity] : null;
+    tipName.style.color = rarityMeta && item.rarity && item.rarity !== "NORMAL" ? rarityMeta.color : "";
     tipName.replaceChildren(
       this.createPixelIcon(item, "", "tip-pixel-icon"),
-      document.createTextNode(` ${item.name || item.id || "Vật phẩm"}`),
+      document.createTextNode(` ${item.name || item.id || "Vật phẩm"}${enhLevel > 0 ? ` +${enhLevel}` : ""}`),
     );
     document.getElementById("tip-type").textContent = this.itemTypeLabel(item);
     document.getElementById("tip-body").replaceChildren(this.itemDetailsContent(item));
@@ -527,7 +662,8 @@ const UI = {
     const grid = document.getElementById("inv-grid");
     if (!grid) return;
     grid.innerHTML = "";
-    for (let i = 0; i < CFG.INV_MAX; i++) {
+    const capacity = this.inventoryCapacity();
+    for (let i = 0; i < capacity; i++) {
       const it = GameData.itemWithCurrentDetails(S.inventory[i]);
       const el = document.createElement("div");
       el.className = it ? "isl" : "isl empty";
@@ -540,6 +676,7 @@ const UI = {
         count.className = "icnt";
         count.textContent = `x${it.count || 1}`;
         el.replaceChildren(icon, count);
+        if (typeof ItemFX !== "undefined") ItemFX.decorateSlotElement(el, it);
         el.classList.toggle("selected", this.selectedInventoryIndex === i);
         el.onclick = () => this.selectInventoryItem(i);
         el.ondblclick = () => Inventory.use(i);
@@ -556,6 +693,18 @@ const UI = {
     if (detail) {
       detail.hidden = !selected;
       detail.replaceChildren(...(selected ? [this.itemDetailsContent(selected)] : []));
+      if (selected && (selected.type || selected.loai) === "EQUIPMENT" && selected.instanceId && typeof ForgeUI !== "undefined") {
+        const forgeBtn = document.createElement("button");
+        forgeBtn.type = "button";
+        forgeBtn.className = "sbtn";
+        forgeBtn.style.cssText = "margin-top:6px;width:100%";
+        forgeBtn.textContent = "⚒️ Cường Hóa tại Lò Rèn";
+        forgeBtn.onclick = () => {
+          UI.toggleKpahMenu();
+          ForgeUI.open(selected.instanceId);
+        };
+        detail.appendChild(forgeBtn);
+      }
     }
     const selection = document.getElementById("inv-selection");
     const useBtn = document.getElementById("inv-use-btn");

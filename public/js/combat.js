@@ -54,6 +54,9 @@ const Combat = {
   },
 
   pAtk() {
+    if (Number.isFinite(Number(S.player?.derivedStats?.pAtk))) {
+      return Math.floor(Number(S.player.derivedStats.pAtk));
+    }
     const s = S.player.stats;
     const role = Combat.getRole();
     let base = GAME_BALANCE.base.pAtk + (s?.str || 0) * 4 + (s?.agi || 0) * 0.5;
@@ -64,6 +67,9 @@ const Combat = {
   },
 
   mAtk() {
+    if (Number.isFinite(Number(S.player?.derivedStats?.mAtk))) {
+      return Math.floor(Number(S.player.derivedStats.mAtk));
+    }
     const s = S.player.stats;
     const role = Combat.getRole();
     let base = GAME_BALANCE.base.mAtk + (s?.ene || 0) * 4 + (s?.agi || 0) * 0.5;
@@ -74,6 +80,9 @@ const Combat = {
   },
 
   pDef() {
+    if (Number.isFinite(Number(S.player?.derivedStats?.pDef))) {
+      return Math.floor(Number(S.player.derivedStats.pDef));
+    }
     const s = S.player.stats;
     const role = Combat.getRole();
     let def = GAME_BALANCE.base.pDef + (Number(s?.vit) || 0) * 2 + (Number(s?.agi) || 0) * 0.25;
@@ -84,15 +93,19 @@ const Combat = {
   },
 
   critChance(target = null) {
-    const s = S.player.stats;
-    const role = Combat.getRole();
-    let chance = 0.05 + (s?.agi || 0) * 0.003;
-
-    // Bonus Sát Thủ
-    if (role.id === "ASSASSIN") chance += 0.1;
-
-    if (S.player.equipment?.weapon) {
-      chance += Number(S.player.equipment.weapon.critChance || 0);
+    const derivedCrit = Number(S.player?.derivedStats?.crit);
+    let chance;
+    if (Number.isFinite(derivedCrit)) {
+      chance = derivedCrit;
+    } else {
+      const s = S.player.stats;
+      const role = Combat.getRole();
+      chance = 0.05 + (s?.agi || 0) * 0.003;
+      // Bonus Sát Thủ
+      if (role.id === "ASSASSIN") chance += 0.1;
+      if (S.player.equipment?.weapon) {
+        chance += Number(S.player.equipment.weapon.critChance || 0);
+      }
     }
     const critBuff = S.player.buffs?.buff_crit || S.player.buffs?.crit;
     if (critBuff && (!critBuff.expiresAt || critBuff.expiresAt > Date.now())) chance += Number(critBuff.value || 0) / 100;
@@ -104,6 +117,9 @@ const Combat = {
   },
 
   evasion() {
+    if (Number.isFinite(Number(S.player?.derivedStats?.evasion))) {
+      return Number(S.player.derivedStats.evasion);
+    }
     const s = S.player.stats;
     const role = Combat.getRole();
     let rate = 0.03 + (s?.agi || 0) * 0.004;

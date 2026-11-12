@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "be",
+      "runtimeExecutable": "C:/Users/nguye/AppData/Local/nvm/v24.22.2/node.exe",
+      "runtimeArgs": ["-r", "C:/Users/nguye/AppData/Local/Temp/claude/782b7eae525996ee/721daa20-7d9f-45b1-9baf-8b7d1f3cf30d/scratchpad/be-single-process.js", "D:/Setup/mine/tutien_pixel_be/src/server.js"],
+      "port": 3800
+    },
+    {
+      "name": "fe",
+      "runtimeExecutable": "C:/Users/nguye/AppData/Local/nvm/v24.22.2/node.exe",
+      "runtimeArgs": ["server.js"],
+      "port": 3000
+    }
+  ]
+}

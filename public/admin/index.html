@@ -84,6 +84,9 @@
                 <label>Chi tiết màu<select name="colors"><option value="32">Ít màu</option><option value="24" selected>Cân bằng</option><option value="12">Giữ nhiều màu</option></select></label>
                 <label class="item-studio-check"><input name="removeBg" type="checkbox" checked /> Tách nền đồng màu</label>
                 <label class="item-studio-check"><input name="outline" type="checkbox" checked /> Viền pixel</label>
+                <label>Hiệu ứng lấp lánh 2D<select name="sparklePreset"><option value="NONE">Không lấp lánh</option><option value="DEWDROP">Sương Mai (2-3 tia sáng)</option><option value="SHIMMER" selected>Ánh Kim (Vệt sáng + Sao 4 cánh)</option><option value="MYTHIC_PRISM">Lăng Kính Huyền Ảo (Thần Khí)</option><option value="ELEMENTAL">Linh Khí Ngũ Hành</option></select></label>
+                <label>Màu lấp lánh<input name="sparkleColor" type="color" value="#ffd966" /></label>
+                <label>Cường độ tia sáng<select name="sparkleIntensity"><option value="1">Nhẹ</option><option value="2" selected>Vừa</option><option value="3">Rực rỡ</option></select></label>
               </div>
             </section>
             <section class="panel item-studio-panel" aria-labelledby="item-info-heading">
@@ -91,20 +94,35 @@
               <div class="item-studio-fields">
                 <label>Tên<input name="itemName" required maxlength="80" /></label>
                 <label>Mã vật phẩm<input name="code" required maxlength="80" pattern="[A-Z0-9_]+" spellcheck="false" /></label>
-                <label>Loại<select name="type"><option value="MATERIAL">Nguyên liệu</option><option value="EQUIPMENT">Trang bị</option><option value="POTION">Thuốc hồi phục</option><option value="STONE">Linh thạch</option><option value="LINDAN">Đan linh căn</option></select></label>
-                <label>Giá mua (xu)<input name="giaMua" type="number" min="0" max="1000000000" value="0" required /></label>
-                <label>Giá bán (xu)<input name="giaBan" type="number" min="0" max="1000000000" value="0" required /></label>
+                <label>Loại vật phẩm<select name="type"><option value="EQUIPMENT">Trang bị</option><option value="ENHANCE_GEM">Ngọc Cường Hóa</option><option value="PROTECT_CHARM">Bùa Bảo Vệ</option><option value="POTION">Đan Dược / Thuốc</option><option value="STONE">Linh Thạch Nhỏ</option><option value="ELEMSTONE">Đá Linh Căn</option><option value="LINDAN">Linh Đan Bổ Trợ</option><option value="BREAKTHROUGH_PILL">Đan Phá Cảnh</option><option value="MATERIAL" selected>Nguyên liệu</option><option value="CONSUME">Vật phẩm tiêu hao</option></select></label>
+                <label>Phẩm chất<select name="rarity"><option value="NORMAL">Thường (Normal)</option><option value="MAGIC" selected>Ma Pháp (Magic)</option><option value="EXL">Hoàn Hảo (Exl)</option><option value="ANCIENT">Thần Thánh (Ancient)</option></select></label>
+                <label>Cảnh giới yêu cầu<input name="requiredRealmStt" type="number" min="1" max="12" value="1" required /></label>
+                <label>Cấp vật phẩm (iLvl)<input name="itemLevel" type="number" min="1" max="999" value="10" required /></label>
+                <label>Thuộc tính Ngũ Hành<select name="linhCan"><option value="">Chung (Mọi hệ)</option><option value="KIM">Kim</option><option value="MOC">Mộc</option><option value="THUY">Thủy</option><option value="HOA">Hỏa</option><option value="THO">Thổ</option><option value="QUANG">Quang</option><option value="AM">Ám</option><option value="PHONG">Phong</option><option value="LOI">Lôi</option></select></label>
+                <label>Tiền tệ Shop<select name="currency"><option value="XU" selected>Xu</option><option value="LINH_THACH">Linh Thạch (Kỳ Trân Các)</option></select></label>
+                <label>Giá mua<input name="giaMua" type="number" min="0" max="100000000" value="0" required /></label>
+                <label>Giá bán<input name="giaBan" type="number" min="0" max="100000000" value="0" required /></label>
               </div>
+              <label class="item-studio-check" style="margin: 10px 0 8px;"><input name="hasLuck" type="checkbox" /> Có dòng May Mắn (+5% Chí Mạng, +15% Cường Hóa)</label>
               <p>Giá mua bằng 0 sẽ ẩn vật phẩm khỏi danh sách mua ở cửa hàng.</p>
               <fieldset data-item-type="EQUIPMENT" hidden disabled>
-                <legend>Chỉ số trang bị</legend>
+                <legend>Chỉ số &amp; Phân loại trang bị</legend>
                 <div class="item-studio-fields">
-                  <label>Ô trang bị<select name="slot"><option value="hat">Nón</option><option value="armor">Giáp</option><option value="pants">Quần</option><option value="boots">Giày</option><option value="weapon">Vũ khí</option></select></label>
-                  <label>Bậc cảnh giới tối thiểu<input name="requiredRealmStt" type="number" min="1" max="100" value="1" required /></label>
-                  <label>Công vật lý<input name="pAtk" type="number" min="0" max="1000000" value="0" required /></label>
-                  <label>Thủ vật lý<input name="pDef" type="number" min="0" max="1000000" value="0" required /></label>
-                  <label>HP tối đa cộng thêm<input name="maxHP" type="number" min="0" max="1000000" value="0" required /></label>
+                  <label>Ô trang bị<select name="slot"><option value="weapon">Vũ khí</option><option value="hat">Nón / Miện</option><option value="armor">Áo / Giáp</option><option value="pants">Quần</option><option value="boots">Giày / Hài</option><option value="gloves">Hộ uyển / Găng</option><option value="ring">Nhẫn</option><option value="amulet">Ngọc bội</option><option value="belt">Đai lưng</option><option value="gem">Pháp bảo / Ngọc phụ trợ</option></select></label>
+                  <label>Chủng loại vũ khí<select name="weaponKind"><option value="sword">Kiếm (Cận chiến)</option><option value="blade">Đao (Nhanh)</option><option value="spear">Thương</option><option value="mace">Chùy</option><option value="hammer">Búa</option><option value="staff">Pháp trượng (Tầm xa)</option><option value="bow">Cung (Tầm xa)</option><option value="crossbow">Nỏ (Tầm xa)</option></select></label>
+                  <label>Công Vật Lý (pAtk)<input name="pAtk" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>Công Pháp Thuật (mAtk)<input name="mAtk" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>Thủ Vật Lý (pDef)<input name="pDef" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>Thủ Pháp Thuật (mDef)<input name="mDef" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>HP tối đa<input name="maxHp" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>MP tối đa<input name="maxMp" type="number" min="0" max="100000" value="0" required /></label>
+                  <label>Tốc độ di chuyển<input name="spd" type="number" min="0" max="500" value="0" required /></label>
+                  <label>Chí mạng (0..0.5)<input name="crit" type="number" min="0" max="0.5" step="0.01" value="0" required /></label>
                 </div>
+              </fieldset>
+              <fieldset data-item-type="ENHANCE_GEM" hidden disabled>
+                <legend>Thuộc tính Ngọc Cường Hóa</legend>
+                <label>Loại ngọc<select name="gemTier"><option value="BLESS">Ngọc Ước Nguyện (Bless)</option><option value="SOUL">Ngọc Tâm Linh (Soul)</option><option value="CHAOS">Ngọc Hỗn Nguyên (Chaos)</option></select></label>
               </fieldset>
               <fieldset data-item-type="POTION" hidden disabled>
                 <legend>Hồi phục</legend>
@@ -212,10 +230,12 @@
     <script src="/js/api.js?v=7"></script>
     <script>window.ctx = null; window.S = { player: null }; window.CFG = {};</script>
     <script src="/admin/admin-auth.js?v=2"></script>
+    <script src="/js/visual-effects.js?v=2"></script>
+    <script src="/js/item-fx.js?v=1"></script>
     <script src="/js/skill-vfx.js?v=20"></script>
-    <script src="/admin/content-utils.js?v=5"></script>
+    <script src="/admin/content-utils.js?v=6"></script>
     <script src="/admin/content-manager.js?v=6"></script>
-    <script src="/admin/item-studio.js?v=3"></script>
+    <script src="/admin/item-studio.js?v=4"></script>
     <script src="/admin/monster-studio.js?v=1"></script>
     <script src="/admin/admin.js?v=20"></script>
   </body>

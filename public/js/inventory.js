@@ -24,7 +24,10 @@ const Inventory = {
         return true;
       }
     }
-    if (S.inventory.length < CFG.INV_MAX) {
+    const invBase = CFG.INV_BASE || 40;
+    const invMax = CFG.INV_MAX || 80;
+    const maxSlots = Math.min(invMax, Math.max(invBase, Number(S.player?.inventoryCapacity || invBase)));
+    if (S.inventory.length < maxSlots) {
       S.inventory.push({ ...item, count: 1 });
       UI.buildInv();
       UI.update();
@@ -56,12 +59,13 @@ const Inventory = {
       const result = await Net.mutate("POST", API.PATHS.player.equipItem, {
         itemId: item.id || item.itemCode,
         itemCode: item.itemCode || item.id,
+        ...(item.isInstance && item.instanceId ? { instanceId: item.instanceId } : {}),
         index: idx,
         slot: targetSlot,
       });
-      if (!result?.player) return UI.log(result?.error || "KhÃ´ng thá»ƒ trang bá»‹ váº­t pháº©m.", "system");
+      if (!result?.player) return UI.log(result?.error || "Không thể trang bị vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(`${item.icon || "âš”ï¸"} ÄÃ£ trang bá»‹ ${item.name}`, "loot");
+      UI.log(`${item.icon || "⚔️"} Đã trang bị ${item.name}`, "loot");
       UI.renderEquipment(true);
       UI.buildInv();
       UI.update();
@@ -77,7 +81,16 @@ const Inventory = {
       });
       if (!result?.player) return UI.log(result?.error || "Không thể sử dụng vật phẩm.", "system");
       Net.applyPlayerSnapshot(result.player, { render: false });
-      UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
+      const effectRes = result.result || {};
+      if (effectRes.type === "inventory_expanded") {
+        UI.log(`🎒 Mở rộng túi đồ: +${effectRes.addedSlots} ô (${effectRes.inventoryCapacity}/80 ô).`, "loot");
+      } else if (effectRes.type === "stats_reset") {
+        UI.log(`📜 Đã hoàn trả ${effectRes.refundedPoints} điểm tiềm năng về quỹ chưa phân bổ.`, "loot");
+      } else if (effectRes.type === "xu_exchanged") {
+        UI.log(`🪙 Quy đổi thành công: +${effectRes.xuAdded} Xu.`, "loot");
+      } else {
+        UI.log(`${item.icon || "✦"} Đã sử dụng ${item.name}`, "system");
+      }
       if (typeof Sound !== "undefined") Sound.play("item");
       UI.renderEquipment(true);
       UI.buildInv();
@@ -118,7 +131,7 @@ const Inventory = {
 
   async unequip(item, slotKey) {
     if (!item || !authToken) return UI.log("Chưa kết nối máy chủ.", "system");
-    const slotMap = { weapon: "weapon", helmet: "hat", armor: "armor", pants: "pants", boots: "boots", ring: "ring", amulet: "amulet", belt: "belt", gem: "gem" };
+    const slotMap = { weapon: "weapon", helmet: "hat", armor: "armor", gloves: "gloves", pants: "pants", boots: "boots", ring: "ring", amulet: "amulet", belt: "belt", gem: "gem" };
     const result = await Net.mutate("POST", API.PATHS.player.unequipItem, { slot: slotMap[slotKey] || slotKey });
     if (!result?.player) return UI.log(result?.error || "Không thể tháo trang bị.", "system");
     Net.applyPlayerSnapshot(result.player, { render: false });
