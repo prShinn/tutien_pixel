@@ -6,13 +6,14 @@
     <title>Thiên Địa Đồ · Map Admin</title>
     <link rel="stylesheet" href="/admin/map-editor.css?v=8" />
     <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
+    <link rel="stylesheet" href="/admin/admin.css?v=8" />
   </head>
   <body>
     <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
       <form id="admin-auth-form" class="admin-auth-form">
         <span class="eyebrow">QUYỀN QUẢN TRỊ</span>
         <h2 id="admin-auth-title">Đăng nhập Admin</h2>
-        <p class="admin-auth-help">Không có tài khoản hay mật khẩu Admin mặc định. Tài khoản đăng ký trong game có role PLAYER; người vận hành phải cấp GM/ADMIN trong MySQL. Sau đó đăng nhập bằng username và mật khẩu Đại ca đã đăng ký.</p>
+        <p class="admin-auth-help">Đăng nhập tài khoản quản trị hệ thống. Mặc định: <b>admin</b> / <b>admin</b> (toàn quyền ADMIN), hoặc tài khoản được cấp quyền GM/ADMIN trong MySQL.</p>
         <label for="admin-username">Tài khoản
           <input id="admin-username" name="username" autocomplete="username" maxlength="20" required />
         </label>
@@ -131,9 +132,39 @@
         </section>
 
         <section id="monster-panel">
-          <h2>04 · Cấu hình bãi quái</h2>
-          <p class="hint">Mở map, chọn quái, rồi nhấp bản đồ hoặc nhập X/Y. Lưu bãi quái và bấm Lưu map. Với map nháp, bấm Xuất bản để đưa vào game.</p>
-          <label>Loại quái <select id="monster-template"><option value="">Đang tải...</option></select></label>
+          <div class="panel-head-flex" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h2 style="margin:0;">04 · Cấu hình bãi quái</h2>
+            <button id="quick-save-map-monster" class="ghost" type="button" title="Lưu toàn bộ thay đổi map vào MySQL" style="font-size:12px;padding:4px 10px;color:#7ee096;border-color:rgba(126,224,150,0.4);">💾 Lưu map</button>
+          </div>
+          <p class="hint">Mở map, chọn quái, rồi nhấp chuột lên bản đồ để đặt tâm X/Y. Bấm "Lưu bãi quái" rồi bấm "Lưu map" để lưu vào MySQL.</p>
+          <div class="field-pair">
+            <label>Tìm kiếm quái
+              <input id="monster-search-input" placeholder="Tên quái, hệ, cấp…" autocomplete="off" />
+            </label>
+            <label>Linh căn ngũ hành
+              <select id="monster-root-filter">
+                <option value="">Tất cả hệ</option>
+                <option value="KIM">Kim</option>
+                <option value="MOC">Mộc</option>
+                <option value="THUY">Thủy</option>
+                <option value="HOA">Hỏa</option>
+                <option value="THO">Thổ</option>
+                <option value="PHONG">Phong</option>
+                <option value="LOI">Lôi</option>
+                <option value="QUANG">Quang</option>
+                <option value="AM">Ám</option>
+              </select>
+            </label>
+          </div>
+          <label>Loại quái (Phân trang từ MySQL)
+            <select id="monster-template">
+              <option value="">Đang tải danh sách quái…</option>
+            </select>
+          </label>
+          <div class="monster-template-meta" style="font-size:11px;color:#94b89e;margin:-2px 0 8px;display:flex;justify-content:space-between;align-items:center;">
+            <span id="monster-template-info">Chưa chọn quái</span>
+            <button id="monster-load-more-btn" type="button" class="vfx-button subtle" style="padding:1px 6px;font-size:11px;" hidden>▼ Tải thêm quái</button>
+          </div>
           <label>Mã đàn <input id="monster-pack-id" placeholder="PACK_WOLF_01" /></label>
           <div class="field-pair">
             <label>X tâm <input id="monster-center-x" type="number" min="0" required /></label>
@@ -150,8 +181,8 @@
           <label>Thời gian đuổi (ms) <input id="monster-chase" type="number" min="1000" max="30000" value="7000" /></label>
           <div class="portal-actions">
             <button id="new-monster-pack" class="ghost">+ Mới</button>
-            <button id="save-monster-pack" class="wide">Lưu bãi quái</button>
-            <button id="delete-monster-pack" class="ghost" disabled>Xóa</button>
+            <button id="save-monster-pack" class="wide primary">Lưu bãi quái</button>
+            <button id="delete-monster-pack" class="ghost danger" disabled>Xóa</button>
           </div>
           <div id="monster-pack-list" class="portal-list"><p class="hint">Map chưa có bãi quái.</p></div>
         </section>
@@ -195,8 +226,7 @@
             <label>Y đến <input id="portal-target-y" type="number" min="0" value="20" /></label>
           </div>
           <label>Tên hiển thị <input id="portal-label" placeholder="Tên vùng đích" /></label>
-          <label>Nhiệm vụ yêu cầu <input id="portal-required-quest" list="portal-quest-list" maxlength="64" autocomplete="off" placeholder="Để trống = không khóa cổng" /></label>
-          <datalist id="portal-quest-list"></datalist>
+          <label>Nhiệm vụ yêu cầu <select id="portal-required-quest"><option value="">-- Không khóa cổng --</option></select></label>
           <label>Thông báo khi cổng bị khóa <input id="portal-locked-message" maxlength="200" placeholder="Hãy hoàn thành nhiệm vụ để mở cổng" /></label>
           <label class="check"><input id="portal-two-way" type="checkbox" checked /> Tạo luôn cổng quay về</label>
           <div class="portal-actions">
@@ -229,9 +259,10 @@
       </aside>
 
     </main>
+    <div id="admin-toast-container" class="admin-toast-container" aria-live="polite"></div>
     <script src="/runtime-config.js"></script>
     <script src="/js/api.js?v=7"></script>
     <script src="/admin/admin-auth.js?v=2"></script>
-    <script src="/admin/map-editor.js?v=16"></script>
+    <script src="/admin/map-editor.js?v=17"></script>
   </body>
 </html>

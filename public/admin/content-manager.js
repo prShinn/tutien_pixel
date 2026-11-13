@@ -70,8 +70,8 @@
 
       async remove(collection, id) {
         ensureEditable(collection);
-        if (collection === "quests" || collection === "monsters") {
-          throw new Error("Xóa quest hoặc quái có thể làm mất tiến độ và cấu hình map. Hãy ẩn hoặc đổi trạng thái bản ghi.");
+        if (collection === "quests") {
+          throw new Error("Xóa quest có thể làm mất tiến độ của người chơi. Hãy ẩn hoặc đổi trạng thái bản ghi.");
         }
         const result = await getJson(api.BASE + api.PATHS.admin.contentItem(collection, id), {
           method: "DELETE",

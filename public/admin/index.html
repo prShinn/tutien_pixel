@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Thiên Địa Đồ · Admin</title>
-    <link rel="stylesheet" href="/admin/admin.css?v=5" />
+    <link rel="stylesheet" href="/admin/admin.css?v=9" />
     <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
     <link rel="stylesheet" href="/admin/item-studio.css?v=5" />
   </head>
@@ -13,7 +13,7 @@
       <form id="admin-auth-form" class="admin-auth-form">
         <span class="eyebrow">QUYỀN QUẢN TRỊ</span>
         <h2 id="admin-auth-title">Đăng nhập Admin</h2>
-        <p class="admin-auth-help">Không có tài khoản hay mật khẩu Admin mặc định. Tài khoản đăng ký trong game có role PLAYER; người vận hành phải cấp GM/ADMIN trong MySQL. Sau đó đăng nhập bằng username và mật khẩu Đại ca đã đăng ký.</p>
+        <p class="admin-auth-help">Đăng nhập tài khoản quản trị hệ thống. Mặc định: <b>admin</b> / <b>admin</b> (toàn quyền ADMIN), hoặc tài khoản được cấp quyền GM/ADMIN trong MySQL.</p>
         <label for="admin-username">Tài khoản
           <input id="admin-username" name="username" autocomplete="username" maxlength="20" required />
         </label>
@@ -39,10 +39,10 @@
           <a class="nav-item" href="#alchemy-recipes" data-view="alchemy-recipes"><span>⚗</span>Luyện Đan <i>Công thức</i></a>
           <a class="nav-item" href="#loot-tables" data-view="loot-tables"><span>✦</span>Bảng rớt đồ <i>Loot</i></a>
           <p class="nav-label">Thế giới &amp; Kỹ năng</p>
-          <a class="nav-item" href="#quests" data-view="content" data-collection="quests"><span>◇</span>Quest <i>MySQL</i></a>
+          <a class="nav-item" href="#quests" data-view="quest-studio"><span>◇</span>Quest Studio <i>Nhiệm vụ</i></a>
           <a class="nav-item" href="#monsters" data-view="content" data-collection="monsters"><span>♞</span>Ngân hàng quái <i>MySQL</i></a>
           <a class="nav-item" href="#monster-studio" data-view="monster-studio"><span>♞</span>Tạo quái vật từ ảnh</a>
-          <a class="nav-item" href="#skills" data-view="content" data-collection="skills"><span>✦</span>Skills <i>MySQL</i></a>
+          <a class="nav-item" href="#skills" data-view="skill-studio"><span>✦</span>Skill Studio <i>Chỉ số chiêu</i></a>
           <a class="nav-item" href="#skill-vfx" data-view="skill-vfx"><span>▧</span>VFX Skill <i>Pixel studio</i></a>
           <p class="nav-label">Hệ thống</p>
           <a class="nav-item" href="#accounts" data-view="content" data-collection="accounts"><span>◎</span>Tài khoản &amp; Nhân vật</a>
@@ -74,9 +74,22 @@
           </section>
           <div id="content-feedback" class="content-feedback" role="status" aria-live="polite" hidden></div><div class="panel"><div id="content-table" class="content-table"><div class="loading">Đang tải dữ liệu…</div></div><nav id="content-pagination" class="content-pagination" aria-label="Phân trang danh mục" hidden><button id="content-prev" type="button" class="vfx-button subtle">Trang trước</button><span id="content-page-summary" tabindex="-1" role="status"></span><button id="content-next" type="button" class="vfx-button subtle">Trang sau</button></nav></div></section>
         <section id="item-studio-view" hidden>
+          <div class="content-toolbar studio-nav-header">
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="items" id="item-studio-back-top">
+                ← Quay lại Kho vật phẩm
+              </button>
+              <span class="eyebrow">ITEM STUDIO</span>
+              <h2>Tạo &amp; Chỉnh sửa Vật phẩm</h2>
+              <p>Tạo icon pixel và tinh chỉnh thuộc tính, chỉ số trang bị, đan dược lưu MySQL.</p>
+            </div>
+          </div>
           <form id="item-studio-form" class="item-studio">
             <div id="item-studio-mode-banner" class="studio-mode-banner" hidden>
-              <span id="item-studio-mode-label">Đang chỉnh sửa vật phẩm</span>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button id="item-studio-back-banner" class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="items">← Quay lại Kho vật phẩm</button>
+                <span id="item-studio-mode-label">Đang chỉnh sửa vật phẩm</span>
+              </div>
               <button id="item-studio-new-mode" class="vfx-button subtle" type="button">Chuyển sang Tạo mới</button>
             </div>
             <section class="panel item-studio-panel" aria-labelledby="item-art-heading">
@@ -107,6 +120,8 @@
                 <label>Cấp vật phẩm (iLvl)<input name="itemLevel" type="number" min="1" max="999" value="10" required /></label>
                 <label>Thuộc tính Ngũ Hành<select name="linhCan"><option value="">Chung (Mọi hệ)</option><option value="KIM">Kim</option><option value="MOC">Mộc</option><option value="THUY">Thủy</option><option value="HOA">Hỏa</option><option value="THO">Thổ</option><option value="QUANG">Quang</option><option value="AM">Ám</option><option value="PHONG">Phong</option><option value="LOI">Lôi</option></select></label>
                 <label>Tiền tệ Shop<select name="currency"><option value="XU" selected>Xu</option><option value="LINH_THACH">Linh Thạch (Kỳ Trân Các)</option></select></label>
+                <label>Tiệm NPC bán đồ<select name="shopCategory"><option value="" selected>Tự động theo loại vật phẩm</option><option value="EQUIPMENT">Tiệm Trang Bị (Thợ Rèn)</option><option value="ALCHEMY">Tiệm Đan Dược (Dược Sư)</option><option value="ALL">Tất cả tiệm NPC (Thương Nhân)</option></select></label>
+                <label>Phân loại Cửa hàng<select name="shopTab"><option value="" selected>Cửa hàng thường (Xu)</option><option value="PREMIUM">Kỳ Trân Các (Linh Thạch)</option></select></label>
                 <label>Giá mua<input name="giaMua" type="number" min="0" max="100000000" value="0" required /></label>
                 <label>Giá bán<input name="giaBan" type="number" min="0" max="100000000" value="0" required /></label>
               </div>
@@ -174,12 +189,29 @@
               <label>Mô tả<textarea name="moTa" maxlength="500" rows="3"></textarea></label>
               <p id="item-save-status" role="status"></p>
               <button class="hero-action" type="submit" disabled>Lưu vào kho vật phẩm</button>
-              <button class="vfx-button subtle" type="button" id="item-studio-list" hidden>Mở Items &amp; Loot</button>
+              <button class="vfx-button subtle back-to-list-btn" type="button" id="item-studio-list" data-back-collection="items">← Quay lại Kho vật phẩm</button>
             </section>
           </form>
         </section>
         <section id="monster-studio-view" hidden>
+          <div class="content-toolbar studio-nav-header">
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="monsters" id="monster-studio-back-top">
+                ← Quay lại Ngân hàng quái
+              </button>
+              <span class="eyebrow">MONSTER STUDIO</span>
+              <h2>Tạo &amp; Chỉnh sửa Quái vật</h2>
+              <p>Tạo sprite pixel và tinh chỉnh toàn bộ chỉ số quái vật lưu MySQL.</p>
+            </div>
+          </div>
           <form id="monster-studio-form" class="item-studio">
+            <div id="monster-studio-mode-banner" class="studio-mode-banner" hidden>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button id="monster-studio-back-banner" class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="monsters">← Quay lại Ngân hàng quái</button>
+                <span id="monster-studio-mode-label">Đang chỉnh sửa quái vật</span>
+              </div>
+              <button id="monster-studio-new-mode" class="vfx-button subtle" type="button">Chuyển sang Tạo mới</button>
+            </div>
             <section class="panel item-studio-panel" aria-labelledby="monster-art-heading">
               <h2 id="monster-art-heading">1. Tạo sprite pixel</h2>
               <label>Ảnh nguồn <small>PNG, tối đa 8 MB. Ảnh nền trong suốt cho kết quả tốt nhất.</small><input name="source" type="file" accept="image/png,.png" required /></label>
@@ -211,6 +243,7 @@
               <p data-monster-status role="status"></p>
               <button class="hero-action" type="submit" disabled>Lưu vào ngân hàng quái</button>
               <a class="text-link" data-monster-map hidden>Phân bổ lên bản đồ →</a>
+              <button class="vfx-button subtle back-to-list-btn" type="button" id="monster-studio-list" data-back-collection="monsters">← Quay lại Ngân hàng quái</button>
             </section>
           </form>
         </section>
@@ -239,12 +272,12 @@
             <form id="alchemy-form" class="panel editor-form-panel">
               <div class="panel-head"><div><span class="eyebrow">CẤU HÌNH CÔNG THỨC</span><h3 id="alchemy-form-title">Tạo công thức mới</h3></div><span id="alchemy-status" class="vfx-save-state" role="status"></span></div>
               <div class="item-studio-fields">
-                <label>Mã công thức<input name="code" required maxlength="64" pattern="[A-Za-z0-9_-]+" placeholder="RECIPE_DAN_PHI_THANG_HA" /></label>
+                <label>Mã công thức<input name="code" required maxlength="64" pattern="[A-Za-z0-9_-]+" placeholder="Tự động theo tên công thức" /></label>
                 <label>Tên hiển thị<input name="name" required maxlength="80" /></label>
                 <label>Nhóm công thức<select name="category"><option value="BREAKTHROUGH">Phá Cảnh (BREAKTHROUGH)</option><option value="CULTIVATION">Tu Vi (CULTIVATION)</option><option value="SUPPORT">Hỗ Trợ (SUPPORT)</option><option value="BASIC">Cơ bản (BASIC)</option><option value="MID">Trung cấp (MID)</option><option value="HIGH">Cao cấp (HIGH)</option><option value="EXTREME">Cực phẩm (EXTREME)</option></select></label>
                 <label>Phẩm chất đan<select name="quality"><option value="HA_PHAM">Hạ phẩm (HA_PHAM)</option><option value="TRUNG_PHAM">Trung phẩm (TRUNG_PHAM)</option><option value="THUONG_PHAM">Thượng phẩm (THUONG_PHAM)</option><option value="CUC_PHAM">Cực phẩm (CUC_PHAM)</option></select></label>
-                <label>Mã vật phẩm đầu ra<input name="outputItemCode" required maxlength="64" placeholder="DAN_PHI_THANG" list="admin-item-code-list" /></label>
-                <label>Đan đột biến (+5%)<input name="upgradedItemCode" maxlength="64" placeholder="DAN_PHI_THANG_TRUNG" list="admin-item-code-list" /></label>
+                <label>Vật phẩm đầu ra<select name="outputItemCode" id="alchemy-output-select" required></select></label>
+                <label>Đan đột biến (+5%)<select name="upgradedItemCode" id="alchemy-upgraded-select"><option value="">-- Không có đan đột biến --</option></select></label>
                 <label>Số lượng ra lò<input name="outputQuantity" type="number" min="1" max="99" value="1" required /></label>
                 <label>Tỷ lệ thành công (≤0.70)<input name="craftSuccessRate" type="number" min="0.01" max="0.7" step="0.01" value="0.65" required /></label>
                 <label>Xác suất đột biến (0..0.5)<input name="mutationChance" type="number" min="0" max="0.5" step="0.01" value="0.05" required /></label>
@@ -286,28 +319,159 @@
             </form>
           </div>
         </section>
-        <section id="mail-sender-view" hidden>
+        <section id="quest-studio-view" hidden>
           <div class="content-toolbar">
-            <div><span class="eyebrow">GM REWARD DISPATCH</span><h2>Gửi thư &amp; Quà GM</h2><p>Phát Xu, Linh Thạch, Tu Vi và tối đa 5 vật phẩm qua hộp thư có đính kèm chống trùng request.</p></div>
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="quests" style="margin-bottom:8px;">← Quay lại Danh sách Nhiệm vụ</button>
+              <span class="eyebrow">QUEST STUDIO</span>
+              <h2>Quản lý Nhiệm vụ</h2>
+              <p>Thiết lập chuỗi nhiệm vụ cốt truyện, săn yêu thú, thu thập tài nguyên và phần thưởng.</p>
+            </div>
+            <div class="content-tools"><input id="quest-search" class="content-search" type="search" placeholder="Tìm mã hoặc tên nhiệm vụ…" /><select id="quest-category-filter" class="content-filter"><option value="">Tất cả phân loại</option><option value="main">Chính tuyến (main)</option><option value="side">Phụ tuyến (side)</option><option value="daily">Hàng ngày (daily)</option></select><button id="quest-new-btn" class="hero-action" type="button">+ Nhiệm vụ mới</button></div>
+          </div>
+          <div class="split-editor-layout">
+            <aside class="panel editor-list-panel"><div id="quest-list" class="editor-list"><div class="loading">Đang tải nhiệm vụ…</div></div></aside>
+            <form id="quest-form" class="panel editor-form-panel">
+              <div class="panel-head"><div><span class="eyebrow">CẤU HÌNH NHIỆM VỤ</span><h3 id="quest-form-title">Tạo nhiệm vụ mới</h3></div><span id="quest-status" class="vfx-save-state" role="status"></span></div>
+              <div class="item-studio-fields">
+                <label>Mã nhiệm vụ (ID)<input name="id" required maxlength="64" pattern="[a-z0-9_-]+" placeholder="novice-01-first-step" /></label>
+                <label>Tên nhiệm vụ<input name="title" required maxlength="100" placeholder="Bước Đầu Tu Tiên" /></label>
+                <label>Phân loại<select name="category"><option value="main">Chính tuyến (main)</option><option value="side">Phụ tuyến (side)</option><option value="daily">Hàng ngày (daily)</option></select></label>
+                <label>Người giao nhiệm vụ<input name="giver" required maxlength="80" value="Lão Tu Sĩ" /></label>
+                <label>Khu vực<input name="location" required maxlength="100" value="Thanh Vân Trấn" /></label>
+                <label>Mục tiêu ngắn gọn<input name="objective" required maxlength="160" placeholder="Đánh bại 5 Mộc Nhân" /></label>
+                <label>Loại sự kiện<select name="eventType"><option value="monster_kill">Diệt yêu thú (monster_kill)</option><option value="collect_item">Thu thập vật phẩm (collect_item)</option><option value="map_enter">Khám phá bản đồ (map_enter)</option></select></label>
+                <label>Số lượng mục tiêu<input name="target" type="number" min="0" max="1000000" value="5" required /></label>
+                <label id="quest-target-id-label">Đối tượng mục tiêu
+                  <select id="quest-target-monster-select" class="quest-target-select"></select>
+                  <select id="quest-target-item-select" class="quest-target-select" style="display:none;"></select>
+                  <input name="targetCode" id="quest-target-code-input" class="quest-target-input" maxlength="80" placeholder="Mã hoặc tên mục tiêu" style="display:none;" />
+                </label>
+                <label id="quest-requires-id-label">Nhiệm vụ tiên quyết
+                  <select id="quest-requires-select">
+                    <option value="">-- Không yêu cầu nhiệm vụ tiên quyết --</option>
+                  </select>
+                  <input name="requiresQuestId" id="quest-requires-input" hidden placeholder="Để trống nếu không yêu cầu" />
+                </label>
+                <label>Trạng thái ban đầu<select name="initialStatus"><option value="available">Có thể nhận (available)</option><option value="active">Tự động nhận (active)</option></select></label>
+              </div>
+              <label>Cốt truyện &amp; Mô tả chi tiết<textarea name="summary" required maxlength="300" rows="3">Tu hành gian nan, bước đầu tiên cần rèn luyện thể phách vững vàng.</textarea></label>
+              <fieldset class="dynamic-rows-box">
+                <legend>Phần thưởng nhiệm vụ (Tối đa 8 món)</legend>
+                <div id="quest-rewards-list"></div>
+                <button id="quest-add-reward" class="vfx-button subtle" type="button">+ Thêm phần thưởng</button>
+              </fieldset>
+              <div class="vfx-actions">
+                <button id="quest-save-btn" class="hero-action" type="submit">Lưu nhiệm vụ</button>
+                <button id="quest-delete-btn" class="vfx-button danger" type="button" hidden>Xóa nhiệm vụ</button>
+              </div>
+            </form>
+          </div>
+        </section>
+        <section id="skill-studio-view" hidden>
+          <div class="content-toolbar">
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="skills" style="margin-bottom:8px;">← Quay lại Danh sách Kỹ năng</button>
+              <span class="eyebrow">SKILL STUDIO</span>
+              <h2>Quản lý Kỹ năng &amp; Chỉ số</h2>
+              <p>Cấu hình toàn bộ chiêu thức Ngũ Hành, tiêu hao MP, sát thương, hiệu ứng và nội tại.</p>
+            </div>
+            <div class="content-tools"><input id="skill-search" class="content-search" type="search" placeholder="Tìm mã hoặc tên kỹ năng…" /><select id="skill-root-filter" class="content-filter"><option value="">Tất cả linh căn</option><option value="COMMON">Dùng chung (COMMON)</option><option value="KIM">Kim</option><option value="MOC">Mộc</option><option value="THUY">Thủy</option><option value="HOA">Hỏa</option><option value="THO">Thổ</option><option value="PHONG">Phong</option><option value="LOI">Lôi</option><option value="QUANG">Quang</option><option value="AM">Ám</option></select><button id="skill-new-btn" class="hero-action" type="button">+ Kỹ năng mới</button></div>
+          </div>
+          <div class="split-editor-layout">
+            <aside class="panel editor-list-panel"><div id="skill-list" class="editor-list"><div class="loading">Đang tải danh mục kỹ năng…</div></div></aside>
+            <form id="skill-form" class="panel editor-form-panel">
+              <div class="panel-head"><div><span class="eyebrow">CẤU HÌNH CHIÊU THỨC</span><h3 id="skill-form-title">Tạo kỹ năng mới</h3></div><span id="skill-status" class="vfx-save-state" role="status"></span></div>
+              <div class="item-studio-fields">
+                <label>Mã kỹ năng (Code)<input name="code" required maxlength="64" pattern="[A-Za-z0-9_-]+" placeholder="Tự động theo tên kỹ năng" /></label>
+                <label>Tên kỹ năng<input name="name" required maxlength="80" placeholder="Tam Hoa Tụ Đỉnh" /></label>
+                <label>Linh căn<select name="linhCan"><option value="COMMON">Dùng chung (COMMON)</option><option value="KIM">Kim</option><option value="MOC">Mộc</option><option value="THUY">Thủy</option><option value="HOA">Hỏa</option><option value="THO">Thổ</option><option value="PHONG">Phong</option><option value="LOI">Lôi</option><option value="QUANG">Quang</option><option value="AM">Ám</option></select></label>
+                <label>Tầng / Cấp bậc (Tier)<input name="tier" type="number" min="1" max="12" value="1" required /></label>
+                <label>Phân loại loại hình<select name="type"><option value="COMMON">Phổ thông (COMMON)</option><option value="PHYS">Vật lý (PHYS)</option><option value="MAGIC">Phép thuật (MAGIC)</option></select></label>
+                <label>Cơ chế thi triển<select name="category"><option value="ACTIVE">Chủ động (ACTIVE)</option><option value="PASSIVE">Nội tại (PASSIVE)</option></select></label>
+                <label>Tiêu hao MP<input name="mpTieuHao" type="number" min="0" max="10000" value="10" required /></label>
+                <label>Thời gian hồi chiêu (s)<input name="hoiChieu" type="number" min="0" max="300" step="0.1" value="1.5" required /></label>
+                <label>Tầm xuất chiêu (ô)<input name="range" type="number" min="0" max="30" step="0.5" value="3.5" required /></label>
+                <label>Hệ số sát thương (1.0 = 100%)<input name="satThuong" type="number" min="0" max="50" step="0.05" value="1.2" required /></label>
+                <label>Bán kính lan AOE (0=đơn thể)<input name="dienRong" type="number" min="0" max="20" step="0.5" value="0" required /></label>
+                <label>Chỉ số tỷ lệ (Scaling)<select name="scalingStat"><option value="str">Sức Mạnh (STR)</option><option value="agi">Thân Pháp (AGI)</option><option value="ene">Tinh Thần (ENE)</option><option value="vit">Thể Lực (VIT)</option></select></label>
+                <label>Hiệu ứng chiến đấu<select name="effect"><option value="">Không có hiệu ứng</option><option value="buff_hp_regen">Hồi máu liên tục (HP Regen)</option><option value="buff_mp_regen">Hồi MP liên tục (MP Regen)</option><option value="buff_vitals">Hồi song song HP &amp; MP</option><option value="heal">Hồi phục tức thì (Heal)</option><option value="restore_mp">Hồi MP tức thì</option><option value="shield">Hộ thuẫn hấp thụ (Shield)</option><option value="buff_atk">Tăng sức tấn công</option><option value="buff_def">Tăng phòng thủ</option><option value="buff_crit">Tăng tỷ lệ chí mạng</option><option value="buff_spd">Tăng tốc độ di chuyển</option><option value="slow">Làm chậm (Slow)</option><option value="stun">Làm choáng (Stun)</option><option value="burn">Thiêu đốt (Burn DoT)</option><option value="poison">Trúng độc (Poison DoT)</option><option value="armor_break">Phá giáp (Armor Break)</option><option value="cleanse">Hóa giải hiệu ứng xấu</option></select></label>
+                <label>Giá trị hiệu ứng<input name="effectVal" type="number" min="-10000" max="10000" value="0" /></label>
+                <label>Thời gian duy trì buff (s)<input name="thoiGianBuff" type="number" min="0" max="3600" value="0" /></label>
+              </div>
+              <fieldset id="skill-passives-box" class="dynamic-rows-box" hidden>
+                <legend>Thuộc tính Nội Tại (PASSIVE %)</legend>
+                <div class="item-studio-fields">
+                  <label>+ Khí Huyết (% Max HP)<input name="pass_maxHpPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Pháp Lực (% Max MP)<input name="pass_maxMpPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Sát Thương Chiêu (%)<input name="pass_skillDamagePct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Xuyên Giáp (%)<input name="pass_pDefPenPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Phòng Thủ (%)<input name="pass_defensePct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Tốc Độ Di Chuyển (%)<input name="pass_speedPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Tỷ Lệ Chí Mạng (%)<input name="pass_critPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Khiên Hộ Thể (%)<input name="pass_shieldPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Hồi Máu Tự Nhiên (%)<input name="pass_hpRegenPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Kháng Hiệu Ứng (%)<input name="pass_resistPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Giảm Hồi Chiêu (%)<input name="pass_cooldownPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                  <label>+ Hiệu Lực Hiệu Ứng (%)<input name="pass_statusEffectPct" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                </div>
+              </fieldset>
+              <label>Mô tả chiêu thức<textarea name="moTa" maxlength="400" rows="3" placeholder="Mô tả uy lực và tác dụng của chiêu thức…"></textarea></label>
+              <div class="vfx-actions">
+                <button id="skill-save-btn" class="hero-action" type="submit">Lưu kỹ năng</button>
+                <button id="skill-open-vfx-btn" class="vfx-button subtle" type="button">🎨 Mở VFX Studio</button>
+                <button id="skill-delete-btn" class="vfx-button danger" type="button" hidden>Xóa kỹ năng</button>
+              </div>
+            </form>
+          </div>
+        </section>
+        <section id="mail-sender-view" hidden>
+          <div class="content-toolbar studio-nav-header">
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="accounts" id="mail-sender-back-top">
+                ← Quay lại Tài khoản &amp; Nhân vật
+              </button>
+              <span class="eyebrow">GM REWARD DISPATCH</span>
+              <h2>Gửi thư &amp; Quà GM</h2>
+              <p>Phát Xu, Linh Thạch, Tu Vi và tối đa 5 vật phẩm qua hộp thư có đính kèm chống trùng request.</p>
+            </div>
           </div>
           <form id="admin-mail-form" class="panel editor-form-panel">
             <div class="panel-head"><div><span class="eyebrow">MAIL PAYLOAD</span><h3>Soạn thư hệ thống</h3></div><span id="mail-send-status" class="vfx-save-state" role="status"></span></div>
-            <div class="item-studio-fields">
-              <label>ID Nhân vật (Player ID)<input name="playerId" type="text" maxlength="64" required placeholder="Nhập playerId (vd: plr_...)" /></label>
+            <div class="mail-recipient-box">
+              <label>Người nhận (Nhân vật)
+                <select id="mail-player-select" required>
+                  <option value="">-- Đang nạp danh sách nhân vật… --</option>
+                </select>
+              </label>
+              <button id="mail-player-load-more-btn" type="button" class="editor-list-load-btn" hidden>▼ Tải thêm nhân vật (Trang kế tiếp)</button>
+              <input name="playerId" type="text" id="mail-player-id-input" hidden readonly required placeholder="ID nhân vật" />
+              <div id="mail-recipient-card" class="recipient-card" hidden>
+                <div class="recipient-card-avatar">👤</div>
+                <div class="recipient-card-details">
+                  <strong id="mail-recipient-name">Chưa chọn nhân vật</strong>
+                  <small id="mail-recipient-meta">Vui lòng chọn nhân vật nhận quà</small>
+                </div>
+              </div>
+            </div>
+            <div class="form-grid-3">
               <label>Loại thư<select name="sourceType"><option value="ADMIN">Quà Admin (ADMIN)</option><option value="EVENT">Sự kiện (EVENT)</option><option value="COMPENSATION">Bồi thường (COMPENSATION)</option><option value="SYSTEM">Hệ thống (SYSTEM)</option><option value="TOPUP_BONUS">Thưởng nạp (TOPUP_BONUS)</option></select></label>
               <label>Tiêu đề thư<input name="title" required maxlength="100" value="Quà hỗ trợ từ Thiên Đạo" /></label>
               <label>Hết hạn sau (giờ)<input name="expiresInHours" type="number" min="1" max="720" value="168" /></label>
+            </div>
+            <div class="form-grid-3">
               <label>Xu đính kèm<input name="xu" type="number" min="0" max="1000000" value="0" /></label>
               <label>Linh Thạch đính kèm<input name="linhThach" type="number" min="0" max="100000" value="0" /></label>
               <label>Tu Vi đính kèm<input name="tuVi" type="number" min="0" max="1000000" value="0" /></label>
             </div>
-            <label>Nội dung thư<textarea name="body" required maxlength="1000" rows="3">Chúc đạo hữu tu hành tinh tấn!</textarea></label>
+            <label class="form-full-label">Nội dung thư<textarea name="body" required maxlength="1000" rows="3">Chúc đạo hữu tu hành tinh tấn!</textarea></label>
             <fieldset class="dynamic-rows-box">
               <legend>Vật phẩm đính kèm (tối đa 5 món)</legend>
               <div id="mail-items-list"></div>
               <button id="mail-add-item" class="vfx-button subtle" type="button">+ Thêm vật phẩm</button>
             </fieldset>
-            <div class="vfx-actions">
+            <div class="vfx-actions" style="display:flex;justify-content:space-between;align-items:center;">
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-collection="accounts">← Quay lại Tài khoản &amp; Nhân vật</button>
               <button id="mail-send-btn" class="hero-action" type="submit">Gửi thư ngay</button>
             </div>
           </form>
@@ -319,6 +483,8 @@
           <div id="balance-settings-grid" class="balance-grid"><div class="loading">Đang đọc /api/balance…</div></div>
         </section>
         <datalist id="admin-item-code-list"></datalist>
+        <datalist id="admin-monster-code-list"></datalist>
+        <datalist id="admin-quest-id-list"></datalist>
       </main>
     </div>
     <dialog id="content-editor-dialog" class="content-editor" aria-labelledby="content-editor-title">
@@ -349,6 +515,32 @@
         <footer class="content-editor-actions"><button id="content-editor-cancel" class="vfx-button subtle" type="button">Hủy</button><button id="content-editor-save" class="vfx-button primary" type="submit">Lưu bản ghi</button></footer>
       </form>
     </dialog>
+    <dialog id="record-detail-dialog" class="content-editor record-detail-dialog" aria-labelledby="detail-title">
+      <div class="detail-dialog-inner">
+        <header class="content-editor-head">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div id="detail-avatar" class="detail-avatar"><span class="avatar-icon">📦</span></div>
+            <div>
+              <span class="eyebrow" id="detail-eyebrow">CHI TIẾT BẢN GHI</span>
+              <h2 id="detail-title">Tên bản ghi</h2>
+              <small id="detail-subtitle" class="detail-subtitle"></small>
+            </div>
+          </div>
+          <button id="detail-close-btn" class="content-editor-close" type="button" aria-label="Đóng cửa sổ">×</button>
+        </header>
+        <div id="detail-body" class="detail-body">
+          <div class="loading">Đang tải chi tiết…</div>
+        </div>
+        <footer class="content-editor-actions" style="justify-content:space-between;">
+          <div id="detail-quick-actions" style="display:flex;gap:8px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button id="detail-edit-btn" class="vfx-button primary" type="button">✏ Chỉnh sửa</button>
+            <button id="detail-close-bottom-btn" class="vfx-button subtle" type="button">✕ Đóng</button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+    <div id="admin-toast-container" class="admin-toast-container" aria-live="polite"></div>
     <script src="/runtime-config.js"></script>
     <script src="/js/api.js?v=7"></script>
     <script>window.ctx = null; window.S = { player: null }; window.CFG = {};</script>
@@ -356,11 +548,11 @@
     <script src="/js/visual-effects.js?v=2"></script>
     <script src="/js/item-fx.js?v=1"></script>
     <script src="/js/skill-vfx.js?v=20"></script>
-    <script src="/admin/content-utils.js?v=6"></script>
-    <script src="/admin/content-manager.js?v=6"></script>
-    <script src="/admin/item-studio.js?v=5"></script>
-    <script src="/admin/monster-studio.js?v=2"></script>
-    <script src="/admin/admin-editors.js?v=1"></script>
-    <script src="/admin/admin.js?v=21"></script>
+    <script src="/admin/content-utils.js?v=9"></script>
+    <script src="/admin/content-manager.js?v=9"></script>
+    <script src="/admin/item-studio.js?v=10"></script>
+    <script src="/admin/monster-studio.js?v=7"></script>
+    <script src="/admin/admin-editors.js?v=8"></script>
+    <script src="/admin/admin.js?v=27"></script>
   </body>
 </html>

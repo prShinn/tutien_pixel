@@ -153,7 +153,7 @@
     if (key === "quests") {
       if (!/^[a-z0-9_-]{1,64}$/.test(recordId) || !String(fields.title || "").trim()) throw new Error("Quest cần mã chữ thường và tiêu đề hợp lệ.");
       if (!["main", "side", "daily"].includes(fields.category)) throw new Error("Nhóm quest không hợp lệ.");
-      if (!["monster_kill", "collect_item"].includes(fields.eventType)) throw new Error("Sự kiện quest không được hỗ trợ.");
+      if (!["monster_kill", "collect_item", "map_enter"].includes(fields.eventType)) throw new Error("Sự kiện quest không được hỗ trợ.");
       if (!Number.isSafeInteger(Number(fields.target)) || Number(fields.target) < 0 || Number(fields.target) > 1000000) throw new Error("Mục tiêu quest phải là số nguyên từ 0 trở lên.");
       if (!["active", "available"].includes(fields.initialStatus) || !Number.isSafeInteger(Number(fields.initialProgress)) || Number(fields.initialProgress) < 0 || Number(fields.initialProgress) > Number(fields.target)) throw new Error("Trạng thái ban đầu hoặc tiến độ quest không hợp lệ.");
       if (!Array.isArray(fields.rewards)) throw new Error("Phần thưởng quest phải là một danh sách.");

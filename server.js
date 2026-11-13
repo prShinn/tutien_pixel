@@ -48,9 +48,13 @@ app.use(["/api", "/socket.io"], proxyToBackend);
 app.use(["/mock-api", "/js/core/mock-backend.mjs"], (_req, res) => {
   res.status(410).json({ ok: false, code: "REAL_BACKEND_REQUIRED", error: "Project yêu cầu BE và MySQL thật." });
 });
+app.get(["/admin/map-editor", "/admin/map-editor/"], (_req, res) => {
+  res.set("Cache-Control", "no-store").sendFile(path.join(__dirname, "public", "admin", "map-editor.html"));
+});
 app.use(express.static(path.join(__dirname, "public"), {
+  extensions: ["html"],
   setHeaders(res, file) {
-    if (file.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
+    if (file.endsWith(".html") || file.includes("admin")) res.setHeader("Cache-Control", "no-store");
   },
 }));
 const server = app.listen(config.port, () => {

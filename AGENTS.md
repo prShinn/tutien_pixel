@@ -1,6 +1,7 @@
 # Project execution rules
 
 - Apply the dev skill and the backend skill for backend work.
+- Low-spec first / Cấu hình tối thiểu: Toàn bộ gameplay, canvas render và admin tools BẮT BUỘC tối ưu để chơi mượt 60 FPS trên thiết bị cấu hình thấp (low-end dual-core, low RAM, iGPU). Triệt tiêu tính toán nặng/duyệt mảng trong loop render; dùng dirty flag/cache bộ đệm; batch canvas draw calls; debounce tìm kiếm 250ms; phân trang tối đa 20–25 items/trang tránh phình DOM & rò rỉ RAM.
 - This frontend and sibling ../tutien_pixel_be use real services exclusively.
 - FE .env defines DATA_MODE=real and BACKEND_URL. BE .env owns MySQL credentials. Never print or commit secrets.
 - All REST and Socket.IO requests must reach the actual BE. Player, account, inventory, currency and quest mutations must persist in the configured MySQL database through BE APIs.

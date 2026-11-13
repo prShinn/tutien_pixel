@@ -46,12 +46,60 @@ function renderWorlds() {
 const contentLabels = { quests: "Quest", npcs: "NPC theo map", items: "Kho vật phẩm", skills: "Skills", monsters: "Ngân hàng quái", alchemyRecipes: "Công thức Luyện Đan", lootTables: "Bảng rớt đồ", accounts: "Tài khoản & Nhân vật" };
 let activeCollection = null;
 const contentManager = ContentAdmin.createController({ api: API, getJson, adminHeaders });
-const pagedCollections = new Set(["items", "monsters", "skills"]);
+const pagedCollections = new Set(["items", "monsters", "skills", "accounts", "quests", "alchemyRecipes", "lootTables"]);
 const pixelArtCollections = new Set(["items", "skills", "monsters"]);
 const catalogPageSize = 24;
 let contentSearchTimer;
 const contentState = { page: 1, records: [], query: "", itemType: "", rarity: "", busy: false, editingId: null, loadVersion: 0, demo: false, persisted: false, sampleItems: null };
 const vfxState = { skills: [], selectedCode: "", profiles: {}, loaded: false, authorized: false, saving: false, previewStarted: performance.now(), previewActive: false };
+
+window.showToast = function (message, type = "success", title = "") {
+  let container = document.getElementById("admin-toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "admin-toast-container";
+    container.className = "admin-toast-container";
+    document.body.appendChild(container);
+  }
+  const defaultTitles = {
+    success: "Thành công",
+    error: "Lỗi thao tác",
+    warning: "Cảnh báo",
+    info: "Thông báo",
+  };
+  const icons = {
+    success: "✓",
+    error: "✕",
+    warning: "⚠",
+    info: "ℹ",
+  };
+  const toastType = ["success", "error", "warning", "info"].includes(type) ? type : "info";
+  const toastTitle = title || defaultTitles[toastType];
+
+  const toast = document.createElement("div");
+  toast.className = `admin-toast ${toastType}`;
+  toast.setAttribute("role", "status");
+  toast.innerHTML = `
+    <div class="admin-toast-icon">${icons[toastType]}</div>
+    <div class="admin-toast-content">
+      <strong class="admin-toast-title">${AdminContentUtils.escapeHtml(toastTitle)}</strong>
+      <div class="admin-toast-msg">${AdminContentUtils.escapeHtml(message)}</div>
+    </div>
+    <button class="admin-toast-close" type="button" aria-label="Đóng">×</button>
+  `;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  const dismiss = () => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 260);
+  };
+  const timer = setTimeout(dismiss, 3500);
+  toast.querySelector(".admin-toast-close")?.addEventListener("click", () => {
+    clearTimeout(timer);
+    dismiss();
+  });
+};
 
 function vfxCode(skill) { return String(skill?.code || skill?.maNangLuc || skill?.id || ""); }
 function vfxName(skill) { return String(skill?.name || skill?.tenNangLuc || vfxCode(skill)); }
@@ -372,6 +420,7 @@ async function applySampleItems() {
   if (activeCollection === "items" && !$("sample-items-tool").hidden) renderSampleItemsPreview();
   const message = `Đã thêm ${created} món${skipped ? ` · bỏ qua ${skipped} món trùng` : ""}${failures.length ? ` · ${failures.length} lỗi` : ""}.`;
   setContentFeedback(failures.length ? `${message} ${failures.slice(0, 2).join("; ")}` : message, failures.length ? "error" : "success");
+  window.showToast?.(failures.length ? `Bổ sung mẫu có lỗi: ${message}` : `Đã thêm ${created} món vào MySQL!`, failures.length ? "warning" : "success");
 }
 
 function renderContentPager() {
@@ -430,28 +479,57 @@ function renderContent(collection, payload) {
       `<span class="content-field"><small>${AdminContentUtils.escapeHtml(key)}</small><span title="${AdminContentUtils.escapeHtml(value)}">${AdminContentUtils.escapeHtml(value)}</span></span>`).join("");
     const id = AdminContentUtils.escapeHtml(collection === "skills" ? record.code || record.id : (record.id ?? record.playerId ?? ""));
     const rarityCode = String(record.rarity || "").toUpperCase();
+    const shopBadge = collection === "items" && record.shopTab === "PREMIUM"
+      ? " · Kỳ Trân Các"
+      : (collection === "items" && record.shopCategory ? ` · Tiệm: ${record.shopCategory}` : "");
     const state = collection === "items" && rarityCode
-      ? AdminContentUtils.escapeHtml(`${rarityCode} · iLv.${record.itemLevel ?? (Number(record.requiredRealmStt || 1) * 10)}`)
+      ? AdminContentUtils.escapeHtml(`${rarityCode} · iLv.${record.itemLevel ?? (Number(record.requiredRealmStt || 1) * 10)}${shopBadge}`)
       : collection === "accounts"
-        ? AdminContentUtils.escapeHtml(`${record.role || "PLAYER"}${record.playerName ? ` · ${record.playerName}` : ""}`)
+        ? `<span class="badge ${record.status === "SUSPENDED" ? "badge-suspended" : "badge-active"}">${record.status === "SUSPENDED" ? "Đã khóa" : "Hoạt động"}</span> <span class="badge badge-role">${record.role || "PLAYER"}</span>`
         : AdminContentUtils.escapeHtml(record.status || "Đang dùng");
     const canEditRecord = canEdit;
     const asset = pagedCollections.has(collection) ? adminImage(record.img) || adminImage(record.icon) : "";
     const preview = asset ? `<img class="content-record-preview" src="${asset}" alt="" loading="lazy" />` : "";
-    let actions = `<span class="content-readonly">Chỉ xem</span>`;
+    let actions = `<div class="content-record-actions">`
+      + `<button class="vfx-button subtle" type="button" data-content-action="view" data-index="${recordIndex}" title="Xem chi tiết ${id}">👁 Xem</button>`;
     if (canEditRecord) {
-      actions = `<div class="content-record-actions">`
-        + (collection === "items" ? `<button class="vfx-button primary" type="button" data-content-action="edit-studio" data-index="${recordIndex}">Sửa Studio</button>` : "")
-        + `<button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">${collection === "items" ? "Sửa JSON" : "Sửa"}</button>`
-        + (collection === "items" || collection === "skills" ? `<button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button>` : "")
-        + `</div>`;
-    } else if (collection === "accounts" && record.playerId) {
-      actions = `<div class="content-record-actions"><button class="vfx-button primary" type="button" data-content-action="mail" data-index="${recordIndex}">Gửi thư quà</button></div>`;
+      actions += (collection === "items" || collection === "monsters" || collection === "quests" || collection === "skills" ? `<button class="vfx-button primary" type="button" data-content-action="edit-studio" data-index="${recordIndex}">Sửa Studio</button>` : "")
+        + `<button class="vfx-button subtle" type="button" data-content-action="edit" data-index="${recordIndex}" aria-label="Sửa ${id}">${["items", "monsters", "quests", "skills"].includes(collection) ? "Sửa JSON" : "Sửa"}</button>`
+        + (collection === "items" || collection === "skills" || collection === "monsters" ? `<button class="vfx-button danger" type="button" data-content-action="delete" data-index="${recordIndex}" aria-label="Xóa ${id}">Xóa</button>` : "");
+    } else if (collection === "accounts") {
+      const isSuspended = record.status === "SUSPENDED";
+      if (record.playerId) {
+        actions += `<button class="vfx-button primary" type="button" data-content-action="mail" data-index="${recordIndex}">🎁 Gửi quà</button>`;
+      }
+      actions += `<button class="vfx-button ${isSuspended ? "success" : "danger"}" type="button" data-content-action="toggle-status" data-index="${recordIndex}" title="${isSuspended ? "Mở khóa tài khoản" : "Khóa tài khoản"}">${isSuspended ? "🔓 Mở" : "🔒 Khóa"}</button>`
+        + `<button class="vfx-button subtle" type="button" data-content-action="change-role" data-index="${recordIndex}" title="Phân quyền PLAYER/GM/ADMIN">🛡 Quyền</button>`
+        + `<button class="vfx-button subtle" type="button" data-content-action="reset-password" data-index="${recordIndex}" title="Đặt lại mật khẩu">🔑 Đổi MK</button>`;
+    } else {
+      actions += `<span class="content-readonly">Chỉ xem</span>`;
     }
+    actions += `</div>`;
     const displayName = collection === "accounts"
-      ? `${record.username || id}${record.playerName ? ` (${record.playerName})` : " (Chưa tạo nhân vật)"}`
+      ? (record.playerName
+          ? `${record.playerName} (Tài khoản: ${record.username || id})`
+          : `${record.username || id} (Chưa tạo nhân vật)`)
       : (record.tenDo || record.name || record.title || record.id);
-    return `<article class="content-record${pagedCollections.has(collection) ? " with-preview" : ""}" role="listitem">${preview || (pagedCollections.has(collection) ? '<span class="content-record-preview preview-placeholder" aria-hidden="true">—</span>' : "")}<div class="content-record-id"><b>${AdminContentUtils.escapeHtml(displayName)}</b><small class="content-record-code">${id}</small><div class="content-record-fields">${values}</div></div><span class="table-status">${state}</span>${actions}</article>`;
+    let subInfo = id;
+    if (collection === "accounts") {
+      subInfo = record.realmCode
+        ? `Cảnh giới: ${record.realmCode}${record.realmStage ? " " + record.realmStage : ""} · Cấp ${record.level || 1} · Quyền: ${record.role || "PLAYER"}`
+        : `Tài khoản hệ thống · Quyền: ${record.role || "PLAYER"}`;
+    } else if (collection === "monsters") {
+      subInfo = `Cấp ${record.level || 1} · Hệ ${record.linhCan || "KIM"} · [${record.type || "NORMAL"}] · HP: ${record.hp || record.maxHp || "—"}`;
+    } else if (collection === "items") {
+      subInfo = `[${record.loai || record.type || "Vật phẩm"}] · iLvl ${record.itemLevel || 1} · Yêu cầu: ${record.requiredRealmStt || 1}`;
+    } else if (collection === "quests") {
+      const cat = record.category === "main" ? "Chính Tuyến" : record.category === "daily" ? "Hàng Ngày" : "Phụ Tuyến";
+      subInfo = `[${cat}] · Khu vực: ${record.location || "Thế giới"} · Người giao: ${record.giver || "—"}`;
+    } else if (collection === "skills") {
+      const cat = record.category === "PASSIVE" ? "Nội tại" : "Chủ động";
+      subInfo = `[Hệ ${record.linhCan || "COMMON"}] · ${cat} · Tầng ${record.tier || 1}`;
+    }
+    return `<article class="content-record${pagedCollections.has(collection) ? " with-preview" : ""}" role="listitem">${preview || (pagedCollections.has(collection) ? '<span class="content-record-preview preview-placeholder" aria-hidden="true">—</span>' : "")}<div class="content-record-id"><b>${AdminContentUtils.escapeHtml(displayName)}</b><small class="content-record-code" title="Mã ID: ${id}">${AdminContentUtils.escapeHtml(subInfo)}</small><div class="content-record-fields">${values}</div></div><span class="table-status">${state}</span>${actions}</article>`;
   }).join("");
   $("content-table").innerHTML = `${storageNote}<div class="content-record-list" role="list">${rows}</div>`;
   if (!$("sample-items-tool").hidden) renderSampleItemsPreview();
@@ -604,10 +682,12 @@ async function saveContent(event) {
     $("content-editor-dialog").close();
     if (activeCollection === collection) {
       const feedback = result?.data?.id ? `Đã lưu ${result.data.id}.` : wasEdit ? "Đã lưu thay đổi." : "Đã tạo bản ghi.";
+      window.showToast?.(feedback, "success");
       await openContent(collection, { feedback });
     }
   } catch (error) {
     setContentEditorError(error.message || "Không lưu được bản ghi.");
+    window.showToast?.(error.message || "Không lưu được bản ghi.", "error");
   } finally {
     contentState.busy = false;
     $("content-editor-save").disabled = false;
@@ -620,6 +700,262 @@ async function saveContent(event) {
   }
 }
 
+let currentDetailContext = null;
+
+function openRecordDetailModal(collection, record, recordIndex) {
+  const dialog = document.getElementById("record-detail-dialog");
+  if (!dialog) return;
+  currentDetailContext = { collection, record, recordIndex };
+
+  const id = collection === "skills" ? (record.code || record.id) : (record.id ?? record.playerId ?? "");
+  const name = record.tenDo || record.name || record.title || record.playerName || record.username || id;
+  const asset = adminImage(record.img) || adminImage(record.icon) || "";
+
+  const eyebrowEl = document.getElementById("detail-eyebrow");
+  const titleEl = document.getElementById("detail-title");
+  const subEl = document.getElementById("detail-subtitle");
+  const avatarEl = document.getElementById("detail-avatar");
+  const bodyEl = document.getElementById("detail-body");
+  const quickActionsEl = document.getElementById("detail-quick-actions");
+  const editBtn = document.getElementById("detail-edit-btn");
+
+  if (eyebrowEl) eyebrowEl.textContent = (contentLabels[collection] || collection).toUpperCase() + " · CHI TIẾT BẢN GHI";
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) subEl.textContent = `Mã hệ thống: ${id}`;
+
+  if (avatarEl) {
+    if (asset) {
+      avatarEl.innerHTML = `<img src="${asset}" alt="${AdminContentUtils.escapeHtml(name)}" />`;
+    } else {
+      const icon = collection === "monsters" ? "🐺" : collection === "items" ? "⚔️" : collection === "skills" ? "⚡" : collection === "quests" ? "📜" : collection === "accounts" ? "👤" : "📦";
+      avatarEl.innerHTML = `<span class="avatar-icon">${icon}</span>`;
+    }
+  }
+
+  const cards = [];
+  const addCard = (label, val, highlight = false, isWide = false) => {
+    if (val === undefined || val === null || val === "") return;
+    cards.push(`<div class="detail-card${isWide ? " wide" : ""}"><span class="detail-card-label">${AdminContentUtils.escapeHtml(label)}</span><span class="detail-card-val${highlight ? " highlight" : ""}">${AdminContentUtils.escapeHtml(String(val))}</span></div>`);
+  };
+
+  if (collection === "monsters") {
+    addCard("Tên quái vật", record.name, true);
+    addCard("Mã quái (Code)", record.code || record.id);
+    addCard("Phân loại", record.type === "BOSS" ? "Boss (Thủ lĩnh)" : record.type === "ELITE" ? "Tinh anh" : "Quái thường");
+    addCard("Linh căn ngũ hành", record.linhCan || "KIM");
+    addCard("Cấp độ (Level)", record.level ?? 1);
+    addCard("Máu tối đa (HP)", record.hp ?? record.maxHp ?? 90, true);
+    addCard("Công lực (ATK)", record.atk ?? 9);
+    addCard("Phòng thủ (DEF)", record.def ?? 2);
+    addCard("Tốc độ di chuyển", record.speed ?? 1.25);
+    addCard("Hồi sinh", `${Math.round(Number(record.respawnMs ?? 15000) / 1000)} giây`);
+    addCard("Bảng rớt đồ (Loot Table)", record.lootTableId || "Không rớt đồ");
+  } else if (collection === "items") {
+    addCard("Tên vật phẩm", record.tenDo || record.name, true);
+    addCard("Mã vật phẩm", record.maDo || record.code || record.id);
+    addCard("Loại vật phẩm", record.loai || record.type || "MATERIAL");
+    addCard("Phẩm chất", record.rarity || "NORMAL", true);
+    addCard("Cảnh giới yêu cầu", `Cảnh giới STT ${record.requiredRealmStt ?? 1}`);
+    addCard("Cấp vật phẩm (iLvl)", record.itemLevel ?? 10);
+    addCard("Linh căn", record.linhCan || "Mọi hệ");
+    addCard("Tiền tệ", record.currency === "LINH_THACH" ? "Linh Thạch" : "Xu");
+    addCard("Giá mua", record.giaMua ? `${record.giaMua} ${record.currency || "Xu"}` : "Không bán trong Shop");
+    addCard("Giá bán lại", `${record.giaBan ?? 0} Xu`);
+    if (record.shopCategory) addCard("Tiệm NPC bán", record.shopCategory);
+    if (record.hasLuck) addCard("Dòng đặc biệt", "★ Có dòng May Mắn (+5% Crit, +15% Cường hóa)", true);
+    const stats = record.stats || {};
+    if (record.slot) addCard("Vị trí trang bị", record.slot);
+    if (record.weaponKind) addCard("Chủng loại vũ khí", record.weaponKind);
+    if (stats.pAtk) addCard("Công Vật Lý (pAtk)", `+${stats.pAtk}`);
+    if (stats.mAtk) addCard("Công Pháp Thuật (mAtk)", `+${stats.mAtk}`);
+    if (stats.pDef) addCard("Thủ Vật Lý (pDef)", `+${stats.pDef}`);
+    if (stats.mDef) addCard("Thủ Pháp Thuật (mDef)", `+${stats.mDef}`);
+    if (stats.maxHp || stats.maxHP) addCard("Máu tối đa", `+${stats.maxHp || stats.maxHP}`);
+    if (stats.maxMp || stats.maxMP) addCard("Mana tối đa", `+${stats.maxMp || stats.maxMP}`);
+    if (stats.spd) addCard("Tốc độ", `+${stats.spd}`);
+    if (stats.crit) addCard("Chí mạng", `+${Math.round(stats.crit * 100)}%`);
+    if (stats.str) addCard("Sức mạnh (+STR)", `+${stats.str}`);
+    if (stats.agi) addCard("Thân pháp (+AGI)", `+${stats.agi}`);
+    if (stats.vit) addCard("Thể lực (+VIT)", `+${stats.vit}`);
+    if (stats.ene) addCard("Tinh thần (+ENE)", `+${stats.ene}`);
+    if (record.healHp) addCard("Hồi phục HP", `+${record.healHp}`);
+    if (record.healMp) addCard("Hồi phục MP", `+${record.healMp}`);
+    if (record.giaTriTuVi) addCard("Điểm Tu Vi nhận được", `+${record.giaTriTuVi}`);
+    if (record.bagSlots) addCard("Số ô túi mở rộng", `+${record.bagSlots}`);
+    if (record.xuAmount) addCard("Số Xu đổi được", `${record.xuAmount} Xu`);
+    if (record.moTa) addCard("Mô tả", record.moTa, false, true);
+  } else if (collection === "skills") {
+    addCard("Tên kỹ năng", record.name, true);
+    addCard("Mã chiêu thức", record.code || record.id);
+    addCard("Hệ linh căn", record.linhCan || "COMMON");
+    addCard("Phân loại", record.category === "PASSIVE" ? "Bị động (Nội tại)" : "Chủ động (Chiêu thức)");
+    addCard("Tầng kỹ năng", `Tầng ${record.tier ?? 1}`);
+    addCard("Tiêu hao MP", record.mpCost ?? 0);
+    addCard("Thời gian hồi chiêu", `${(record.cooldownMs ?? 1000) / 1000}s`);
+    addCard("Phạm vi xuất chiêu", `${record.range ?? 60} px`);
+    addCard("Sát thương cơ bản", record.baseDamage ?? 0);
+    addCard("Hệ số sát thương", `${record.damageScale ?? 1}x`);
+    if (record.effect) addCard("Hiệu ứng đặc biệt", record.effect);
+    if (record.description) addCard("Mô tả kỹ năng", record.description, false, true);
+  } else if (collection === "quests") {
+    addCard("Tên nhiệm vụ", record.title, true);
+    addCard("Mã nhiệm vụ", record.id);
+    addCard("Phân loại", record.category === "main" ? "Chính Tuyến" : record.category === "daily" ? "Hàng Ngày" : "Phụ Tuyến");
+    addCard("NPC giao", record.giver || "—");
+    addCard("Khu vực", record.location || "Thế giới");
+    addCard("Loại sự kiện", record.eventType || "monster_kill");
+    addCard("Số lượng cần đạt", record.target ?? 1);
+    addCard("Mục tiêu tóm tắt", record.objective || "—", false, true);
+    if (record.requiresQuestId) addCard("Nhiệm vụ tiên quyết", record.requiresQuestId);
+    if (record.summary) addCard("Cốt truyện", record.summary, false, true);
+    if (Array.isArray(record.rewards) && record.rewards.length) {
+      const rewardTxt = record.rewards.map(r => `${r.type}: ${r.amount || 1} ${r.itemId || r.label || ""}`).join(", ");
+      addCard("Phần thưởng", rewardTxt, true, true);
+    }
+  } else if (collection === "accounts") {
+    addCard("Tên nhân vật", record.playerName || "Chưa tạo nhân vật", true);
+    addCard("Tài khoản (Username)", record.username || "—");
+    addCard("Quyền hạn", record.role || "PLAYER");
+    addCard("Trạng thái", record.status || "ACTIVE");
+    if (record.playerId) addCard("ID Nhân vật", record.playerId);
+    if (record.realmCode) addCard("Cảnh giới", `${record.realmCode} ${record.realmStage || ""}`);
+    if (record.level) addCard("Cấp độ", `Level ${record.level}`);
+    if (record.createdAt) addCard("Ngày tạo tài khoản", new Date(record.createdAt).toLocaleString("vi-VN"));
+  } else {
+    for (const [k, v] of Object.entries(record)) {
+      if (typeof v === "object") continue;
+      addCard(k, v);
+    }
+  }
+
+  if (bodyEl) bodyEl.innerHTML = `<div class="detail-grid">${cards.join("")}</div>`;
+
+  if (quickActionsEl) {
+    if (collection === "accounts") {
+      const isSuspended = record.status === "SUSPENDED";
+      let btns = "";
+      if (record.playerId) {
+        btns += `<button id="detail-mail-btn" class="vfx-button primary" type="button">🎁 Gửi quà cho ${AdminContentUtils.escapeHtml(record.playerName || "nhân vật")}</button>`;
+      }
+      btns += `<button id="detail-status-btn" class="vfx-button ${isSuspended ? "success" : "danger"}" type="button">${isSuspended ? "🔓 Mở khóa tài khoản" : "🔒 Khóa tài khoản"}</button>`
+        + `<button id="detail-role-btn" class="vfx-button subtle" type="button">🛡 Đổi quyền hạn</button>`
+        + `<button id="detail-pwd-btn" class="vfx-button subtle" type="button">🔑 Đổi mật khẩu</button>`;
+      quickActionsEl.innerHTML = btns;
+
+      document.getElementById("detail-mail-btn")?.addEventListener("click", () => {
+        dialog.close();
+        document.querySelector?.('.nav-item[data-view="mail-sender"]')?.click();
+        editorsHandle?.prefillMail?.({
+          playerId: record.playerId,
+          playerName: record.playerName,
+          username: record.username,
+          realmCode: record.realmCode,
+        });
+      });
+      document.getElementById("detail-status-btn")?.addEventListener("click", async () => {
+        await toggleAccountStatus(record);
+        dialog.close();
+      });
+      document.getElementById("detail-role-btn")?.addEventListener("click", async () => {
+        await changeAccountRole(record);
+        dialog.close();
+      });
+      document.getElementById("detail-pwd-btn")?.addEventListener("click", async () => {
+        await resetAccountPassword(record);
+        dialog.close();
+      });
+    } else {
+      quickActionsEl.innerHTML = "";
+    }
+  }
+
+  if (editBtn) {
+    const canEdit = ContentAdmin.EDITABLE_COLLECTIONS.has(collection) && contentState.persisted;
+    editBtn.hidden = !canEdit && collection !== "accounts";
+    if (canEdit) {
+      editBtn.textContent = ["items", "monsters", "quests", "skills"].includes(collection) ? "✏ Sửa Studio" : "✏ Sửa bản ghi";
+    }
+  }
+
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
+}
+
+async function toggleAccountStatus(record) {
+  if (!record || !record.id) return;
+  const isSuspended = record.status === "SUSPENDED";
+  const nextStatus = isSuspended ? "ACTIVE" : "SUSPENDED";
+  const actionText = isSuspended ? "mở khóa tài khoản" : "khóa tài khoản";
+  if (!window.confirm(`Xác nhận ${actionText} cho “${record.username || record.id}”?`)) return;
+
+  try {
+    const res = await fetch(`${API.BASE}/api/admin/accounts/${encodeURIComponent(record.id)}/status`, {
+      method: "PUT",
+      headers: { ...adminHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || data.message || `Không thể ${actionText}`);
+    window.showToast?.(`Đã ${actionText} cho ${record.username || record.id} thành công!`, "success");
+    await openContent("accounts");
+  } catch (err) {
+    window.showToast?.(err.message || "Lỗi khi cập nhật trạng thái tài khoản", "error");
+  }
+}
+
+async function changeAccountRole(record) {
+  if (!record || !record.id) return;
+  const currentRole = record.role || "PLAYER";
+  const input = window.prompt(`Nhập quyền hạn mới cho “${record.username || record.id}”:\n(PLAYER, GM, ADMIN)`, currentRole);
+  if (!input) return;
+  const nextRole = input.trim().toUpperCase();
+  if (!["PLAYER", "GM", "ADMIN"].includes(nextRole)) {
+    window.showToast?.("Quyền hạn không hợp lệ. Chỉ chấp nhận: PLAYER, GM, ADMIN", "error");
+    return;
+  }
+  if (nextRole === currentRole) return;
+
+  try {
+    const res = await fetch(`${API.BASE}/api/admin/accounts/${encodeURIComponent(record.id)}/role`, {
+      method: "PUT",
+      headers: { ...adminHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ role: nextRole }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || data.message || "Không thể cập nhật quyền hạn");
+    window.showToast?.(`Đã đổi quyền của ${record.username || record.id} thành ${nextRole}!`, "success");
+    await openContent("accounts");
+  } catch (err) {
+    window.showToast?.(err.message || "Lỗi khi đổi quyền hạn", "error");
+  }
+}
+
+async function resetAccountPassword(record) {
+  if (!record || !record.id) return;
+  const newPassword = window.prompt(`Nhập mật khẩu mới cho “${record.username || record.id}” (tối thiểu 6 ký tự):`);
+  if (!newPassword) return;
+  if (newPassword.length < 6) {
+    window.showToast?.("Mật khẩu phải từ 6 ký tự trở lên!", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API.BASE}/api/admin/accounts/${encodeURIComponent(record.id)}/reset-password`, {
+      method: "POST",
+      headers: { ...adminHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || data.message || "Không thể đặt lại mật khẩu");
+    window.showToast?.(`Đã đặt lại mật khẩu cho ${record.username || record.id} thành công!`, "success");
+  } catch (err) {
+    window.showToast?.(err.message || "Lỗi khi đổi mật khẩu", "error");
+  }
+}
+
 async function handleContentAction(event) {
   const button = event.target.closest("[data-content-action]");
   if (!button) return;
@@ -627,29 +963,59 @@ async function handleContentAction(event) {
   if (action === "reload") return openContent(activeCollection);
   const record = contentState.records[Number(button.dataset.index)];
   if (!record || contentState.busy) return;
+  if (action === "view") {
+    return openRecordDetailModal(activeCollection, record, Number(button.dataset.index));
+  }
   if (action === "mail") {
     document.querySelector?.('.nav-item[data-view="mail-sender"]')?.click();
-    editorsHandle?.prefillMail?.(record.playerId);
+    editorsHandle?.prefillMail?.({
+      playerId: record.playerId,
+      playerName: record.playerName,
+      username: record.username,
+      realmCode: record.realmCode,
+    });
     return;
+  }
+  if (action === "toggle-status") {
+    return toggleAccountStatus(record);
+  }
+  if (action === "change-role") {
+    return changeAccountRole(record);
+  }
+  if (action === "reset-password") {
+    return resetAccountPassword(record);
   }
   if (!contentState.persisted) return;
   if (action === "edit-studio") {
-    itemStudioHandle?.loadRecord?.(record);
-    document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+    if (activeCollection === "monsters") {
+      monsterStudioHandle?.loadRecord?.(record);
+      document.querySelector?.('.nav-item[data-view="monster-studio"]')?.click();
+    } else if (activeCollection === "quests") {
+      editorsHandle?.loadQuest?.(record);
+      document.querySelector?.('.nav-item[data-view="quest-studio"]')?.click();
+    } else if (activeCollection === "skills") {
+      editorsHandle?.loadSkill?.(record);
+      document.querySelector?.('.nav-item[data-view="skill-studio"]')?.click();
+    } else {
+      itemStudioHandle?.loadRecord?.(record);
+      document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+    }
     return;
   }
   if (action === "edit") return openContentEditor(record);
   if (action === "preview") return;
-  if (action !== "delete" || ["quests", "monsters"].includes(activeCollection) || !window.confirm(`Xóa bản ghi “${record.name || record.title || record.id}”?`)) return;
+  if (action !== "delete" || activeCollection === "quests" || !window.confirm(`Xóa bản ghi “${record.name || record.title || record.id}”?`)) return;
   contentState.busy = true;
   button.disabled = true;
   const collection = activeCollection;
   const id = collection === "skills" ? record.code || record.id : record.id;
   try {
     await contentManager.remove(collection, id);
+    window.showToast?.(`Đã xóa bản ghi “${record.name || record.title || id}” thành công!`, "success");
     if (activeCollection === collection) await openContent(collection, { feedback: `Đã xóa ${id}.` });
   } catch (error) {
     setContentFeedback(error.message || "Không xóa được bản ghi.", "error");
+    window.showToast?.(error.message || "Không xóa được bản ghi.", "error");
   } finally {
     contentState.busy = false;
     $("new-record").disabled = false;
@@ -685,6 +1051,8 @@ function reloadAdminViewAfterLogin() {
   if (view === "loot-tables") editorsHandle?.openLootTables?.();
   if (view === "mail-sender") editorsHandle?.openMailSender?.();
   if (view === "balance-settings") editorsHandle?.openBalanceSettings?.();
+  if (view === "quest-studio") editorsHandle?.openQuests?.();
+  if (view === "skill-studio") editorsHandle?.openSkills?.();
 }
 window.addEventListener("admin:authenticated", reloadAdminViewAfterLogin);
 window.addEventListener("admin:unauthenticated", () => {
@@ -713,7 +1081,9 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   const isLoot = view === "loot-tables";
   const isMail = view === "mail-sender";
   const isBalance = view === "balance-settings";
-  $("overview").classList.toggle("hidden", isContent || isVfx || isItemStudio || isMonsterStudio || isAlchemy || isLoot || isMail || isBalance);
+  const isQuestStudio = view === "quest-studio";
+  const isSkillStudio = view === "skill-studio";
+  $("overview").classList.toggle("hidden", isContent || isVfx || isItemStudio || isMonsterStudio || isAlchemy || isLoot || isMail || isBalance || isQuestStudio || isSkillStudio);
   $("content-view").classList.toggle("active", isContent);
   $("skill-vfx-view").classList.toggle("active", isVfx);
   $("item-studio-view").hidden = !isItemStudio;
@@ -722,6 +1092,8 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   $("loot-tables-view").hidden = !isLoot;
   $("mail-sender-view").hidden = !isMail;
   $("balance-settings-view").hidden = !isBalance;
+  $("quest-studio-view").hidden = !isQuestStudio;
+  $("skill-studio-view").hidden = !isSkillStudio;
   $("placeholder").classList.remove("active");
   const viewTitles = {
     "skill-vfx": "Hoạt ảnh kỹ năng",
@@ -731,6 +1103,8 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
     "loot-tables": "Bảng rớt đồ (Loot Tables)",
     "mail-sender": "Gửi thư & Quà GM",
     "balance-settings": "Cấu hình & Cân bằng Hệ thống",
+    "quest-studio": "Quest Studio · Quản lý Nhiệm vụ",
+    "skill-studio": "Skill Studio · Quản lý Kỹ năng & Chỉ số",
   };
   $("view-title").textContent = isContent ? (contentLabels[item.dataset.collection] || "Content") : (viewTitles[view] || "Tổng quan thế giới");
   if (isContent) openContent(item.dataset.collection);
@@ -742,6 +1116,8 @@ document.querySelectorAll(".nav-item[data-view]").forEach((item) => item.addEven
   if (isLoot) editorsHandle?.openLootTables?.();
   if (isMail) editorsHandle?.openMailSender?.();
   if (isBalance) editorsHandle?.openBalanceSettings?.();
+  if (isQuestStudio) editorsHandle?.openQuests?.();
+  if (isSkillStudio) editorsHandle?.openSkills?.();
 }));
 
 const editorsHandle = typeof AdminEditors !== "undefined"
@@ -781,15 +1157,21 @@ for (const [filterId, stateKey] of [["item-type-filter", "itemType"], ["item-rar
 }
 
 $("open-monster-studio").addEventListener("click", () => {
+  monsterStudioHandle?.resetToCreate?.();
   document.querySelector('.nav-item[data-view="monster-studio"]').click();
 });
 
-mountMonsterStudio($("monster-studio-form"), async (record) => {
-  await API.assertPersistentStorage();
-  const result = await getJson(API.BASE + API.PATHS.admin.content("monsters"), {
-    method: "POST", headers: adminHeaders(true), body: JSON.stringify(record),
-  });
-  if (result.persisted !== true || result.demo === true) throw new Error("Backend chưa xác nhận lưu quái vào MySQL.");
+const monsterStudioHandle = mountMonsterStudio({
+  form: $("monster-studio-form"),
+  async saveMonster(record, existingId = null) {
+    await API.assertPersistentStorage();
+    return contentManager.save("monsters", {
+      id: existingId || record.code,
+      existingId,
+      json: JSON.stringify(record),
+    });
+  },
+  openMonsters: () => document.querySelector?.('.nav-item[data-collection="monsters"]')?.click(),
 });
 
 $("new-record").addEventListener("click", () => openContentEditor());
@@ -922,6 +1304,65 @@ window.addEventListener("storage", (event) => {
     $("vfx-save-state").classList.remove("saved");
   });
 });
+window.setVfxSkillCode = function (code) {
+  if (!code) return;
+  vfxState.selectedCode = code;
+  const select = $("vfx-skill-select");
+  if (select) select.value = code;
+  const skill = vfxState.skills.find((item) => vfxCode(item) === code);
+  if (skill) setVfxForm(skill);
+};
+document.getElementById("detail-edit-btn")?.addEventListener("click", () => {
+  const dialog = document.getElementById("record-detail-dialog");
+  if (typeof dialog?.close === "function") dialog.close();
+  else dialog?.removeAttribute("open");
+  if (!currentDetailContext) return;
+  const { collection, record } = currentDetailContext;
+  if (collection === "monsters") {
+    monsterStudioHandle?.loadRecord?.(record);
+    document.querySelector?.('.nav-item[data-view="monster-studio"]')?.click();
+  } else if (collection === "quests") {
+    editorsHandle?.loadQuest?.(record);
+    document.querySelector?.('.nav-item[data-view="quest-studio"]')?.click();
+  } else if (collection === "skills") {
+    editorsHandle?.loadSkill?.(record);
+    document.querySelector?.('.nav-item[data-view="skill-studio"]')?.click();
+  } else if (collection === "items") {
+    itemStudioHandle?.loadRecord?.(record);
+    document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+  } else {
+    openContentEditor(record);
+  }
+});
+
+const closeDetailModal = () => {
+  const dialog = document.getElementById("record-detail-dialog");
+  if (typeof dialog?.close === "function") dialog.close();
+  else dialog?.removeAttribute("open");
+};
+document.getElementById("detail-close-btn")?.addEventListener("click", closeDetailModal);
+document.getElementById("detail-close-bottom-btn")?.addEventListener("click", closeDetailModal);
+
+$("content-table")?.addEventListener("click", (event) => {
+  if (event.target.closest("button") || event.target.closest("a") || event.target.closest("input") || event.target.closest("select")) return;
+  const recordEl = event.target.closest(".content-record");
+  if (!recordEl) return;
+  const viewBtn = recordEl.querySelector('[data-content-action="view"]');
+  if (viewBtn) viewBtn.click();
+});
+
+document.addEventListener("click", (e) => {
+  const backBtn = e.target.closest("[data-back-collection]");
+  if (!backBtn) return;
+  const col = backBtn.dataset.backCollection;
+  const navItem = document.querySelector(`.nav-item[data-collection="${col}"]`);
+  if (navItem) {
+    navItem.click();
+  } else {
+    openContent(col);
+  }
+});
+
 window.requestAnimationFrame(drawVfxPreview);
 setVfxDisabled(true);
 void AdminAuth.ready.then((authenticated) => { if (authenticated) return loadOverview(); });

@@ -43,7 +43,25 @@ const editor = {
   npcs: [],
   rules: {},
   dirty: false,
+  terrainDirty: true,
 };
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("admin-toast-container");
+  if (!container) return;
+  const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
+  const toast = document.createElement("div");
+  toast.className = `admin-toast ${type}`;
+  toast.innerHTML = `<span class="admin-toast-icon">${icons[type] || "ℹ"}</span><div class="admin-toast-content"><span class="admin-toast-msg">${message}</span></div><button class="admin-toast-close" type="button">×</button>`;
+  toast.querySelector(".admin-toast-close")?.addEventListener("click", () => toast.remove());
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+window.showToast = showToast;
 const SAMPLE_MAP_TEMPLATES = [
   { code: "sample_dao_hoa_thon", name: "Đào Hoa Thôn", type: "VILLAGE", biome: "CITY", tier: 1, realmMin: 1, realmMax: 3, safeZone: true, noMonsters: true, tags: "mẫu, thôn làng, khu an toàn" },
   { code: "sample_bich_lam_linh_coc", name: "Bích Lâm Linh Cốc", type: "PLAIN", biome: "FOREST", tier: 1, realmMin: 1, realmMax: 5, tags: "mẫu, rừng, tân thủ" },
@@ -204,6 +222,7 @@ function generateMap() {
   editor.spawnY = Math.floor(editor.height * .5);
   clearSpawn(16);
   editor.currentCode = null;
+  editor.terrainDirty = true;
   resizeCanvas();
   renderPortalList();
   resetMonsterPackForm();
@@ -328,6 +347,7 @@ function loadPreviewAutotileAtlas() {
     if (image.naturalWidth !== PREVIEW_AUTOTILE_MASKS.length * PREVIEW_AUTOTILE_VARIANTS * PREVIEW_AUTOTILE_SIZE
       || image.naturalHeight !== PREVIEW_AUTOTILE_TYPES.length * PREVIEW_AUTOTILE_SIZE) return;
     previewAutotileAtlas = image;
+    editor.terrainDirty = true;
     requestDraw();
   };
   image.onerror = () => { previewAutotileLoading = false; };
@@ -450,15 +470,21 @@ function buildPreviewCache() {
 function drawMap() {
   if (!editor.ground.length) return;
   const size = editor.zoom;
-  buildPreviewCache();
+  if (editor.terrainDirty || !previewCanvas) {
+    buildPreviewCache();
+    editor.terrainDirty = false;
+  }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(previewCanvas, 0, 0, canvas.width, canvas.height);
   if ($("show-grid").checked && size >= 4) {
     ctx.strokeStyle = "rgba(10,15,11,.22)";
     ctx.lineWidth = 1;
-    for (let x = 0; x <= editor.width; x += 1) { ctx.beginPath(); ctx.moveTo(x * size + .5, 0); ctx.lineTo(x * size + .5, canvas.height); ctx.stroke(); }
-    for (let y = 0; y <= editor.height; y += 1) { ctx.beginPath(); ctx.moveTo(0, y * size + .5); ctx.lineTo(canvas.width, y * size + .5); ctx.stroke(); }
+    ctx.beginPath();
+    const ch = canvas.height, cw = canvas.width;
+    for (let x = 0; x <= editor.width; x += 1) { const px = x * size + .5; ctx.moveTo(px, 0); ctx.lineTo(px, ch); }
+    for (let y = 0; y <= editor.height; y += 1) { const py = y * size + .5; ctx.moveTo(0, py); ctx.lineTo(cw, py); }
+    ctx.stroke();
   }
   ctx.strokeStyle = "#f3d46e";
   ctx.lineWidth = Math.max(2, size * .5);
@@ -586,6 +612,7 @@ function paintAt(x, y) {
         editor.objects[py][px] = TILE.EMPTY;
       }
     }
+    editor.terrainDirty = true;
     const selected = editor.portals.find((portal) => portal.id === editor.selectedPortalId);
     if (selected) { selected.x = x; selected.y = y; }
     requestDraw();
@@ -594,7 +621,9 @@ function paintAt(x, y) {
   const radius = editor.layer === "spawn" ? 0 : Math.max(0, editor.brush - 1);
   editor.dirty = true;
   if (editor.layer === "spawn") {
-    editor.spawnX = x; editor.spawnY = y; clearSpawn(10); requestDraw(); return;
+    editor.spawnX = x; editor.spawnY = y; clearSpawn(10);
+    editor.terrainDirty = true;
+    requestDraw(); return;
   }
   for (let py = y - radius; py <= y + radius; py += 1) {
     for (let px = x - radius; px <= x + radius; px += 1) {
@@ -609,6 +638,7 @@ function paintAt(x, y) {
       } else if (editor.layer === "elevation") editor.elevation[py][px] = editor.selected;
     }
   }
+  editor.terrainDirty = true;
   requestDraw();
 }
 
@@ -875,15 +905,193 @@ async function saveNpc() {
   }
 }
 
+function debounce(fn, ms = 200) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+const monsterPagingState = {
+  page: 1,
+  limit: 20,
+  total: 0,
+  hasMore: false,
+  loading: false,
+  query: "",
+  root: "",
+  loadedItems: [],
+};
+
+async function fetchMonstersPaged({ page = 1, append = false } = {}) {
+  if (monsterPagingState.loading) return;
+  monsterPagingState.loading = true;
+  const select = $("monster-template");
+  const loadMoreBtn = $("monster-load-more-btn");
+  if (!append && select && !select.options.length) {
+    select.innerHTML = '<option value="">Đang tải danh sách quái…</option>';
+  }
+  if (loadMoreBtn) {
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = "Đang tải…";
+  }
+
+  try {
+    let list = [];
+    let total = 0;
+    try {
+      const qParams = new URLSearchParams({
+        page: String(page),
+        limit: String(monsterPagingState.limit),
+      });
+      if (monsterPagingState.query) qParams.set("q", monsterPagingState.query);
+      const url = `${API.BASE}/api/admin/content/monsters?${qParams.toString()}`;
+      const res = await adminFetch(url, { headers: adminHeaders() });
+      if (res.ok) {
+        const payload = await res.json();
+        list = Array.isArray(payload.data) ? payload.data : [];
+        total = Number(payload.pagination?.total || list.length);
+      } else {
+        throw new Error("Không dùng được API phân trang admin");
+      }
+    } catch {
+      const res = await fetch(API.BASE + API.PATHS.data.monsters, { cache: "no-store" });
+      const payload = await res.json();
+      if (Array.isArray(payload)) {
+        let all = payload;
+        if (monsterPagingState.query) {
+          const q = monsterPagingState.query.toLowerCase();
+          all = all.filter((m) => `${m.name || ""} ${m.code || m.id || ""}`.toLowerCase().includes(q));
+        }
+        total = all.length;
+        list = all.slice((page - 1) * monsterPagingState.limit, page * monsterPagingState.limit);
+      }
+    }
+
+    if (monsterPagingState.root) {
+      list = list.filter((m) => String(m.linhCan || "KIM").toUpperCase() === monsterPagingState.root);
+    }
+
+    monsterPagingState.page = page;
+    monsterPagingState.total = total;
+    monsterPagingState.hasMore = page * monsterPagingState.limit < total;
+
+    if (append) {
+      const existingIds = new Set(monsterPagingState.loadedItems.map((m) => String(m.code || m.id)));
+      for (const item of list) {
+        const id = String(item.code || item.id);
+        if (!existingIds.has(id)) {
+          monsterPagingState.loadedItems.push(item);
+          existingIds.add(id);
+        }
+      }
+    } else {
+      monsterPagingState.loadedItems = list;
+    }
+
+    const catMap = new Map((editor.monsterCatalog || []).map((m) => [String(m.code || m.id), m]));
+    for (const m of monsterPagingState.loadedItems) {
+      catMap.set(String(m.code || m.id), m);
+    }
+    editor.monsterCatalog = [...catMap.values()];
+
+    renderMonsterSelectOptions();
+  } catch (err) {
+    if (select && !append) {
+      select.innerHTML = '<option value="">Lỗi tải danh mục quái</option>';
+    }
+  } finally {
+    monsterPagingState.loading = false;
+    if (loadMoreBtn) {
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = "▼ Tải thêm quái";
+    }
+  }
+}
+
+function renderMonsterSelectOptions() {
+  const select = $("monster-template");
+  if (!select) return;
+  const currentVal = select.value || new URLSearchParams(window.location.search).get("monster") || "";
+  const items = monsterPagingState.loadedItems || [];
+
+  const summary = monsterPagingState.total ? ` (${items.length}/${monsterPagingState.total} quái)` : "";
+  const options = [
+    new Option(`— Chọn loại quái${summary} —`, ""),
+  ];
+
+  for (const m of items) {
+    const id = String(m.code || m.id);
+    const root = m.linhCan || "KIM";
+    const typeLabel = m.type === "BOSS" ? " [BOSS]" : m.type === "ELITE" ? " [Tinh Anh]" : "";
+    const label = `[${root} · Lv.${m.level || 1}] ${m.name || id}${typeLabel} (${id})`;
+    options.push(new Option(label, id));
+  }
+
+  if (monsterPagingState.hasMore) {
+    options.push(new Option("▼ Tải thêm quái tiếp theo...", "__LOAD_MORE__"));
+  }
+
+  select.replaceChildren(...options);
+
+  if (currentVal && currentVal !== "__LOAD_MORE__") {
+    if (![...select.options].some((opt) => opt.value === currentVal)) {
+      const found = editor.monsterCatalog.find((m) => String(m.code || m.id) === currentVal)
+        || editor.monsters.find((m) => String(m.code || m.id) === currentVal);
+      if (found) {
+        select.add(new Option(`${found.name || currentVal} · mẫu bãi quái`, currentVal), 1);
+      }
+    }
+    select.value = currentVal;
+  } else if (!select.value && items.length > 0) {
+    select.value = String(items[0].code || items[0].id);
+  }
+
+  const loadMoreBtn = $("monster-load-more-btn");
+  if (loadMoreBtn) {
+    loadMoreBtn.hidden = !monsterPagingState.hasMore;
+  }
+
+  updateMonsterTemplateMeta();
+  renderMonsterPackList();
+}
+
+function updateMonsterTemplateMeta() {
+  const select = $("monster-template");
+  const infoEl = $("monster-template-info");
+  if (!select || !infoEl) return;
+  const val = select.value;
+  if (!val || val === "__LOAD_MORE__") {
+    infoEl.textContent = "Chưa chọn quái";
+    return;
+  }
+  const m = editor.monsterCatalog.find((item) => String(item.code || item.id) === val)
+    || editor.monsters.find((item) => String(item.code || item.id) === val);
+  if (!m) {
+    infoEl.textContent = `Mã quái: ${val}`;
+    return;
+  }
+  infoEl.textContent = `${m.name} · Cấp ${m.level || 1} · Hệ ${m.linhCan || "KIM"} · HP: ${m.hp || m.maxHp || 90} · ATK: ${m.atk || 9} · DEF: ${m.def || 2}`;
+  if (!$("monster-pack-id").value.trim()) {
+    $("monster-pack-id").value = `PACK_${val}_01`;
+  }
+}
+
 function resetMonsterPackForm() {
   editor.selectedMonsterPackId = null;
   $("monster-pack-id").value = "";
   $("monster-center-x").value = "";
   $("monster-center-y").value = "";
-  $("monster-count").value = 4; $("monster-radius").value = 18;
-  $("monster-aggro").value = 40; $("monster-leash").value = 72; $("monster-chase").value = 7000;
+  $("monster-count").value = 4;
+  $("monster-radius").value = 18;
+  $("monster-aggro").value = 40;
+  $("monster-leash").value = 72;
+  $("monster-chase").value = 7000;
   $("delete-monster-pack").disabled = true;
-  renderMonsterPackList(); requestDraw();
+  updateMonsterTemplateMeta();
+  renderMonsterPackList();
+  requestDraw();
 }
 
 function selectMonsterPack(packId) {
@@ -892,64 +1100,106 @@ function selectMonsterPack(packId) {
   editor.selectedMonsterPackId = pack.packId;
   const select = $("monster-template");
   if (![...select.options].some((option) => option.value === pack.templateId)) {
-    const local = editor.monsters.find((item) => item.id === pack.templateId || item.code === pack.templateId);
-    if (local) select.add(new Option(`${local.name || pack.templateId} · mẫu trong map`, pack.templateId));
+    const local = editor.monsters.find((item) => item.id === pack.templateId || item.code === pack.templateId)
+      || editor.monsterCatalog.find((item) => item.id === pack.templateId || item.code === pack.templateId);
+    if (local) select.add(new Option(`${local.name || pack.templateId} · mẫu bãi quái`, pack.templateId));
+    else select.add(new Option(`${pack.templateId} · mẫu bãi quái`, pack.templateId));
   }
-  select.value = pack.templateId; $("monster-pack-id").value = pack.packId;
-  $("monster-center-x").value = pack.centerX; $("monster-center-y").value = pack.centerY;
-  $("monster-count").value = pack.count; $("monster-radius").value = pack.radius;
-  $("monster-aggro").value = pack.aggroRange; $("monster-leash").value = pack.leashDistance;
+  select.value = pack.templateId;
+  $("monster-pack-id").value = pack.packId;
+  $("monster-center-x").value = pack.centerX;
+  $("monster-center-y").value = pack.centerY;
+  $("monster-count").value = pack.count;
+  $("monster-radius").value = pack.radius;
+  $("monster-aggro").value = pack.aggroRange;
+  $("monster-leash").value = pack.leashDistance;
   $("monster-chase").value = pack.chaseDurationMs;
   $("delete-monster-pack").disabled = false;
-  renderMonsterPackList(); requestDraw();
+  updateMonsterTemplateMeta();
+  renderMonsterPackList();
+  requestDraw();
 }
 
 function renderMonsterPackList() {
   const host = $("monster-pack-list");
-  if (!editor.monsterSpawns.length) { host.innerHTML = '<p class="hint">Map chưa có bãi quái.</p>'; return; }
+  if (!host) return;
+  if (!editor.monsterSpawns.length) {
+    host.innerHTML = '<p class="hint">Map chưa có bãi quái. Nhấp chuột lên bản đồ để đặt bãi quái đầu tiên.</p>';
+    return;
+  }
   host.innerHTML = "";
   for (const pack of editor.monsterSpawns) {
     const monster = editor.monsterCatalog.find((item) => item.id === pack.templateId || item.code === pack.templateId);
     const button = document.createElement("button");
-    button.type = "button"; button.className = `portal-item${pack.packId === editor.selectedMonsterPackId ? " active" : ""}`;
-    button.textContent = `${monster?.name || pack.templateId} ×${pack.count} · (${pack.centerX},${pack.centerY})`;
-    button.addEventListener("click", () => selectMonsterPack(pack.packId)); host.appendChild(button);
+    button.type = "button";
+    button.className = `portal-item${pack.packId === editor.selectedMonsterPackId ? " active" : ""}`;
+    button.textContent = `${monster?.name || pack.templateId} ×${pack.count} · (${pack.centerX}, ${pack.centerY})`;
+    button.addEventListener("click", () => selectMonsterPack(pack.packId));
+    host.appendChild(button);
   }
 }
 
 function saveMonsterPack() {
   const templateId = $("monster-template").value;
-  const definition = editor.monsterCatalog.find((item) => String(item.id) === templateId)
-    || editor.monsters.find((item) => item.id === templateId || item.code === templateId);
-  if (!definition) throw new Error("Chưa chọn loại quái");
-  if ($("rule-no-monsters").checked || $("map-type").value === "CITY") throw new Error("Map đang ở chế độ không có quái.");
-  const centerX = $("monster-center-x").valueAsNumber, centerY = $("monster-center-y").valueAsNumber;
-  if (![centerX, centerY].every(Number.isInteger) || centerX < 0 || centerX >= editor.width || centerY < 0 || centerY >= editor.height) {
-    throw new Error("Chọn tâm đàn hoặc nhập tọa độ nguyên trong bản đồ.");
+  if (!templateId || templateId === "__LOAD_MORE__") {
+    throw new Error("Vui lòng chọn loại quái vật cho bãi quái.");
   }
-  const ground = editor.ground[centerY]?.[centerX], object = editor.objects[centerY]?.[centerX];
+  const definition = editor.monsterCatalog.find((item) => String(item.code || item.id) === templateId)
+    || editor.monsters.find((item) => String(item.code || item.id) === templateId)
+    || { id: templateId, code: templateId, name: templateId, level: 1, type: "NORMAL" };
+
+  if ($("rule-no-monsters").checked || $("map-type").value === "CITY") {
+    $("rule-no-monsters").checked = false;
+    $("rule-safe-zone").checked = false;
+    editor.rules.noMonsters = false;
+    editor.rules.safeZone = false;
+  }
+  const centerX = $("monster-center-x").valueAsNumber;
+  const centerY = $("monster-center-y").valueAsNumber;
+  if (![centerX, centerY].every(Number.isInteger) || centerX < 0 || centerX >= editor.width || centerY < 0 || centerY >= editor.height) {
+    throw new Error("Vui lòng nhấp chuột lên bản đồ hoặc nhập toạ độ X, Y hợp lệ.");
+  }
+  const ground = editor.ground[centerY]?.[centerX];
+  const object = editor.objects[centerY]?.[centerX];
   const obstacles = [TILE.WATER, TILE.WALL, TILE.TREE, TILE.MOUNTAIN];
-  if (ground === undefined || obstacles.includes(ground) || obstacles.includes(object)) throw new Error("Tâm đàn phải nằm trên ô đi được.");
+  if (ground === undefined || obstacles.includes(ground) || obstacles.includes(object)) {
+    throw new Error("Tâm bãi quái phải nằm trên ô đất đi được (không đặt trên sông, tường hoặc vách đá).");
+  }
   for (const id of ["monster-count", "monster-radius", "monster-aggro", "monster-leash", "monster-chase"]) {
     const input = $(id);
-    if (!input.value || !input.reportValidity()) throw new Error("Kiểm tra số lượng, bán kính và thông số truy đuổi.");
+    if (!input.value || !input.reportValidity()) throw new Error("Kiểm tra lại số lượng, bán kính và thông số truy đuổi.");
   }
   let ordinal = editor.monsterSpawns.length + 1;
   while (editor.monsterSpawns.some((item) => item.packId === `PACK_${templateId}_${ordinal}`)) ordinal++;
   const generatedId = `PACK_${templateId}_${ordinal}`;
   const packId = ($("monster-pack-id").value.trim() || generatedId).toUpperCase().replace(/[^A-Z0-9_-]+/g, "_");
-  const pack = { packId, templateId, centerX, centerY, count: Number($("monster-count").value), radius: Number($("monster-radius").value), aggroRange: Number($("monster-aggro").value), leashDistance: Number($("monster-leash").value), chaseDurationMs: Number($("monster-chase").value) };
+  const pack = {
+    packId,
+    templateId,
+    centerX,
+    centerY,
+    count: Number($("monster-count").value) || 4,
+    radius: Number($("monster-radius").value) || 18,
+    aggroRange: Number($("monster-aggro").value) || 40,
+    leashDistance: Number($("monster-leash").value) || 72,
+    chaseDurationMs: Number($("monster-chase").value) || 7000,
+  };
   const oldId = editor.selectedMonsterPackId;
-  if (editor.monsterSpawns.some((item) => item.packId === packId && item.packId !== oldId)) throw new Error("Mã đàn quái đã tồn tại");
-  const index = editor.monsterSpawns.findIndex((item) => item.packId === oldId);
-  if (index >= 0) editor.monsterSpawns[index] = pack; else editor.monsterSpawns.push(pack);
-  const definitionIndex = editor.monsters.findIndex((item) => item.id === templateId || item.code === templateId);
+  const index = editor.monsterSpawns.findIndex((item) => item.packId === (oldId || packId));
+  if (index >= 0) editor.monsterSpawns[index] = pack;
+  else editor.monsterSpawns.push(pack);
+
+  const definitionIndex = editor.monsters.findIndex((item) => String(item.code || item.id) === templateId);
   if (definitionIndex >= 0) editor.monsters[definitionIndex] = definition;
   else editor.monsters.push(definition);
+
   editor.rules.monsterPacksOnly = true;
-  editor.selectedMonsterPackId = packId; selectMonsterPack(packId);
+  editor.selectedMonsterPackId = packId;
   editor.dirty = true;
-  setStatus(`Đã cập nhật bãi quái ${packId}. Bấm Lưu map để ghi vào MySQL.`, "ok");
+  renderMonsterPackList();
+  requestDraw();
+  window.showToast?.(`Đã lưu bãi quái ${packId} (${definition.name || templateId})! Hãy bấm "Lưu map" để ghi MySQL.`, "success");
+  setStatus(`Đã lưu bãi quái ${packId}. Hãy bấm "Lưu map" để ghi vào MySQL.`, "ok");
 }
 
 function deleteMonsterPack() {
@@ -957,33 +1207,12 @@ function deleteMonsterPack() {
   resetMonsterPackForm();
   editor.rules.monsterPacksOnly = true;
   editor.dirty = true;
+  window.showToast?.("Đã xóa bãi quái. Hãy bấm 'Lưu map' để cập nhật MySQL.", "info");
   setStatus("Đã gỡ bãi quái khỏi bản đang sửa. Bấm Lưu map để ghi thay đổi.", "ok");
 }
 
-// Gợi ý mã nhiệm vụ cho ô "Nhiệm vụ yêu cầu" của portal; lỗi tải gợi ý không chặn việc chỉnh map.
-async function refreshQuestOptions() {
-  try {
-    const response = await adminFetch(API.BASE + API.PATHS.admin.content("quests"), { headers: adminHeaders() });
-    const data = await response.json();
-    if (!response.ok || !Array.isArray(data.data)) return;
-    $("portal-quest-list").replaceChildren(...data.data.map((quest) => {
-      const option = new Option(quest.title || quest.id, quest.id);
-      return option;
-    }));
-  } catch { /* gợi ý là tùy chọn */ }
-}
-
 async function refreshMonsterCatalog() {
-  const response = await fetch(API.BASE + API.PATHS.data.monsters, { cache: "no-store" }); const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Không tải được ngân hàng quái");
-  editor.monsterCatalog = Array.isArray(data) ? data : [];
-  const select = $("monster-template");
-  const selected = new URLSearchParams(window.location.search).get("monster") || select.value;
-  select.replaceChildren(new Option("Chọn loại quái", ""), ...editor.monsterCatalog.map(
-    (monster) => new Option(`${monster.name} · cấp ${monster.level}`, monster.id),
-  ));
-  select.value = selected;
-  renderMonsterPackList();
+  await fetchMonstersPaged({ page: 1, append: false });
 }
 
 function renderValidation(validation) {
@@ -1027,6 +1256,7 @@ function normalizeLoadedLayers(world) {
   editor.ground = Array.isArray(source.ground) ? source.ground : collision.map((row) => row.map((tile) => [3, 5, 6].includes(tile) ? 0 : tile));
   editor.objects = Array.isArray(source.objects) ? source.objects : collision.map((row) => row.map((tile) => [3, 5, 6].includes(tile) ? tile : -1));
   editor.elevation = Array.isArray(source.elevation) ? source.elevation : makeGrid(world.w, world.h, 0);
+  editor.terrainDirty = true;
 }
 
 async function loadMap() {
@@ -1377,9 +1607,44 @@ $("map-pack-count").addEventListener("input", () => {
 $("new-portal").addEventListener("click", resetPortalForm);
 $("save-portal").addEventListener("click", () => savePortalLink().catch((error) => setStatus(error.message, "error")));
 $("delete-portal").addEventListener("click", () => deletePortal().catch((error) => setStatus(error.message, "error")));
-$("new-monster-pack").addEventListener("click", resetMonsterPackForm);
+$("new-monster-pack").addEventListener("click", () => {
+  resetMonsterPackForm();
+  $("layer-tabs").querySelector('[data-layer="monster"]')?.click();
+});
+$("quick-save-map-monster")?.addEventListener("click", () => saveMap().catch((error) => setStatus(error.message, "error")));
+
+const debouncedMonsterSearch = debounce(() => {
+  monsterPagingState.query = $("monster-search-input")?.value.trim() || "";
+  fetchMonstersPaged({ page: 1, append: false });
+}, 250);
+
+$("monster-search-input")?.addEventListener("input", debouncedMonsterSearch);
+$("monster-root-filter")?.addEventListener("change", () => {
+  monsterPagingState.root = $("monster-root-filter")?.value || "";
+  fetchMonstersPaged({ page: 1, append: false });
+});
+
+$("monster-template")?.addEventListener("change", (e) => {
+  if (e.target.value === "__LOAD_MORE__") {
+    fetchMonstersPaged({ page: monsterPagingState.page + 1, append: true });
+    return;
+  }
+  updateMonsterTemplateMeta();
+});
+
+$("monster-load-more-btn")?.addEventListener("click", () => {
+  fetchMonstersPaged({ page: monsterPagingState.page + 1, append: true });
+});
+
+$("monster-panel")?.addEventListener("click", () => {
+  if (editor.layer !== "monster") {
+    const btn = $("layer-tabs").querySelector('[data-layer="monster"]');
+    if (btn && !btn.classList.contains("active")) btn.click();
+  }
+});
+
 for (const id of ["monster-center-x", "monster-center-y"]) $(id).addEventListener("input", () => { editor.dirty = true; requestDraw(); });
-$("save-monster-pack").addEventListener("click", () => { try { saveMonsterPack(); } catch (error) { setStatus(error.message, "error"); } });
+$("save-monster-pack").addEventListener("click", () => { try { saveMonsterPack(); } catch (error) { setStatus(error.message, "error"); window.showToast?.(error.message, "error"); } });
 $("delete-monster-pack").addEventListener("click", deleteMonsterPack);
 $("new-npc").addEventListener("click", () => {
   resetNpcForm();
@@ -1414,6 +1679,7 @@ $("layer-tabs").addEventListener("click", (event) => {
   renderPalette();
   requestDraw();
   if (editor.layer === "npc") $("npc-panel").scrollIntoView({ block: "nearest" });
+  if (editor.layer === "monster") $("monster-panel").scrollIntoView({ block: "nearest" });
 });
 let touchTap = null;
 canvas.addEventListener("pointerdown", (event) => {
@@ -1427,11 +1693,16 @@ canvas.addEventListener("pointerdown", (event) => {
   const tile = pointerTile(event);
   paintAt(tile.x, tile.y);
 });
+let lastCursorTileX = -1, lastCursorTileY = -1;
 canvas.addEventListener("pointermove", (event) => {
   if (!event.isPrimary) return;
   if (touchTap?.id === event.pointerId && Math.hypot(event.clientX - touchTap.x, event.clientY - touchTap.y) > 8) touchTap = null;
   const tile = pointerTile(event);
-  $("cursor-info").textContent = `x: ${tile.x} · y: ${tile.y}`;
+  if (tile.x !== lastCursorTileX || tile.y !== lastCursorTileY) {
+    lastCursorTileX = tile.x;
+    lastCursorTileY = tile.y;
+    $("cursor-info").textContent = `x: ${tile.x} · y: ${tile.y}`;
+  }
   if (editor.painting && tile.x >= 0 && tile.y >= 0 && tile.x < editor.width && tile.y < editor.height) paintAt(tile.x, tile.y);
 });
 function stopPainting(event) {
@@ -1455,24 +1726,32 @@ loadPreviewAutotileAtlas();
 generateMap();
 editor.dirty = false;
 async function initializeMapEditorData() {
-  await refreshMapList();
   const query = new URLSearchParams(window.location.search);
   const focusPanel = ["#npc-panel", "#monster-panel"].includes(window.location.hash) ? window.location.hash : "";
-  if (query.get("map")) await loadMap();
-  else if ((focusPanel || query.has("monster")) && editor.mapCatalog.size) {
-    $("map-list").value = editor.mapCatalog.keys().next().value;
+  await Promise.allSettled([
+    refreshMapList(),
+    fetchMonstersPaged({ page: 1, append: false }),
+    refreshQuestOptions(),
+  ]);
+  if (query.get("map")) {
     await loadMap();
+  } else if ((focusPanel || query.has("monster")) && editor.mapCatalog.size) {
+    const firstMap = editor.mapCatalog.keys().next().value;
+    if (firstMap) {
+      $("map-list").value = firstMap;
+      await loadMap();
+    }
   }
-  await refreshMonsterCatalog();
-  void refreshQuestOptions();
-  if (new URLSearchParams(window.location.search).has("monster")) {
-    $("layer-tabs").querySelector('[data-layer="monster"]').click();
-    $("monster-template").scrollIntoView({ block: "nearest" });
-  }
-  if (focusPanel === "#npc-panel") $("npc-panel").scrollIntoView({ block: "start" });
-  if (focusPanel === "#monster-panel") {
-    $("layer-tabs").querySelector('[data-layer="monster"]').click();
-    $("monster-panel").scrollIntoView({ block: "start" });
+  if (query.has("monster") || focusPanel === "#monster-panel") {
+    const monsterTab = $("layer-tabs")?.querySelector('[data-layer="monster"]');
+    if (monsterTab) monsterTab.click();
+    const panel = $("monster-panel");
+    if (panel) panel.scrollIntoView({ block: "start" });
+  } else if (focusPanel === "#npc-panel") {
+    const npcTab = $("layer-tabs")?.querySelector('[data-layer="npc"]');
+    if (npcTab) npcTab.click();
+    const panel = $("npc-panel");
+    if (panel) panel.scrollIntoView({ block: "start" });
   }
 }
 function loadMapEditorAfterLogin() {

@@ -362,6 +362,8 @@ const ItemStudio = (() => {
       setField("itemLevel", record.itemLevel ?? 10);
       setField("linhCan", record.linhCan || "");
       setField("currency", String(record.currency || "XU").toUpperCase());
+      setField("shopCategory", record.shopCategory || "");
+      setField("shopTab", record.shopTab || "");
       setField("giaMua", record.giaMua ?? 0);
       setField("giaBan", record.giaBan ?? 0);
       setField("hasLuck", Boolean(record.hasLuck));
@@ -393,7 +395,7 @@ const ItemStudio = (() => {
       syncTypeGroups();
       imageControl.setExisting(record.img || "");
       saveStatus.textContent = "";
-      list.hidden = true;
+      if (list) list.hidden = false;
       updateButton();
     }
 
@@ -403,18 +405,31 @@ const ItemStudio = (() => {
       saved = false;
       customCode = false;
       form.reset();
+      setField("shopCategory", "");
+      setField("shopTab", "");
       if (fields.code) fields.code.readOnly = false;
       if (fields.source) fields.source.required = true;
       syncTypeGroups();
       imageControl();
       saveStatus.textContent = "";
-      list.hidden = true;
+      if (list) list.hidden = false;
       updateButton();
     }
 
     resetModeBtn?.addEventListener("click", resetToCreate);
+    if (typeof document !== "undefined" && typeof document.getElementById === "function") {
+      document.getElementById("item-studio-back-top")?.addEventListener("click", () => openItems?.());
+      document.getElementById("item-studio-back-banner")?.addEventListener("click", () => openItems?.());
+    }
+    list?.addEventListener("click", () => openItems?.());
     fields.type.addEventListener("change", syncTypeGroups);
     fields.slot?.addEventListener("change", syncTypeGroups);
+    fields.shopTab?.addEventListener?.("change", () => {
+      if (value("shopTab") === "PREMIUM") {
+        setField("currency", "LINH_THACH");
+        if (number("giaBan") > 0) setField("giaBan", 0);
+      }
+    });
     fields.code.addEventListener("input", () => { customCode = Boolean(value("code")); });
     fields.itemName.addEventListener("input", () => {
       if (customCode || editingId) return;
@@ -464,6 +479,10 @@ const ItemStudio = (() => {
       if (img) record.img = img;
       const linhCan = value("linhCan").trim();
       if (linhCan) record.linhCan = linhCan;
+      const shopCategory = value("shopCategory").trim();
+      if (shopCategory) record.shopCategory = shopCategory;
+      const shopTab = value("shopTab").trim();
+      if (shopTab) record.shopTab = shopTab;
       if (record.giaMua > 0 && record.giaBan > record.giaMua) {
         saveStatus.textContent = "Giá bán lại phải nhỏ hơn hoặc bằng giá mua.";
         fields.giaBan.focus();
@@ -527,9 +546,15 @@ const ItemStudio = (() => {
         saveStatus.textContent = editingId
           ? `Đã cập nhật ${name} (${id}) vào kho vật phẩm MySQL.`
           : `Đã lưu ${name} (${id}) vào kho vật phẩm MySQL.`;
+        if (typeof window !== "undefined" && typeof window.showToast === "function") {
+          window.showToast(editingId ? `Đã cập nhật vật phẩm ${name} (${id}) vào MySQL!` : `Đã lưu vật phẩm mới ${name} (${id}) vào MySQL!`, "success");
+        }
         list.hidden = false;
       } catch (error) {
         saveStatus.textContent = error.message || "Không lưu được vật phẩm.";
+        if (typeof window !== "undefined" && typeof window.showToast === "function") {
+          window.showToast(error.message || "Không lưu được vật phẩm.", "error");
+        }
       } finally {
         controls.forEach((control) => { control.disabled = false; });
         if (fields.code) fields.code.readOnly = Boolean(editingId);
@@ -539,7 +564,7 @@ const ItemStudio = (() => {
       }
     });
 
-    return { loadRecord, resetToCreate };
+    return { loadRecord, resetToCreate, isEditing: () => Boolean(editingId) };
   }
 
   return { mount, mountImage, sparkleFromForm, validatePngPayloadSize };
