@@ -788,6 +788,7 @@ async function savePortalLink() {
   editor.selectedPortalId = data.source.id;
   await loadMap();
   selectPortal(data.source.id);
+  showToast(`Đã nối portal ${sourceCode} ↔ ${targetCode}!`, "success");
   setStatus(`Đã nối ${sourceCode} ↔ ${targetCode} (${data.source.side} → ${data.source.targetSide})`, "ok");
 }
 
@@ -801,6 +802,7 @@ async function deletePortal() {
   if (!response.ok) throw new Error(data.error || "Không xóa được portal");
   await loadMap();
   resetPortalForm();
+  showToast(`Đã xóa portal ${data.removed}`, "info");
   setStatus(`Đã xóa portal ${data.removed}`, "ok");
 }
 
@@ -896,6 +898,7 @@ async function saveNpc() {
   try {
     await saveMap();
     selectNpc(id);
+    showToast(`Đã lưu NPC ${name} vào map thành công!`, "success");
     setStatus(`Đã lưu NPC ${name} vào dữ liệu map trong MySQL.`, "ok");
   } catch (error) {
     editor.npcs = before;
@@ -903,6 +906,22 @@ async function saveNpc() {
     requestDraw();
     throw error;
   }
+}
+
+async function deleteNpc() {
+  if (!editor.selectedNpcId) return;
+  const target = editor.npcs.find((npc) => npc.id === editor.selectedNpcId);
+  const name = target?.name || editor.selectedNpcId;
+  if (!window.confirm(`Xác nhận xóa NPC “${name}” khỏi map?`)) return;
+  editor.npcs = editor.npcs.filter((npc) => npc.id !== editor.selectedNpcId);
+  editor.selectedNpcId = null;
+  editor.dirty = true;
+  renderNpcList();
+  resetNpcForm();
+  requestDraw();
+  await saveMap();
+  showToast(`Đã xóa NPC “${name}” khỏi map.`, "info");
+  setStatus(`Đã xóa NPC ${name}.`, "ok");
 }
 
 function debounce(fn, ms = 200) {
@@ -1041,6 +1060,8 @@ function renderMonsterSelectOptions() {
         || editor.monsters.find((m) => String(m.code || m.id) === currentVal);
       if (found) {
         select.add(new Option(`${found.name || currentVal} · mẫu bãi quái`, currentVal), 1);
+      } else {
+        select.add(new Option(`${currentVal} · mẫu bãi quái`, currentVal), 1);
       }
     }
     select.value = currentVal;
@@ -1234,7 +1255,9 @@ async function publishMap() {
   const data = await response.json();
   if (!response.ok) { renderValidation(data.validation); throw new Error(data.error || "Không xuất bản được map"); }
   editor.status = "PUBLISHED"; $("publish-status").textContent = editor.status; $("publish-status").classList.add("published");
-  renderValidation(data.validation); await refreshMapList(editor.currentCode); setStatus(`Đã xuất bản ${editor.currentCode}`, "ok");
+  renderValidation(data.validation); await refreshMapList(editor.currentCode);
+  showToast(`Đã xuất bản map ${editor.currentCode} vào game thành công!`, "success");
+  setStatus(`Đã xuất bản ${editor.currentCode}`, "ok");
 }
 
 async function refreshMapList(selected = "") {
@@ -1321,6 +1344,7 @@ async function saveMap() {
   $("publish-status").textContent = editor.status;
   $("publish-status").classList.toggle("published", editor.status === "PUBLISHED");
   await refreshMapList(data.code);
+  showToast(`Đã lưu map ${data.tenMap || data.code} vào MySQL (v${data.version})!`, "success");
   setStatus(`Đã lưu ${data.tenMap} vào MySQL · phiên bản ${data.version}`, "ok");
 }
 
@@ -1651,6 +1675,9 @@ $("new-npc").addEventListener("click", () => {
   $("layer-tabs").querySelector('[data-layer="npc"]').click();
 });
 $("save-npc").addEventListener("click", () => { void saveNpc().catch((error) => setStatus(error.message, "error")); });
+$("delete-npc")?.addEventListener("click", () => { void deleteNpc().catch((error) => setStatus(error.message, "error")); });
+$("quick-save-map-npc")?.addEventListener("click", () => { void saveMap().catch((error) => setStatus(error.message, "error")); });
+$("quick-save-map-portal")?.addEventListener("click", () => { void saveMap().catch((error) => setStatus(error.message, "error")); });
 for (const id of ["npc-x", "npc-y"]) $(id).addEventListener("input", () => { editor.dirty = true; requestDraw(); });
 $("npc-type").addEventListener("change", syncNpcShopCategory);
 for (const id of ["npc-name", "npc-id", "npc-role", "npc-type", "npc-shop-category", "npc-gender", "npc-color", "npc-dialog", "npc-enabled"]) {

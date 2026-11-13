@@ -988,17 +988,17 @@ async function handleContentAction(event) {
   if (!contentState.persisted) return;
   if (action === "edit-studio") {
     if (activeCollection === "monsters") {
-      monsterStudioHandle?.loadRecord?.(record);
       document.querySelector?.('.nav-item[data-view="monster-studio"]')?.click();
+      monsterStudioHandle?.loadRecord?.(record);
     } else if (activeCollection === "quests") {
-      editorsHandle?.loadQuest?.(record);
       document.querySelector?.('.nav-item[data-view="quest-studio"]')?.click();
+      editorsHandle?.loadQuest?.(record);
     } else if (activeCollection === "skills") {
-      editorsHandle?.loadSkill?.(record);
       document.querySelector?.('.nav-item[data-view="skill-studio"]')?.click();
+      editorsHandle?.loadSkill?.(record);
     } else {
-      itemStudioHandle?.loadRecord?.(record);
       document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+      itemStudioHandle?.loadRecord?.(record);
     }
     return;
   }
@@ -1319,17 +1319,17 @@ document.getElementById("detail-edit-btn")?.addEventListener("click", () => {
   if (!currentDetailContext) return;
   const { collection, record } = currentDetailContext;
   if (collection === "monsters") {
-    monsterStudioHandle?.loadRecord?.(record);
     document.querySelector?.('.nav-item[data-view="monster-studio"]')?.click();
+    monsterStudioHandle?.loadRecord?.(record);
   } else if (collection === "quests") {
-    editorsHandle?.loadQuest?.(record);
     document.querySelector?.('.nav-item[data-view="quest-studio"]')?.click();
+    editorsHandle?.loadQuest?.(record);
   } else if (collection === "skills") {
-    editorsHandle?.loadSkill?.(record);
     document.querySelector?.('.nav-item[data-view="skill-studio"]')?.click();
+    editorsHandle?.loadSkill?.(record);
   } else if (collection === "items") {
-    itemStudioHandle?.loadRecord?.(record);
     document.querySelector?.('.nav-item[data-view="item-studio"]')?.click();
+    itemStudioHandle?.loadRecord?.(record);
   } else {
     openContentEditor(record);
   }
@@ -1342,6 +1342,12 @@ const closeDetailModal = () => {
 };
 document.getElementById("detail-close-btn")?.addEventListener("click", closeDetailModal);
 document.getElementById("detail-close-bottom-btn")?.addEventListener("click", closeDetailModal);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const dialog = document.getElementById("record-detail-dialog");
+    if (dialog?.open) closeDetailModal();
+  }
+});
 
 $("content-table")?.addEventListener("click", (event) => {
   if (event.target.closest("button") || event.target.closest("a") || event.target.closest("input") || event.target.closest("select")) return;
@@ -1352,6 +1358,14 @@ $("content-table")?.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (e) => {
+  const backViewBtn = e.target.closest("[data-back-view]");
+  if (backViewBtn) {
+    const view = backViewBtn.dataset.backView;
+    const navItem = document.querySelector(`.nav-item[data-view="${view}"]`);
+    if (navItem) navItem.click();
+    else document.querySelector('.nav-item[data-view="overview"]')?.click();
+    return;
+  }
   const backBtn = e.target.closest("[data-back-collection]");
   if (!backBtn) return;
   const col = backBtn.dataset.backCollection;

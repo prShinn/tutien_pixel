@@ -83,7 +83,7 @@ function mountMonsterStudio(options, maybeSaveMonster) {
     if (!record || typeof record !== "object") return;
     const id = String(record.code || record.id || "").trim();
     if (!id) return;
-    const nameVal = record.name || record.tenQuai || "";
+    const nameVal = record.name || record.tenQuai || record.title || "";
     setField("monsterName", nameVal);
     setField("code", id);
     const codeEl = fields.namedItem("code") || form.querySelector('[name="code"]');
@@ -133,12 +133,18 @@ function mountMonsterStudio(options, maybeSaveMonster) {
     savedCode = "";
     form.reset();
     const codeEl = fields.namedItem("code") || form.querySelector('[name="code"]');
-    if (codeEl) codeEl.readOnly = false;
+    if (codeEl) {
+      codeEl.value = "";
+      codeEl.readOnly = false;
+    }
+    const nameEl = fields.namedItem("monsterName") || form.querySelector('[name="monsterName"]');
+    if (nameEl) nameEl.value = "";
     if (fields.source) fields.source.required = true;
     imageControl();
     img = "";
     if (status) status.textContent = "";
     if (listBtn) listBtn.hidden = false;
+    if (modeBanner) modeBanner.hidden = true;
     updateButton();
   }
 

@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Thiên Địa Đồ · Admin</title>
-    <link rel="stylesheet" href="/admin/admin.css?v=9" />
-    <link rel="stylesheet" href="/admin/admin-auth.css?v=2" />
-    <link rel="stylesheet" href="/admin/item-studio.css?v=5" />
+    <link rel="stylesheet" href="/admin/admin.css?v=10" />
+    <link rel="stylesheet" href="/admin/admin-auth.css?v=3" />
+    <link rel="stylesheet" href="/admin/item-studio.css?v=6" />
   </head>
   <body>
     <dialog id="admin-auth-dialog" class="admin-auth-dialog" aria-labelledby="admin-auth-title">
@@ -248,7 +248,15 @@
           </form>
         </section>
         <section id="skill-vfx-view" class="skill-vfx-view">
-          <div class="vfx-heading"><div><span class="eyebrow">PIXEL EFFECT WORKSHOP</span><h2>Hoạt ảnh kỹ năng</h2><p>Tinh chỉnh hiệu ứng theo tên skill và linh căn. Bản xem thử dùng đúng bộ vẽ pixel trong game.</p></div><span id="vfx-save-state" class="vfx-save-state">Chưa tải dữ liệu</span></div>
+          <div class="vfx-heading">
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-view="skill-studio" style="margin-bottom:8px;">← Quay lại Skill Studio</button>
+              <span class="eyebrow">PIXEL EFFECT WORKSHOP</span>
+              <h2>Hoạt ảnh kỹ năng</h2>
+              <p>Tinh chỉnh hiệu ứng theo tên skill và linh căn. Bản xem thử dùng đúng bộ vẽ pixel trong game.</p>
+            </div>
+            <span id="vfx-save-state" class="vfx-save-state">Chưa tải dữ liệu</span>
+          </div>
           <div class="vfx-layout">
             <aside class="panel vfx-library"><div class="vfx-panel-head"><div><span class="eyebrow">SKILL CATALOG</span><h3>Danh sách skill</h3></div><span id="vfx-count" class="vfx-count">0</span></div><input id="vfx-search" class="vfx-search" type="search" placeholder="Tìm tên hoặc mã skill…" /><div id="vfx-skill-list" class="vfx-skill-list"><div class="loading">Đang tải danh mục skill…</div></div></aside>
             <div class="vfx-workspace">
@@ -264,7 +272,12 @@
         </section>
         <section id="alchemy-recipes-view" hidden>
           <div class="content-toolbar">
-            <div><span class="eyebrow">ALCHEMY WORKSHOP</span><h2>Công thức Luyện Đan</h2><p>Chỉnh sửa trực tiếp công thức Hạ/Trung/Thượng/Cực · Đồng bộ MySQL &amp; Runtime.</p></div>
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-view="overview" style="margin-bottom:8px;">← Quay lại Tổng quan</button>
+              <span class="eyebrow">ALCHEMY WORKSHOP</span>
+              <h2>Công thức Luyện Đan</h2>
+              <p>Chỉnh sửa trực tiếp công thức Hạ/Trung/Thượng/Cực · Đồng bộ MySQL &amp; Runtime.</p>
+            </div>
             <div class="content-tools"><input id="alchemy-search" class="content-search" type="search" placeholder="Tìm mã hoặc tên công thức…" /><button id="alchemy-new-btn" class="hero-action" type="button">+ Công thức mới</button></div>
           </div>
           <div class="split-editor-layout">
@@ -299,7 +312,12 @@
         </section>
         <section id="loot-tables-view" hidden>
           <div class="content-toolbar">
-            <div><span class="eyebrow">DROP RATES</span><h2>Bảng rớt đồ (Loot Tables)</h2><p>Gán vật phẩm &amp; xác suất rớt cho từng loại quái/boss trong bản đồ.</p></div>
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-view="overview" style="margin-bottom:8px;">← Quay lại Tổng quan</button>
+              <span class="eyebrow">DROP RATES</span>
+              <h2>Bảng rớt đồ (Loot Tables)</h2>
+              <p>Gán vật phẩm &amp; xác suất rớt cho từng loại quái/boss trong bản đồ.</p>
+            </div>
             <div class="content-tools"><input id="loot-search" class="content-search" type="search" placeholder="Tìm mã bảng rớt…" /><button id="loot-new-btn" class="hero-action" type="button">+ Tạo bảng rớt</button></div>
           </div>
           <div class="split-editor-layout">
@@ -478,7 +496,12 @@
         </section>
         <section id="balance-settings-view" hidden>
           <div class="content-toolbar">
-            <div><span class="eyebrow">SERVER CONSTANTS</span><h2>Cấu hình &amp; Cân bằng Hệ thống</h2><p>Chỉ số thực tế đang chạy trên Backend (/api/balance). Các công thức/vật phẩm điều chỉnh trực tiếp ở Luyện Đan &amp; Kho vật phẩm.</p></div>
+            <div>
+              <button class="vfx-button subtle back-to-list-btn" type="button" data-back-view="overview" style="margin-bottom:8px;">← Quay lại Tổng quan</button>
+              <span class="eyebrow">SERVER CONSTANTS</span>
+              <h2>Cấu hình &amp; Cân bằng Hệ thống</h2>
+              <p>Chỉ số thực tế đang chạy trên Backend (/api/balance). Các công thức/vật phẩm điều chỉnh trực tiếp ở Luyện Đan &amp; Kho vật phẩm.</p>
+            </div>
           </div>
           <div id="balance-settings-grid" class="balance-grid"><div class="loading">Đang đọc /api/balance…</div></div>
         </section>
@@ -548,11 +571,11 @@
     <script src="/js/visual-effects.js?v=2"></script>
     <script src="/js/item-fx.js?v=1"></script>
     <script src="/js/skill-vfx.js?v=20"></script>
-    <script src="/admin/content-utils.js?v=9"></script>
-    <script src="/admin/content-manager.js?v=9"></script>
-    <script src="/admin/item-studio.js?v=10"></script>
-    <script src="/admin/monster-studio.js?v=7"></script>
-    <script src="/admin/admin-editors.js?v=8"></script>
-    <script src="/admin/admin.js?v=27"></script>
+    <script src="/admin/content-utils.js?v=10"></script>
+    <script src="/admin/content-manager.js?v=10"></script>
+    <script src="/admin/item-studio.js?v=11"></script>
+    <script src="/admin/monster-studio.js?v=11"></script>
+    <script src="/admin/admin-editors.js?v=10"></script>
+    <script src="/admin/admin.js?v=30"></script>
   </body>
 </html>
